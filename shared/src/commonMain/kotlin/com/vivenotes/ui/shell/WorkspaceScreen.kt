@@ -5,6 +5,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -49,7 +51,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
@@ -61,6 +65,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -72,6 +77,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
@@ -144,6 +151,7 @@ object WorkspaceTestTags {
     fun primeObject(id: String): String = "workspace-prime-object-$id"
     fun objectCorner(id: String, corner: Int): String = "workspace-object-corner-$id-$corner"
     fun textBox(id: String): String = "workspace-text-box-$id"
+    fun textBoxOutline(id: String): String = "workspace-text-box-outline-$id"
     fun textGrip(id: String): String = "workspace-text-grip-$id"
     fun textWidthHandle(id: String): String = "workspace-text-width-$id"
     fun textHeightHandle(id: String): String = "workspace-text-height-$id"
@@ -167,6 +175,15 @@ fun WorkspaceScreen(
     modifier: Modifier = Modifier,
 ) {
     val clipboard = LocalClipboardManager.current
+    val editorFocusRequester = remember { FocusRequester() }
+    var editorFocusRequest by remember { mutableIntStateOf(0) }
+    fun applyEditorCommand(next: WorkspaceState) {
+        onStateChange(next)
+        editorFocusRequest++
+    }
+    LaunchedEffect(editorFocusRequest) {
+        if (editorFocusRequest > 0) editorFocusRequester.requestFocus()
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -189,20 +206,40 @@ fun WorkspaceScreen(
                 richText = state.richText,
                 textToolArmed = state.textToolArmed,
                 onToggleTextTool = { onStateChange(state.toggleTextTool()) },
-                onToggleMark = { onStateChange(state.toggleSelectedMark(it)) },
-                onSetMark = { onStateChange(state.setSelectedMark(it)) },
-                onClearMark = { onStateChange(state.clearSelectedMark(it)) },
-                onClearFormatting = { onStateChange(state.clearSelectedFormatting()) },
-                onBlockType = { onStateChange(state.setSelectedBlockType(it)) },
-                onAlign = { onStateChange(state.alignSelectedText(it)) },
-                onIndent = { onStateChange(state.indentSelectedText(it)) },
-                onCopy = { clipboard.setText(AnnotatedString(state.selectedText)) },
-                onCut = {
-                    clipboard.setText(AnnotatedString(state.selectedText))
-                    onStateChange(state.replaceSelectedText(""))
+                onToggleMark = { mark, selection ->
+                    applyEditorCommand((selection?.let(state::selectText) ?: state).toggleSelectedMark(mark))
                 },
-                onPaste = {
-                    clipboard.getText()?.text?.let { onStateChange(state.replaceSelectedText(it)) }
+                onSetMark = { mark, selection ->
+                    applyEditorCommand((selection?.let(state::selectText) ?: state).setSelectedMark(mark))
+                },
+                onClearMark = { mark, selection ->
+                    applyEditorCommand((selection?.let(state::selectText) ?: state).clearSelectedMark(mark))
+                },
+                onClearFormatting = { selection ->
+                    applyEditorCommand((selection?.let(state::selectText) ?: state).clearSelectedFormatting())
+                },
+                onBlockType = { type, selection ->
+                    applyEditorCommand((selection?.let(state::selectText) ?: state).setSelectedBlockType(type))
+                },
+                onAlign = { align, selection ->
+                    applyEditorCommand((selection?.let(state::selectText) ?: state).alignSelectedText(align))
+                },
+                onIndent = { delta, selection ->
+                    applyEditorCommand((selection?.let(state::selectText) ?: state).indentSelectedText(delta))
+                },
+                onCopy = { selection ->
+                    val selected = selection?.let(state::selectText) ?: state
+                    clipboard.setText(AnnotatedString(selected.selectedText))
+                    applyEditorCommand(selected)
+                },
+                onCut = { selection ->
+                    val selected = selection?.let(state::selectText) ?: state
+                    clipboard.setText(AnnotatedString(selected.selectedText))
+                    applyEditorCommand(selected.replaceSelectedText(""))
+                },
+                onPaste = { selection ->
+                    val selected = selection?.let(state::selectText) ?: state
+                    clipboard.getText()?.text?.let { applyEditorCommand(selected.replaceSelectedText(it)) }
                 },
             )
         } else {
@@ -252,9 +289,11 @@ fun WorkspaceScreen(
                 }
                 PageCanvas(
                     state = state,
+                    editorFocusRequester = editorFocusRequester,
                     modifier = Modifier.weight(1f),
                     onTitleChange = { onStateChange(state.updateSelectedPage(title = it)) },
                     onFocusTextBox = { onStateChange(state.focusTextBox(it)) },
+                    onClearCanvasFocus = { onStateChange(state.clearCanvasFocus()) },
                     onCreateTextBox = { x, y -> onStateChange(state.createTextBox(x, y)) },
                     onMoveTextBox = { id, dx, dy -> onStateChange(state.moveTextBox(id, dx, dy)) },
                     onResizeTextBox = { id, width, height -> onStateChange(state.resizeTextBox(id, width, height)) },
@@ -651,8 +690,10 @@ private fun PageRow(
 @Composable
 private fun PageCanvas(
     state: WorkspaceState,
+    editorFocusRequester: FocusRequester,
     onTitleChange: (String) -> Unit,
     onFocusTextBox: (String) -> Unit,
+    onClearCanvasFocus: () -> Unit,
     onCreateTextBox: (Float, Float) -> Unit,
     onMoveTextBox: (String, Float, Float) -> Unit,
     onResizeTextBox: (String, Float?, Float?) -> Unit,
@@ -680,6 +721,7 @@ private fun PageCanvas(
     var pastePoint by remember(page?.id) { mutableStateOf<Offset?>(null) }
     var lasso by remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
     val currentCreate by rememberUpdatedState(onCreateTextBox)
+    val currentClearCanvasFocus by rememberUpdatedState(onClearCanvasFocus)
     val currentPaste by rememberUpdatedState(onPasteCanvas)
     val currentSelectObjects by rememberUpdatedState(onSelectObjectsInRect)
     val currentState by rememberUpdatedState(state)
@@ -753,6 +795,7 @@ private fun PageCanvas(
                             } else {
                                 pastePoint = null
                                 if (currentState.textToolArmed) currentCreate(x, y)
+                                else currentClearCanvasFocus()
                             }
                             previousTapTime = last.uptimeMillis
                             previousTapPoint = point
@@ -855,17 +898,18 @@ private fun PageCanvas(
                                 },
                         ) { Box(contentAlignment = Alignment.Center) { Text("⋮⋮", style = MaterialTheme.typography.labelMedium) } }
                     }
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                        shape = MaterialTheme.shapes.medium,
-                        tonalElevation = if (focused) 3.dp else 1.dp,
+                    Box(
                         modifier = Modifier.offset(x, y).width(width)
+                            .heightIn(min = maxOf(outline.minHeight, 80f).dp)
                             .onSizeChanged { size ->
                                 measuredTextHeights[outline.id] = with(density) { size.height.toDp().value }
                             }
                             .testTag(WorkspaceTestTags.textBox(outline.id)),
                     ) {
-                        OutlinedTextField(
+                        if (focused) Box(Modifier.matchParentSize()
+                            .border(1.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
+                            .testTag(WorkspaceTestTags.textBoxOutline(outline.id)))
+                        BasicTextField(
                             value = TextFieldValue(
                                 annotatedString = richText?.asAnnotatedString() ?: buildAnnotatedString {},
                                 selection = TextRange(richText?.selection?.start ?: 0,
@@ -875,14 +919,19 @@ private fun PageCanvas(
                                 } else null,
                             ),
                             onValueChange = { onBodyChange(outline.id, it) },
-                            label = { Text("Page text") },
                             minLines = 3,
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            ),
                             modifier = Modifier.fillMaxWidth()
-                                .then(if (outline.minHeight > 0) Modifier.height(outline.minHeight.dp) else Modifier)
+                                .padding(8.dp)
+                                .then(if (focused) Modifier.focusRequester(editorFocusRequester) else Modifier)
                                 .onFocusChanged {
                                     if (it.isFocused && !focused) onFocusTextBox(outline.id)
                                 }
+                                .semantics { contentDescription = "Text box ${index + 1}" }
                                 .testTag(if (index == 0) WorkspaceTestTags.BodyEditor else WorkspaceTestTags.textBox(outline.id) + "-editor"),
                         )
                     }

@@ -10,8 +10,10 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -25,8 +27,11 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTextInputSelection
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.model.Mark
@@ -138,6 +143,122 @@ class WorkspaceScreenTest {
         }
 
     @Test
+    fun selectedRibbonButtonMatchesHoverFootprint() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            setWorkspace(initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+                .selectText(TextSelection(0, 6)))
+            val button = onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Bold))
+            val idle = button.captureToImage().toPixelMap()
+            button.performMouseInput { moveTo(Offset(20f, 20f)) }
+            mainClock.advanceTimeBy(300)
+            val hover = button.captureToImage().toPixelMap()
+            button.performClick()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                moveTo(Offset(780f, 500f))
+            }
+            mainClock.advanceTimeBy(300)
+            val selected = button.captureToImage().toPixelMap()
+            for (y in listOf(4, 6, 8, 10)) {
+                val hoverRange = (0 until idle.width).filter { idle[it, y] != hover[it, y] }
+                val selectedRange = (0 until idle.width).filter { idle[it, y] != selected[it, y] }
+                assertTrue(hoverRange.isNotEmpty())
+                assertEquals(hoverRange, selectedRange, "Selected highlight width differs from hover at y=$y")
+            }
+        }
+
+    @Test
+    fun clickingFormattingButtonsKeepsASelectionMadeInTheEditor() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextInputSelection(TextRange(0, 6))
+            runOnIdle { assertEquals(TextSelection(0, 6), observed.editorSelection) }
+            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Bold)).performClick()
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).assertIsFocused()
+            runOnIdle {
+                assertEquals(TextSelection(0, 6), observed.editorSelection)
+                assertTrue(Mark.Bold in observed.richText!!.blocks.first().runs.first().marks)
+            }
+            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Italic)).performClick()
+            runOnIdle {
+                assertEquals(TextSelection(0, 6), observed.editorSelection)
+                assertTrue(Mark.Italic in observed.richText!!.blocks.first().runs.first().marks)
+            }
+        }
+
+    @Test
+    fun pickerFormattingAndClearUseTheLiveEditorSelection() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextInputSelection(TextRange(0, 6))
+            onNodeWithTag(DocumentRibbonTags.FontSize).performClick()
+            onNodeWithTag("${DocumentRibbonTags.FontSize}-24").performClick()
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).assertIsFocused()
+            runOnIdle {
+                assertEquals(TextSelection(0, 6), observed.editorSelection)
+                assertTrue(Mark.FontSize(24) in observed.richText!!.blocks.first().runs.first().marks)
+            }
+            onNodeWithTag(DocumentRibbonTags.FontColor).performClick()
+            val red = 0xFFE53935.toInt()
+            onNodeWithTag("${DocumentRibbonTags.FontColor}-$red").performClick()
+            runOnIdle {
+                assertEquals(TextSelection(0, 6), observed.editorSelection)
+                assertTrue(Mark.TextColor(red) in observed.richText!!.blocks.first().runs.first().marks)
+            }
+            onNodeWithTag(WorkspaceTestTags.ClearFormatting).performClick()
+            runOnIdle {
+                assertEquals(TextSelection(0, 6), observed.editorSelection)
+                assertTrue(observed.richText!!.blocks.first().runs.first().marks.isEmpty())
+            }
+        }
+
+    @Test
+    fun remainingFormattingControlsApplyToLiveEditorSelection() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextInputSelection(TextRange(0, 6))
+
+            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Underline)).performClick()
+            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Strikethrough)).performClick()
+            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Subscript)).performClick()
+            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Superscript)).performClick()
+            runOnIdle {
+                val marks = observed.richText!!.blocks.first().runs.first().marks
+                assertTrue(Mark.Underline in marks)
+                assertTrue(Mark.Strikethrough in marks)
+                assertTrue(Mark.Superscript in marks)
+                assertFalse(Mark.Subscript in marks)
+                assertEquals(TextSelection(0, 6), observed.editorSelection)
+            }
+
+            onNodeWithTag(DocumentRibbonTags.Highlight).performClick()
+            val yellow = 0x66FFEB3B
+            onNodeWithTag("${DocumentRibbonTags.Highlight}-$yellow").performClick()
+            runOnIdle { assertTrue(Mark.Highlight(yellow) in
+                observed.richText!!.blocks.first().runs.first().marks) }
+
+            onNodeWithTag(WorkspaceTestTags.blockType(BlockType.Bullet)).performScrollTo().performClick()
+            onNodeWithTag("document-increase-indent").performScrollTo().performClick()
+            runOnIdle {
+                assertEquals(BlockType.Bullet, observed.richText!!.currentBlock.type)
+                assertEquals(1, observed.richText!!.currentBlock.indent)
+            }
+            onNodeWithTag(WorkspaceTestTags.Styles).performScrollTo().performClick()
+            onNodeWithTag(WorkspaceTestTags.blockType(BlockType.Heading1)).performClick()
+            runOnIdle {
+                assertEquals(BlockType.Heading1, observed.richText!!.currentBlock.type)
+                assertEquals(TextSelection(0, 6), observed.editorSelection)
+            }
+        }
+
+    @Test
     fun documentListButtonUpdatesTheParagraphType() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             var observed = WorkspaceState.demo()
@@ -205,6 +326,23 @@ class WorkspaceScreenTest {
             runOnIdle { assertEquals(id, observed.canvasClipboard.texts.single().id) }
             onNodeWithTag(WorkspaceTestTags.TextBoxDelete).performClick()
             runOnIdle { assertTrue(observed.selectedPage!!.document.outlines.none { it.id == id }) }
+        }
+
+    @Test
+    fun textBoxOutlineAppearsOnlyWhileSelected() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            val id = initial.focusedTextOutline!!.id
+            setWorkspace(initial = initial)
+
+            onNodeWithTag(WorkspaceTestTags.textBoxOutline(id)).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
+            onNodeWithTag(WorkspaceTestTags.textBoxOutline(id)).assertExists()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                click(Offset(780f, 500f))
+            }
+            onNodeWithTag(WorkspaceTestTags.textBoxOutline(id)).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).assertExists()
         }
 
     @Test
@@ -334,8 +472,26 @@ class WorkspaceScreenTest {
             runOnIdle { assertEquals("Review", clipboard.value?.text) }
             onNodeWithTag(DocumentRibbonTags.Cut).performClick()
             runOnIdle { assertFalse(observed.selectedPage!!.body.startsWith("Review")) }
+            onNodeWithTag(DocumentRibbonTags.Cut).assertIsNotEnabled()
             onNodeWithTag(DocumentRibbonTags.Paste).performClick()
             runOnIdle { assertTrue(observed.selectedPage!!.body.startsWith("Review")) }
+        }
+
+    @Test
+    fun copyAndCutUseASelectionMadeInTheEditor() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val clipboard = FakeClipboard()
+            val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            var observed = initial
+            setWorkspace(initial = initial, clipboard = clipboard) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextInputSelection(TextRange(0, 6))
+            runOnIdle { assertEquals(TextSelection(0, 6), observed.editorSelection) }
+            onNodeWithTag(DocumentRibbonTags.Copy).performClick()
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).assertIsFocused()
+            runOnIdle { assertEquals("Review", clipboard.value?.text) }
+            onNodeWithTag(DocumentRibbonTags.Cut).performClick()
+            runOnIdle { assertFalse(observed.selectedPage!!.body.startsWith("Review")) }
         }
 
     private fun ComposeUiTest.setWorkspace(

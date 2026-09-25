@@ -4,6 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +23,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,6 +40,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
@@ -43,6 +49,7 @@ import com.vivenotes.model.Align
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Mark
 import com.vivenotes.richtext.RichTextBuffer
+import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.fontColorGlyph
 import com.vivenotes.ui.icons.rememberDocumentRibbonIcons
@@ -81,33 +88,51 @@ private val HighlightColors = listOf(
     0x66FF9100, 0x66B388FF, 0x66FFFFFF, 0x00000000,
 )
 
+private fun Modifier.captureSelectionOnPress(
+    selection: TextSelection?,
+    onCapture: (TextSelection?) -> Unit,
+): Modifier = pointerInput(selection) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        onCapture(selection)
+        waitForUpOrCancellation(pass = PointerEventPass.Initial)
+    }
+}
+
 @Composable
 internal fun DocumentRibbon(
     richText: RichTextBuffer?,
     textToolArmed: Boolean,
     onToggleTextTool: () -> Unit,
-    onToggleMark: (Mark) -> Unit,
-    onSetMark: (Mark) -> Unit,
-    onClearMark: (Mark) -> Unit,
-    onClearFormatting: () -> Unit,
-    onBlockType: (BlockType) -> Unit,
-    onAlign: (Align) -> Unit,
-    onIndent: (Int) -> Unit,
-    onCopy: () -> Unit,
-    onCut: () -> Unit,
-    onPaste: () -> Unit,
+    onToggleMark: (Mark, TextSelection?) -> Unit,
+    onSetMark: (Mark, TextSelection?) -> Unit,
+    onClearMark: (Mark, TextSelection?) -> Unit,
+    onClearFormatting: (TextSelection?) -> Unit,
+    onBlockType: (BlockType, TextSelection?) -> Unit,
+    onAlign: (Align, TextSelection?) -> Unit,
+    onIndent: (Int, TextSelection?) -> Unit,
+    onCopy: (TextSelection?) -> Unit,
+    onCut: (TextSelection?) -> Unit,
+    onPaste: (TextSelection?) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val accent = if (colors.surface.luminance() < 0.5f) Color(0xFF3B9ADC) else Color(0xFF1B6FA8)
     val (idle, active) = rememberDocumentRibbonIcons(colors.onSurfaceVariant, colors.onPrimaryContainer, accent)
     val marks = richText?.activeMarks.orEmpty()
     val block = richText?.currentBlock
+    var selectionAtPress by remember { mutableStateOf<TextSelection?>(null) }
+    fun takeSelection(): TextSelection? {
+        val captured = selectionAtPress
+        selectionAtPress = null
+        return captured
+    }
     Surface(color = colors.surface) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(76.dp)
                 .horizontalScroll(rememberScrollState())
+                .captureSelectionOnPress(richText?.selection) { selectionAtPress = it }
                 .padding(horizontal = 8.dp, vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -116,67 +141,76 @@ internal fun DocumentRibbon(
                 selected = textToolArmed, tag = DocumentRibbonTags.Text, twoTone = true,
                 onClick = onToggleTextTool)
             RibbonDivider()
-            RibbonIcon(DocumentSymbols.ContentPaste, "Paste", enabled = richText != null, tag = DocumentRibbonTags.Paste, onClick = onPaste)
-            RibbonIcon(DocumentSymbols.ContentCut, "Cut", enabled = richText != null && !richText.selection.collapsed, tag = DocumentRibbonTags.Cut, onClick = onCut)
-            RibbonIcon(DocumentSymbols.ContentCopy, "Copy", enabled = richText != null && !richText.selection.collapsed, tag = DocumentRibbonTags.Copy, onClick = onCopy)
+            RibbonIcon(DocumentSymbols.ContentPaste, "Paste", enabled = richText != null, tag = DocumentRibbonTags.Paste) { onPaste(takeSelection()) }
+            RibbonIcon(DocumentSymbols.ContentCut, "Cut", enabled = richText != null &&
+                (!richText.selection.collapsed || selectionAtPress?.collapsed == false),
+                tag = DocumentRibbonTags.Cut) { onCut(takeSelection()) }
+            RibbonIcon(DocumentSymbols.ContentCopy, "Copy", enabled = richText != null &&
+                (!richText.selection.collapsed || selectionAtPress?.collapsed == false),
+                tag = DocumentRibbonTags.Copy) { onCopy(takeSelection()) }
             RibbonDivider()
             RibbonPicker(
                 label = "Font family",
                 current = marks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.name ?: "sans-serif",
                 choices = FontFamilies,
                 enabled = richText != null,
+                selection = richText?.selection,
                 tag = DocumentRibbonTags.FontFamily,
-                onPick = { onSetMark(Mark.FontFamily(it)) },
+                onPick = { value, selection -> onSetMark(Mark.FontFamily(value), selection) },
             )
             RibbonPicker(
                 label = "Font size",
                 current = marks.filterIsInstance<Mark.FontSize>().firstOrNull()?.sp?.toString() ?: "15",
                 choices = FontSizes.map { it.toString() to it.toString() },
                 enabled = richText != null,
+                selection = richText?.selection,
                 tag = DocumentRibbonTags.FontSize,
-                onPick = { onSetMark(Mark.FontSize(it.toInt())) },
+                onPick = { value, selection -> onSetMark(Mark.FontSize(value.toInt()), selection) },
             )
             RibbonDivider()
-            RibbonIcon(DocumentSymbols.FormatBold, "Bold", Mark.Bold in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Bold)) { onToggleMark(Mark.Bold) }
-            RibbonIcon(DocumentSymbols.FormatItalic, "Italic", Mark.Italic in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Italic)) { onToggleMark(Mark.Italic) }
-            RibbonIcon(DocumentSymbols.FormatUnderlined, "Underline", Mark.Underline in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Underline)) { onToggleMark(Mark.Underline) }
-            RibbonIcon(DocumentSymbols.FormatStrikethrough, "Strikethrough", Mark.Strikethrough in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Strikethrough)) { onToggleMark(Mark.Strikethrough) }
+            RibbonIcon(DocumentSymbols.FormatBold, "Bold", Mark.Bold in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Bold)) { onToggleMark(Mark.Bold, takeSelection()) }
+            RibbonIcon(DocumentSymbols.FormatItalic, "Italic", Mark.Italic in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Italic)) { onToggleMark(Mark.Italic, takeSelection()) }
+            RibbonIcon(DocumentSymbols.FormatUnderlined, "Underline", Mark.Underline in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Underline)) { onToggleMark(Mark.Underline, takeSelection()) }
+            RibbonIcon(DocumentSymbols.FormatStrikethrough, "Strikethrough", Mark.Strikethrough in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Strikethrough)) { onToggleMark(Mark.Strikethrough, takeSelection()) }
             ColorPicker(
                 label = "Font colour",
                 colors = TextColors,
                 current = marks.filterIsInstance<Mark.TextColor>().firstOrNull()?.argb,
                 enabled = richText != null,
+                selection = richText?.selection,
                 tag = DocumentRibbonTags.FontColor,
                 icon = { neutral, swatch -> fontColorGlyph(neutral, swatch) },
-                onPick = { onSetMark(Mark.TextColor(it)) },
-                onClear = { onClearMark(Mark.TextColor(0)) },
+                onPick = { value, selection -> onSetMark(Mark.TextColor(value), selection) },
+                onClear = { selection -> onClearMark(Mark.TextColor(0), selection) },
             )
             ColorPicker(
                 label = "Highlight",
                 colors = HighlightColors,
                 current = marks.filterIsInstance<Mark.Highlight>().firstOrNull()?.argb,
                 enabled = richText != null,
+                selection = richText?.selection,
                 tag = DocumentRibbonTags.Highlight,
                 icon = { _, _ -> DocumentSymbols.StylusHighlighter },
-                onPick = { onSetMark(Mark.Highlight(it)) },
-                onClear = { onClearMark(Mark.Highlight(0)) },
+                onPick = { value, selection -> onSetMark(Mark.Highlight(value), selection) },
+                onClear = { selection -> onClearMark(Mark.Highlight(0), selection) },
                 rotateIcon = true,
             )
-            RibbonIcon(if (Mark.Subscript in marks) active.subscript else idle.subscript, "Subscript", Mark.Subscript in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Subscript), twoTone = true) { onToggleMark(Mark.Subscript) }
-            RibbonIcon(if (Mark.Superscript in marks) active.superscript else idle.superscript, "Superscript", Mark.Superscript in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Superscript), twoTone = true) { onToggleMark(Mark.Superscript) }
-            RibbonIcon(DocumentSymbols.FormatClear, "Clear formatting", enabled = richText != null, tag = WorkspaceTestTags.ClearFormatting, onClick = onClearFormatting)
+            RibbonIcon(if (Mark.Subscript in marks) active.subscript else idle.subscript, "Subscript", Mark.Subscript in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Subscript), twoTone = true) { onToggleMark(Mark.Subscript, takeSelection()) }
+            RibbonIcon(if (Mark.Superscript in marks) active.superscript else idle.superscript, "Superscript", Mark.Superscript in marks, richText != null, WorkspaceTestTags.documentMark(Mark.Superscript), twoTone = true) { onToggleMark(Mark.Superscript, takeSelection()) }
+            RibbonIcon(DocumentSymbols.FormatClear, "Clear formatting", enabled = richText != null, tag = WorkspaceTestTags.ClearFormatting) { onClearFormatting(takeSelection()) }
             RibbonDivider()
-            RibbonIcon(if (block?.type == BlockType.Bullet) active.bulletList else idle.bulletList, "Bulleted list", block?.type == BlockType.Bullet, richText != null, WorkspaceTestTags.blockType(BlockType.Bullet), twoTone = true) { onBlockType(BlockType.Bullet) }
-            RibbonIcon(if (block?.type == BlockType.Numbered) active.numberedList else idle.numberedList, "Numbered list", block?.type == BlockType.Numbered, richText != null, WorkspaceTestTags.blockType(BlockType.Numbered), twoTone = true) { onBlockType(BlockType.Numbered) }
-            RibbonIcon(if (block?.type == BlockType.Todo) active.todoList else idle.todoList, "To-do", block?.type == BlockType.Todo, richText != null, WorkspaceTestTags.blockType(BlockType.Todo), twoTone = true) { onBlockType(BlockType.Todo) }
-            RibbonIcon(DocumentSymbols.FormatIndentDecrease, "Decrease indent", enabled = richText != null) { onIndent(-1) }
-            RibbonIcon(DocumentSymbols.FormatIndentIncrease, "Increase indent", enabled = richText != null) { onIndent(1) }
+            RibbonIcon(if (block?.type == BlockType.Bullet) active.bulletList else idle.bulletList, "Bulleted list", block?.type == BlockType.Bullet, richText != null, WorkspaceTestTags.blockType(BlockType.Bullet), twoTone = true) { onBlockType(BlockType.Bullet, takeSelection()) }
+            RibbonIcon(if (block?.type == BlockType.Numbered) active.numberedList else idle.numberedList, "Numbered list", block?.type == BlockType.Numbered, richText != null, WorkspaceTestTags.blockType(BlockType.Numbered), twoTone = true) { onBlockType(BlockType.Numbered, takeSelection()) }
+            RibbonIcon(if (block?.type == BlockType.Todo) active.todoList else idle.todoList, "To-do", block?.type == BlockType.Todo, richText != null, WorkspaceTestTags.blockType(BlockType.Todo), twoTone = true) { onBlockType(BlockType.Todo, takeSelection()) }
+            RibbonIcon(DocumentSymbols.FormatIndentDecrease, "Decrease indent", enabled = richText != null) { onIndent(-1, takeSelection()) }
+            RibbonIcon(DocumentSymbols.FormatIndentIncrease, "Increase indent", enabled = richText != null) { onIndent(1, takeSelection()) }
             RibbonDivider()
-            RibbonIcon(DocumentSymbols.FormatAlignLeft, "Align left", block?.align == Align.Start, richText != null, WorkspaceTestTags.alignment(Align.Start)) { onAlign(Align.Start) }
-            RibbonIcon(DocumentSymbols.FormatAlignCenter, "Align centre", block?.align == Align.Center, richText != null, WorkspaceTestTags.alignment(Align.Center)) { onAlign(Align.Center) }
-            RibbonIcon(DocumentSymbols.FormatAlignRight, "Align right", block?.align == Align.End, richText != null, WorkspaceTestTags.alignment(Align.End)) { onAlign(Align.End) }
+            RibbonIcon(DocumentSymbols.FormatAlignLeft, "Align left", block?.align == Align.Start, richText != null, WorkspaceTestTags.alignment(Align.Start)) { onAlign(Align.Start, takeSelection()) }
+            RibbonIcon(DocumentSymbols.FormatAlignCenter, "Align centre", block?.align == Align.Center, richText != null, WorkspaceTestTags.alignment(Align.Center)) { onAlign(Align.Center, takeSelection()) }
+            RibbonIcon(DocumentSymbols.FormatAlignRight, "Align right", block?.align == Align.End, richText != null, WorkspaceTestTags.alignment(Align.End)) { onAlign(Align.End, takeSelection()) }
             RibbonDivider()
-            StylesPicker(block?.type ?: BlockType.Paragraph, idle.styles, richText != null, onBlockType)
+            StylesPicker(block?.type ?: BlockType.Paragraph, idle.styles, richText != null,
+                richText?.selection, onBlockType)
             RibbonDivider()
             RibbonIcon(DocumentSymbols.Function, "Equation", enabled = false, tag = DocumentRibbonTags.Equation) {}
             RibbonIcon(DocumentSymbols.Link, "Link", enabled = false, tag = DocumentRibbonTags.Link) {}
@@ -199,12 +233,13 @@ private fun RibbonIcon(
     IconButton(
         onClick = onClick,
         enabled = enabled,
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = if (selected) colors.primaryContainer else Color.Transparent,
+        ),
         modifier = Modifier
             .size(40.dp)
             .testTag(tag)
-            .semantics { this.selected = selected }
-            .clip(RoundedCornerShape(4.dp))
-            .background(if (selected) colors.primaryContainer else Color.Transparent),
+            .semantics { this.selected = selected },
     ) {
         Icon(
             imageVector = icon,
@@ -226,16 +261,22 @@ private fun RibbonPicker(
     current: String,
     choices: List<Pair<String, String>>,
     enabled: Boolean,
+    selection: TextSelection?,
     tag: String,
-    onPick: (String) -> Unit,
+    onPick: (String, TextSelection?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var selectionAtOpen by remember { mutableStateOf<TextSelection?>(null) }
     Box {
         Row(
             modifier = Modifier
                 .testTag(tag)
                 .clip(RoundedCornerShape(8.dp))
-                .then(if (enabled) Modifier.clickable { expanded = true } else Modifier)
+                .captureSelectionOnPress(selection) { selectionAtOpen = it }
+                .then(if (enabled) Modifier.clickable {
+                    if (selectionAtOpen == null) selectionAtOpen = selection
+                    expanded = true
+                } else Modifier)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -246,13 +287,15 @@ private fun RibbonPicker(
             )
             Icon(DocumentSymbols.ArrowDropDown, contentDescription = label, modifier = Modifier.size(16.dp))
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = {
+            expanded = false; selectionAtOpen = null
+        }) {
             choices.forEach { (value, shown) ->
                 DropdownMenuItem(
                     text = { Text(shown) },
                     onClick = {
                         expanded = false
-                        onPick(value)
+                        onPick(value, selectionAtOpen)
                     },
                     modifier = Modifier.testTag("$tag-$value"),
                 )
@@ -267,21 +310,27 @@ private fun ColorPicker(
     colors: List<Int>,
     current: Int?,
     enabled: Boolean,
+    selection: TextSelection?,
     tag: String,
     icon: (Color, Color) -> ImageVector,
-    onPick: (Int) -> Unit,
-    onClear: () -> Unit,
+    onPick: (Int, TextSelection?) -> Unit,
+    onClear: (TextSelection?) -> Unit,
     rotateIcon: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var selectionAtOpen by remember { mutableStateOf<TextSelection?>(null) }
     val neutral = MaterialTheme.colorScheme.onSurfaceVariant
     val swatch = current?.takeIf { it != 0 }?.let { Color(it).copy(alpha = 1f) } ?: neutral
     val image = remember(neutral, swatch) { icon(neutral, swatch) }
     Box {
         IconButton(
-            onClick = { expanded = true },
+            onClick = {
+                if (selectionAtOpen == null) selectionAtOpen = selection
+                expanded = true
+            },
             enabled = enabled,
-            modifier = Modifier.size(40.dp).testTag(tag),
+            modifier = Modifier.size(40.dp).testTag(tag)
+                .captureSelectionOnPress(selection) { selectionAtOpen = it },
         ) {
             Icon(
                 imageVector = image,
@@ -290,7 +339,9 @@ private fun ColorPicker(
                 modifier = Modifier.size(20.dp).then(if (rotateIcon) Modifier.rotate(180f) else Modifier),
             )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = {
+            expanded = false; selectionAtOpen = null
+        }) {
             Column(Modifier.padding(8.dp)) {
                 colors.chunked(4).forEach { row ->
                     Row {
@@ -302,7 +353,7 @@ private fun ColorPicker(
                                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(5.dp))
                                     .clickable {
                                         expanded = false
-                                        onPick(argb)
+                                        onPick(argb, selectionAtOpen)
                                     }
                                     .testTag("$tag-$argb"),
                             )
@@ -311,7 +362,7 @@ private fun ColorPicker(
                 }
                 DropdownMenuItem(text = { Text("None") }, onClick = {
                     expanded = false
-                    onClear()
+                    onClear(selectionAtOpen)
                 }, modifier = Modifier.testTag("$tag-none"))
             }
         }
@@ -323,9 +374,11 @@ private fun StylesPicker(
     current: BlockType,
     icon: ImageVector,
     enabled: Boolean,
-    onPick: (BlockType) -> Unit,
+    selection: TextSelection?,
+    onPick: (BlockType, TextSelection?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var selectionAtOpen by remember { mutableStateOf<TextSelection?>(null) }
     val styles = listOf(
         BlockType.Paragraph to "Normal",
         BlockType.Heading1 to "Heading 1",
@@ -338,7 +391,11 @@ private fun StylesPicker(
         Row(
             modifier = Modifier.testTag(WorkspaceTestTags.Styles)
                 .clip(RoundedCornerShape(8.dp))
-                .then(if (enabled) Modifier.clickable { expanded = true } else Modifier)
+                .captureSelectionOnPress(selection) { selectionAtOpen = it }
+                .then(if (enabled) Modifier.clickable {
+                    if (selectionAtOpen == null) selectionAtOpen = selection
+                    expanded = true
+                } else Modifier)
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -347,11 +404,13 @@ private fun StylesPicker(
             Text(if (current == BlockType.Paragraph) "Styles" else styles.firstOrNull { it.first == current }?.second ?: "Styles", style = MaterialTheme.typography.labelMedium)
             Icon(DocumentSymbols.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = {
+            expanded = false; selectionAtOpen = null
+        }) {
             styles.forEach { (type, label) ->
                 DropdownMenuItem(text = { Text(label) }, onClick = {
                     expanded = false
-                    onPick(type)
+                    onPick(type, selectionAtOpen)
                 }, modifier = Modifier.testTag(WorkspaceTestTags.blockType(type)))
             }
         }
