@@ -309,7 +309,57 @@ class WorkspaceScreenTest {
             runOnIdle { assertEquals(initial + 1, observed.selectedPage!!.document.outlines.size) }
             onNodeWithTag(DocumentRibbonTags.Text).performClick()
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(780f, 500f)) }
-            runOnIdle { assertEquals(initial + 1, observed.selectedPage!!.document.outlines.size) }
+            runOnIdle { assertEquals(initial, observed.selectedPage!!.document.outlines.size) }
+        }
+
+    @Test
+    fun textPlacementReplacesEmptyBoxAndEscapeDiscardsTheLastEmptyBox() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var observed = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            setWorkspace(initial = observed) { observed = it }
+            val originalCount = observed.selectedPage!!.document.outlines.size
+
+            onNodeWithTag(DocumentRibbonTags.Text).performClick()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                click(Offset(780f, 450f))
+            }
+            val firstId = observed.focusedTextOutlineId
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                click(Offset(100f, 620f))
+            }
+            runOnIdle {
+                assertEquals(originalCount + 1, observed.selectedPage!!.document.outlines.size)
+                assertTrue(observed.selectedPage!!.document.outlines.none { it.id == firstId })
+            }
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performKeyInput {
+                keyDown(Key.Escape)
+                keyUp(Key.Escape)
+            }
+            runOnIdle {
+                assertEquals(originalCount, observed.selectedPage!!.document.outlines.size)
+                assertFalse(observed.textToolArmed)
+            }
+        }
+
+    @Test
+    fun typingIntoNewTextBoxKeepsItWhenTextToolIsDismissed() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var observed = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            setWorkspace(initial = observed) { observed = it }
+
+            onNodeWithTag(DocumentRibbonTags.Text).performClick()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                click(Offset(780f, 450f))
+            }
+            val id = observed.focusedTextOutlineId!!
+            onNodeWithTag(WorkspaceTestTags.textBox(id) + "-editor").assertIsFocused()
+                .performTextReplacement("written")
+            onNodeWithTag(DocumentRibbonTags.Text).performClick()
+            runOnIdle {
+                assertTrue(observed.selectedPage!!.document.outlines.any { it.id == id })
+                assertEquals("written", observed.selectedPage!!.document.outlines
+                    .filterIsInstance<Outline.Text>().first { it.id == id }.blocks.first().text)
+            }
         }
 
     @Test
@@ -439,6 +489,62 @@ class WorkspaceScreenTest {
                 swipe(start = Offset(250f, 320f), end = Offset(450f, 450f))
             }
             runOnIdle { assertEquals(setOf(shape.id), observed.selectedObjectIds) }
+            onNodeWithTag(WorkspaceTestTags.primeObject(shape.id)).performMouseInput {
+                moveTo(Offset(40f, 35f))
+                press()
+                moveTo(Offset(90f, 65f))
+                release()
+            }
+            runOnIdle { assertTrue(observed.selectedPage!!.document.outlines
+                .filterIsInstance<Outline.Shape>().first { it.id == shape.id }.x > shape.x) }
+        }
+
+    @Test
+    fun mouseLassoSelectsAndCanDeleteWrittenTextBoxes() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val first = WorkspaceState.demo().toggleTextTool().createTextBox(300f, 350f)
+                .editSelectedText("first", TextSelection(5))
+            val firstId = first.focusedTextOutlineId!!
+            val second = first.createTextBox(500f, 420f)
+                .editSelectedText("second", TextSelection(6))
+            val secondId = second.focusedTextOutlineId!!
+            var observed = second.copy(activeTab = RibbonTab.Draw).toggleObjectLasso()
+            setWorkspace(initial = observed) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                moveTo(Offset(250f, 320f))
+                press()
+                moveTo(Offset(700f, 600f))
+                release()
+            }
+            runOnIdle { assertEquals(setOf(firstId, secondId), observed.selectedTextOutlineIds) }
+            onNodeWithTag(WorkspaceTestTags.textBoxOutline(firstId)).assertExists()
+            onNodeWithTag(WorkspaceTestTags.textBoxOutline(secondId)).assertExists()
+
+            onNodeWithTag(WorkspaceTestTags.PointerTool).performClick()
+            onNodeWithTag(WorkspaceTestTags.ObjectLasso).performClick()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                moveTo(Offset(350f, 390f))
+                press()
+                moveTo(Offset(700f, 600f))
+                release()
+            }
+            runOnIdle { assertEquals(setOf(firstId, secondId), observed.selectedTextOutlineIds) }
+            onNodeWithTag(WorkspaceTestTags.textGrip(firstId)).performMouseInput {
+                moveTo(Offset(40f, 12f))
+                press()
+                moveTo(Offset(90f, 42f))
+                release()
+            }
+            runOnIdle {
+                val moved = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
+                assertTrue(moved.first { it.id == firstId }.x > 300f)
+                assertTrue(moved.first { it.id == secondId }.x > 500f)
+            }
+            onNodeWithTag(WorkspaceTestTags.ObjectDelete).performClick()
+            runOnIdle { assertTrue(observed.selectedPage!!.document.outlines.none {
+                it.id == firstId || it.id == secondId
+            }) }
         }
 
     @Test

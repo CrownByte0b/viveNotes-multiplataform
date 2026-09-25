@@ -115,6 +115,84 @@ class WorkspaceStateTest {
     }
 
     @Test
+    fun movingTextPlacementDiscardsUnwrittenBoxesButKeepsWrittenOnes() {
+        val initial = WorkspaceState.demo().toggleTextTool()
+        val first = initial.createTextBox(100f, 300f)
+        val second = first.createTextBox(300f, 400f)
+        assertEquals(1, second.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
+            .count { it.blocks.all { block -> block.text.isBlank() } })
+        assertTrue(second.selectedPage!!.document.outlines.none { it.id == first.focusedTextOutlineId })
+
+        val written = second.editSelectedText("kept", TextSelection(4))
+        val third = written.createTextBox(500f, 500f)
+        assertTrue(third.selectedPage!!.document.outlines.any { it.id == second.focusedTextOutlineId })
+        assertTrue(third.selectedPage!!.document.outlines.any { it.id == third.focusedTextOutlineId })
+        val dismissed = third.selectPointer()
+        assertTrue(dismissed.selectedPage!!.document.outlines.none { it.id == third.focusedTextOutlineId })
+        assertTrue(dismissed.selectedPage!!.document.outlines.any { it.id == second.focusedTextOutlineId })
+        assertEquals(emptyList(), dismissed.structuralRedo)
+
+        val abandoned = second.createTextBox(700f, 600f).selectPointer()
+        assertTrue(abandoned.selectedPage!!.document.outlines.none { it.id == second.focusedTextOutlineId })
+        assertTrue(abandoned.structuralUndo.isEmpty())
+        assertEquals(abandoned.selectedPage!!.document, abandoned.undoStructure().selectedPage!!.document)
+    }
+
+    @Test
+    fun leavingPageDiscardsUnwrittenTextPlacement() {
+        val initial = WorkspaceState.demo().toggleTextTool().createTextBox(300f, 350f)
+        val id = initial.focusedTextOutlineId!!
+        val returned = initial.selectPage("sequences").selectPage(initial.selectedPageId)
+
+        assertTrue(returned.selectedPage!!.document.outlines.none { it.id == id })
+    }
+
+    @Test
+    fun lassoSelectsWrittenTextBoxesAsCanvasObjects() {
+        val first = WorkspaceState.demo().toggleTextTool().createTextBox(300f, 350f)
+            .editSelectedText("one", TextSelection(3))
+        val firstId = first.focusedTextOutlineId!!
+        val second = first.createTextBox(500f, 420f).editSelectedText("two", TextSelection(3))
+        val secondId = second.focusedTextOutlineId!!
+        val selected = second.toggleObjectLasso().selectObjectsInRect(250f, 300f, 800f, 600f)
+
+        assertEquals(setOf(firstId, secondId), selected.selectedTextOutlineIds)
+        assertEquals(setOf(firstId, secondId), selected.copySelectedObjects().canvasClipboard.texts
+            .map { it.id }.toSet())
+        val moved = selected.moveSelectedObjects(20f, 30f)
+        assertEquals(320f, moved.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
+            .first { it.id == firstId }.x)
+        assertTrue(moved.deleteSelectedObjects().selectedPage!!.document.outlines
+            .none { it.id == firstId || it.id == secondId })
+    }
+
+    @Test
+    fun mixedLassoSelectsTextAndMovablePrimeObjectsButSkipsLocks() {
+        val initial = WorkspaceState.demo()
+        val page = initial.selectedPage!!
+        val text = Outline.Text.empty(y = 350f).copy(x = 300f, blocks = listOf(Block.of("note")))
+        val movable = Outline.Shape(id = "movable", x = 450f, y = 350f)
+        val locked = Outline.Image(id = "locked", x = 600f, y = 350f,
+            width = 80f, height = 80f, attachmentId = "fixture", lockGroup = "group")
+        val withObjects = initial.copy(notebooks = initial.notebooks.map { notebook ->
+            notebook.copy(sections = notebook.sections.map { section ->
+                section.copy(pages = section.pages.map { candidate ->
+                    if (candidate.id == page.id) candidate.copy(document = candidate.document.copy(
+                        outlines = candidate.document.outlines + listOf(text, movable, locked)))
+                    else candidate
+                })
+            })
+        })
+
+        val selected = withObjects.selectObjectsInRect(250f, 300f, 750f, 600f)
+        assertEquals(setOf(text.id), selected.selectedTextOutlineIds)
+        assertEquals(setOf(movable.id), selected.selectedObjectIds)
+        val copied = selected.copySelectedObjects().canvasClipboard
+        assertEquals(setOf(text.id), copied.texts.map { it.id }.toSet())
+        assertEquals(setOf(movable.id), copied.objects.map { it.id }.toSet())
+    }
+
+    @Test
     fun textBoxClipboardPreservesStyledBlocksAndMintsNewIds() {
         val initial = WorkspaceState.demo().selectText(TextSelection(0, 6))
             .toggleSelectedMark(Mark.Bold)
@@ -177,7 +255,9 @@ class WorkspaceStateTest {
             notebook.copy(sections = notebook.sections.map { section ->
                 section.copy(pages = section.pages.map {
                     if (it.id == page.id) it.copy(document = it.document.copy(
-                        outlines = it.document.outlines + listOf(first, second, third))) else it
+                        outlines = it.document.outlines.map { outline ->
+                            if (outline is Outline.Text) outline.copy(x = 800f) else outline
+                        } + listOf(first, second, third))) else it
                 })
             })
         })

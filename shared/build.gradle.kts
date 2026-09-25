@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -7,8 +8,22 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+tasks.withType<JavaCompile>().configureEach {
+    options.release = libs.versions.jvmTarget.get().toInt()
+}
+
+// Skiko loads a native library in UI tests; JDK 24+ warns about that, and a future release will block it.
+tasks.withType<Test>().configureEach {
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}
+
 kotlin {
-    jvm()
+    jvm {
+        compilerOptions {
+            jvmTarget = JvmTarget.fromTarget(libs.versions.jvmTarget.get())
+            freeCompilerArgs.add("-Xjdk-release=${libs.versions.jvmTarget.get()}")
+        }
+    }
 
     js {
         browser()

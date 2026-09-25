@@ -1,4 +1,7 @@
 [versions]
+# JVM bytecode and JDK API level. Builds run on the latest JDK, but native Wayland runs on
+# JetBrains Runtime 25, the newest JBR release; raise this only when a newer JBR ships.
+jvmTarget = "25"
 androidx-lifecycle = "2.11.0"
 composeMultiplatform = "1.12.1"
 junit = "4.13.2"

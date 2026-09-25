@@ -218,7 +218,7 @@ fun WorkspaceScreen(
             onToggleNavigation = {
                 onStateChange(state.copy(navigationVisible = !state.navigationVisible))
             },
-            onSelectTab = { onStateChange(state.copy(activeTab = it, selectedObjectIds = emptySet())) },
+            onSelectTab = { onStateChange(state.selectPointer().copy(activeTab = it)) },
             canUndo = state.structuralUndo.isNotEmpty(),
             canRedo = state.structuralRedo.isNotEmpty(),
             onUndo = { onStateChange(state.undoStructure()) },
@@ -321,8 +321,13 @@ fun WorkspaceScreen(
                     onTitleChange = { onStateChange(state.updateSelectedPage(title = it)) },
                     onFocusTextBox = { onStateChange(state.focusTextBox(it)) },
                     onClearCanvasFocus = { onStateChange(state.clearCanvasFocus()) },
-                    onCreateTextBox = { x, y -> onStateChange(state.createTextBox(x, y)) },
+                    onCreateTextBox = { x, y ->
+                        val next = state.createTextBox(x, y)
+                        onStateChange(next)
+                        if (next.focusedTextOutlineId != state.focusedTextOutlineId) editorFocusRequest++
+                    },
                     onMoveTextBox = { id, dx, dy -> onStateChange(state.moveTextBox(id, dx, dy)) },
+                    onMoveSelectedTexts = { dx, dy -> onStateChange(state.moveSelectedObjects(dx, dy)) },
                     onResizeTextBox = { id, width, height -> onStateChange(state.resizeTextBox(id, width, height)) },
                     onCopyTextBox = { onStateChange(state.copyTextBox(it)) },
                     onSelectAllTextBox = { onStateChange(state.selectAllTextBox(it)) },
@@ -737,6 +742,7 @@ private fun PageCanvas(
     onClearCanvasFocus: () -> Unit,
     onCreateTextBox: (Float, Float) -> Unit,
     onMoveTextBox: (String, Float, Float) -> Unit,
+    onMoveSelectedTexts: (Float, Float) -> Unit,
     onResizeTextBox: (String, Float?, Float?) -> Unit,
     onCopyTextBox: (String) -> Unit,
     onSelectAllTextBox: (String) -> Unit,
@@ -802,6 +808,21 @@ private fun PageCanvas(
                 point.y <= outline.y + height + margin + if (toolbarBelow) 60f else 0f
         } == true
 
+    fun hitsSelectedTransform(point: Offset, snapshot: WorkspaceState): Boolean {
+        val outlines = snapshot.selectedPage?.document?.outlines ?: return false
+        val textGrip = outlines.filterIsInstance<Outline.Text>().any { text ->
+            text.id in snapshot.selectedTextOutlineIds &&
+                point.x in text.x..(text.x + 96f) &&
+                point.y in (text.y - 28f).coerceAtLeast(0f)..text.y
+        }
+        val primeBounds = outlines.any { outline ->
+            outline.id in snapshot.selectedObjectIds && outline.isPrimeObject() &&
+                point.x in (outline.x - 10f)..(outline.x + outline.width + 10f) &&
+                point.y in (outline.y - 10f)..(outline.y + outline.primeHeight() + 10f)
+        }
+        return textGrip || primeBounds
+    }
+
     Box(
         modifier
             .testTag(WorkspaceTestTags.PageCanvas)
@@ -832,9 +853,10 @@ private fun PageCanvas(
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val start = toPage(down.position)
-                    val marquee = currentState.objectLassoArmed ||
+                    val marquee = !hitsSelectedTransform(start, currentState) &&
+                        (currentState.objectLassoArmed ||
                         (!currentState.textToolArmed && start.y >= PageStyle.TITLE_BAND_DP &&
-                            !hitsContent(start, currentState))
+                            !hitsContent(start, currentState)))
                     var last = down
                     do {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -925,6 +947,7 @@ private fun PageCanvas(
                 }
                 page.document.outlines.filterIsInstance<Outline.Text>().forEachIndexed { index, outline ->
                     val focused = state.focusedTextOutlineId == outline.id
+                    val lassoSelected = outline.id in state.selectedTextOutlineIds
                     val richText = state.richTextFor(outline.id)
                     val width = outline.width.coerceIn(120f, 2000f).dp
                     val x = outline.x.coerceAtLeast(0f).dp
@@ -933,7 +956,31 @@ private fun PageCanvas(
                         ?: maxOf(outline.minHeight, 150f)).dp
                     val showChrome = focused && outline.blocks.any { it.runs.any { run -> run.plainText.isNotEmpty() } }
                     val currentMove by rememberUpdatedState(onMoveTextBox)
+                    val currentMoveSelectedTexts by rememberUpdatedState(onMoveSelectedTexts)
                     val currentResize by rememberUpdatedState(onResizeTextBox)
+                    if (lassoSelected && state.selectedObjectIds.isEmpty() &&
+                        outline.id == state.selectedTextOutlineIds.firstOrNull()) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = MaterialTheme.shapes.medium,
+                            tonalElevation = 4.dp,
+                            modifier = Modifier.offset(x, (y - 76.dp).coerceAtLeast(0.dp)),
+                        ) {
+                            Row(Modifier.padding(3.dp)) {
+                                IconButton(onClick = onCopyObjects,
+                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
+                                    Icon(DocumentSymbols.ContentCopy, contentDescription = "Copy selected text boxes",
+                                        modifier = Modifier.size(18.dp))
+                                }
+                                IconButton(onClick = onDeleteObjects,
+                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
+                                    Icon(ObjectSymbols.Delete, contentDescription = "Delete selected text boxes",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
                     if (showChrome) {
                         val toolbarY = if (y < 140.dp) y + renderedHeight + 8.dp
                             else y - 76.dp
@@ -960,7 +1007,7 @@ private fun PageCanvas(
                             }
                         }
                     }
-                    if (showChrome) {
+                    if (showChrome || lassoSelected) {
                         Surface(
                             color = MaterialTheme.colorScheme.secondaryContainer,
                             shape = MaterialTheme.shapes.small,
@@ -968,13 +1015,16 @@ private fun PageCanvas(
                                 .width(96.dp).height(24.dp)
                                 .testTag(WorkspaceTestTags.textGrip(outline.id))
                                 .semantics { contentDescription = "Move text box" }
-                                .pointerInput(outline.id) {
+                                .pointerInput(outline.id, lassoSelected) {
                                     var total = Offset.Zero
                                     detectDragGestures(
                                         onDragStart = { total = Offset.Zero },
-                                        onDragEnd = { currentMove(outline.id,
-                                            with(density) { total.x.toDp().value },
-                                            with(density) { total.y.toDp().value }) },
+                                        onDragEnd = {
+                                            val dx = with(density) { total.x.toDp().value }
+                                            val dy = with(density) { total.y.toDp().value }
+                                            if (lassoSelected) currentMoveSelectedTexts(dx, dy)
+                                            else currentMove(outline.id, dx, dy)
+                                        },
                                         onDrag = { change, drag -> change.consume(); total += drag },
                                     )
                                 },
@@ -988,7 +1038,7 @@ private fun PageCanvas(
                             }
                             .testTag(WorkspaceTestTags.textBox(outline.id)),
                     ) {
-                        if (focused) Box(Modifier.matchParentSize()
+                        if (focused || lassoSelected) Box(Modifier.matchParentSize()
                             .border(1.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
                             .testTag(WorkspaceTestTags.textBoxOutline(outline.id)))
                         BasicTextField(
@@ -1098,7 +1148,7 @@ private fun PageCanvas(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    if (selected) {
+                    if (selected && state.selectedTextOutlineIds.isEmpty()) {
                         val corners = listOf(
                             x to y, x + width to y, x to y + height, x + width to y + height,
                         )
@@ -1137,7 +1187,7 @@ private fun PageCanvas(
                             modifier = Modifier.offset(selected.x.dp,
                                 (selected.y.dp - 52.dp).coerceAtLeast(0.dp))) {
                             Row(Modifier.padding(3.dp)) {
-                                if (selected !is Outline.Image) {
+                                if (selected !is Outline.Image && state.selectedTextOutlineIds.isEmpty()) {
                                     Box {
                                         val swatch = when (selected) {
                                             is Outline.Shape -> Color(selected.borderArgb)
@@ -1175,13 +1225,15 @@ private fun PageCanvas(
                                     Icon(DocumentSymbols.ContentCopy, contentDescription = "Copy selection",
                                         modifier = Modifier.size(18.dp))
                                 }
-                                IconButton(onClick = onToggleObjectLock,
-                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectLock)) {
-                                    Icon(if (state.selectedObjectsLocked) ObjectSymbols.Lock
-                                        else ObjectSymbols.LockOpen,
-                                        contentDescription = if (state.selectedObjectsLocked)
-                                            "Unlock selection" else "Lock selection",
-                                        modifier = Modifier.size(18.dp))
+                                if (state.selectedTextOutlineIds.isEmpty()) {
+                                    IconButton(onClick = onToggleObjectLock,
+                                        modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectLock)) {
+                                        Icon(if (state.selectedObjectsLocked) ObjectSymbols.Lock
+                                            else ObjectSymbols.LockOpen,
+                                            contentDescription = if (state.selectedObjectsLocked)
+                                                "Unlock selection" else "Lock selection",
+                                            modifier = Modifier.size(18.dp))
+                                    }
                                 }
                                 IconButton(onClick = onDeleteObjects,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectDelete)) {

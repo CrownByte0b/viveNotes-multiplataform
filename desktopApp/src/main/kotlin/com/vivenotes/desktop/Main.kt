@@ -9,7 +9,49 @@ import androidx.compose.ui.window.rememberWindowState
 import com.vivenotes.App
 import java.awt.Dimension
 
-fun main() = application {
+internal enum class WindowBackend { NATIVE_WAYLAND, STANDARD }
+
+internal fun selectWindowBackend(
+    args: Array<String>,
+    osName: String,
+    sessionType: String?,
+    waylandDisplay: String?,
+): WindowBackend {
+    require(args.all { it == "--x11" }) { "Unknown option. Supported option: --x11" }
+    return if (
+        args.none { it == "--x11" } &&
+        osName.startsWith("Linux", ignoreCase = true) &&
+        (sessionType.equals("wayland", ignoreCase = true) || !waylandDisplay.isNullOrBlank())
+    ) {
+        WindowBackend.NATIVE_WAYLAND
+    } else {
+        WindowBackend.STANDARD
+    }
+}
+
+fun main(args: Array<String>) {
+    when (
+        selectWindowBackend(
+            args = args,
+            osName = System.getProperty("os.name"),
+            sessionType = System.getenv("XDG_SESSION_TYPE"),
+            waylandDisplay = System.getenv("WAYLAND_DISPLAY"),
+        )
+    ) {
+        WindowBackend.NATIVE_WAYLAND -> {
+            System.setProperty("awt.toolkit.name", "WLToolkit")
+            launchWayland()
+        }
+        WindowBackend.STANDARD -> {
+            if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true)) {
+                System.setProperty("awt.toolkit.name", "XToolkit")
+            }
+            launchStandardWindow()
+        }
+    }
+}
+
+private fun launchStandardWindow() = application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "ViveNotes",

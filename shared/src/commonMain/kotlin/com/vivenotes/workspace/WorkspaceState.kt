@@ -84,6 +84,7 @@ data class WorkspaceState(
     val textToolArmed: Boolean = false,
     val objectLassoArmed: Boolean = false,
     val focusedTextOutlineId: String? = null,
+    val selectedTextOutlineIds: Set<String> = emptySet(),
     val selectedObjectIds: Set<String> = emptySet(),
     val canvasClipboard: CanvasClipboard = CanvasClipboard(),
     val structuralUndo: List<StructuralSnapshot> = emptyList(),
@@ -115,40 +116,85 @@ data class WorkspaceState(
                     if (id == focusedTextOutline?.id) typingMarks else emptySet())
             }
 
-    fun toggleTextTool(): WorkspaceState = copy(
+    fun toggleTextTool(): WorkspaceState = discardEmptyFocusedTextBox().copy(
         textToolArmed = !textToolArmed,
         objectLassoArmed = false,
+        selectedTextOutlineIds = emptySet(),
         selectedObjectIds = emptySet(),
     )
 
-    fun toggleObjectLasso(): WorkspaceState = copy(
+    fun toggleObjectLasso(): WorkspaceState = discardEmptyFocusedTextBox().copy(
         objectLassoArmed = !objectLassoArmed,
         textToolArmed = false,
+        selectedTextOutlineIds = emptySet(),
         selectedObjectIds = emptySet(),
     )
 
     /** Escape and the Select command return to the ordinary mouse pointer. */
-    fun selectPointer(): WorkspaceState = copy(
+    fun selectPointer(): WorkspaceState = discardEmptyFocusedTextBox().copy(
         textToolArmed = false,
         objectLassoArmed = false,
         focusedTextOutlineId = null,
+        selectedTextOutlineIds = emptySet(),
         selectedObjectIds = emptySet(),
         editorComposition = null,
     )
 
     fun focusTextBox(id: String): WorkspaceState {
         if (selectedPage?.document?.outlines?.none { it is Outline.Text && it.id == id } != false) return this
-        return copy(focusedTextOutlineId = id, selectedObjectIds = emptySet(),
+        val next = if (id == focusedTextOutlineId) this else discardEmptyFocusedTextBox()
+        return next.copy(focusedTextOutlineId = id, selectedTextOutlineIds = emptySet(),
+            selectedObjectIds = emptySet(),
             editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null)
     }
 
-    fun clearCanvasFocus(): WorkspaceState = copy(focusedTextOutlineId = null, selectedObjectIds = emptySet())
+    fun clearCanvasFocus(): WorkspaceState = discardEmptyFocusedTextBox().copy(
+        focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
+        selectedObjectIds = emptySet(), editorComposition = null)
+
+    private fun discardEmptyFocusedTextBox(): WorkspaceState {
+        val id = focusedTextOutlineId ?: return this
+        val page = selectedPage ?: return this
+        val outline = page.document.outlines.firstOrNull { it.id == id } as? Outline.Text
+            ?: return this
+        if (!outline.isUnwritten()) return this
+        return updatePage(page.id) { candidate ->
+            candidate.withDocument(candidate.document.copy(
+                outlines = candidate.document.outlines.filterNot { it.id == id }))
+        }.copy(focusedTextOutlineId = null, editorSelection = TextSelection(0),
+            typingMarks = emptySet(), editorComposition = null)
+            .discardEmptyTextHistory(setOf(id))
+    }
+
+    private fun Outline.Text.isUnwritten(): Boolean =
+        blocks.isNotEmpty() && blocks.all { it.text.isBlank() }
 
     fun createTextBox(x: Float, y: Float): WorkspaceState {
         if (!textToolArmed || selectedPage == null || y < PageStyle.TITLE_BAND_DP) return this
         val outline = Outline.Text.empty(y = y).copy(x = x.coerceAtLeast(0f))
-        return editOutlines { it + outline }.copy(focusedTextOutlineId = outline.id,
+        val removedIds = selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
+            .filter { it.isUnwritten() }.map { it.id }.toSet()
+        return editOutlines { outlines ->
+            outlines.filterNot { it is Outline.Text && it.isUnwritten() } + outline
+        }.copy(focusedTextOutlineId = outline.id, selectedTextOutlineIds = emptySet(),
             editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null)
+            .discardEmptyTextHistory(removedIds)
+    }
+
+    /** A provisional box must not return through Undo after it was abandoned. */
+    private fun discardEmptyTextHistory(ids: Set<String>): WorkspaceState {
+        if (ids.isEmpty()) return this
+        val page = selectedPage ?: return this
+        fun List<StructuralSnapshot>.withoutIds() = map { snapshot ->
+            if (snapshot.pageId != page.id) snapshot else snapshot.copy(
+                document = snapshot.document.copy(outlines = snapshot.document.outlines
+                    .filterNot { it.id in ids }))
+        }
+        var undo = structuralUndo.withoutIds()
+        while (undo.lastOrNull()?.let { it.pageId == page.id && it.document == page.document } == true) {
+            undo = undo.dropLast(1)
+        }
+        return copy(structuralUndo = undo, structuralRedo = structuralRedo.withoutIds())
     }
 
     fun moveTextBox(id: String, dx: Float, dy: Float): WorkspaceState = editOutlines { outlines ->
@@ -175,7 +221,8 @@ data class WorkspaceState(
     fun deleteTextBox(id: String): WorkspaceState = editOutlines { outlines ->
         outlines.filterNot { it is Outline.Text && it.id == id }
     }.copy(focusedTextOutlineId = null, editorSelection = TextSelection(0),
-        typingMarks = emptySet(), editorComposition = null)
+        typingMarks = emptySet(), editorComposition = null,
+        selectedTextOutlineIds = selectedTextOutlineIds - id)
 
     fun pasteCanvasAt(x: Float, y: Float): WorkspaceState {
         val page = selectedPage ?: return this
@@ -187,6 +234,7 @@ data class WorkspaceState(
             it.y - top + y.coerceAtLeast(0f)) }
         return editOutlines { it + pasted }.copy(
             focusedTextOutlineId = pasted.filterIsInstance<Outline.Text>().firstOrNull()?.id,
+            selectedTextOutlineIds = emptySet(),
             selectedObjectIds = pasted.filter { it.isPrimeObject() }.map { it.id }.toSet(),
             editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null,
         )
@@ -209,7 +257,8 @@ data class WorkspaceState(
         return updatePage(page.id) { it.withDocument(restored) }.copy(
             structuralUndo = structuralUndo.dropLast(1),
             structuralRedo = structuralRedo + StructuralSnapshot(page.id, page.document),
-            focusedTextOutlineId = null, selectedObjectIds = emptySet(), editorSelection = TextSelection(0),
+            focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
+            selectedObjectIds = emptySet(), editorSelection = TextSelection(0),
         )
     }
 
@@ -221,7 +270,8 @@ data class WorkspaceState(
         return updatePage(page.id) { it.withDocument(restored) }.copy(
             structuralRedo = structuralRedo.dropLast(1),
             structuralUndo = structuralUndo + StructuralSnapshot(page.id, page.document),
-            focusedTextOutlineId = null, selectedObjectIds = emptySet(), editorSelection = TextSelection(0),
+            focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
+            selectedObjectIds = emptySet(), editorSelection = TextSelection(0),
         )
     }
 
@@ -231,23 +281,32 @@ data class WorkspaceState(
         val tapped = objects.firstOrNull { it.id == id } ?: return this
         val ids = if (tapped.lockGroup == null) setOf(id) else
             objects.filter { it.lockGroup == tapped.lockGroup }.map { it.id }.toSet()
-        return copy(selectedObjectIds = ids, focusedTextOutlineId = null)
+        return discardEmptyFocusedTextBox().copy(selectedObjectIds = ids,
+            selectedTextOutlineIds = emptySet(), focusedTextOutlineId = null)
     }
 
-    /** Mixed lassos prefer movable objects; a loop containing only locks selects those groups. */
+    /** Mixed lassos prefer movable outlines; a loop containing only locks selects those groups. */
     fun selectObjectsInRect(left: Float, top: Float, right: Float, bottom: Float): WorkspaceState {
-        val objects = selectedPage?.document?.outlines?.filter { it.isPrimeObject() } ?: return this
+        val cleaned = discardEmptyFocusedTextBox()
+        val outlines = cleaned.selectedPage?.document?.outlines ?: return cleaned
+        val objects = outlines.filter { it.isPrimeObject() }
         val hit = objects.filter { it.x < right && it.x + it.width > left && it.y < bottom &&
             it.y + it.primeHeight() > top }
+        val textIds = outlines.filterIsInstance<Outline.Text>().filter { text ->
+            !text.isUnwritten() && text.x < right && text.x + text.width > left &&
+                text.y < bottom && text.y + maxOf(text.minHeight, 150f) > top
+        }.map { it.id }.toSet()
         val unlocked = hit.filter { it.lockGroup == null }
-        val ids = if (unlocked.isNotEmpty()) unlocked.map { it.id }.toSet() else {
+        val ids = if (unlocked.isNotEmpty() || textIds.isNotEmpty()) unlocked.map { it.id }.toSet() else {
             val groups = hit.mapNotNull { it.lockGroup }.toSet()
             objects.filter { it.lockGroup in groups }.map { it.id }.toSet()
         }
-        return copy(selectedObjectIds = ids, focusedTextOutlineId = null)
+        return cleaned.copy(selectedObjectIds = ids, selectedTextOutlineIds = textIds,
+            focusedTextOutlineId = null)
     }
 
-    val selectedObjectsLocked: Boolean get() = selectedObjectIds.isNotEmpty() &&
+    val selectedObjectsLocked: Boolean get() = selectedTextOutlineIds.isEmpty() &&
+        selectedObjectIds.isNotEmpty() &&
         selectedPage?.document?.outlines?.filter { it.id in selectedObjectIds }
             ?.all { it.lockGroup != null } == true
 
@@ -260,20 +319,30 @@ data class WorkspaceState(
     }
 
     fun copySelectedObjects(): WorkspaceState {
-        val objects = selectedPage?.document?.outlines?.filter {
+        val outlines = selectedPage?.document?.outlines.orEmpty()
+        val objects = outlines.filter {
             it.id in selectedObjectIds && it.isPrimeObject()
-        }.orEmpty()
-        return if (objects.isEmpty()) this else copy(canvasClipboard = CanvasClipboard(objects = objects))
+        }
+        val texts = outlines.filterIsInstance<Outline.Text>()
+            .filter { it.id in selectedTextOutlineIds }
+        return if (objects.isEmpty() && texts.isEmpty()) this else
+            copy(canvasClipboard = CanvasClipboard(objects = objects, texts = texts))
     }
 
     fun deleteSelectedObjects(): WorkspaceState = editOutlines { outlines ->
-        outlines.filterNot { it.id in selectedObjectIds && it.isPrimeObject() }
-    }.copy(selectedObjectIds = emptySet())
+        outlines.filterNot { it.id in selectedTextOutlineIds ||
+            (it.id in selectedObjectIds && it.isPrimeObject()) }
+    }.copy(selectedObjectIds = emptySet(), selectedTextOutlineIds = emptySet())
 
     fun moveSelectedObjects(dx: Float, dy: Float): WorkspaceState {
         if (selectedObjectsLocked) return this
         return editOutlines { outlines -> outlines.map {
-            if (it.id in selectedObjectIds && it.isPrimeObject()) it.movedBy(dx, dy) else it
+            when {
+                it.id in selectedObjectIds && it.isPrimeObject() -> it.movedBy(dx, dy)
+                it is Outline.Text && it.id in selectedTextOutlineIds ->
+                    it.copy(x = (it.x + dx).coerceAtLeast(0f), y = (it.y + dy).coerceAtLeast(0f))
+                else -> it
+            }
         } }
     }
 
@@ -302,7 +371,7 @@ data class WorkspaceState(
     fun selectNotebook(id: String): WorkspaceState {
         val notebook = notebooks.firstOrNull { it.id == id } ?: return this
         val section = notebook.sections.firstOrNull()
-        return copy(
+        return discardEmptyFocusedTextBox().copy(
             selectedNotebookId = notebook.id,
             selectedSectionId = section?.id.orEmpty(),
             selectedPageId = section?.pages?.firstOrNull()?.id.orEmpty(),
@@ -310,6 +379,7 @@ data class WorkspaceState(
             typingMarks = emptySet(),
             editorComposition = null,
             focusedTextOutlineId = null,
+            selectedTextOutlineIds = emptySet(),
             selectedObjectIds = emptySet(),
         )
     }
@@ -319,7 +389,7 @@ data class WorkspaceState(
             notebook.sections.any { it.id == id }
         } ?: return this
         val section = notebook.sections.first { it.id == id }
-        return copy(
+        return discardEmptyFocusedTextBox().copy(
             selectedNotebookId = notebook.id,
             selectedSectionId = section.id,
             selectedPageId = section.pages.firstOrNull()?.id.orEmpty(),
@@ -327,6 +397,7 @@ data class WorkspaceState(
             typingMarks = emptySet(),
             editorComposition = null,
             focusedTextOutlineId = null,
+            selectedTextOutlineIds = emptySet(),
             selectedObjectIds = emptySet(),
         )
     }
@@ -336,7 +407,7 @@ data class WorkspaceState(
             notebook.sections.firstOrNull { section -> section.pages.any { it.id == id } }
                 ?.let { section -> notebook to section }
         } ?: return this
-        return copy(
+        return discardEmptyFocusedTextBox().copy(
             selectedNotebookId = owner.first.id,
             selectedSectionId = owner.second.id,
             selectedPageId = id,
@@ -344,6 +415,7 @@ data class WorkspaceState(
             typingMarks = emptySet(),
             editorComposition = null,
             focusedTextOutlineId = null,
+            selectedTextOutlineIds = emptySet(),
             selectedObjectIds = emptySet(),
         )
     }

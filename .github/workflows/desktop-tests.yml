@@ -9,11 +9,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
-      # gradle/gradle-daemon-jvm.properties requires an Azul JDK 21 for the Gradle daemon.
+      # gradle/gradle-daemon-jvm.properties requires an Azul JDK 27 for the Gradle daemon.
       - uses: actions/setup-java@v6
         with:
           distribution: zulu
-          java-version: 21
+          java-version: 27
       - uses: gradle/actions/setup-gradle@v6
         with:
           cache-provider: basic
