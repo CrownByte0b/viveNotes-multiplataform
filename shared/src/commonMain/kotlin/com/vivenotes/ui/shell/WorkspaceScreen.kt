@@ -45,19 +45,41 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.BaselineShift
+import androidx.compose.ui.text.ParagraphStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.vivenotes.workspace.NotebookSummary
 import com.vivenotes.workspace.PageSummary
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.SectionSummary
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.model.Mark
+import com.vivenotes.model.BlockType
+import com.vivenotes.model.Align
+import com.vivenotes.richtext.RichTextBuffer
+import com.vivenotes.richtext.TextSelection
+import multiplataform_vive.shared.generated.resources.Res
+import multiplataform_vive.shared.generated.resources.inter
+import multiplataform_vive.shared.generated.resources.jetbrains_mono
+import multiplataform_vive.shared.generated.resources.lora
+import org.jetbrains.compose.resources.Font
 
 private val NotebookPaneWidth = 260.dp
 private val PagePaneWidth = 292.dp
@@ -71,6 +93,13 @@ object WorkspaceTestTags {
     const val AddPage = "workspace-add-page"
     const val TitleEditor = "workspace-title-editor"
     const val BodyEditor = "workspace-body-editor"
+    const val ClearFormatting = "workspace-clear-formatting"
+    const val Styles = "workspace-document-styles"
+
+    fun blockType(type: BlockType): String = "workspace-document-block-${type.name}"
+    fun alignment(align: Align): String = "workspace-document-align-${align.name}"
+
+    fun documentMark(mark: Mark): String = "workspace-document-${mark::class.simpleName}"
 
     fun ribbonTab(tab: RibbonTab): String = "workspace-ribbon-${tab.name}"
     fun section(id: String): String = "workspace-section-$id"
@@ -83,6 +112,7 @@ fun WorkspaceScreen(
     onStateChange: (WorkspaceState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val clipboard = LocalClipboardManager.current
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -96,7 +126,28 @@ fun WorkspaceScreen(
             },
             onSelectTab = { onStateChange(state.copy(activeTab = it)) },
         )
-        CommandRibbon(activeTab = state.activeTab)
+        if (state.activeTab == RibbonTab.Document) {
+            DocumentRibbon(
+                richText = state.richText,
+                onToggleMark = { onStateChange(state.toggleSelectedMark(it)) },
+                onSetMark = { onStateChange(state.setSelectedMark(it)) },
+                onClearMark = { onStateChange(state.clearSelectedMark(it)) },
+                onClearFormatting = { onStateChange(state.clearSelectedFormatting()) },
+                onBlockType = { onStateChange(state.setSelectedBlockType(it)) },
+                onAlign = { onStateChange(state.alignSelectedText(it)) },
+                onIndent = { onStateChange(state.indentSelectedText(it)) },
+                onCopy = { clipboard.setText(AnnotatedString(state.selectedText)) },
+                onCut = {
+                    clipboard.setText(AnnotatedString(state.selectedText))
+                    onStateChange(state.replaceSelectedText(""))
+                },
+                onPaste = {
+                    clipboard.getText()?.text?.let { onStateChange(state.replaceSelectedText(it)) }
+                },
+            )
+        } else {
+            CommandRibbon(activeTab = state.activeTab)
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -142,7 +193,15 @@ fun WorkspaceScreen(
                     page = state.selectedPage,
                     modifier = Modifier.weight(1f),
                     onTitleChange = { onStateChange(state.updateSelectedPage(title = it)) },
-                    onBodyChange = { onStateChange(state.updateSelectedPage(body = it)) },
+                    richText = state.richText,
+                    composition = state.editorComposition,
+                    onBodyChange = { value ->
+                        onStateChange(state.editSelectedText(
+                            value.text,
+                            TextSelection(value.selection.start, value.selection.end),
+                            value.composition?.let { TextSelection(it.start, it.end) },
+                        ))
+                    },
                 )
             }
         }
@@ -214,13 +273,12 @@ private fun TopNavigation(
 }
 
 @Composable
-private fun CommandRibbon(activeTab: RibbonTab) {
+private fun CommandRibbon(
+    activeTab: RibbonTab,
+) {
     val actions = when (activeTab) {
         RibbonTab.File -> listOf("Import", "Export", "Print", "History")
-        RibbonTab.Home -> listOf(
-            "Paste", "Cut", "Copy", "Font", "Size", "Bold", "Italic", "Underline", "Lists", "Align", "Picture",
-        )
-        RibbonTab.Insert -> listOf("Table", "File", "Picture", "Date", "Link", "Equation", "Shape")
+        RibbonTab.Document -> emptyList()
         RibbonTab.Draw -> listOf("Select", "Pen", "Highlighter", "Eraser", "Lasso", "Shape", "Ruler")
         RibbonTab.View -> listOf("Zoom", "Paper", "Page color", "Paper size", "Background")
         RibbonTab.Settings -> listOf("Appearance", "Hardware", "Models", "Account", "About")
@@ -497,7 +555,9 @@ private fun PageRow(
 private fun PageCanvas(
     page: PageSummary?,
     onTitleChange: (String) -> Unit,
-    onBodyChange: (String) -> Unit,
+    richText: RichTextBuffer?,
+    composition: TextSelection?,
+    onBodyChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val canvasBackground = MaterialTheme.colorScheme.background
@@ -573,11 +633,18 @@ private fun PageCanvas(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 920.dp),
             ) {
                 OutlinedTextField(
-                    value = page.body,
+                    value = TextFieldValue(
+                        annotatedString = richText?.asAnnotatedString() ?: buildAnnotatedString { append(page.body) },
+                        selection = TextRange(
+                            richText?.selection?.start ?: 0,
+                            richText?.selection?.end ?: 0,
+                        ),
+                        composition = composition?.let { TextRange(it.start, it.end) },
+                    ),
                     onValueChange = onBodyChange,
-                    label = { Text("Page text — in-memory skeleton") },
+                    label = { Text("Page text") },
                     minLines = 10,
-                    textStyle = MaterialTheme.typography.bodyLarge,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(12.dp)
@@ -590,12 +657,87 @@ private fun PageCanvas(
                 shape = MaterialTheme.shapes.large,
             ) {
                 Text(
-                    text = "This skeleton proves the desktop shell and shared state. Persistence and rich formatting arrive in later phases.",
+                    text = "In-memory preview. Changes are not saved between launches.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun RichTextBuffer.asAnnotatedString(): AnnotatedString {
+    val inter = FontFamily(Font(Res.font.inter))
+    val lora = FontFamily(Font(Res.font.lora))
+    val jetbrainsMono = FontFamily(Font(Res.font.jetbrains_mono))
+    return buildAnnotatedString {
+    blocks.forEachIndexed { blockIndex, block ->
+        if (blockIndex > 0) append('\n')
+        pushStyle(ParagraphStyle(textAlign = when (block.align) {
+            Align.Start -> TextAlign.Start
+            Align.Center -> TextAlign.Center
+            Align.End -> TextAlign.End
+        }))
+        pushStyle(SpanStyle(
+            fontWeight = when (block.type) {
+                BlockType.Heading1, BlockType.Heading2, BlockType.Heading3 -> FontWeight.Bold
+                else -> null
+            },
+            fontSize = when (block.type) {
+                BlockType.Heading1 -> 30.sp
+                BlockType.Heading2 -> 24.sp
+                BlockType.Heading3 -> 20.sp
+                else -> androidx.compose.ui.unit.TextUnit.Unspecified
+            },
+        ))
+        block.runs.forEach { run ->
+            val marks = run.marks
+            val selectedSize = marks.filterIsInstance<Mark.FontSize>().firstOrNull()?.sp
+            val script = Mark.Subscript in marks || Mark.Superscript in marks
+            val style = SpanStyle(
+                fontWeight = if (Mark.Bold in marks) FontWeight.Bold else null,
+                fontStyle = if (Mark.Italic in marks) FontStyle.Italic else null,
+                fontFamily = marks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.let {
+                    when (it.name.lowercase()) {
+                        "serif" -> FontFamily.Serif
+                        "monospace" -> FontFamily.Monospace
+                        "inter" -> inter
+                        "lora" -> lora
+                        "jetbrains_mono" -> jetbrainsMono
+                        "cursive" -> FontFamily.Cursive
+                        else -> FontFamily.SansSerif
+                    }
+                },
+                fontSize = when {
+                    script -> ((selectedSize ?: 15) * 0.8f).sp
+                    selectedSize != null -> selectedSize.sp
+                    else -> androidx.compose.ui.unit.TextUnit.Unspecified
+                },
+                baselineShift = when {
+                    Mark.Subscript in marks -> BaselineShift.Subscript
+                    Mark.Superscript in marks -> BaselineShift.Superscript
+                    else -> null
+                },
+                color = marks.filterIsInstance<Mark.TextColor>().firstOrNull()
+                    ?.let { Color(it.argb) } ?: Color.Unspecified,
+                background = marks.filterIsInstance<Mark.Highlight>().firstOrNull()
+                    ?.let { Color(it.argb) } ?: Color.Unspecified,
+                textDecoration = when {
+                    Mark.Underline in marks && Mark.Strikethrough in marks ->
+                        TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough))
+                    Mark.Underline in marks -> TextDecoration.Underline
+                    Mark.Strikethrough in marks -> TextDecoration.LineThrough
+                    else -> null
+                },
+            )
+            pushStyle(style)
+            append(run.editorText)
+            pop()
+        }
+        pop()
+        pop()
+    }
     }
 }
