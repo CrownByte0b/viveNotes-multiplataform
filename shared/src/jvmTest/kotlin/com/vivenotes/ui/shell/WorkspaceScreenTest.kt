@@ -1,14 +1,9 @@
 package com.vivenotes.ui.shell
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
@@ -18,9 +13,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
-import androidx.compose.ui.test.v2.runComposeUiTest
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
@@ -32,8 +25,8 @@ import kotlin.test.assertFalse
 class WorkspaceScreenTest {
 
     @Test
-    fun largeWindowShowsThreePaneWorkspace() = runComposeUiTest {
-        setWorkspace(width = 1400.dp)
+    fun largeWindowShowsThreePaneWorkspace() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        setWorkspace()
 
         onNodeWithTag(WorkspaceTestTags.NotebookPane).assertIsDisplayed()
         onNodeWithTag(WorkspaceTestTags.PagePane).assertIsDisplayed()
@@ -42,18 +35,19 @@ class WorkspaceScreenTest {
     }
 
     @Test
-    fun compactWindowKeepsCanvasAndCollapsesNavigationPanes() = runComposeUiTest {
-        setWorkspace(width = 700.dp)
+    fun compactWindowKeepsCanvasAndCollapsesNavigationPanes() =
+        runDesktopComposeUiTest(width = 700, height = 900) {
+            setWorkspace()
 
-        onNodeWithTag(WorkspaceTestTags.NotebookPane).assertDoesNotExist()
-        onNodeWithTag(WorkspaceTestTags.PagePane).assertDoesNotExist()
-        onNodeWithTag(WorkspaceTestTags.PageCanvas).assertIsDisplayed()
-    }
+            onNodeWithTag(WorkspaceTestTags.NotebookPane).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.PagePane).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).assertIsDisplayed()
+        }
 
     @Test
-    fun selectingSectionOpensItsFirstPage() = runComposeUiTest {
+    fun selectingSectionOpensItsFirstPage() = runDesktopComposeUiTest(width = 1400, height = 900) {
         var observed = WorkspaceState.demo()
-        setWorkspace(width = 1400.dp) { observed = it }
+        setWorkspace { observed = it }
 
         onNodeWithTag(WorkspaceTestTags.section("chapter-2")).performClick()
 
@@ -66,9 +60,9 @@ class WorkspaceScreenTest {
     }
 
     @Test
-    fun ribbonTabChangesVisibleCommands() = runComposeUiTest {
+    fun ribbonTabChangesVisibleCommands() = runDesktopComposeUiTest(width = 1400, height = 900) {
         var observed = WorkspaceState.demo()
-        setWorkspace(width = 1400.dp) { observed = it }
+        setWorkspace { observed = it }
 
         onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Draw)).performClick()
 
@@ -78,9 +72,9 @@ class WorkspaceScreenTest {
     }
 
     @Test
-    fun addPageAndEditPlaceholderContent() = runComposeUiTest {
+    fun addPageAndEditPlaceholderContent() = runDesktopComposeUiTest(width = 1400, height = 900) {
         var observed = WorkspaceState.demo()
-        setWorkspace(width = 1400.dp) { observed = it }
+        setWorkspace { observed = it }
 
         onNodeWithTag(WorkspaceTestTags.AddPage).performClick()
         onNodeWithTag(WorkspaceTestTags.TitleEditor).performTextReplacement("Project plan")
@@ -97,9 +91,9 @@ class WorkspaceScreenTest {
     }
 
     @Test
-    fun navigationToggleUpdatesVisibilityState() = runComposeUiTest {
+    fun navigationToggleUpdatesVisibilityState() = runDesktopComposeUiTest(width = 1400, height = 900) {
         var observed = WorkspaceState.demo()
-        setWorkspace(width = 1400.dp) { observed = it }
+        setWorkspace { observed = it }
 
         onNodeWithTag(WorkspaceTestTags.NavigationToggle).performClick()
 
@@ -107,25 +101,18 @@ class WorkspaceScreenTest {
     }
 
     private fun ComposeUiTest.setWorkspace(
-        width: Dp,
         onStateChange: (WorkspaceState) -> Unit = {},
     ) {
         setContent {
             var state by remember { mutableStateOf(WorkspaceState.demo()) }
             ViveNotesTheme(darkTheme = true) {
-                Box(
-                    Modifier
-                        .requiredSize(width, 900.dp)
-                        .wrapContentSize(Alignment.TopStart),
-                ) {
-                    WorkspaceScreen(
-                        state = state,
-                        onStateChange = {
-                            state = it
-                            onStateChange(it)
-                        },
-                    )
-                }
+                WorkspaceScreen(
+                    state = state,
+                    onStateChange = {
+                        state = it
+                        onStateChange(it)
+                    },
+                )
             }
         }
     }
