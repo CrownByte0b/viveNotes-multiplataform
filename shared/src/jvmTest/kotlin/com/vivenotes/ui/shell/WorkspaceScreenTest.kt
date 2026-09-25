@@ -9,20 +9,29 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.model.Mark
 import com.vivenotes.model.BlockType
+import com.vivenotes.model.Outline
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
@@ -155,10 +164,140 @@ class WorkspaceScreenTest {
                 WorkspaceTestTags.ClearFormatting, WorkspaceTestTags.Styles,
                 DocumentRibbonTags.Equation, DocumentRibbonTags.Link, DocumentRibbonTags.Picture,
             ).forEach { onNodeWithTag(it).assertExists() }
-            onNodeWithTag(DocumentRibbonTags.Text).assertIsNotEnabled()
+            onNodeWithTag(DocumentRibbonTags.Text).assertIsEnabled()
             onNodeWithTag(DocumentRibbonTags.Equation).assertIsNotEnabled()
             onNodeWithTag(DocumentRibbonTags.Link).assertIsNotEnabled()
             onNodeWithTag(DocumentRibbonTags.Picture).assertIsNotEnabled()
+        }
+
+    @Test
+    fun textButtonTogglesAndBareCanvasTapCreatesOnlyWhileArmed() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var observed = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            setWorkspace(initial = observed) { observed = it }
+            val initial = observed.selectedPage!!.document.outlines.size
+
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(780f, 500f)) }
+            runOnIdle { assertEquals(initial, observed.selectedPage!!.document.outlines.size) }
+            onNodeWithTag(DocumentRibbonTags.Text).performClick()
+            onNodeWithTag(DocumentRibbonTags.Text).assertIsSelected()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(780f, 500f)) }
+            runOnIdle { assertEquals(initial + 1, observed.selectedPage!!.document.outlines.size) }
+            onNodeWithTag(DocumentRibbonTags.Text).performClick()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(780f, 500f)) }
+            runOnIdle { assertEquals(initial + 1, observed.selectedPage!!.document.outlines.size) }
+        }
+
+    @Test
+    fun focusedNonEmptyTextBoxShowsCopySelectAllDeleteToolkit() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            val id = initial.focusedTextOutline!!.id
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
+            onNodeWithTag(WorkspaceTestTags.TextBoxCopy).assertExists()
+            onNodeWithTag(WorkspaceTestTags.ObjectColor).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.TextBoxSelectAll).performClick()
+            runOnIdle { assertEquals(observed.richText!!.text.length, observed.editorSelection.max) }
+            onNodeWithTag(WorkspaceTestTags.TextBoxCopy).performClick()
+            runOnIdle { assertEquals(id, observed.canvasClipboard.texts.single().id) }
+            onNodeWithTag(WorkspaceTestTags.TextBoxDelete).performClick()
+            runOnIdle { assertTrue(observed.selectedPage!!.document.outlines.none { it.id == id }) }
+        }
+
+    @Test
+    fun emptyTextBoxHidesToolkitUntilTextIsEntered() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().toggleTextTool().createTextBox(300f, 350f)
+                .copy(activeTab = RibbonTab.Document)
+            val id = initial.focusedTextOutline!!.id
+            setWorkspace(initial = initial)
+
+            onNodeWithTag(WorkspaceTestTags.TextBoxCopy).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.textGrip(id)).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.textBox(id) + "-editor")
+                .performTextReplacement("A new note")
+            onNodeWithTag(WorkspaceTestTags.TextBoxCopy).assertExists()
+            onNodeWithTag(WorkspaceTestTags.textGrip(id)).assertExists()
+        }
+
+    @Test
+    fun doubleClickOnEmptyCanvasOffersSharedObjectPaste() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            val initial = base.copyTextBox(base.focusedTextOutline!!.id)
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+            val before = initial.selectedPage!!.document.outlines.size
+
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                doubleClick(Offset(780f, 500f))
+            }
+            onNodeWithTag(WorkspaceTestTags.CanvasPaste).performClick()
+            runOnIdle { assertEquals(before + 1, observed.selectedPage!!.document.outlines.size) }
+        }
+
+    @Test
+    fun primeObjectToolkitLocksCopiesAndDeletesTheSelection() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            val pageId = base.selectedPageId
+            val shape = Outline.Shape(id = "ui-shape", x = 300f, y = 350f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id == pageId) page.copy(document = page.document.copy(
+                            outlines = page.document.outlines + shape)) else page
+                    })
+                })
+            })
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.primeObject(shape.id)).performClick()
+            onNodeWithTag(WorkspaceTestTags.ObjectColor).performClick()
+            onNodeWithContentDescription("Red").performClick()
+            runOnIdle { assertEquals(0xFFEF4444.toInt(),
+                (observed.selectedPage!!.document.outlines.first { it.id == shape.id } as Outline.Shape).borderArgb) }
+            onNodeWithTag(WorkspaceTestTags.ObjectLock).performClick()
+            runOnIdle { assertTrue(observed.selectedObjectsLocked) }
+            onNodeWithTag(WorkspaceTestTags.StructuralUndo).performClick()
+            runOnIdle { assertEquals(null, observed.selectedPage!!.document.outlines
+                .first { it.id == shape.id }.lockGroup) }
+            onNodeWithTag(WorkspaceTestTags.StructuralRedo).performClick()
+            runOnIdle { assertTrue(observed.selectedPage!!.document.outlines
+                .first { it.id == shape.id }.lockGroup != null) }
+            onNodeWithTag(WorkspaceTestTags.primeObject(shape.id)).performClick()
+            onNodeWithTag(WorkspaceTestTags.ObjectCopy).performClick()
+            runOnIdle { assertEquals(shape.id, observed.canvasClipboard.objects.single().id) }
+            onNodeWithTag(WorkspaceTestTags.ObjectDelete).performClick()
+            runOnIdle { assertTrue(observed.selectedPage!!.document.outlines.none { it.id == shape.id }) }
+        }
+
+    @Test
+    fun drawLassoSelectsPrimeObjectInCanvasRectangle() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
+            val id = base.selectedPageId
+            val shape = Outline.Shape(id = "lasso-shape", x = 300f, y = 350f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id == id) page.copy(document = page.document.copy(
+                            outlines = page.document.outlines + shape)) else page
+                    })
+                })
+            })
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.ObjectLasso).performClick()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+                swipe(start = Offset(250f, 320f), end = Offset(450f, 450f))
+            }
+            runOnIdle { assertEquals(setOf(shape.id), observed.selectedObjectIds) }
         }
 
     @Test

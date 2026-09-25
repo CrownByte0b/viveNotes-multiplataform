@@ -6,6 +6,8 @@ import com.vivenotes.model.Align
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
+import com.vivenotes.model.PageStyle
+import com.vivenotes.model.newId
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.TextSelection
 
@@ -27,6 +29,21 @@ data class PageSummary(
 ) {
     val body: String get() = document.outlines.filterIsInstance<Outline.Text>()
         .firstOrNull()?.blocks?.joinToString("\n") { it.text }.orEmpty()
+}
+
+private fun PageSummary.withDocument(next: PageDoc): PageSummary = copy(
+    document = next,
+    preview = next.outlines.filterIsInstance<Outline.Text>().firstOrNull()
+        ?.blocks?.joinToString("\n") { it.text }?.lineSequence()?.firstOrNull()?.take(72).orEmpty(),
+)
+
+/** Structural history changes containers, while edits made later to surviving text stay intact. */
+private fun PageDoc.withCurrentTextFrom(current: PageDoc): PageDoc {
+    val liveBlocks = current.outlines.filterIsInstance<Outline.Text>().associate { it.id to it.blocks }
+    return copy(outlines = outlines.map { outline ->
+        if (outline is Outline.Text) outline.copy(blocks = liveBlocks[outline.id] ?: outline.blocks)
+        else outline
+    })
 }
 
 private fun textDocument(body: String): PageDoc {
@@ -64,6 +81,13 @@ data class WorkspaceState(
     val editorSelection: TextSelection = TextSelection(0),
     val typingMarks: Set<Mark> = emptySet(),
     val editorComposition: TextSelection? = null,
+    val textToolArmed: Boolean = false,
+    val objectLassoArmed: Boolean = false,
+    val focusedTextOutlineId: String? = null,
+    val selectedObjectIds: Set<String> = emptySet(),
+    val canvasClipboard: CanvasClipboard = CanvasClipboard(),
+    val structuralUndo: List<StructuralSnapshot> = emptyList(),
+    val structuralRedo: List<StructuralSnapshot> = emptyList(),
 ) {
     val selectedNotebook: NotebookSummary?
         get() = notebooks.firstOrNull { it.id == selectedNotebookId }
@@ -76,9 +100,195 @@ data class WorkspaceState(
     val selectedPage: PageSummary?
         get() = selectedSection?.pages?.firstOrNull { it.id == selectedPageId }
 
-    val richText: RichTextBuffer?
+    val focusedTextOutline: Outline.Text?
         get() = selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()
-            ?.firstOrNull()?.let { RichTextBuffer(it.blocks, editorSelection, typingMarks) }
+            ?.firstOrNull { it.id == focusedTextOutlineId }
+            ?: selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()?.firstOrNull()
+
+    val richText: RichTextBuffer?
+        get() = focusedTextOutline?.let { RichTextBuffer(it.blocks, editorSelection, typingMarks) }
+
+    fun richTextFor(id: String): RichTextBuffer? =
+        selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()
+            ?.firstOrNull { it.id == id }?.let {
+                RichTextBuffer(it.blocks, if (id == focusedTextOutline?.id) editorSelection else TextSelection(0),
+                    if (id == focusedTextOutline?.id) typingMarks else emptySet())
+            }
+
+    fun toggleTextTool(): WorkspaceState = copy(
+        textToolArmed = !textToolArmed,
+        objectLassoArmed = false,
+        selectedObjectIds = emptySet(),
+    )
+
+    fun toggleObjectLasso(): WorkspaceState = copy(
+        objectLassoArmed = !objectLassoArmed,
+        textToolArmed = false,
+        selectedObjectIds = emptySet(),
+    )
+
+    fun focusTextBox(id: String): WorkspaceState {
+        if (selectedPage?.document?.outlines?.none { it is Outline.Text && it.id == id } != false) return this
+        return copy(focusedTextOutlineId = id, selectedObjectIds = emptySet(),
+            editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null)
+    }
+
+    fun clearCanvasFocus(): WorkspaceState = copy(focusedTextOutlineId = null, selectedObjectIds = emptySet())
+
+    fun createTextBox(x: Float, y: Float): WorkspaceState {
+        if (!textToolArmed || selectedPage == null || y < PageStyle.TITLE_BAND_DP) return this
+        val outline = Outline.Text.empty(y = y).copy(x = x.coerceAtLeast(0f))
+        return editOutlines { it + outline }.copy(focusedTextOutlineId = outline.id,
+            editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null)
+    }
+
+    fun moveTextBox(id: String, dx: Float, dy: Float): WorkspaceState = editOutlines { outlines ->
+        outlines.map { if (it is Outline.Text && it.id == id)
+            it.copy(x = (it.x + dx).coerceAtLeast(0f), y = (it.y + dy).coerceAtLeast(0f)) else it }
+    }
+
+    fun resizeTextBox(id: String, width: Float? = null, minHeight: Float? = null): WorkspaceState =
+        editOutlines { outlines -> outlines.map { if (it is Outline.Text && it.id == id)
+            it.copy(width = width?.coerceIn(120f, 2000f) ?: it.width,
+                minHeight = minHeight?.coerceIn(0f, 4000f) ?: it.minHeight) else it } }
+
+    fun copyTextBox(id: String): WorkspaceState {
+        val outline = selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()
+            ?.firstOrNull { it.id == id } ?: return this
+        return copy(canvasClipboard = CanvasClipboard(texts = listOf(outline)))
+    }
+
+    fun selectAllTextBox(id: String): WorkspaceState {
+        val focused = focusTextBox(id)
+        return focused.selectText(TextSelection(0, focused.richText?.text?.length ?: 0))
+    }
+
+    fun deleteTextBox(id: String): WorkspaceState = editOutlines { outlines ->
+        outlines.filterNot { it is Outline.Text && it.id == id }
+    }.copy(focusedTextOutlineId = null, editorSelection = TextSelection(0),
+        typingMarks = emptySet(), editorComposition = null)
+
+    fun pasteCanvasAt(x: Float, y: Float): WorkspaceState {
+        val page = selectedPage ?: return this
+        if (canvasClipboard.isEmpty) return this
+        val sources = canvasClipboard.outlines
+        val left = sources.minOf { it.x }
+        val top = sources.minOf { it.y }
+        val pasted = sources.map { it.duplicateAt(it.x - left + x.coerceAtLeast(0f),
+            it.y - top + y.coerceAtLeast(0f)) }
+        return editOutlines { it + pasted }.copy(
+            focusedTextOutlineId = pasted.filterIsInstance<Outline.Text>().firstOrNull()?.id,
+            selectedObjectIds = pasted.filter { it.isPrimeObject() }.map { it.id }.toSet(),
+            editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null,
+        )
+    }
+
+    private fun editOutlines(transform: (List<Outline>) -> List<Outline>): WorkspaceState {
+        val page = selectedPage ?: return this
+        val next = transform(page.document.outlines)
+        if (next == page.document.outlines) return this
+        val snapshot = StructuralSnapshot(page.id, page.document)
+        return updatePage(page.id) { it.withDocument(it.document.copy(outlines = next)) }
+            .copy(structuralUndo = (structuralUndo + snapshot).takeLast(100), structuralRedo = emptyList())
+    }
+
+    fun undoStructure(): WorkspaceState {
+        val prior = structuralUndo.lastOrNull() ?: return this
+        val page = selectedPage ?: return this
+        if (prior.pageId != page.id) return this
+        val restored = prior.document.withCurrentTextFrom(page.document)
+        return updatePage(page.id) { it.withDocument(restored) }.copy(
+            structuralUndo = structuralUndo.dropLast(1),
+            structuralRedo = structuralRedo + StructuralSnapshot(page.id, page.document),
+            focusedTextOutlineId = null, selectedObjectIds = emptySet(), editorSelection = TextSelection(0),
+        )
+    }
+
+    fun redoStructure(): WorkspaceState {
+        val next = structuralRedo.lastOrNull() ?: return this
+        val page = selectedPage ?: return this
+        if (next.pageId != page.id) return this
+        val restored = next.document.withCurrentTextFrom(page.document)
+        return updatePage(page.id) { it.withDocument(restored) }.copy(
+            structuralRedo = structuralRedo.dropLast(1),
+            structuralUndo = structuralUndo + StructuralSnapshot(page.id, page.document),
+            focusedTextOutlineId = null, selectedObjectIds = emptySet(), editorSelection = TextSelection(0),
+        )
+    }
+
+    /** Tapping one member of a locked group holds the whole group. */
+    fun selectObject(id: String): WorkspaceState {
+        val objects = selectedPage?.document?.outlines?.filter { it.isPrimeObject() } ?: return this
+        val tapped = objects.firstOrNull { it.id == id } ?: return this
+        val ids = if (tapped.lockGroup == null) setOf(id) else
+            objects.filter { it.lockGroup == tapped.lockGroup }.map { it.id }.toSet()
+        return copy(selectedObjectIds = ids, focusedTextOutlineId = null)
+    }
+
+    /** Mixed lassos prefer movable objects; a loop containing only locks selects those groups. */
+    fun selectObjectsInRect(left: Float, top: Float, right: Float, bottom: Float): WorkspaceState {
+        val objects = selectedPage?.document?.outlines?.filter { it.isPrimeObject() } ?: return this
+        val hit = objects.filter { it.x < right && it.x + it.width > left && it.y < bottom &&
+            it.y + it.primeHeight() > top }
+        val unlocked = hit.filter { it.lockGroup == null }
+        val ids = if (unlocked.isNotEmpty()) unlocked.map { it.id }.toSet() else {
+            val groups = hit.mapNotNull { it.lockGroup }.toSet()
+            objects.filter { it.lockGroup in groups }.map { it.id }.toSet()
+        }
+        return copy(selectedObjectIds = ids, focusedTextOutlineId = null)
+    }
+
+    val selectedObjectsLocked: Boolean get() = selectedObjectIds.isNotEmpty() &&
+        selectedPage?.document?.outlines?.filter { it.id in selectedObjectIds }
+            ?.all { it.lockGroup != null } == true
+
+    fun toggleObjectLock(): WorkspaceState {
+        if (selectedObjectIds.isEmpty()) return this
+        val group = if (selectedObjectsLocked) null else newId()
+        return editOutlines { outlines -> outlines.map {
+            if (it.id in selectedObjectIds && it.isPrimeObject()) it.withLockGroup(group) else it
+        } }
+    }
+
+    fun copySelectedObjects(): WorkspaceState {
+        val objects = selectedPage?.document?.outlines?.filter {
+            it.id in selectedObjectIds && it.isPrimeObject()
+        }.orEmpty()
+        return if (objects.isEmpty()) this else copy(canvasClipboard = CanvasClipboard(objects = objects))
+    }
+
+    fun deleteSelectedObjects(): WorkspaceState = editOutlines { outlines ->
+        outlines.filterNot { it.id in selectedObjectIds && it.isPrimeObject() }
+    }.copy(selectedObjectIds = emptySet())
+
+    fun moveSelectedObjects(dx: Float, dy: Float): WorkspaceState {
+        if (selectedObjectsLocked) return this
+        return editOutlines { outlines -> outlines.map {
+            if (it.id in selectedObjectIds && it.isPrimeObject()) it.movedBy(dx, dy) else it
+        } }
+    }
+
+    fun resizeSelectedObjects(anchorX: Float, anchorY: Float, scaleX: Float, scaleY: Float): WorkspaceState {
+        if (selectedObjectsLocked || scaleX <= 0f || scaleY <= 0f) return this
+        return editOutlines { outlines -> outlines.map { outline ->
+            if (outline.id !in selectedObjectIds) outline else when (outline) {
+                is Outline.Shape -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
+                is Outline.Table -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
+                is Outline.Equation -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
+                is Outline.Image -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
+                is Outline.Text, is Outline.Ink -> outline
+            }
+        } }
+    }
+
+    fun colorSelectedObjects(argb: Int): WorkspaceState = editOutlines { outlines -> outlines.map {
+        if (it.id !in selectedObjectIds) it else when (it) {
+            is Outline.Shape -> it.copy(borderArgb = argb, borderFollowsTheme = false)
+            is Outline.Table -> it.copy(borderArgb = argb, borderFollowsTheme = false)
+            is Outline.Equation -> it.copy(colorArgb = argb)
+            else -> it
+        }
+    } }
 
     fun selectNotebook(id: String): WorkspaceState {
         val notebook = notebooks.firstOrNull { it.id == id } ?: return this
@@ -90,6 +300,8 @@ data class WorkspaceState(
             editorSelection = TextSelection(0),
             typingMarks = emptySet(),
             editorComposition = null,
+            focusedTextOutlineId = null,
+            selectedObjectIds = emptySet(),
         )
     }
 
@@ -105,6 +317,8 @@ data class WorkspaceState(
             editorSelection = TextSelection(0),
             typingMarks = emptySet(),
             editorComposition = null,
+            focusedTextOutlineId = null,
+            selectedObjectIds = emptySet(),
         )
     }
 
@@ -120,6 +334,8 @@ data class WorkspaceState(
             editorSelection = TextSelection(0),
             typingMarks = emptySet(),
             editorComposition = null,
+            focusedTextOutlineId = null,
+            selectedObjectIds = emptySet(),
         )
     }
 
@@ -184,14 +400,12 @@ data class WorkspaceState(
 
     private fun withRichText(buffer: RichTextBuffer): WorkspaceState {
         val page = selectedPage ?: return this
-        val oldText = page.document.outlines.filterIsInstance<Outline.Text>().firstOrNull() ?: return this
+        val oldText = focusedTextOutline ?: return this
         val changedDoc = page.document.copy(outlines = page.document.outlines.map { outline ->
-            if (outline === oldText) oldText.copy(blocks = buffer.blocks) else outline
+            if (outline.id == oldText.id) oldText.copy(blocks = buffer.blocks) else outline
         })
-        return updatePage(page.id) { it.copy(
-            document = changedDoc,
-            preview = buffer.text.lineSequence().firstOrNull().orEmpty().take(72),
-        ) }.copy(editorSelection = buffer.selection, typingMarks = buffer.typingMarks)
+        return updatePage(page.id) { it.withDocument(changedDoc) }
+            .copy(editorSelection = buffer.selection, typingMarks = buffer.typingMarks)
     }
 
     fun addPage(): WorkspaceState {

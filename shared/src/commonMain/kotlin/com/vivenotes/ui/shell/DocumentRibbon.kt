@@ -84,6 +84,8 @@ private val HighlightColors = listOf(
 @Composable
 internal fun DocumentRibbon(
     richText: RichTextBuffer?,
+    textToolArmed: Boolean,
+    onToggleTextTool: () -> Unit,
     onToggleMark: (Mark) -> Unit,
     onSetMark: (Mark) -> Unit,
     onClearMark: (Mark) -> Unit,
@@ -110,7 +112,9 @@ internal fun DocumentRibbon(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            RibbonIcon(idle.insertText, "Text", enabled = false, tag = DocumentRibbonTags.Text) {}
+            RibbonIcon(if (textToolArmed) active.insertText else idle.insertText, "Text",
+                selected = textToolArmed, tag = DocumentRibbonTags.Text, twoTone = true,
+                onClick = onToggleTextTool)
             RibbonDivider()
             RibbonIcon(DocumentSymbols.ContentPaste, "Paste", enabled = richText != null, tag = DocumentRibbonTags.Paste, onClick = onPaste)
             RibbonIcon(DocumentSymbols.ContentCut, "Cut", enabled = richText != null && !richText.selection.collapsed, tag = DocumentRibbonTags.Cut, onClick = onCut)
