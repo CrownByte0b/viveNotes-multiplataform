@@ -15,6 +15,20 @@ import kotlin.test.assertFalse
 class WorkspaceStateTest {
 
     @Test
+    fun pointerCommandClearsToolsAndCanvasSelection() {
+        val initial = WorkspaceState.demo()
+        val text = initial.toggleTextTool().focusTextBox(initial.focusedTextOutline!!.id)
+        val pointer = text.selectPointer()
+        assertFalse(pointer.textToolArmed)
+        assertFalse(pointer.objectLassoArmed)
+        assertEquals(null, pointer.focusedTextOutlineId)
+
+        val lasso = initial.toggleObjectLasso().copy(selectedObjectIds = setOf("shape"))
+        assertEquals(emptySet(), lasso.selectPointer().selectedObjectIds)
+        assertFalse(lasso.selectPointer().objectLassoArmed)
+    }
+
+    @Test
     fun selectingSectionMovesSelectionToItsFirstPage() {
         val selected = WorkspaceState.demo().selectSection("chapter-2")
 

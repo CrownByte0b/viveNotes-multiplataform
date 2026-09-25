@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +35,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.focusable
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FilterChip
@@ -45,7 +45,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,10 +62,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
@@ -76,6 +73,13 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -95,6 +99,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.withFrameNanos
+import kotlin.math.roundToInt
+import com.vivenotes.workspace.CanvasViewport
 import com.vivenotes.workspace.NotebookSummary
 import com.vivenotes.workspace.PageSummary
 import com.vivenotes.workspace.RibbonTab
@@ -134,6 +146,8 @@ object WorkspaceTestTags {
     const val PagePane = "workspace-page-pane"
     const val PageCanvas = "workspace-page-canvas"
     const val CanvasBackground = "workspace-canvas-background"
+    const val ZoomIndicator = "workspace-zoom-indicator"
+    const val PointerTool = "workspace-pointer-tool"
     const val AddPage = "workspace-add-page"
     const val TitleEditor = "workspace-title-editor"
     const val BodyEditor = "workspace-body-editor"
@@ -176,6 +190,7 @@ fun WorkspaceScreen(
 ) {
     val clipboard = LocalClipboardManager.current
     val editorFocusRequester = remember { FocusRequester() }
+    val canvasFocusRequester = remember { FocusRequester() }
     var editorFocusRequest by remember { mutableIntStateOf(0) }
     fun applyEditorCommand(next: WorkspaceState) {
         onStateChange(next)
@@ -187,7 +202,15 @@ fun WorkspaceScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background)
+            .onPreviewKeyEvent { event ->
+                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                    onStateChange(state.selectPointer())
+                    true
+                } else false
+            }
+            .focusRequester(canvasFocusRequester)
+            .focusable(),
     ) {
         TopNavigation(
             activeTab = state.activeTab,
@@ -243,8 +266,11 @@ fun WorkspaceScreen(
                 },
             )
         } else {
-            CommandRibbon(activeTab = state.activeTab, lassoArmed = state.objectLassoArmed,
-                onToggleLasso = { onStateChange(state.toggleObjectLasso()) })
+            CommandRibbon(activeTab = state.activeTab,
+                lassoArmed = state.objectLassoArmed,
+                pointerActive = !state.textToolArmed && !state.objectLassoArmed,
+                onToggleLasso = { onStateChange(state.toggleObjectLasso()) },
+                onSelectPointer = { onStateChange(state.selectPointer()) })
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -290,6 +316,7 @@ fun WorkspaceScreen(
                 PageCanvas(
                     state = state,
                     editorFocusRequester = editorFocusRequester,
+                    canvasFocusRequester = canvasFocusRequester,
                     modifier = Modifier.weight(1f),
                     onTitleChange = { onStateChange(state.updateSelectedPage(title = it)) },
                     onFocusTextBox = { onStateChange(state.focusTextBox(it)) },
@@ -302,7 +329,10 @@ fun WorkspaceScreen(
                     onDeleteTextBox = { onStateChange(state.deleteTextBox(it)) },
                     onPasteCanvas = { x, y -> onStateChange(state.pasteCanvasAt(x, y)) },
                     onSelectObject = { onStateChange(state.selectObject(it)) },
-                    onMoveObjects = { dx, dy -> onStateChange(state.moveSelectedObjects(dx, dy)) },
+                    onMoveObject = { id, dx, dy ->
+                        val selected = if (id in state.selectedObjectIds) state else state.selectObject(id)
+                        onStateChange(selected.moveSelectedObjects(dx, dy))
+                    },
                     onResizeObjects = { ax, ay, sx, sy ->
                         onStateChange(state.resizeSelectedObjects(ax, ay, sx, sy))
                     },
@@ -409,7 +439,9 @@ private fun TopNavigation(
 private fun CommandRibbon(
     activeTab: RibbonTab,
     lassoArmed: Boolean,
+    pointerActive: Boolean,
     onToggleLasso: () -> Unit,
+    onSelectPointer: () -> Unit,
 ) {
     val actions = when (activeTab) {
         RibbonTab.File -> listOf("Import", "Export", "Print", "History")
@@ -430,12 +462,20 @@ private fun CommandRibbon(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             actions.forEach { action ->
-                OutlinedButton(
-                    onClick = { if (action == "Lasso") onToggleLasso() },
-                    enabled = action == "Lasso",
-                    modifier = if (action == "Lasso") Modifier.testTag(WorkspaceTestTags.ObjectLasso) else Modifier,
-                ) {
-                    Text(if (action == "Lasso" && lassoArmed) "Lasso ✓" else action)
+                when (action) {
+                    "Select" -> FilterChip(
+                        selected = pointerActive,
+                        onClick = onSelectPointer,
+                        label = { Text("Select") },
+                        modifier = Modifier.testTag(WorkspaceTestTags.PointerTool),
+                    )
+                    "Lasso" -> FilterChip(
+                        selected = lassoArmed,
+                        onClick = onToggleLasso,
+                        label = { Text("Lasso") },
+                        modifier = Modifier.testTag(WorkspaceTestTags.ObjectLasso),
+                    )
+                    else -> OutlinedButton(onClick = {}, enabled = false) { Text(action) }
                 }
             }
             Text(
@@ -691,6 +731,7 @@ private fun PageRow(
 private fun PageCanvas(
     state: WorkspaceState,
     editorFocusRequester: FocusRequester,
+    canvasFocusRequester: FocusRequester,
     onTitleChange: (String) -> Unit,
     onFocusTextBox: (String) -> Unit,
     onClearCanvasFocus: () -> Unit,
@@ -702,7 +743,7 @@ private fun PageCanvas(
     onDeleteTextBox: (String) -> Unit,
     onPasteCanvas: (Float, Float) -> Unit,
     onSelectObject: (String) -> Unit,
-    onMoveObjects: (Float, Float) -> Unit,
+    onMoveObject: (String, Float, Float) -> Unit,
     onResizeObjects: (Float, Float, Float, Float) -> Unit,
     onCopyObjects: () -> Unit,
     onDeleteObjects: () -> Unit,
@@ -715,9 +756,11 @@ private fun PageCanvas(
     val page = state.selectedPage
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
-    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+    val shellDark = MaterialTheme.colorScheme.background.luminance() < 0.45f
     val horizontalScroll = rememberScrollState()
     val verticalScroll = rememberScrollState()
+    var zoom by remember(page?.id) { mutableFloatStateOf(1f) }
+    var pendingViewport by remember(page?.id) { mutableStateOf<CanvasViewport?>(null) }
     var pastePoint by remember(page?.id) { mutableStateOf<Offset?>(null) }
     var lasso by remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
     val currentCreate by rememberUpdatedState(onCreateTextBox)
@@ -727,69 +770,101 @@ private fun PageCanvas(
     val currentState by rememberUpdatedState(state)
     val measuredTextHeights = remember(page?.id) { mutableStateMapOf<String, Float>() }
 
+    LaunchedEffect(zoom) {
+        val requested = pendingViewport ?: return@LaunchedEffect
+        withFrameNanos { }
+        horizontalScroll.scrollTo(requested.scrollX.roundToInt())
+        verticalScroll.scrollTo(requested.scrollY.roundToInt())
+        pendingViewport = null
+    }
+
+    fun toPage(point: Offset): Offset = with(density) {
+        Offset(
+            ((point.x + horizontalScroll.value) / zoom).toDp().value,
+            ((point.y + verticalScroll.value) / zoom).toDp().value,
+        )
+    }
+
+    fun hitsContent(point: Offset, snapshot: WorkspaceState): Boolean =
+        snapshot.selectedPage?.document?.outlines?.any { outline ->
+            val height = if (outline is Outline.Text) measuredTextHeights[outline.id]
+                ?: maxOf(150f, outline.minHeight) else outline.primeHeight()
+            val focusedText = outline is Outline.Text && snapshot.focusedTextOutlineId == outline.id
+            val hasText = outline is Outline.Text && outline.blocks.any { block ->
+                block.runs.any { run -> run.plainText.isNotEmpty() }
+            }
+            val toolbarBelow = focusedText && hasText && outline.y < 140f
+            val margin = if (focusedText) 16f else 0f
+            val chromeTop = if (focusedText) 80f else if (outline.id in snapshot.selectedObjectIds) 52f else 0f
+            val right = outline.x + if (toolbarBelow) maxOf(outline.width, 280f) else outline.width
+            point.x >= outline.x - margin && point.x <= right + margin &&
+                point.y >= outline.y - chromeTop &&
+                point.y <= outline.y + height + margin + if (toolbarBelow) 60f else 0f
+        } == true
+
     Box(
         modifier
             .testTag(WorkspaceTestTags.PageCanvas)
             .background(MaterialTheme.colorScheme.background)
             .pointerInput(page?.id) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.type == PointerEventType.Scroll && event.keyboardModifiers.isCtrlPressed) {
+                            val change = event.changes.firstOrNull() ?: continue
+                            val delta = if (change.scrollDelta.y != 0f) change.scrollDelta.y
+                                else change.scrollDelta.x
+                            val base = pendingViewport ?: CanvasViewport(zoom,
+                                horizontalScroll.value.toFloat(), verticalScroll.value.toFloat())
+                            val next = base.wheel(delta, change.position.x, change.position.y)
+                            if (next.zoom != zoom) {
+                                zoom = next.zoom
+                                pendingViewport = next
+                            }
+                            event.changes.forEach { it.consume() }
+                        }
+                    }
+                }
+            }
+            .pointerInput(page?.id) {
                 var previousTapTime = 0L
                 var previousTapPoint = Offset.Zero
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val start = toPage(down.position)
+                    val marquee = currentState.objectLassoArmed ||
+                        (!currentState.textToolArmed && start.y >= PageStyle.TITLE_BAND_DP &&
+                            !hitsContent(start, currentState))
                     var last = down
                     do {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         last = change
-                        if (currentState.objectLassoArmed &&
+                        if (marquee &&
                             (change.position - down.position).getDistance() >= 12.dp.toPx()) {
                             change.consume()
-                            val scroll = Offset(horizontalScroll.value.toFloat(), verticalScroll.value.toFloat())
-                            lasso = (down.position + scroll) to (change.position + scroll)
+                            lasso = start to toPage(change.position)
                         }
                     } while (last.pressed)
                     val distance = (last.position - down.position).getDistance()
-                    if (currentState.objectLassoArmed && distance >= 12.dp.toPx()) {
-                        val scroll = Offset(horizontalScroll.value.toFloat(), verticalScroll.value.toFloat())
-                        val a = down.position + scroll
-                        val b = last.position + scroll
+                    if (marquee && distance >= 12.dp.toPx()) {
+                        val a = start
+                        val b = toPage(last.position)
                         currentSelectObjects(
-                            with(density) { minOf(a.x, b.x).toDp().value },
-                            with(density) { minOf(a.y, b.y).toDp().value },
-                            with(density) { maxOf(a.x, b.x).toDp().value },
-                            with(density) { maxOf(a.y, b.y).toDp().value },
+                            minOf(a.x, b.x), minOf(a.y, b.y),
+                            maxOf(a.x, b.x), maxOf(a.y, b.y),
                         )
                         lasso = null
                     } else if (distance < 12.dp.toPx()) {
-                        val point = last.position + Offset(horizontalScroll.value.toFloat(), verticalScroll.value.toFloat())
-                        val x = with(density) { point.x.toDp().value }
-                        val y = with(density) { point.y.toDp().value }
-                        val doc = currentState.selectedPage?.document
-                        val hitsObject = doc?.outlines?.any { outline ->
-                            val height = if (outline is Outline.Text) measuredTextHeights[outline.id]
-                                ?: maxOf(150f, outline.minHeight)
-                                else outline.primeHeight()
-                            val focusedText = outline is Outline.Text &&
-                                currentState.focusedTextOutlineId == outline.id
-                            val hasText = outline is Outline.Text && outline.blocks.any { block ->
-                                block.runs.any { run -> run.plainText.isNotEmpty() }
-                            }
-                            val toolbarBelow = focusedText && hasText && outline.y < 140f
-                            val margin = if (outline is Outline.Text &&
-                                currentState.focusedTextOutlineId == outline.id) 16f else 0f
-                            val chromeTop = if (focusedText) 80f else if (
-                                outline.id in currentState.selectedObjectIds) 52f else 0f
-                            val right = outline.x + if (toolbarBelow) maxOf(outline.width, 280f)
-                                else outline.width
-                            x >= outline.x - margin && x <= right + margin &&
-                                y >= outline.y - chromeTop &&
-                                y <= outline.y + height + margin + if (toolbarBelow) 60f else 0f
-                        } == true
-                        if (!hitsObject && y >= PageStyle.TITLE_BAND_DP) {
+                        val point = toPage(last.position)
+                        val x = point.x
+                        val y = point.y
+                        if (!hitsContent(point, currentState) && y >= PageStyle.TITLE_BAND_DP) {
                             focusManager.clearFocus()
+                            canvasFocusRequester.requestFocus()
                             val isDouble = !currentState.canvasClipboard.isEmpty &&
                                 last.uptimeMillis - previousTapTime in 1..350 &&
-                                (point - previousTapPoint).getDistance() < 32.dp.toPx()
+                                (point - previousTapPoint).getDistance() < 32f
                             if (isDouble) {
                                 pastePoint = point
                             } else {
@@ -810,37 +885,44 @@ private fun PageCanvas(
         }
         Box(Modifier.fillMaxSize().horizontalScroll(horizontalScroll)
             .verticalScroll(verticalScroll)) {
-            Box(Modifier.requiredSize(2200.dp, 4500.dp)) {
-                Canvas(Modifier.fillMaxSize().testTag(WorkspaceTestTags.CanvasBackground)) {
-                    val step = 32.dp.toPx()
-                    var x = 0f
-                    while (x <= size.width) {
-                        drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), 1f)
-                        x += step
-                    }
-                    var y = 0f
-                    while (y <= size.height) {
-                        drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1f)
-                        y += step
-                    }
-                    lasso?.let { (a, b) ->
-                        val topLeft = Offset(minOf(a.x, b.x), minOf(a.y, b.y))
-                        val bounds = Size(kotlin.math.abs(a.x - b.x), kotlin.math.abs(a.y - b.y))
-                        drawRect(color = Color(0xFF1B6FA8).copy(alpha = 0.12f),
-                            topLeft = topLeft, size = bounds)
-                        drawRect(color = Color(0xFF1B6FA8), topLeft = topLeft,
-                            size = bounds, style = Stroke(width = 2.dp.toPx()))
+            val sheet = page.document.style.pageSizeDp
+            val contentRight = page.document.outlines.maxOfOrNull { it.x + it.width } ?: 0f
+            val contentBottom = page.document.outlines.maxOfOrNull { outline ->
+                outline.y + if (outline is Outline.Text) measuredTextHeights[outline.id]
+                    ?: maxOf(150f, outline.minHeight) else outline.primeHeight()
+            } ?: 0f
+            val sheetFits = sheet != null && contentRight <= sheet.first && contentBottom <= sheet.second
+            val canvasWidth = maxOf(2200f, sheet?.first ?: 0f, contentRight + 200f)
+            val canvasHeight = maxOf(4500f, sheet?.second ?: 0f, contentBottom + 200f)
+            val palette = canvasPalette(page.document.style, shellDark)
+            ZoomedCanvas(zoom) {
+            Box(Modifier.requiredSize(canvasWidth.dp, canvasHeight.dp)) {
+                CanvasPaper(page.document.style, palette, sheetFits, lasso)
+                if (!page.document.style.hideTitle) {
+                    Column(Modifier.offset(16.dp, 8.dp).width(720.dp)) {
+                        BasicTextField(
+                            value = page.title,
+                            onValueChange = onTitleChange,
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.headlineMedium.copy(color = palette.ink),
+                            cursorBrush = SolidColor(palette.ink),
+                            decorationBox = { inner ->
+                                Box {
+                                    if (page.title.isEmpty()) Text("Untitled page",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = palette.secondaryInk)
+                                    inner()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag(WorkspaceTestTags.TitleEditor),
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Box(Modifier.width(420.dp).height(1.dp).background(palette.rule))
+                        Spacer(Modifier.height(6.dp))
+                        Text(page.createdLabel, style = MaterialTheme.typography.bodySmall,
+                            color = palette.secondaryInk)
                     }
                 }
-                OutlinedTextField(
-                    value = page.title,
-                    onValueChange = onTitleChange,
-                    singleLine = true,
-                    label = { Text("Page title") },
-                    textStyle = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.offset(16.dp, 8.dp).width(720.dp)
-                        .testTag(WorkspaceTestTags.TitleEditor),
-                )
                 page.document.outlines.filterIsInstance<Outline.Text>().forEachIndexed { index, outline ->
                     val focused = state.focusedTextOutlineId == outline.id
                     val richText = state.richTextFor(outline.id)
@@ -923,7 +1005,7 @@ private fun PageCanvas(
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                             textStyle = MaterialTheme.typography.bodyLarge.copy(
                                 fontSize = 15.sp,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = palette.ink,
                             ),
                             modifier = Modifier.fillMaxWidth()
                                 .padding(8.dp)
@@ -966,7 +1048,8 @@ private fun PageCanvas(
                             })
                     }
                 }
-                val currentMoveObjects by rememberUpdatedState(onMoveObjects)
+                val currentMoveObject by rememberUpdatedState(onMoveObject)
+                val currentSelectObject by rememberUpdatedState(onSelectObject)
                 val currentResizeObjects by rememberUpdatedState(onResizeObjects)
                 page.document.outlines.filter { it.isPrimeObject() }.forEach { outline ->
                     val selected = outline.id in state.selectedObjectIds
@@ -990,20 +1073,23 @@ private fun PageCanvas(
                             .border(if (selected) 2.dp else 1.dp,
                                 if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                                 MaterialTheme.shapes.small)
-                            .pointerInput(outline.id, selected, state.selectedObjectsLocked) {
-                                if (selected && !state.selectedObjectsLocked) {
-                                    var total = Offset.Zero
-                                    detectDragGestures(
-                                        onDragStart = { total = Offset.Zero },
-                                        onDragEnd = { currentMoveObjects(
-                                            with(density) { total.x.toDp().value },
-                                            with(density) { total.y.toDp().value }) },
-                                        onDrag = { change, drag -> change.consume(); total += drag },
-                                    )
-                                }
+                            .pointerInput(outline.id) {
+                                var total = Offset.Zero
+                                detectDragGestures(
+                                    onDragStart = {
+                                        total = Offset.Zero
+                                        if (outline.id !in currentState.selectedObjectIds)
+                                            currentSelectObject(outline.id)
+                                    },
+                                    onDragEnd = { currentMoveObject(outline.id,
+                                        with(density) { total.x.toDp().value },
+                                        with(density) { total.y.toDp().value }) },
+                                    onDrag = { change, drag -> change.consume(); total += drag },
+                                )
                             }
                             .clickable {
                                 focusManager.clearFocus()
+                                canvasFocusRequester.requestFocus()
                                 onSelectObject(outline.id)
                             },
                     ) {
@@ -1111,16 +1197,43 @@ private fun PageCanvas(
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.offset(with(density) { point.x.toDp() },
-                            with(density) { point.y.toDp() }),
+                        modifier = Modifier.offset(point.x.dp, point.y.dp),
                     ) {
                         TextButton(onClick = {
-                            currentPaste(with(density) { point.x.toDp().value },
-                                with(density) { point.y.toDp().value })
+                            currentPaste(point.x, point.y)
                             pastePoint = null
                         }, modifier = Modifier.testTag(WorkspaceTestTags.CanvasPaste)) { Text("Paste") }
                     }
                 }
+            }
+            }
+        }
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.small,
+            tonalElevation = 2.dp,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp)
+                .testTag(WorkspaceTestTags.ZoomIndicator)
+                .semantics { contentDescription = "Canvas zoom ${(zoom * 100).roundToInt()} percent" },
+        ) {
+            Text("${(zoom * 100).roundToInt()}%",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+        }
+    }
+}
+
+/** Zoom participates in layout so both scroll axes can reach the whole scaled page. */
+@Composable
+private fun ZoomedCanvas(zoom: Float, content: @Composable () -> Unit) {
+    Layout(content = content) { measurables, _ ->
+        val placeable = measurables.first().measure(Constraints())
+        layout((placeable.width * zoom).roundToInt(), (placeable.height * zoom).roundToInt()) {
+            placeable.placeWithLayer(0, 0) {
+                scaleX = zoom
+                scaleY = zoom
+                transformOrigin = TransformOrigin(0f, 0f)
             }
         }
     }

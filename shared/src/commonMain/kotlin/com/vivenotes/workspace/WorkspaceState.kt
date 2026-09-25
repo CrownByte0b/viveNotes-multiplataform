@@ -127,6 +127,15 @@ data class WorkspaceState(
         selectedObjectIds = emptySet(),
     )
 
+    /** Escape and the Select command return to the ordinary mouse pointer. */
+    fun selectPointer(): WorkspaceState = copy(
+        textToolArmed = false,
+        objectLassoArmed = false,
+        focusedTextOutlineId = null,
+        selectedObjectIds = emptySet(),
+        editorComposition = null,
+    )
+
     fun focusTextBox(id: String): WorkspaceState {
         if (selectedPage?.document?.outlines?.none { it is Outline.Text && it.id == id } != false) return this
         return copy(focusedTextOutlineId = id, selectedObjectIds = emptySet(),

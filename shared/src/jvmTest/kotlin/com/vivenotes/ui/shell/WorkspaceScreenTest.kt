@@ -23,10 +23,13 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
@@ -436,6 +439,127 @@ class WorkspaceScreenTest {
                 swipe(start = Offset(250f, 320f), end = Offset(450f, 450f))
             }
             runOnIdle { assertEquals(setOf(shape.id), observed.selectedObjectIds) }
+        }
+
+    @Test
+    fun pointerModeDragsSelectionBoxOverObjectsAndSelectButtonClearsIt() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
+            val shape = Outline.Shape(id = "pointer-shape", x = 300f, y = 350f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id == base.selectedPageId) page.copy(
+                            document = page.document.copy(outlines = page.document.outlines + shape))
+                        else page
+                    })
+                })
+            })
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.PointerTool).assertIsSelected()
+
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                moveTo(Offset(250f, 320f))
+                press()
+                moveTo(Offset(450f, 450f))
+                release()
+            }
+            runOnIdle { assertEquals(setOf(shape.id), observed.selectedObjectIds) }
+            onNodeWithTag(WorkspaceTestTags.PointerTool).performClick()
+            runOnIdle { assertTrue(observed.selectedObjectIds.isEmpty()) }
+        }
+
+    @Test
+    fun draggingUnselectedObjectSelectsAndMovesIt() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo()
+            val shape = Outline.Shape(id = "drag-shape", x = 300f, y = 350f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id == base.selectedPageId) page.copy(
+                            document = page.document.copy(outlines = page.document.outlines + shape))
+                        else page
+                    })
+                })
+            })
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.primeObject(shape.id)).performMouseInput {
+                moveTo(Offset(40f, 35f))
+                press()
+                moveTo(Offset(100f, 65f))
+                release()
+            }
+            runOnIdle {
+                assertEquals(setOf(shape.id), observed.selectedObjectIds)
+                assertTrue(observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>()
+                    .first { it.id == shape.id }.x > shape.x)
+            }
+        }
+
+    @Test
+    fun escapeReturnsTextAndLassoToolsToPointerMode() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var observed = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            setWorkspace(initial = observed) { observed = it }
+
+            onNodeWithTag(DocumentRibbonTags.Text).performClick()
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performKeyInput {
+                keyDown(Key.Escape)
+                keyUp(Key.Escape)
+            }
+            runOnIdle { assertFalse(observed.textToolArmed) }
+            onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Draw)).performClick()
+            onNodeWithTag(WorkspaceTestTags.ObjectLasso).performClick()
+            onNodeWithTag(WorkspaceTestTags.ObjectLasso).assertIsSelected()
+            onNodeWithTag(WorkspaceTestTags.ObjectLasso).performKeyInput {
+                keyDown(Key.Escape)
+                keyUp(Key.Escape)
+            }
+            runOnIdle { assertFalse(observed.objectLassoArmed) }
+            onNodeWithTag(WorkspaceTestTags.PointerTool).assertIsSelected()
+        }
+
+    @Test
+    fun ctrlWheelZoomsCanvasAndUpdatesCornerIndicator() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            setWorkspace()
+            onNodeWithTag(WorkspaceTestTags.ZoomIndicator).assertExists()
+            onNodeWithText("100%").assertExists()
+            onRoot().performKeyInput { keyDown(Key.CtrlLeft) }
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                moveTo(Offset(500f, 400f))
+                scroll(-1f)
+            }
+            onRoot().performKeyInput { keyUp(Key.CtrlLeft) }
+            onNodeWithText("110%").assertExists()
+        }
+
+    @Test
+    fun canvasPlacementUsesPageCoordinatesAfterCursorAnchoredZoom() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var observed = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            setWorkspace(initial = observed) { observed = it }
+            onNodeWithTag(DocumentRibbonTags.Text).performClick()
+            onRoot().performKeyInput { keyDown(Key.CtrlLeft) }
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                moveTo(Offset(780f, 500f))
+                scroll(-1f)
+            }
+            onRoot().performKeyInput { keyUp(Key.CtrlLeft) }
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                click(Offset(780f, 500f))
+            }
+            runOnIdle {
+                val added = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
+                    .last()
+                assertEquals(780f, added.x, 1f)
+                assertEquals(500f, added.y, 1f)
+            }
         }
 
     @Test
