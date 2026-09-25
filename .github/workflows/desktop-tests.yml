@@ -1,0 +1,31 @@
+name: desktop tests
+on:
+  push:
+jobs:
+  test:
+    name: JVM desktop tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      # gradle/gradle-daemon-jvm.properties requires an Azul JDK 21 for the Gradle daemon.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+      - name: Run desktop tests
+        run: ./gradlew :shared:jvmTest :desktopApp:test --continue
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-test-reports
+          path: |
+            shared/build/reports/tests/
+            shared/build/test-results/
+            desktopApp/build/reports/tests/
+            desktopApp/build/test-results/
