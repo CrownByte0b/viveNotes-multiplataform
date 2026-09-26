@@ -11,6 +11,11 @@ class JvmTargetTest {
     fun desktopAndSharedClassesLoadOnJetBrainsRuntime25() {
         assertEquals(JAVA_25_CLASS_VERSION, classFileMajorVersion(WindowBackend::class.java))
         assertEquals(JAVA_25_CLASS_VERSION, classFileMajorVersion(WorkspaceState::class.java))
+        // What KSP generates for Room is compiled with the rest, and has to load on JBR 25 too.
+        assertEquals(
+            JAVA_25_CLASS_VERSION,
+            classFileMajorVersion(Class.forName("com.vivenotes.data.db.NotesDatabase_Impl")),
+        )
     }
 
     private fun classFileMajorVersion(type: Class<*>): Int =

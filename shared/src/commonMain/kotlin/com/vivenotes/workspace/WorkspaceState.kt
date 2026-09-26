@@ -1,5 +1,6 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.data.pagePreview
 import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Align
@@ -20,22 +21,38 @@ enum class RibbonTab {
     Settings,
 }
 
+/** Whether a page's [PageSummary.document] is its stored body or a stand-in for one. */
+enum class PageContent {
+    /** Not read yet: the document is an empty stand-in, shown only while the body loads. */
+    Unloaded,
+
+    /** The document is the stored body, with any edits not yet saved. */
+    Loaded,
+
+    /**
+     * The stored body could not be decoded. The stand-in is never edited, so nothing can ever save
+     * it over content that is merely unreadable rather than gone.
+     */
+    Unreadable,
+}
+
 data class PageSummary(
     val id: String,
     val title: String,
     val preview: String,
     val createdLabel: String,
     val document: PageDoc,
+    val content: PageContent = PageContent.Loaded,
 ) {
     val body: String get() = document.outlines.filterIsInstance<Outline.Text>()
         .firstOrNull()?.blocks?.joinToString("\n") { it.text }.orEmpty()
+
+    /** Only a body that was actually read may change: an edit to a stand-in would be saved over it. */
+    val editable: Boolean get() = content == PageContent.Loaded
 }
 
-private fun PageSummary.withDocument(next: PageDoc): PageSummary = copy(
-    document = next,
-    preview = next.outlines.filterIsInstance<Outline.Text>().firstOrNull()
-        ?.blocks?.joinToString("\n") { it.text }?.lineSequence()?.firstOrNull()?.take(72).orEmpty(),
-)
+private fun PageSummary.withDocument(next: PageDoc): PageSummary =
+    copy(document = next, preview = pagePreview(next))
 
 /** Structural history changes containers, while edits made later to surviving text stay intact. */
 private fun PageDoc.withCurrentTextFrom(current: PageDoc): PageDoc {
@@ -66,10 +83,10 @@ data class NotebookSummary(
 )
 
 /**
- * Immutable state for the first executable shell.
+ * Immutable state for the workspace window.
  *
- * This is intentionally independent of Room and ViewModel. Phase 2 can feed the same shape from a
- * repository without making the shared UI aware of where notes are stored.
+ * Independent of Room and of where notes are stored: `WorkspaceSession` fills it from storage and
+ * writes its edits back, and tests build it directly.
  */
 data class WorkspaceState(
     val notebooks: List<NotebookSummary>,
@@ -89,6 +106,8 @@ data class WorkspaceState(
     val canvasClipboard: CanvasClipboard = CanvasClipboard(),
     val structuralUndo: List<StructuralSnapshot> = emptyList(),
     val structuralRedo: List<StructuralSnapshot> = emptyList(),
+    /** Why the last read or write of notes storage failed, until one succeeds again. */
+    val storageError: String? = null,
 ) {
     val selectedNotebook: NotebookSummary?
         get() = notebooks.firstOrNull { it.id == selectedNotebookId }
@@ -100,6 +119,10 @@ data class WorkspaceState(
 
     val selectedPage: PageSummary?
         get() = selectedSection?.pages?.firstOrNull { it.id == selectedPageId }
+
+    /** The selected page, when its document may be changed; every edit goes through this. */
+    private val editablePage: PageSummary?
+        get() = selectedPage?.takeIf { it.editable }
 
     val focusedTextOutline: Outline.Text?
         get() = selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()
@@ -154,7 +177,7 @@ data class WorkspaceState(
 
     private fun discardEmptyFocusedTextBox(): WorkspaceState {
         val id = focusedTextOutlineId ?: return this
-        val page = selectedPage ?: return this
+        val page = editablePage ?: return this
         val outline = page.document.outlines.firstOrNull { it.id == id } as? Outline.Text
             ?: return this
         if (!outline.isUnwritten()) return this
@@ -170,9 +193,10 @@ data class WorkspaceState(
         blocks.isNotEmpty() && blocks.all { it.text.isBlank() }
 
     fun createTextBox(x: Float, y: Float): WorkspaceState {
-        if (!textToolArmed || selectedPage == null || y < PageStyle.TITLE_BAND_DP) return this
+        val page = editablePage
+        if (!textToolArmed || page == null || y < PageStyle.TITLE_BAND_DP) return this
         val outline = Outline.Text.empty(y = y).copy(x = x.coerceAtLeast(0f))
-        val removedIds = selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
+        val removedIds = page.document.outlines.filterIsInstance<Outline.Text>()
             .filter { it.isUnwritten() }.map { it.id }.toSet()
         return editOutlines { outlines ->
             outlines.filterNot { it is Outline.Text && it.isUnwritten() } + outline
@@ -225,8 +249,7 @@ data class WorkspaceState(
         selectedTextOutlineIds = selectedTextOutlineIds - id)
 
     fun pasteCanvasAt(x: Float, y: Float): WorkspaceState {
-        val page = selectedPage ?: return this
-        if (canvasClipboard.isEmpty) return this
+        if (editablePage == null || canvasClipboard.isEmpty) return this
         val sources = canvasClipboard.outlines
         val left = sources.minOf { it.x }
         val top = sources.minOf { it.y }
@@ -241,7 +264,7 @@ data class WorkspaceState(
     }
 
     private fun editOutlines(transform: (List<Outline>) -> List<Outline>): WorkspaceState {
-        val page = selectedPage ?: return this
+        val page = editablePage ?: return this
         val next = transform(page.document.outlines)
         if (next == page.document.outlines) return this
         val snapshot = StructuralSnapshot(page.id, page.document)
@@ -251,7 +274,7 @@ data class WorkspaceState(
 
     fun undoStructure(): WorkspaceState {
         val prior = structuralUndo.lastOrNull() ?: return this
-        val page = selectedPage ?: return this
+        val page = editablePage ?: return this
         if (prior.pageId != page.id) return this
         val restored = prior.document.withCurrentTextFrom(page.document)
         return updatePage(page.id) { it.withDocument(restored) }.copy(
@@ -264,7 +287,7 @@ data class WorkspaceState(
 
     fun redoStructure(): WorkspaceState {
         val next = structuralRedo.lastOrNull() ?: return this
-        val page = selectedPage ?: return this
+        val page = editablePage ?: return this
         if (next.pageId != page.id) return this
         val restored = next.document.withCurrentTextFrom(page.document)
         return updatePage(page.id) { it.withDocument(restored) }.copy(
@@ -430,10 +453,7 @@ data class WorkspaceState(
             copy(editorSelection = TextSelection(0, length), typingMarks = emptySet())
                 .richText?.replace(body)?.let(::withRichText) ?: this
         }
-        return withBody.updatePage(selectedPageId) { it.copy(
-            title = title,
-            preview = body.lineSequence().firstOrNull().orEmpty().take(72),
-        ) }
+        return withBody.updatePage(selectedPageId) { it.copy(title = title) }
     }
 
     fun selectText(selection: TextSelection): WorkspaceState {
@@ -480,7 +500,7 @@ data class WorkspaceState(
         richText?.indent(delta)?.let(::withRichText) ?: this
 
     private fun withRichText(buffer: RichTextBuffer): WorkspaceState {
-        val page = selectedPage ?: return this
+        val page = editablePage ?: return this
         val oldText = focusedTextOutline ?: return this
         val changedDoc = page.document.copy(outlines = page.document.outlines.map { outline ->
             if (outline.id == oldText.id) oldText.copy(blocks = buffer.blocks) else outline
@@ -489,6 +509,10 @@ data class WorkspaceState(
             .copy(editorSelection = buffer.selection, typingMarks = buffer.typingMarks)
     }
 
+    /**
+     * An in-memory draft page, for the sample workspace. A stored workspace creates its pages in
+     * storage instead — `WorkspaceSession.addPage` — so that they have real ids and survive.
+     */
     fun addPage(): WorkspaceState {
         val section = selectedSection ?: return this
         val ordinal = section.pages.size + 1
@@ -504,7 +528,8 @@ data class WorkspaceState(
             .copy(selectedPageId = id, editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null)
     }
 
-    private fun updatePage(id: String, transform: (PageSummary) -> PageSummary): WorkspaceState =
+    /** Replaces one page wherever it is. No editability check: storage uses it to load and unload. */
+    internal fun updatePage(id: String, transform: (PageSummary) -> PageSummary): WorkspaceState =
         copy(
             notebooks = notebooks.map { notebook ->
                 notebook.copy(

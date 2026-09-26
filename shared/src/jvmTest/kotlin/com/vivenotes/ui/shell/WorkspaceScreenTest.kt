@@ -467,6 +467,40 @@ class WorkspaceScreenTest {
             runOnIdle { assertTrue(observed.selectedPage!!.document.outlines.none { it.id == shape.id }) }
         }
 
+    /**
+     * Regression: a toolkit wider than its object puts its later buttons over bare page, and the
+     * page took their clicks as taps on itself too. Whichever handled the click first, the object
+     * lost its selection — before the button acted on it, or right after.
+     */
+    @Test
+    fun toolkitButtonsPastANarrowObjectActWithoutClearingTheSelection() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo()
+            val narrow = Outline.Shape(id = "narrow", x = 300f, y = 350f, width = 40f, height = 40f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id != base.selectedPageId) page else page.copy(document = page.document.copy(
+                            outlines = page.document.outlines + narrow))
+                    })
+                })
+            })
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.primeObject(narrow.id)).performClick()
+            onNodeWithTag(WorkspaceTestTags.ObjectCopy).performClick()
+
+            runOnIdle {
+                assertEquals(listOf(narrow.id), observed.canvasClipboard.objects.map { it.id })
+                assertEquals(setOf(narrow.id), observed.selectedObjectIds)
+            }
+            onNodeWithTag(WorkspaceTestTags.ObjectDelete).performClick()
+            runOnIdle {
+                assertTrue(observed.selectedPage!!.document.outlines.none { it.id == narrow.id })
+            }
+        }
+
     @Test
     fun drawLassoSelectsPrimeObjectInCanvasRectangle() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
@@ -733,10 +767,10 @@ class WorkspaceScreenTest {
             var state by remember { mutableStateOf(initial) }
             ViveNotesTheme(darkTheme = true) {
                 if (clipboard == null) {
-                    WorkspaceScreen(state = state, onStateChange = { state = it; onStateChange(it) })
+                    WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) })
                 } else {
                     CompositionLocalProvider(LocalClipboardManager provides clipboard) {
-                        WorkspaceScreen(state = state, onStateChange = { state = it; onStateChange(it) })
+                        WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) })
                     }
                 }
             }

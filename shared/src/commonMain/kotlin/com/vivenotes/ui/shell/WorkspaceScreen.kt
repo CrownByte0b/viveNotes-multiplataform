@@ -3,7 +3,11 @@ package com.vivenotes.ui.shell
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,7 +68,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -108,6 +114,7 @@ import androidx.compose.runtime.withFrameNanos
 import kotlin.math.roundToInt
 import com.vivenotes.workspace.CanvasViewport
 import com.vivenotes.workspace.NotebookSummary
+import com.vivenotes.workspace.PageContent
 import com.vivenotes.workspace.PageSummary
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.SectionSummary
@@ -162,6 +169,8 @@ object WorkspaceTestTags {
     const val ObjectLasso = "workspace-object-lasso"
     const val StructuralUndo = "workspace-structural-undo"
     const val StructuralRedo = "workspace-structural-redo"
+    const val StorageError = "workspace-storage-error"
+    const val UnreadablePage = "workspace-unreadable-page"
     fun primeObject(id: String): String = "workspace-prime-object-$id"
     fun objectCorner(id: String, corner: Int): String = "workspace-object-corner-$id-$corner"
     fun textBox(id: String): String = "workspace-text-box-$id"
@@ -182,20 +191,31 @@ object WorkspaceTestTags {
     fun page(id: String): String = "workspace-page-$id"
 }
 
+/**
+ * The workspace window's content.
+ *
+ * [onStateChange] receives a transition rather than a finished state, and whoever holds the state
+ * applies it to the newest one it has — once, on the UI thread. Storage delivers pages and bodies
+ * between frames, and a state computed from the last frame would quietly undo them.
+ */
 @Composable
 fun WorkspaceScreen(
     state: WorkspaceState,
-    onStateChange: (WorkspaceState) -> Unit,
+    onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
     modifier: Modifier = Modifier,
+    onAddPage: () -> Unit = { onStateChange { it.addPage() } },
 ) {
     val clipboard = LocalClipboardManager.current
     val editorFocusRequester = remember { FocusRequester() }
     val canvasFocusRequester = remember { FocusRequester() }
     var editorFocusRequest by remember { mutableIntStateOf(0) }
-    fun applyEditorCommand(next: WorkspaceState) {
-        onStateChange(next)
+    fun applyEditorCommand(transform: (WorkspaceState) -> WorkspaceState) {
+        onStateChange(transform)
         editorFocusRequest++
     }
+    // A ribbon command acts on the range captured when its pointer went down, if there was one.
+    fun WorkspaceState.withRibbonSelection(selection: TextSelection?): WorkspaceState =
+        selection?.let(::selectText) ?: this
     LaunchedEffect(editorFocusRequest) {
         if (editorFocusRequest > 0) editorFocusRequester.requestFocus()
     }
@@ -205,7 +225,7 @@ fun WorkspaceScreen(
             .background(MaterialTheme.colorScheme.background)
             .onPreviewKeyEvent { event ->
                 if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
-                    onStateChange(state.selectPointer())
+                    onStateChange { it.selectPointer() }
                     true
                 } else false
             }
@@ -216,63 +236,64 @@ fun WorkspaceScreen(
             activeTab = state.activeTab,
             navigationVisible = state.navigationVisible,
             onToggleNavigation = {
-                onStateChange(state.copy(navigationVisible = !state.navigationVisible))
+                onStateChange { it.copy(navigationVisible = !it.navigationVisible) }
             },
-            onSelectTab = { onStateChange(state.selectPointer().copy(activeTab = it)) },
+            onSelectTab = { tab -> onStateChange { it.selectPointer().copy(activeTab = tab) } },
             canUndo = state.structuralUndo.isNotEmpty(),
             canRedo = state.structuralRedo.isNotEmpty(),
-            onUndo = { onStateChange(state.undoStructure()) },
-            onRedo = { onStateChange(state.redoStructure()) },
+            onUndo = { onStateChange { it.undoStructure() } },
+            onRedo = { onStateChange { it.redoStructure() } },
         )
         if (state.activeTab == RibbonTab.Document) {
             DocumentRibbon(
                 richText = state.richText,
                 textToolArmed = state.textToolArmed,
-                onToggleTextTool = { onStateChange(state.toggleTextTool()) },
+                onToggleTextTool = { onStateChange { it.toggleTextTool() } },
                 onToggleMark = { mark, selection ->
-                    applyEditorCommand((selection?.let(state::selectText) ?: state).toggleSelectedMark(mark))
+                    applyEditorCommand { it.withRibbonSelection(selection).toggleSelectedMark(mark) }
                 },
                 onSetMark = { mark, selection ->
-                    applyEditorCommand((selection?.let(state::selectText) ?: state).setSelectedMark(mark))
+                    applyEditorCommand { it.withRibbonSelection(selection).setSelectedMark(mark) }
                 },
                 onClearMark = { mark, selection ->
-                    applyEditorCommand((selection?.let(state::selectText) ?: state).clearSelectedMark(mark))
+                    applyEditorCommand { it.withRibbonSelection(selection).clearSelectedMark(mark) }
                 },
                 onClearFormatting = { selection ->
-                    applyEditorCommand((selection?.let(state::selectText) ?: state).clearSelectedFormatting())
+                    applyEditorCommand { it.withRibbonSelection(selection).clearSelectedFormatting() }
                 },
                 onBlockType = { type, selection ->
-                    applyEditorCommand((selection?.let(state::selectText) ?: state).setSelectedBlockType(type))
+                    applyEditorCommand { it.withRibbonSelection(selection).setSelectedBlockType(type) }
                 },
                 onAlign = { align, selection ->
-                    applyEditorCommand((selection?.let(state::selectText) ?: state).alignSelectedText(align))
+                    applyEditorCommand { it.withRibbonSelection(selection).alignSelectedText(align) }
                 },
                 onIndent = { delta, selection ->
-                    applyEditorCommand((selection?.let(state::selectText) ?: state).indentSelectedText(delta))
+                    applyEditorCommand { it.withRibbonSelection(selection).indentSelectedText(delta) }
                 },
+                // The clipboard takes the text the user can see selected, from this frame's state.
                 onCopy = { selection ->
-                    val selected = selection?.let(state::selectText) ?: state
-                    clipboard.setText(AnnotatedString(selected.selectedText))
-                    applyEditorCommand(selected)
+                    clipboard.setText(AnnotatedString(state.withRibbonSelection(selection).selectedText))
+                    applyEditorCommand { it.withRibbonSelection(selection) }
                 },
                 onCut = { selection ->
-                    val selected = selection?.let(state::selectText) ?: state
-                    clipboard.setText(AnnotatedString(selected.selectedText))
-                    applyEditorCommand(selected.replaceSelectedText(""))
+                    clipboard.setText(AnnotatedString(state.withRibbonSelection(selection).selectedText))
+                    applyEditorCommand { it.withRibbonSelection(selection).replaceSelectedText("") }
                 },
                 onPaste = { selection ->
-                    val selected = selection?.let(state::selectText) ?: state
-                    clipboard.getText()?.text?.let { applyEditorCommand(selected.replaceSelectedText(it)) }
+                    clipboard.getText()?.text?.let { text ->
+                        applyEditorCommand { it.withRibbonSelection(selection).replaceSelectedText(text) }
+                    }
                 },
             )
         } else {
             CommandRibbon(activeTab = state.activeTab,
                 lassoArmed = state.objectLassoArmed,
                 pointerActive = !state.textToolArmed && !state.objectLassoArmed,
-                onToggleLasso = { onStateChange(state.toggleObjectLasso()) },
-                onSelectPointer = { onStateChange(state.selectPointer()) })
+                onToggleLasso = { onStateChange { it.toggleObjectLasso() } },
+                onSelectPointer = { onStateChange { it.selectPointer() } })
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        StorageErrorBanner(state.storageError)
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val showNotebookPane = maxWidth >= 1040.dp && state.navigationVisible
@@ -291,8 +312,8 @@ fun WorkspaceScreen(
                 ) {
                     NotebookPane(
                         state = state,
-                        onSelectNotebook = { onStateChange(state.selectNotebook(it)) },
-                        onSelectSection = { onStateChange(state.selectSection(it)) },
+                        onSelectNotebook = { id -> onStateChange { it.selectNotebook(id) } },
+                        onSelectSection = { id -> onStateChange { it.selectSection(id) } },
                     )
                 }
                 if (showNotebookPane) {
@@ -305,8 +326,8 @@ fun WorkspaceScreen(
                     PageListPane(
                         section = state.selectedSection,
                         selectedPageId = state.selectedPageId,
-                        onAddPage = { onStateChange(state.addPage()) },
-                        onSelectPage = { onStateChange(state.selectPage(it)) },
+                        onAddPage = onAddPage,
+                        onSelectPage = { id -> onStateChange { it.selectPage(id) } },
                     )
                     VerticalDivider(
                         modifier = Modifier.fillMaxHeight(),
@@ -318,43 +339,50 @@ fun WorkspaceScreen(
                     editorFocusRequester = editorFocusRequester,
                     canvasFocusRequester = canvasFocusRequester,
                     modifier = Modifier.weight(1f),
-                    onTitleChange = { onStateChange(state.updateSelectedPage(title = it)) },
-                    onFocusTextBox = { onStateChange(state.focusTextBox(it)) },
-                    onClearCanvasFocus = { onStateChange(state.clearCanvasFocus()) },
+                    onTitleChange = { title -> onStateChange { it.updateSelectedPage(title = title) } },
+                    onFocusTextBox = { id -> onStateChange { it.focusTextBox(id) } },
+                    onClearCanvasFocus = { onStateChange { it.clearCanvasFocus() } },
                     onCreateTextBox = { x, y ->
-                        val next = state.createTextBox(x, y)
-                        onStateChange(next)
-                        if (next.focusedTextOutlineId != state.focusedTextOutlineId) editorFocusRequest++
+                        // Decided on what is on screen: a box placed there is the one that types next.
+                        val focusMoves = state.createTextBox(x, y).focusedTextOutlineId != state.focusedTextOutlineId
+                        onStateChange { it.createTextBox(x, y) }
+                        if (focusMoves) editorFocusRequest++
                     },
-                    onMoveTextBox = { id, dx, dy -> onStateChange(state.moveTextBox(id, dx, dy)) },
-                    onMoveSelectedTexts = { dx, dy -> onStateChange(state.moveSelectedObjects(dx, dy)) },
-                    onResizeTextBox = { id, width, height -> onStateChange(state.resizeTextBox(id, width, height)) },
-                    onCopyTextBox = { onStateChange(state.copyTextBox(it)) },
-                    onSelectAllTextBox = { onStateChange(state.selectAllTextBox(it)) },
-                    onDeleteTextBox = { onStateChange(state.deleteTextBox(it)) },
-                    onPasteCanvas = { x, y -> onStateChange(state.pasteCanvasAt(x, y)) },
-                    onSelectObject = { onStateChange(state.selectObject(it)) },
+                    onMoveTextBox = { id, dx, dy -> onStateChange { it.moveTextBox(id, dx, dy) } },
+                    onMoveSelectedTexts = { dx, dy -> onStateChange { it.moveSelectedObjects(dx, dy) } },
+                    onResizeTextBox = { id, width, height ->
+                        onStateChange { it.resizeTextBox(id, width, height) }
+                    },
+                    onCopyTextBox = { id -> onStateChange { it.copyTextBox(id) } },
+                    onSelectAllTextBox = { id -> onStateChange { it.selectAllTextBox(id) } },
+                    onDeleteTextBox = { id -> onStateChange { it.deleteTextBox(id) } },
+                    onPasteCanvas = { x, y -> onStateChange { it.pasteCanvasAt(x, y) } },
+                    onSelectObject = { id -> onStateChange { it.selectObject(id) } },
                     onMoveObject = { id, dx, dy ->
-                        val selected = if (id in state.selectedObjectIds) state else state.selectObject(id)
-                        onStateChange(selected.moveSelectedObjects(dx, dy))
+                        onStateChange { current ->
+                            val selected = if (id in current.selectedObjectIds) current else current.selectObject(id)
+                            selected.moveSelectedObjects(dx, dy)
+                        }
                     },
                     onResizeObjects = { ax, ay, sx, sy ->
-                        onStateChange(state.resizeSelectedObjects(ax, ay, sx, sy))
+                        onStateChange { it.resizeSelectedObjects(ax, ay, sx, sy) }
                     },
-                    onCopyObjects = { onStateChange(state.copySelectedObjects()) },
-                    onDeleteObjects = { onStateChange(state.deleteSelectedObjects()) },
-                    onToggleObjectLock = { onStateChange(state.toggleObjectLock()) },
-                    onColorObjects = { onStateChange(state.colorSelectedObjects(it)) },
+                    onCopyObjects = { onStateChange { it.copySelectedObjects() } },
+                    onDeleteObjects = { onStateChange { it.deleteSelectedObjects() } },
+                    onToggleObjectLock = { onStateChange { it.toggleObjectLock() } },
+                    onColorObjects = { argb -> onStateChange { it.colorSelectedObjects(argb) } },
                     onSelectObjectsInRect = { l, t, r, b ->
-                        onStateChange(state.selectObjectsInRect(l, t, r, b))
+                        onStateChange { it.selectObjectsInRect(l, t, r, b) }
                     },
                     onBodyChange = { id, value ->
-                        val focused = if (state.focusedTextOutlineId == id) state else state.focusTextBox(id)
-                        onStateChange(focused.editSelectedText(
-                            value.text,
-                            TextSelection(value.selection.start, value.selection.end),
-                            value.composition?.let { TextSelection(it.start, it.end) },
-                        ))
+                        onStateChange { current ->
+                            val focused = if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)
+                            focused.editSelectedText(
+                                value.text,
+                                TextSelection(value.selection.start, value.selection.end),
+                                value.composition?.let { TextSelection(it.start, it.end) },
+                            )
+                        }
                     },
                 )
             }
@@ -878,10 +906,16 @@ private fun PageCanvas(
                         )
                         lasso = null
                     } else if (distance < 12.dp.toPx()) {
+                        // A press a control took — a toolkit button reaching past its object — is
+                        // that control's click, not a tap on the page: the page tap would clear the
+                        // selection the button acts on. Asked of the press rather than the release
+                        // because the press has finished dispatching by now, while this release may
+                        // reach the page before or after the button, depending on scheduling.
+                        val handled = down.isConsumed
                         val point = toPage(last.position)
                         val x = point.x
                         val y = point.y
-                        if (!hitsContent(point, currentState) && y >= PageStyle.TITLE_BAND_DP) {
+                        if (!handled && !hitsContent(point, currentState) && y >= PageStyle.TITLE_BAND_DP) {
                             focusManager.clearFocus()
                             canvasFocusRequester.requestFocus()
                             val isDouble = !currentState.canvasClipboard.isEmpty &&
@@ -905,6 +939,8 @@ private fun PageCanvas(
             Text("Choose a page to begin", modifier = Modifier.align(Alignment.Center))
             return@Box
         }
+        // A body still being read: for that instant there is nothing to draw and nothing to edit.
+        if (page.content == PageContent.Unloaded) return@Box
         Box(Modifier.fillMaxSize().horizontalScroll(horizontalScroll)
             .verticalScroll(verticalScroll)) {
             val sheet = page.document.style.pageSizeDp
@@ -1260,6 +1296,12 @@ private fun PageCanvas(
             }
             }
         }
+        if (page.content == PageContent.Unreadable) {
+            StatusBanner(
+                UnreadablePageMessage,
+                Modifier.align(Alignment.TopCenter).testTag(WorkspaceTestTags.UnreadablePage),
+            )
+        }
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.small,
@@ -1273,6 +1315,49 @@ private fun PageCanvas(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
         }
+    }
+}
+
+/** Android's wording, for a page whose stored body could not be decoded. */
+internal const val UnreadablePageMessage =
+    "This page could not be read, so editing is disabled to protect its contents."
+
+/**
+ * Tells the user that notes storage failed, for as long as it keeps failing; the next read or
+ * write that succeeds takes it away. Motion comes from the theme, like the panes'.
+ */
+@Composable
+private fun StorageErrorBanner(message: String?) {
+    // Kept through the exit animation, which still has to show what it is taking away.
+    var shown by remember { mutableStateOf(message.orEmpty()) }
+    if (message != null) shown = message
+    AnimatedVisibility(
+        visible = message != null,
+        enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+            fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+        exit = shrinkVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+            fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec()),
+    ) {
+        StatusBanner(shown, Modifier.fillMaxWidth().testTag(WorkspaceTestTags.StorageError))
+    }
+}
+
+@Composable
+private fun StatusBanner(message: String, modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = modifier
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            // One announcement, read out when it appears or changes.
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        )
     }
 }
 

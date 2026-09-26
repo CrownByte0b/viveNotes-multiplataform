@@ -40,26 +40,30 @@ fun main(args: Array<String>) {
     ) {
         WindowBackend.NATIVE_WAYLAND -> {
             System.setProperty("awt.toolkit.name", "WLToolkit")
-            launchWayland()
+            launchWayland(DesktopNotes.open())
         }
         WindowBackend.STANDARD -> {
             if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true)) {
                 System.setProperty("awt.toolkit.name", "XToolkit")
             }
-            launchStandardWindow()
+            launchStandardWindow(DesktopNotes.open())
         }
     }
 }
 
-private fun launchStandardWindow() = application {
-    Window(
-        onCloseRequest = ::exitApplication,
-        title = "ViveNotes",
-        state = rememberWindowState(size = DpSize(1440.dp, 900.dp)),
-    ) {
-        LaunchedEffect(window) {
-            window.minimumSize = Dimension(720, 540)
+private fun launchStandardWindow(notes: DesktopNotes) {
+    notes.start()
+    application {
+        Window(
+            // The window stays until the notes are written and closed; then the application ends.
+            onCloseRequest = { notes.close(::exitApplication) },
+            title = "ViveNotes",
+            state = rememberWindowState(size = DpSize(1440.dp, 900.dp)),
+        ) {
+            LaunchedEffect(window) {
+                window.minimumSize = Dimension(720, 540)
+            }
+            App(notes.session)
         }
-        App()
     }
 }

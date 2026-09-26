@@ -1,23 +1,46 @@
+<a href='#acidburnmonkey'> <img src="repo/viveNotes.png"  height="100" alt="react" />
+
 # Vive Notes Desktop
 
-Kotlin Multiplatform port of the Android ViveNotes app, initially targeting Linux and Windows with
-Compose Multiplatform and Material 3 Expressive.
+A handwritten note-taking app built for students, combining the natural feel of pen and paper with the power
+of digital documents.
 
-The original Android source is currently the product and format reference. This repository is a
-fresh desktop implementation which will preserve its note model, `.vive` transfer format, and sync
-semantics while replacing Android-only services with desktop adapters.
+All features are completely free, including cross-device sync. Your notes stay private: no data leaves your device,
+and all AI features run entirely on-device.
 
-## Run and test
+[Demo Video](https://youtu.be/QZ6rd2uQD9E)
 
-Use a current JDK with `jpackage` available (JDK 21 is recommended).
+# Self Host server
+
+[Sync Server](https://github.com/AquilaIgnis/viveCServer)
+
+# Build from source
+
+## Desktop
+
+Use a current JDK with `jpackage` available (JDK 25 is recommended).
+
+The default on linux is wayland
 
 ```bash
 ./gradlew :desktopApp:run
 ./gradlew :shared:jvmTest
 ```
 
-Compose hot reload remains available through the generated task:
+Force x11 backed
+
+```bash
+:desktopApp:run --args='--x11'
+```
+
+Compose hot reload:
 
 ```bash
 ./gradlew :desktopApp:hotRun --auto
+```
+
+## Wasm
+
+```bash
+./gradlew wasmJsBrowserDevelopmentRun
 ```
