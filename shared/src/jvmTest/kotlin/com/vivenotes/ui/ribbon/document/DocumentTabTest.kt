@@ -43,6 +43,7 @@ import com.vivenotes.model.BlockType
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
 import com.vivenotes.model.Run
+import com.vivenotes.model.RuleLines
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
@@ -219,8 +220,14 @@ class DocumentTabTest {
     fun pictureButtonInsertsTheChosenPictureAndDrawsIt() = runDesktopComposeUiTest(width = 1400, height = 900) {
         val id = "c".repeat(64)
         val library = FakePictures(ImportedPicture(id, 40, 20), mapOf(id to redPng(40, 20)))
-        var observed = document
-        setWorkspace(document, pictures = library) { observed = it }
+        // A bright, unruled page, so the paper and a plate behind a picture cannot be confused.
+        val paper = 0xFFFFF3C4.toInt()
+        val initial = document.updatePage(document.selectedPageId) { page ->
+            page.copy(document = page.document.copy(style = page.document.style.copy(
+                backgroundArgb = paper, ruleLines = RuleLines.None)))
+        }
+        var observed = initial
+        setWorkspace(initial, pictures = library) { observed = it }
 
         onNodeWithTag(DocumentRibbonTags.Picture).performScrollTo().assertIsEnabled().performClick()
         waitUntil(timeoutMillis = 5_000) { observed.selectedPage!!.document.outlines.any { it is Outline.Image } }
@@ -231,8 +238,12 @@ class DocumentTabTest {
         val frame = onNodeWithTag(WorkspaceTestTags.primeObject(image.id))
         waitUntil(timeoutMillis = 5_000) {
             val pixels = frame.captureToImage().toPixelMap()
-            pixels[pixels.width / 2, pixels.height / 2].isCloseTo(Color.Red)
+            pixels[pixels.width / 4, pixels.height / 2].isCloseTo(Color.Red)
         }
+        // The transparent half shows the page under it, as on Android, not a plate behind the picture.
+        val pixels = frame.captureToImage().toPixelMap()
+        val through = pixels[pixels.width * 3 / 4, pixels.height / 2]
+        assertTrue(through.isCloseTo(Color(paper)), "expected the paper through the picture, got $through")
         assertEquals(1, library.chosen)
     }
 
@@ -263,8 +274,10 @@ class DocumentTabTest {
         override suspend fun bytes(attachmentId: String): ByteArray? = files[attachmentId]
     }
 
+    /** Red on the left half; the right half is transparent. */
     private fun redPng(width: Int, height: Int): ByteArray = Surface.makeRasterN32Premul(width, height).use { surface ->
-        surface.canvas.drawRect(Rect.makeWH(width.toFloat(), height.toFloat()),
+        surface.canvas.clear(org.jetbrains.skia.Color.TRANSPARENT)
+        surface.canvas.drawRect(Rect.makeWH(width / 2f, height.toFloat()),
             Paint().apply { color = org.jetbrains.skia.Color.RED })
         surface.makeImageSnapshot().encodeToData(EncodedImageFormat.PNG)!!.bytes
     }

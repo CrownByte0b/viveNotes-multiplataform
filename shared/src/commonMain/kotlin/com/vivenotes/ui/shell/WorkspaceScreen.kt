@@ -1041,10 +1041,13 @@ private fun PageCanvas(
                         is Outline.Image -> "Picture"
                         else -> "Object"
                     }
+                    // A picture sits on the page itself, so its transparent parts show the paper;
+                    // only a picture that cannot be drawn gets a plate (see PictureContent).
+                    val drawnPicture = outline is Outline.Image && pictures != null
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        color = if (drawnPicture) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,
                         shape = MaterialTheme.shapes.small,
-                        tonalElevation = if (selected) 3.dp else 1.dp,
+                        tonalElevation = if (drawnPicture) 0.dp else if (selected) 3.dp else 1.dp,
                         modifier = Modifier.offset(x, y).size(width, height)
                             .testTag(WorkspaceTestTags.primeObject(outline.id))
                             // A picture shows its own edges; only its selection is outlined.

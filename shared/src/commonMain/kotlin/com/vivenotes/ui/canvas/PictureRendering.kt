@@ -1,6 +1,7 @@
 package com.vivenotes.ui.canvas
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -61,7 +62,9 @@ internal fun PictureContent(asset: PictureAsset?, modifier: Modifier = Modifier)
     when (asset) {
         is PictureAsset.Ready -> Image(asset.bitmap, contentDescription = "Picture",
             contentScale = ContentScale.FillBounds, modifier = modifier.fillMaxSize())
-        is PictureAsset.Broken -> Box(modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+        // Android's broken-picture plate: the frame keeps its fill and only the message is red.
+        is PictureAsset.Broken -> Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(8.dp), contentAlignment = Alignment.Center) {
             Text(asset.reason, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis)
         }

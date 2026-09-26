@@ -4,6 +4,7 @@ import com.vivenotes.data.AttachmentStore
 import com.vivenotes.data.ImportedPicture
 import com.vivenotes.data.PictureLibrary
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.swing.Swing
 import kotlinx.coroutines.withContext
 import java.awt.FileDialog
 import java.awt.Frame
@@ -11,8 +12,13 @@ import java.io.File
 
 /**
  * Pictures on desktop: the platform's file dialog to choose one, and the attachment store to keep
- * it. [chooseFile] runs on the UI thread, where a modal dialog belongs; reading and re-encoding the
- * file happen off it.
+ * it. Reading and re-encoding the file happen off the UI thread.
+ *
+ * [chooseFile] shows a modal dialog, which runs an event loop of its own until it closes, so it is
+ * started as its own Swing event. A coroutine launched from a click resumes on Compose's frame
+ * dispatcher, inside Swing's paint; a modal loop opened there re-entered Compose's rendering and
+ * Swing's painting — coroutine machinery errors, "No such child" paint failures, and a hung
+ * window, on X11 and on Wayland alike.
  */
 internal class DesktopPictures(
     private val store: AttachmentStore,
@@ -20,7 +26,7 @@ internal class DesktopPictures(
 ) : PictureLibrary {
 
     override suspend fun choose(): ImportedPicture? {
-        val file = chooseFile() ?: return null
+        val file = withContext(Dispatchers.Swing) { chooseFile() } ?: return null
         val bytes = withContext(Dispatchers.IO) { runCatching { file.readBytes() }.getOrNull() } ?: return null
         return store.import(bytes)
     }

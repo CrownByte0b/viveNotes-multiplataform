@@ -1,11 +1,18 @@
 package com.vivenotes.desktop
 
 import com.vivenotes.data.NotesLibrary
+import com.vivenotes.data.ImportedPicture
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Surface
 import java.io.File
 import java.nio.file.Files
+import javax.swing.SwingUtilities
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -50,6 +57,32 @@ class DesktopPicturesTest {
         assertNull(DesktopPictures(library.attachments) { text }.choose())
         assertNull(DesktopPictures(library.attachments) { File(directory, "gone.png") }.choose())
         assertTrue(File(library.directory, "attachments").listFiles().orEmpty().isEmpty())
+    }
+
+    /**
+     * Regression: the dialog was opened inside the event whose coroutine asked for it — Compose's
+     * frame, inside Swing's paint — and its modal loop re-entered both.
+     */
+    @Test
+    fun theDialogOpensAsItsOwnSwingEventNotInsideTheOneThatAskedForIt() = runBlocking {
+        var insideCaller = false
+        var openedInsideCaller: Boolean? = null
+        var openedOnUiThread = false
+        val pictures = DesktopPictures(library.attachments) {
+            openedInsideCaller = insideCaller
+            openedOnUiThread = SwingUtilities.isEventDispatchThread()
+            null
+        }
+        val done = CompletableDeferred<ImportedPicture?>()
+        SwingUtilities.invokeLater {
+            // Stands in for a Compose frame: a coroutine that starts and runs inside one UI event.
+            insideCaller = true
+            CoroutineScope(Dispatchers.Unconfined).launch { done.complete(pictures.choose()) }
+            insideCaller = false
+        }
+        assertNull(withTimeout(10_000) { done.await() })
+        assertEquals(false, openedInsideCaller, "the dialog ran inside the caller's event")
+        assertTrue(openedOnUiThread, "Swing dialogs belong on the UI thread")
     }
 
     @Test
