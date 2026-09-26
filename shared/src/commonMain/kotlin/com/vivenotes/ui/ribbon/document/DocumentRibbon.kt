@@ -38,6 +38,7 @@ internal object DocumentRibbonTags {
     const val FontSize = "document-font-size"
     const val FontColor = "document-font-color"
     const val Highlight = "document-highlight"
+    fun colorMenu(tag: String): String = "$tag-menu"
     const val ClearFormatting = "workspace-clear-formatting"
     const val DecreaseIndent = "document-decrease-indent"
     const val IncreaseIndent = "document-increase-indent"
@@ -76,6 +77,7 @@ internal fun DocumentRibbon(
     richText: RichTextBuffer?,
     textToolArmed: Boolean,
     commands: DocumentCommands,
+    colorSelection: DocumentColorSelection,
 ) {
     val colors = MaterialTheme.colorScheme
     val accent = if (colors.surface.luminance() < 0.5f) Color(0xFF3B9ADC) else Color(0xFF1B6FA8)
@@ -125,7 +127,9 @@ internal fun DocumentRibbon(
         ColorPicker(
             label = "Font colour",
             colors = TextColors,
-            current = marks.filterIsInstance<Mark.TextColor>().firstOrNull()?.argb,
+            defaultColor = 0xFFE53935.toInt(),
+            chosenColor = colorSelection.font,
+            onChooseColor = { colorSelection.font = it },
             enabled = editable,
             selection = richText?.selection,
             tag = DocumentRibbonTags.FontColor,
@@ -136,7 +140,9 @@ internal fun DocumentRibbon(
         ColorPicker(
             label = "Highlight",
             colors = HighlightColors,
-            current = marks.filterIsInstance<Mark.Highlight>().firstOrNull()?.argb,
+            defaultColor = 0x66FFEB3B,
+            chosenColor = colorSelection.highlight,
+            onChooseColor = { colorSelection.highlight = it },
             enabled = editable,
             selection = richText?.selection,
             tag = DocumentRibbonTags.Highlight,

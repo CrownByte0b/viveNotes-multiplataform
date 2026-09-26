@@ -47,11 +47,12 @@ internal fun DocumentTab(
     onEditorCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
     pictures: PictureLibrary?,
     visibleOrigin: () -> Offset,
+    colorSelection: DocumentColorSelection,
 ) {
     val clipboard = TextClipboardActions(LocalClipboardManager.current, onEditorCommand)
     val scope = rememberCoroutineScope()
     fun WorkspaceState.withRibbonSelection(selection: TextSelection?): WorkspaceState =
-        selection?.let(::selectText) ?: this
+        selection?.takeIf { it != editorSelection }?.let(::selectText) ?: this
     fun edit(selection: TextSelection?, command: WorkspaceState.() -> WorkspaceState) =
         onEditorCommand { it.withRibbonSelection(selection).command() }
 
@@ -89,5 +90,6 @@ internal fun DocumentTab(
             insertLink = { label, url, selection -> edit(selection) { insertLink(label, url) } },
             insertPicture = insertPicture,
         ),
+        colorSelection = colorSelection,
     )
 }

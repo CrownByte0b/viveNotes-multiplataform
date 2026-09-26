@@ -120,7 +120,7 @@ class HoverTooltipRuleTest {
     @Test
     fun textColourSwatchesShowTheirNamesOnHover() = runDesktopComposeUiTest(width = 2000, height = 900) {
         setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.Document).focusBody())
-        onNodeWithTag(DocumentRibbonTags.FontColor).performClick()
+        onNodeWithTag(DocumentRibbonTags.colorMenu(DocumentRibbonTags.FontColor)).performClick()
 
         val labels = hoverEveryControl(inMenu = true)
         listOf("Red", "Light grey", "Cyan").forEach {

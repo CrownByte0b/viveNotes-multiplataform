@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -32,6 +31,7 @@ import com.vivenotes.model.normalizedLinkUrl
 import com.vivenotes.richtext.LinkTarget
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.icons.DocumentSymbols
+import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.ribbon.RibbonIcon
 
 /**
@@ -70,7 +70,7 @@ internal fun LinkButton(
             focusAddress = existing.text.isNotEmpty()
             expanded = true
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ScaledDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             val first = remember { FocusRequester() }
             Column(
                 Modifier.width(320.dp).padding(horizontal = 16.dp, vertical = 8.dp)

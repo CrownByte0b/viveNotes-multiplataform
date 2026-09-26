@@ -37,7 +37,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.focusable
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -132,8 +131,10 @@ import com.vivenotes.ui.canvas.rememberPictureAssets
 import com.vivenotes.ui.canvas.todoAt
 import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.components.LocalPopupLayerDensity
+import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.TooltipIconButton
 import com.vivenotes.ui.ribbon.document.DocumentTab
+import com.vivenotes.ui.ribbon.document.DocumentColorSelection
 import com.vivenotes.ui.ribbon.draw.DrawRibbon
 import com.vivenotes.ui.ribbon.file.FileRibbon
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
@@ -258,6 +259,7 @@ private fun WorkspaceContent(
     pageDensity: Density,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
+    val documentColorSelection = remember { DocumentColorSelection() }
     val editorFocusRequester = remember { FocusRequester() }
     val canvasFocusRequester = remember { FocusRequester() }
     var editorFocusRequest by remember { mutableIntStateOf(0) }
@@ -299,7 +301,8 @@ private fun WorkspaceContent(
         when (state.activeTab) {
             RibbonTab.File -> FileRibbon()
             RibbonTab.Draw -> DrawRibbon(state, onStateChange)
-            RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures, { canvasOrigin.read() })
+            RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
+                { canvasOrigin.read() }, documentColorSelection)
             RibbonTab.View -> ViewRibbon()
             RibbonTab.Settings -> SettingsRibbon(onInterface)
         }
@@ -986,7 +989,7 @@ private fun PageCanvas(
                                                 .testTag(WorkspaceTestTags.ObjectColor)) {
                                             Box(Modifier.size(18.dp).clip(CircleShape).background(swatch))
                                         }
-                                        DropdownMenu(expanded = colorMenu, onDismissRequest = { colorMenu = false }) {
+                                        ScaledDropdownMenu(expanded = colorMenu, onDismissRequest = { colorMenu = false }) {
                                             ObjectColors.chunked(5).forEach { colors ->
                                                 Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                                                     colors.forEach { (name, argb) ->

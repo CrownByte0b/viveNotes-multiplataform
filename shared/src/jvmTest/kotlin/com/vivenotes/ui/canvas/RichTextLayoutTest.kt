@@ -7,6 +7,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
 import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
+import com.vivenotes.model.Mark
+import com.vivenotes.model.Run
 import com.vivenotes.richtext.RichTextBuffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,5 +39,24 @@ class RichTextLayoutTest {
         waitForIdle()
         assertEquals(buffer.text, text, "the editor string must stay the document's text")
         assertEquals(buffer.blocks.size, lines)
+    }
+
+    @Test
+    fun fontColourAndHighlightMarksBecomeVisibleTextStyles() = runDesktopComposeUiTest {
+        val red = 0xFFE53935.toInt()
+        val yellow = 0x66FFEB3B
+        val buffer = RichTextBuffer(listOf(Block(id = "b", runs = listOf(
+            Run("Review", setOf(Mark.TextColor(red), Mark.Highlight(yellow))), Run(" later"),
+        ))))
+        setContent {
+            val annotated = buffer.asAnnotatedString(RichTextColors(Color.Green, Color.Blue, Color.Gray))
+            val marked = annotated.spanStyles.single { it.start == 0 && it.end == 6 }
+            assertEquals(Color(red), marked.item.color)
+            assertEquals(Color(yellow), marked.item.background)
+            val plain = annotated.spanStyles.single { it.start == 6 && it.end == 12 }
+            assertEquals(Color.Unspecified, plain.item.color)
+            assertEquals(Color.Unspecified, plain.item.background)
+        }
+        waitForIdle()
     }
 }

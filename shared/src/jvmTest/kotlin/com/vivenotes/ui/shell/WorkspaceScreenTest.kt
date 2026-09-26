@@ -222,7 +222,7 @@ class WorkspaceScreenTest {
                 assertEquals(TextSelection(0, 6), observed.editorSelection)
                 assertTrue(Mark.FontSize(24) in observed.richText!!.blocks.first().runs.first().marks)
             }
-            onNodeWithTag(DocumentRibbonTags.FontColor).performClick()
+            onNodeWithTag(DocumentRibbonTags.colorMenu(DocumentRibbonTags.FontColor)).performClick()
             val red = 0xFFE53935.toInt()
             onNodeWithTag("${DocumentRibbonTags.FontColor}-$red").performClick()
             runOnIdle {
@@ -257,7 +257,7 @@ class WorkspaceScreenTest {
                 assertEquals(TextSelection(0, 6), observed.editorSelection)
             }
 
-            onNodeWithTag(DocumentRibbonTags.Highlight).performClick()
+            onNodeWithTag(DocumentRibbonTags.colorMenu(DocumentRibbonTags.Highlight)).performClick()
             val yellow = 0x66FFEB3B
             onNodeWithTag("${DocumentRibbonTags.Highlight}-$yellow").performClick()
             runOnIdle { assertTrue(Mark.Highlight(yellow) in
@@ -883,7 +883,7 @@ class WorkspaceScreenTest {
             onNodeWithTag("${DocumentRibbonTags.FontSize}-24").performClick()
             runOnIdle { assertTrue(Mark.FontSize(24) in observed.richText!!.blocks.first().runs.first().marks) }
 
-            onNodeWithTag(DocumentRibbonTags.FontColor).performClick()
+            onNodeWithTag(DocumentRibbonTags.colorMenu(DocumentRibbonTags.FontColor)).performClick()
             val red = 0xFFE53935.toInt()
             onNodeWithTag("${DocumentRibbonTags.FontColor}-$red").performClick()
             runOnIdle { assertTrue(Mark.TextColor(red) in observed.richText!!.blocks.first().runs.first().marks) }

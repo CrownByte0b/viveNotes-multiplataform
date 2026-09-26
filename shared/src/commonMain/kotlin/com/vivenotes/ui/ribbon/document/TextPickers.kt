@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +34,9 @@ import androidx.compose.ui.unit.dp
 import com.vivenotes.model.BlockType
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.TooltipIconButton
+import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.DocumentSymbols
 
 /** The Document tab's drop-down controls: font family and size, the two colours, and Styles. */
@@ -62,6 +63,12 @@ internal val HighlightColors = listOf(
     0x66FFEB3B to "Yellow", 0x6676FF03 to "Green", 0x6640C4FF to "Blue", 0x66FF4081 to "Pink",
     0x66FF9100 to "Orange", 0x66B388FF to "Purple", 0x66FFFFFF to "White", 0x00000000 to "Transparent",
 )
+
+/** The colours last chosen from the two palettes for this workspace window. */
+internal class DocumentColorSelection {
+    var font by mutableStateOf<Int?>(null)
+    var highlight by mutableStateOf<Int?>(null)
+}
 
 internal val DocumentStyles = listOf(
     BlockType.Paragraph to "Normal",
@@ -106,7 +113,7 @@ internal fun RibbonPicker(
                 Icon(DocumentSymbols.ArrowDropDown, contentDescription = label, modifier = Modifier.size(16.dp))
             }
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = {
+        ScaledDropdownMenu(expanded = expanded, onDismissRequest = {
             expanded = false; selectionAtOpen = null
         }) {
             choices.forEach { (value, shown) ->
@@ -127,7 +134,9 @@ internal fun RibbonPicker(
 internal fun ColorPicker(
     label: String,
     colors: List<Pair<Int, String>>,
-    current: Int?,
+    defaultColor: Int,
+    chosenColor: Int?,
+    onChooseColor: (Int?) -> Unit,
     enabled: Boolean,
     selection: TextSelection?,
     tag: String,
@@ -137,30 +146,45 @@ internal fun ColorPicker(
     rotateIcon: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var selectionAtOpen by remember { mutableStateOf<TextSelection?>(null) }
+    var selectionAtPress by remember { mutableStateOf<TextSelection?>(null) }
+    val appliedColor = chosenColor ?: defaultColor
     val neutral = MaterialTheme.colorScheme.onSurfaceVariant
-    val swatch = current?.takeIf { it != 0 }?.let { Color(it).copy(alpha = 1f) } ?: neutral
+    val swatch = Color(appliedColor).copy(alpha = 1f)
     val image = remember(neutral, swatch) { icon(neutral, swatch) }
     Box {
-        TooltipIconButton(
-            label = label,
-            onClick = {
-                if (selectionAtOpen == null) selectionAtOpen = selection
-                expanded = true
-            },
-            enabled = enabled,
-            modifier = Modifier.size(40.dp).testTag(tag)
-                .captureSelectionOnPress(selection) { selectionAtOpen = it },
+        Row(
+            modifier = Modifier.captureSelectionOnPress(selection) { selectionAtPress = it },
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = image,
-                contentDescription = null,
-                tint = if (rotateIcon) swatch else Color.Unspecified,
-                modifier = Modifier.size(20.dp).then(if (rotateIcon) Modifier.rotate(180f) else Modifier),
-            )
+            TooltipIconButton(
+                label = label,
+                onClick = {
+                    onPick(appliedColor, selectionAtPress ?: selection)
+                    selectionAtPress = null
+                },
+                enabled = enabled,
+                modifier = Modifier.size(40.dp).testTag(tag)
+                    .onSecondaryPress(enabled) { if (enabled) expanded = true },
+            ) {
+                Icon(
+                    imageVector = image,
+                    contentDescription = null,
+                    tint = if (rotateIcon) swatch else Color.Unspecified,
+                    modifier = Modifier.size(20.dp).then(if (rotateIcon) Modifier.rotate(180f) else Modifier),
+                )
+            }
+            TooltipIconButton(
+                label = "Choose $label",
+                onClick = { expanded = true },
+                enabled = enabled,
+                modifier = Modifier.size(width = 24.dp, height = 40.dp)
+                    .testTag(DocumentRibbonTags.colorMenu(tag)),
+            ) {
+                Icon(DocumentSymbols.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+            }
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = {
-            expanded = false; selectionAtOpen = null
+        ScaledDropdownMenu(expanded = expanded, onDismissRequest = {
+            expanded = false; selectionAtPress = null
         }) {
             Column(Modifier.padding(8.dp)) {
                 colors.chunked(4).forEach { row ->
@@ -174,7 +198,9 @@ internal fun ColorPicker(
                                         .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(5.dp))
                                         .clickable(role = Role.Button) {
                                             expanded = false
-                                            onPick(argb, selectionAtOpen)
+                                            onChooseColor(argb)
+                                            onPick(argb, selectionAtPress ?: selection)
+                                            selectionAtPress = null
                                         }
                                         .semantics { contentDescription = name }
                                         .testTag("$tag-$argb"),
@@ -185,7 +211,9 @@ internal fun ColorPicker(
                 }
                 DropdownMenuItem(text = { Text("None") }, onClick = {
                     expanded = false
-                    onClear(selectionAtOpen)
+                    onChooseColor(null)
+                    onClear(selectionAtPress ?: selection)
+                    selectionAtPress = null
                 }, modifier = Modifier.testTag("$tag-none"))
             }
         }
@@ -224,7 +252,7 @@ internal fun StylesPicker(
                 Icon(DocumentSymbols.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
             }
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = {
+        ScaledDropdownMenu(expanded = expanded, onDismissRequest = {
             expanded = false; selectionAtOpen = null
         }) {
             DocumentStyles.forEach { (type, label) ->
