@@ -31,7 +31,7 @@ internal fun launchWayland(notes: DesktopNotes) {
         frame.minimumSize = Dimension(720, 540)
         frame.setSize(1440, 900)
         frame.setLocationRelativeTo(null)
-        frame.contentPane.add(createWaylandComposePanel(notes.session, notes.pictures(frame)))
+        frame.contentPane.add(createWaylandContent(notes.session, notes.pictures(frame)))
         frame.isVisible = true
     }
 }
@@ -42,9 +42,12 @@ internal fun requireNativeWaylandToolkit(toolkitClassName: String) {
     }
 }
 
+/** The Compose panel inside the [PopupLayerHost] its popups open in. */
 @OptIn(ExperimentalComposeUiApi::class)
-private fun createWaylandComposePanel(session: WorkspaceSession, pictures: PictureLibrary) = ComposePanel(
-    renderSettings = RenderSettings.SwingGraphics(),
-).apply {
-    setContent { App(session, pictures) }
+private fun createWaylandContent(session: WorkspaceSession, pictures: PictureLibrary): PopupLayerHost {
+    val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
+    val host = PopupLayerHost(panel)
+    panel.windowContainer = host
+    panel.setContent { App(session, pictures) }
+    return host
 }

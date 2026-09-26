@@ -1,5 +1,6 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.data.DeletionOutcome
 import com.vivenotes.data.NotesStore
 import com.vivenotes.data.PageLoad
 import com.vivenotes.data.db.NotebookEntity
@@ -29,6 +30,16 @@ class FakeNotesStore : NotesStore {
     val saves = mutableListOf<Pair<String, PageDoc>>()
     val renames = mutableListOf<Pair<String, String>>()
     val loads = mutableListOf<String>()
+    val deletes = mutableListOf<String>()
+
+    /** Saves and deletes in the order storage received them, as `save:<id>` and `delete:<id>`. */
+    val writes = mutableListOf<String>()
+
+    /** Thrown by every delete while set. */
+    var deleteFailure: Exception? = null
+
+    /** Holds every delete until completed, so what the session does meanwhile can be observed. */
+    var deleteGate: CompletableDeferred<Unit>? = null
     var seeds = 0
         private set
 
@@ -85,6 +96,42 @@ class FakeNotesStore : NotesStore {
         touchPage(id, title)
     }
 
+    override suspend fun renameNotebook(id: String, name: String) {
+        renames += id to name
+        tree.value = tree.value.map { entry ->
+            if (entry.notebook.id == id) entry.copy(notebook = entry.notebook.copy(name = name, updatedAt = ++now)) else entry
+        }
+    }
+
+    override suspend fun renameSection(id: String, name: String) {
+        renames += id to name
+        tree.value = tree.value.map { entry ->
+            entry.copy(sections = entry.sections.map { if (it.id == id) it.copy(name = name, updatedAt = ++now) else it })
+        }
+    }
+
+    /** Takes the rows out of the flows, as a tombstone does; nothing here restores them. */
+    override suspend fun deleteNotebook(id: String): DeletionOutcome {
+        recordDelete(id)
+        val sectionIds = tree.value.firstOrNull { it.notebook.id == id }?.sections.orEmpty().map { it.id }.toSet()
+        tree.value = tree.value.filterNot { it.notebook.id == id }
+        pageRows.value = pageRows.value.filterNot { it.sectionId in sectionIds }
+        return DeletionOutcome.Tombstoned
+    }
+
+    override suspend fun deleteSection(id: String): DeletionOutcome {
+        recordDelete(id)
+        tree.value = tree.value.map { entry -> entry.copy(sections = entry.sections.filterNot { it.id == id }) }
+        pageRows.value = pageRows.value.filterNot { it.sectionId == id }
+        return DeletionOutcome.Tombstoned
+    }
+
+    override suspend fun deletePage(id: String): DeletionOutcome {
+        recordDelete(id)
+        pageRows.value = pageRows.value.filterNot { it.id == id }
+        return DeletionOutcome.Tombstoned
+    }
+
     override suspend fun loadDoc(pageId: String): PageLoad {
         loads += pageId
         return bodies.getValue(pageId)
@@ -93,10 +140,18 @@ class FakeNotesStore : NotesStore {
     override suspend fun saveDoc(pageId: String, doc: PageDoc) {
         saveFailure?.let { throw it }
         saves += pageId to doc
+        writes += "save:$pageId"
         bodies[pageId] = PageLoad.Loaded(doc)
         pageRows.value = pageRows.value.map {
             if (it.id == pageId) it.copy(preview = pagePreview(doc), updatedAt = ++now) else it
         }
+    }
+
+    private suspend fun recordDelete(id: String) {
+        deleteGate?.await()
+        deleteFailure?.let { throw it }
+        deletes += id
+        writes += "delete:$id"
     }
 
     private fun addPage(sectionId: String, title: String, order: Int, doc: PageDoc): String {

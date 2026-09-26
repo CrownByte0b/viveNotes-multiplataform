@@ -90,6 +90,14 @@ class WorkspaceScreenTest {
     }
 
     @Test
+    fun theDocumentTabIsOpenWhenTheWorkspaceOpens() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        setWorkspace()
+
+        onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Document)).assertIsSelected()
+        onNodeWithTag(DocumentRibbonTags.Paste).assertIsDisplayed()
+    }
+
+    @Test
     fun ribbonTabChangesVisibleCommands() = runDesktopComposeUiTest(width = 1400, height = 900) {
         var observed = WorkspaceState.demo()
         setWorkspace { observed = it }

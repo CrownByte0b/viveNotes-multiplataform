@@ -179,6 +179,58 @@ data class RichTextBuffer(
         return copy(blocks = changed, selection = TextSelection(caret))
     }
 
+    /**
+     * The selection with its formatting: every block it touches, cut down to the selected part, with
+     * its runs' marks and its own paragraph style. Empty when nothing is selected.
+     */
+    fun selectedFragment(): List<Block> {
+        val range = selection.clamped(text.length)
+        if (range.collapsed) return emptyList()
+        val from = locate(range.min)
+        val to = locate(range.max)
+        return (from.index..to.index).map { index ->
+            val block = blocks[index]
+            val start = if (index == from.index) from.offset else 0
+            val end = if (index == to.index) to.offset else block.editorText.length
+            block.copy(runs = block.runs.splitAt(end).first.splitAt(start).second)
+        }
+    }
+
+    /**
+     * Replaces the selection with a [selectedFragment], marks and all. A piece of one paragraph joins
+     * the paragraph at the caret and takes its style. Pasted paragraphs keep their own style, except
+     * that one sharing a line with text already there — the first, after the text before the caret;
+     * the last, before the text after it — takes that paragraph's. Pasted blocks get new ids.
+     */
+    fun insertFragment(fragment: List<Block>): RichTextBuffer {
+        if (fragment.isEmpty()) return this
+        val range = selection.clamped(text.length)
+        val from = locate(range.min)
+        val to = locate(range.max)
+        val first = blocks[from.index]
+        val last = blocks[to.index]
+        val prefix = first.runs.splitAt(from.offset).first
+        val suffix = last.runs.splitAt(to.offset).second
+        val replacement = if (fragment.size == 1) {
+            listOf(first.copy(runs = mergeRuns(prefix + fragment.single().runs + suffix)))
+        } else {
+            buildList {
+                val head = fragment.first()
+                add((if (prefix.isEmpty()) first.styledAs(head) else first).copy(runs = mergeRuns(prefix + head.runs)))
+                fragment.subList(1, fragment.lastIndex).forEach { add(it.copy(id = newId())) }
+                val tail = fragment.last()
+                // As in [replace]: the paragraph split at the caret continues past the pasted ones.
+                val after = if (from.index == to.index) first.copy(id = newId(), checked = first.checked?.let { false })
+                    else last
+                add((if (suffix.isEmpty()) after.styledAs(tail) else after).copy(runs = mergeRuns(tail.runs + suffix)))
+            }
+        }
+        val changed = blocks.take(from.index) + replacement + blocks.drop(to.index + 1)
+        val insertedLength = fragment.sumOf { it.editorText.length } + fragment.lastIndex
+        // Typing on continues in the formatting just pasted, as it would after that text was typed.
+        return copy(blocks = changed).select(TextSelection(range.min + insertedLength))
+    }
+
     /** Apply the smallest contiguous text change reported by a platform input field. */
     fun acceptTextChange(newText: String, newSelection: TextSelection): RichTextBuffer {
         val oldText = text
@@ -348,6 +400,10 @@ private fun Set<Mark>.withMark(mark: Mark, add: Boolean): Set<Mark> {
     }
     return retained
 }
+
+/** This block, with [source]'s paragraph style. */
+private fun Block.styledAs(source: Block): Block =
+    copy(type = source.type, indent = source.indent, align = source.align, checked = source.checked)
 
 private data class RunSplit(val first: List<Run>, val second: List<Run>)
 

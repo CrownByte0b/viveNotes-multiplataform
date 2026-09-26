@@ -43,20 +43,6 @@ val ACCENT_PALETTE = listOf(
     0xFFFFC107.toInt(), // amber
 )
 
-/**
- * What a delete did with the row it was given.
- *
- * The distinction is the user's, not the database's: one of these can be taken back and the other
- * never happened as far as anything downstream is concerned.
- */
-enum class DeletionOutcome {
-    /** Tombstoned: listed in Deleted Items for the retention window, and pushed as a tombstone. */
-    Tombstoned,
-
-    /** Held nothing, so nothing was kept. The rows are gone, and there is nothing to restore. */
-    Flushed,
-}
-
 /** Direct tombstone rows removed by one maintenance transaction; cascaded child counts are omitted. */
 data class DeletionPurgeResult(
     val cutoff: Long,
@@ -234,7 +220,7 @@ class NotesRepository(
         return id
     }
 
-    suspend fun renameNotebook(id: String, name: String) {
+    override suspend fun renameNotebook(id: String, name: String) {
         clearReplaceableStarter()
         notebooks.rename(id, name, clock())
     }
@@ -260,7 +246,7 @@ class NotesRepository(
      * caller has to look at the outcome: a flush cannot be undone, so offering an Undo for one is
      * offering a button that does nothing.
      */
-    suspend fun deleteNotebook(id: String): DeletionOutcome {
+    override suspend fun deleteNotebook(id: String): DeletionOutcome {
         clearReplaceableStarter()
         // Deciding and acting in one transaction, because Room serializes transactions against each
         // other: a pull writing a page into this notebook cannot land between the two and turn a
@@ -314,13 +300,13 @@ class NotesRepository(
         return id
     }
 
-    suspend fun renameSection(id: String, name: String) {
+    override suspend fun renameSection(id: String, name: String) {
         clearReplaceableStarter()
         sections.rename(id, name, clock())
     }
 
     /** Tombstones a section, or flushes an empty one — see [deleteNotebook] and [flush]. */
-    suspend fun deleteSection(id: String): DeletionOutcome {
+    override suspend fun deleteSection(id: String): DeletionOutcome {
         clearReplaceableStarter()
         return db.withTransaction {
             if (sectionIsBlank(id)) return@withTransaction flush(DeletedItemKind.Section, id)
@@ -375,7 +361,7 @@ class NotesRepository(
     }
 
     /** Tombstones a page, or flushes one that was never written on — see [deleteNotebook], [flush]. */
-    suspend fun deletePage(id: String): DeletionOutcome {
+    override suspend fun deletePage(id: String): DeletionOutcome {
         clearReplaceableStarter()
         return db.withTransaction {
             if (pageIsBlank(id)) return@withTransaction flush(DeletedItemKind.Page, id)

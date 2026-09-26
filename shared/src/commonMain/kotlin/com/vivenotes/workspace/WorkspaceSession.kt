@@ -52,6 +52,9 @@ class WorkspaceSession(
     /** What storage holds for each open body: autosave writes only a page that differs from it. */
     private val stored = mutableMapOf<String, PageDoc>()
     private val loading = mutableSetOf<String>()
+
+    /** Deleted here and perhaps not yet in storage: a list read meanwhile must not bring them back. */
+    private val deleting = mutableSetOf<String>()
     private var autosave: Job? = null
     private var started = false
 
@@ -99,6 +102,49 @@ class WorkspaceSession(
                 store.pageById(store.createPage(sectionId))
             } ?: return@enqueue
             update { state -> state.withPageAdded(sectionId, page).selectPage(page.id) }
+        }
+    }
+
+    /**
+     * Renames a notebook, section or page: shown at once, then stored. The open page's title is
+     * already stored by [react] as it changes, like typing into the title.
+     */
+    fun rename(item: NavigationItem, name: String) {
+        val state = current.value ?: return
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || state.nameOf(item) == null || state.nameOf(item) == trimmed) return
+        update { it.rename(item, trimmed) }
+        if (item is NavigationItem.Page && item.id == state.selectedPageId) return
+        enqueue {
+            attempt("${trimmed} could not be renamed") {
+                when (item) {
+                    is NavigationItem.Notebook -> store.renameNotebook(item.id, trimmed)
+                    is NavigationItem.Section -> store.renameSection(item.id, trimmed)
+                    is NavigationItem.Page -> store.renamePage(item.id, trimmed)
+                }
+            }
+        }
+    }
+
+    /**
+     * Deletes a notebook, section or page with everything in it: gone from the panes at once, then
+     * from storage. The open page is saved first, as Android does, because storage decides from
+     * what it holds whether there was anything worth keeping.
+     */
+    fun delete(item: NavigationItem) {
+        val name = current.value?.nameOf(item) ?: return
+        saveOpenPage()
+        deleting += item.id
+        update { it.delete(item) }
+        enqueue {
+            attempt("${name.ifBlank { "Untitled page" }} could not be deleted") {
+                when (item) {
+                    is NavigationItem.Notebook -> store.deleteNotebook(item.id)
+                    is NavigationItem.Section -> store.deleteSection(item.id)
+                    is NavigationItem.Page -> store.deletePage(item.id)
+                }
+            }
+            deleting -= item.id
         }
     }
 
@@ -201,12 +247,12 @@ class WorkspaceSession(
 
     private fun acceptTree(tree: List<NotebookWithSections>) {
         val known = current.value?.notebooks.orEmpty().flatMap { it.sections }.associateBy { it.id }
-        val notebooks = tree.map { entry ->
+        val notebooks = tree.filterNot { it.notebook.id in deleting }.map { entry ->
             NotebookSummary(
                 id = entry.notebook.id,
                 name = entry.notebook.name,
                 colorArgb = entry.notebook.colorArgb,
-                sections = entry.liveSections.map { section ->
+                sections = entry.liveSections.filterNot { it.id in deleting }.map { section ->
                     SectionSummary(section.id, section.name, section.colorArgb, known[section.id]?.pages.orEmpty())
                 },
             )
@@ -230,7 +276,8 @@ class WorkspaceSession(
         }
     }
 
-    private fun acceptPages(sectionId: String, rows: List<PageEntity>) {
+    private fun acceptPages(sectionId: String, all: List<PageEntity>) {
+        val rows = all.filterNot { it.id in deleting }
         update { state ->
             val open = state.selectedPageId
             val cached = state.sectionById(sectionId)?.pages.orEmpty().associateBy { it.id }

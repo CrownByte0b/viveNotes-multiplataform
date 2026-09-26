@@ -10,6 +10,8 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.data.NotesLibrary
@@ -17,6 +19,7 @@ import com.vivenotes.data.NotesStore
 import com.vivenotes.data.PageLoad
 import com.vivenotes.data.execute
 import com.vivenotes.model.plainText
+import com.vivenotes.ui.navigation.NavigationTestTags
 import com.vivenotes.ui.shell.UnreadablePageMessage
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.workspace.FakeNotesStore
@@ -98,6 +101,40 @@ class AppTest {
                 val load = library.repository.loadDoc(pages.last().id)
                 assertIs<PageLoad.Loaded>(load)
                 assertEquals("Second page", load.doc.plainText())
+            }
+        }
+    }
+
+    @Test
+    fun renamesAndDeletesMadeFromTheMenusAreStored() {
+        NotesLibrary.open(directory).use { library ->
+            val (sectionId, scratch) = runBlocking {
+                library.repository.seedIfEmpty()
+                val section = library.repository.observeTree().first().single().liveSections.first()
+                section.id to library.repository.createPage(section.id, "Scratch")
+            }
+            runDesktopComposeUiTest(width = 1400, height = 900) {
+                val app = showApp(library.repository)
+                awaitOpenPage()
+                waitUntil(timeoutMillis = 10_000) {
+                    onAllNodesWithTag(WorkspaceTestTags.page(scratch)).fetchSemanticsNodes().isNotEmpty()
+                }
+
+                onNodeWithTag(WorkspaceTestTags.section(sectionId)).performMouseInput { rightClick(center) }
+                onNodeWithTag(NavigationTestTags.Rename).performClick()
+                onNodeWithTag(NavigationTestTags.NameField).performTextReplacement("Inbox")
+                onNodeWithTag(NavigationTestTags.ConfirmRename).performClick()
+
+                onNodeWithTag(WorkspaceTestTags.page(scratch)).performMouseInput { rightClick(center) }
+                onNodeWithTag(NavigationTestTags.Delete).performClick()
+                onNodeWithTag(NavigationTestTags.ConfirmDelete).performClick()
+                onNodeWithTag(WorkspaceTestTags.page(scratch)).assertDoesNotExist()
+                app.close()
+            }
+            runBlocking {
+                val section = library.repository.observeTree().first().single().liveSections.first { it.id == sectionId }
+                assertEquals("Inbox", section.name)
+                assertEquals(listOf("Welcome"), library.repository.observePages(section.id).first().map { it.title })
             }
         }
     }

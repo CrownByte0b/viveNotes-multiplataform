@@ -220,4 +220,75 @@ class RichTextBufferTest {
         assertEquals(listOf(null, url.href, url.href, null), listOf(2, 3, 10, 11).map(buffer::linkUrlAt),
             "opening follows the character under the pointer, not the caret's either-side rule")
     }
+
+    @Test
+    fun selectedFragmentKeepsMarksAndParagraphStylesCutToTheSelection() {
+        val buffer = editor(
+            Block(id = "a", type = BlockType.Heading1, runs = listOf(Run("Title "), Run("bold", setOf(Mark.Bold)))),
+            Block(id = "b", type = BlockType.Bullet, indent = 2, runs = listOf(Run("item one"))),
+            Block(id = "c", type = BlockType.Todo, checked = true, runs = listOf(Run("done"))),
+        ).select(TextSelection(8, 22))
+
+        val fragment = buffer.selectedFragment()
+
+        assertEquals(listOf("ld", "item one", "do"), fragment.map { it.text })
+        assertEquals(setOf(Mark.Bold), fragment[0].runs.single().marks)
+        assertEquals(listOf(BlockType.Heading1, BlockType.Bullet, BlockType.Todo), fragment.map { it.type })
+        assertEquals(2, fragment[1].indent)
+        assertEquals(true, fragment[2].checked)
+        assertTrue(editor(Block.of("abc")).select(TextSelection(1)).selectedFragment().isEmpty())
+    }
+
+    @Test
+    fun aPieceOfOneParagraphPastesIntoTheParagraphAtTheCaretWithItsMarks() {
+        val copied = editor(Block(id = "s", type = BlockType.Heading1,
+            runs = listOf(Run("big "), Run("bold", setOf(Mark.Bold))))).select(TextSelection(2, 8)).selectedFragment()
+        val target = editor(Block(id = "t", type = BlockType.Quote, runs = listOf(Run("ab")))).select(TextSelection(1))
+
+        val pasted = target.insertFragment(copied)
+
+        assertEquals("ag boldb", pasted.text)
+        val block = pasted.blocks.single()
+        assertEquals("t", block.id)
+        assertEquals(BlockType.Quote, block.type, "a piece of a paragraph takes the paragraph it lands in")
+        assertEquals(listOf(Run("ag "), Run("bold", setOf(Mark.Bold)), Run("b")), block.runs)
+        assertEquals(TextSelection(7), pasted.selection)
+        assertEquals(setOf(Mark.Bold), pasted.typingMarks, "typing goes on in what was just pasted")
+    }
+
+    @Test
+    fun pastedParagraphsKeepTheirStylesExceptWhereTheyShareALineWithTextAlreadyThere() {
+        val copied = editor(
+            Block(id = "h", type = BlockType.Heading2, runs = listOf(Run("head"))),
+            Block(id = "m", type = BlockType.Numbered, indent = 1, runs = listOf(Run("middle", setOf(Mark.Italic)))),
+            Block(id = "l", type = BlockType.Bullet, runs = listOf(Run("last"))),
+        ).select(TextSelection(0, 16)).selectedFragment()
+
+        val intoText = editor(Block(id = "t", runs = listOf(Run("before after")))).select(TextSelection(7))
+            .insertFragment(copied)
+        assertEquals("before head\nmiddle\nlastafter", intoText.text)
+        assertEquals(listOf(BlockType.Paragraph, BlockType.Numbered, BlockType.Paragraph), intoText.blocks.map { it.type })
+        assertEquals("t", intoText.blocks.first().id)
+        assertTrue(intoText.blocks.drop(1).none { it.id in setOf("t", "h", "m", "l") }, "pasted blocks get new ids")
+        assertEquals(1, intoText.blocks[1].indent)
+        assertEquals(setOf(Mark.Italic), intoText.blocks[1].runs.single().marks)
+        assertEquals(TextSelection(7 + 16), intoText.selection)
+
+        val intoEmpty = editor(Block(id = "e")).insertFragment(copied)
+        assertEquals(listOf(BlockType.Heading2, BlockType.Numbered, BlockType.Bullet), intoEmpty.blocks.map { it.type })
+        assertEquals("head\nmiddle\nlast", intoEmpty.text)
+    }
+
+    @Test
+    fun pastingOverASelectionAcrossParagraphsReplacesIt() {
+        val copied = editor(Block.of("one"), Block.of("two")).select(TextSelection(1, 5)).selectedFragment()
+        val target = editor(Block(id = "x", runs = listOf(Run("abc"))), Block(id = "y", runs = listOf(Run("def"))))
+            .select(TextSelection(1, 6))
+
+        val pasted = target.insertFragment(copied)
+
+        assertEquals("ane\ntf", pasted.text)
+        assertEquals(listOf("x", "y"), pasted.blocks.map { it.id })
+        assertEquals(TextSelection(5), pasted.selection)
+    }
 }

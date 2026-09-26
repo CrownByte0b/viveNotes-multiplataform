@@ -1,0 +1,128 @@
+package com.vivenotes.ui.canvas
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextLayoutResult
+import com.vivenotes.richtext.TextSelection
+import com.vivenotes.ui.components.ContextMenu
+import com.vivenotes.ui.components.ContextMenuDivider
+import com.vivenotes.ui.components.ContextMenuItem
+import com.vivenotes.ui.icons.ContextSymbols
+import com.vivenotes.ui.icons.DocumentSymbols
+import com.vivenotes.workspace.WorkspaceState
+
+/** Semantics identifiers for the text box's right-click menu. */
+object TextMenuTags {
+    const val Cut = "text-menu-cut"
+    const val SelectAll = "text-menu-select-all"
+    const val Copy = "text-menu-copy"
+    const val Paste = "text-menu-paste"
+    const val PastePlainText = "text-menu-paste-plain"
+}
+
+/**
+ * A right-click in text box [outlineId] at [at], in the box's coordinates. [selection] is the range
+ * the menu's commands act on, captured at the click: opening the menu takes the keyboard from the
+ * editor, which can collapse the editor's own selection.
+ */
+internal data class TextMenuRequest(val outlineId: String, val at: Offset, val selection: TextSelection)
+
+/**
+ * Where a right-click at [point] leaves the caret, as desktop editors do it: inside the current
+ * selection keeps that selection, so Copy copies it; anywhere else puts the caret there, so Paste
+ * pastes there. [current] is null when the box is not being edited; [layout] is the box's text,
+ * laid out with its top left at the origin [point] is measured from.
+ */
+internal fun selectionForRightClick(current: TextSelection?, layout: TextLayoutResult?, point: Offset): TextSelection {
+    val clicked = layout?.getOffsetForPosition(point)
+    return when {
+        current != null && !current.collapsed && (clicked == null || clicked in current.min..current.max) -> current
+        clicked != null -> TextSelection(clicked)
+        else -> current ?: TextSelection(0)
+    }
+}
+
+/**
+ * The text box right-click menu: Cut, Copy, Paste and Paste as plain text, then Select all,
+ * each with its icon and keyboard shortcut. Cut and Copy need a selection and the pastes need text
+ * on the clipboard. Every command, and closing the menu, gives the keyboard back to the box with
+ * [request]'s range.
+ */
+@Composable
+internal fun TextContextMenu(
+    request: TextMenuRequest?,
+    state: WorkspaceState,
+    clipboard: TextClipboardActions,
+    onEditorCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
+    onClose: () -> Unit,
+) {
+    // Asked once per opening: reading the system clipboard is not free.
+    val canPaste = remember(request) { request != null && clipboard.canPaste() }
+    ContextMenu(
+        anchor = request?.at,
+        onDismiss = {
+            onClose()
+            request?.let { onEditorCommand { current -> current.selectText(it.selection) } }
+        },
+    ) {
+        val selection = request?.selection ?: TextSelection(0)
+        ContextMenuItem(
+            label = "Cut",
+            icon = DocumentSymbols.ContentCut,
+            shortcut = "Ctrl+X",
+            enabled = !selection.collapsed,
+            onClick = {
+                onClose()
+                clipboard.cut(state, selection)
+            },
+            modifier = Modifier.testTag(TextMenuTags.Cut),
+        )
+        ContextMenuItem(
+            label = "Copy",
+            icon = DocumentSymbols.ContentCopy,
+            shortcut = "Ctrl+C",
+            enabled = !selection.collapsed,
+            onClick = {
+                onClose()
+                clipboard.copy(state, selection)
+            },
+            modifier = Modifier.testTag(TextMenuTags.Copy),
+        )
+        ContextMenuItem(
+            label = "Paste",
+            icon = DocumentSymbols.ContentPaste,
+            shortcut = "Ctrl+V",
+            enabled = canPaste,
+            onClick = {
+                onClose()
+                clipboard.paste(selection, keepFormatting = true)
+            },
+            modifier = Modifier.testTag(TextMenuTags.Paste),
+        )
+        ContextMenuItem(
+            label = "Paste as plain text",
+            icon = ContextSymbols.PasteAsText,
+            shortcut = "Ctrl+Shift+V",
+            enabled = canPaste,
+            onClick = {
+                onClose()
+                clipboard.paste(selection, keepFormatting = false)
+            },
+            modifier = Modifier.testTag(TextMenuTags.PastePlainText),
+        )
+        ContextMenuDivider()
+        ContextMenuItem(
+            label = "Select all",
+            icon = ContextSymbols.SelectAll,
+            shortcut = "Ctrl+A",
+            onClick = {
+                onClose()
+                request?.let { onEditorCommand { current -> current.selectAllTextBox(it.outlineId) } }
+            },
+            modifier = Modifier.testTag(TextMenuTags.SelectAll),
+        )
+    }
+}

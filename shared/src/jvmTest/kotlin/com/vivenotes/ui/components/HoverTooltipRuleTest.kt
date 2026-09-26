@@ -14,6 +14,10 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.rightClick
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
@@ -53,7 +57,7 @@ class HoverTooltipRuleTest {
                 "Hide notebook navigation", "Undo canvas action", "Redo canvas action", "Text", "Paste",
                 "Font family", "Font size", "Bold", "Font colour", "Highlight", "Clear formatting",
                 "Bulleted list", "Numbered list", "To-do", "Decrease indent", "Increase indent",
-                "Align centre", "Styles", "Link", "Copy text box", "Delete text box",
+                "Align centre", "Styles", "Link", "Copy text box", "Select all text", "Delete text box",
             ).forEach { assertTrue(it in labels, "no control labelled \"$it\" was checked: $labels") }
         }
 
@@ -88,6 +92,31 @@ class HoverTooltipRuleTest {
         listOf("Red", "Light grey", "Cyan").forEach {
             assertTrue(it in labels, "no swatch labelled \"$it\" was checked: $labels")
         }
+    }
+
+    /**
+     * The right-click menus are outside the rule: each item shows its name beside its icon, so no
+     * item may be an icon with alt text alone.
+     */
+    @Test
+    fun rightClickMenuItemsShowTheirNamesInsteadOfTooltips() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        setWorkspace(WorkspaceState.demo())
+
+        onNodeWithTag(WorkspaceTestTags.page("lecture-notes")).performMouseInput { rightClick(center) }
+        assertMenuNamesItsItems("Rename page", "Delete page")
+        onNodeWithText("Notebooks").performMouseInput { click(center) }
+
+        onNodeWithTag(WorkspaceTestTags.BodyEditor).performMouseInput { rightClick(Offset(15f, 10f)) }
+        assertMenuNamesItsItems("Cut", "Copy", "Paste", "Paste as plain text", "Select all")
+    }
+
+    private fun ComposeUiTest.assertMenuNamesItsItems(vararg names: String) {
+        waitForIdle()
+        val inMenu = hasClickAction() and hasAnyAncestor(isPopup())
+        val iconOnly = onAllNodes(controlsWithAltText and hasAnyAncestor(isPopup())).fetchSemanticsNodes()
+            .map { it.config[SemanticsProperties.ContentDescription] }
+        assertTrue(iconOnly.isEmpty(), "menu items named only by alt text: $iconOnly")
+        names.forEach { assertTrue(onAllNodes(inMenu and hasText(it)).fetchSemanticsNodes().size == 1, "no item \"$it\"") }
     }
 
     /** Regression: the clicked button's focus tooltip held a shared lock that refused hover tooltips. */

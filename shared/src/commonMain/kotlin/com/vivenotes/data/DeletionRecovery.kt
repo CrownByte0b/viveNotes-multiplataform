@@ -1,5 +1,19 @@
 package com.vivenotes.data
 
+/**
+ * What a delete did with the row it was given.
+ *
+ * The distinction is the user's, not the database's: one of these can be taken back and the other
+ * never happened as far as anything downstream is concerned.
+ */
+enum class DeletionOutcome {
+    /** Tombstoned: listed in Deleted Items for the retention window, and pushed as a tombstone. */
+    Tombstoned,
+
+    /** Held nothing, so nothing was kept. The rows are gone, and there is nothing to restore. */
+    Flushed,
+}
+
 /** The hierarchy row represented by one entry in the app-wide Deleted Items pane. */
 enum class DeletedItemKind {
     Notebook,

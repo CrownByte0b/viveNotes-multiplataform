@@ -42,6 +42,19 @@ interface NotesStore {
 
     suspend fun renamePage(id: String, title: String)
 
+    suspend fun renameNotebook(id: String, name: String)
+
+    suspend fun renameSection(id: String, name: String)
+
+    /** Tombstones a notebook with everything in it, or flushes one that never held anything. */
+    suspend fun deleteNotebook(id: String): DeletionOutcome
+
+    /** Tombstones a section with its pages, or flushes an empty one. */
+    suspend fun deleteSection(id: String): DeletionOutcome
+
+    /** Tombstones a page, or flushes one that was never written on. */
+    suspend fun deletePage(id: String): DeletionOutcome
+
     /** Never an empty stand-in for content that failed to decode — see [PageLoad.Unreadable]. */
     suspend fun loadDoc(pageId: String): PageLoad
 

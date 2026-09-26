@@ -50,7 +50,7 @@ fun App(session: WorkspaceSession, pictures: PictureLibrary? = null) {
             }
         } else {
             WorkspaceScreen(state = workspace, onStateChange = session::update, onAddPage = session::addPage,
-                pictures = pictures)
+                onRename = session::rename, onDelete = session::delete, pictures = pictures)
         }
     }
 }

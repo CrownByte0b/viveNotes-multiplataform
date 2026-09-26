@@ -5,6 +5,7 @@ import com.vivenotes.model.Block
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
 import com.vivenotes.richtext.TextSelection
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -235,6 +236,108 @@ class WorkspaceSessionTest {
         session.flush()
 
         assertEquals("closing", store.saves.single().second.text())
+    }
+
+    @Test
+    fun renamesAreShownAtOnceAndStored() = runTest {
+        val session = started()
+        val notebook = session.state.value!!.selectedNotebookId
+
+        session.rename(NavigationItem.Notebook(notebook), "  Analysis ")
+        session.rename(NavigationItem.Section(sections[1]), "Integration")
+        session.rename(NavigationItem.Page(series), "Power series")
+        session.rename(NavigationItem.Page(limits), "Limits, again")
+        session.rename(NavigationItem.Section(sections[0]), "   ")
+        val shown = session.state.value!!
+        assertEquals("Analysis", shown.selectedNotebook!!.name)
+        assertEquals(listOf("Limits, again", "Power series"), shown.selectedSection!!.pages.map { it.title })
+        runCurrent()
+
+        assertEquals(
+            listOf(notebook to "Analysis", sections[1] to "Integration", series to "Power series", limits to "Limits, again"),
+            store.renames,
+            "each rename stored once — the open page's through its title — and a blank one not at all",
+        )
+        val stored = session.state.value!!
+        assertEquals(listOf("Chapter 1", "Integration"), stored.selectedNotebook!!.sections.map { it.name })
+        assertEquals(listOf("Limits, again", "Power series"), stored.selectedSection!!.pages.map { it.title })
+    }
+
+    /** Android's order: the open page is saved first, since the delete decides from what is stored. */
+    @Test
+    fun deletingTheOpenPageSavesItThenDeletesItAndOpensTheNextPage() = runTest {
+        val session = started()
+        session.type("last words")
+
+        session.delete(NavigationItem.Page(limits))
+        runCurrent()
+
+        assertEquals(listOf("save:$limits", "delete:$limits"), store.writes)
+        assertEquals("last words", store.saves.single().second.text())
+        val state = session.state.value!!
+        assertEquals(series, state.selectedPageId)
+        assertEquals("series", state.selectedPage!!.body)
+        assertEquals(listOf(series), state.selectedSection!!.pages.map { it.id })
+    }
+
+    @Test
+    fun aListReadBeforeTheDeleteLandsDoesNotBringThePageBack() = runTest {
+        val session = started()
+        val gate = CompletableDeferred<Unit>()
+        store.deleteGate = gate
+
+        session.delete(NavigationItem.Page(series))
+        store.touchPage(series, "Series, still stored")
+        runCurrent()
+        assertEquals(listOf(limits), session.state.value!!.selectedSection!!.pages.map { it.id })
+
+        gate.complete(Unit)
+        runCurrent()
+        assertEquals(listOf(series), store.deletes)
+        assertEquals(listOf(limits), session.state.value!!.selectedSection!!.pages.map { it.id })
+    }
+
+    @Test
+    fun deletingTheOpenSectionOpensTheNextSectionsFirstPage() = runTest {
+        val session = started()
+
+        session.delete(NavigationItem.Section(sections[0]))
+        runCurrent()
+
+        assertEquals(listOf(sections[0]), store.deletes)
+        val state = session.state.value!!
+        assertEquals(listOf(sections[1]), state.selectedNotebook!!.sections.map { it.id })
+        assertEquals(integrals, state.selectedPageId)
+        assertEquals("integrals", state.selectedPage!!.body)
+    }
+
+    @Test
+    fun deletingTheOpenNotebookOpensTheNextNotebook() = runTest {
+        val cells = store.notebook("Biology", "Cells" to listOf("Meiosis" to typed("meiosis")))[0]
+        val session = started()
+        val calculus = session.state.value!!.selectedNotebookId
+
+        session.delete(NavigationItem.Notebook(calculus))
+        runCurrent()
+
+        assertEquals(listOf(calculus), store.deletes)
+        val state = session.state.value!!
+        assertEquals(listOf("Biology"), state.notebooks.map { it.name })
+        assertEquals(cells, state.selectedSectionId)
+        assertEquals("meiosis", state.selectedPage!!.body)
+    }
+
+    @Test
+    fun aFailedDeleteIsReported() = runTest {
+        val session = started()
+        store.deleteFailure = IllegalStateException("read-only disk")
+
+        session.delete(NavigationItem.Page(series))
+        runCurrent()
+
+        val error = session.state.value!!.storageError
+        assertNotNull(error)
+        assertTrue("Series could not be deleted" in error && "read-only disk" in error, error)
     }
 
     private fun TestScope.session() =

@@ -4,12 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.model.Align
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Mark
 import com.vivenotes.richtext.TextSelection
+import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.workspace.WorkspaceState
 import kotlinx.coroutines.launch
 
@@ -48,7 +48,7 @@ internal fun DocumentTab(
     pictures: PictureLibrary?,
     visibleOrigin: () -> Offset,
 ) {
-    val clipboard = LocalClipboardManager.current
+    val clipboard = TextClipboardActions(LocalClipboardManager.current, onEditorCommand)
     val scope = rememberCoroutineScope()
     fun WorkspaceState.withRibbonSelection(selection: TextSelection?): WorkspaceState =
         selection?.let(::selectText) ?: this
@@ -82,17 +82,10 @@ internal fun DocumentTab(
             align = { align, selection -> edit(selection) { alignSelectedText(align) } },
             indent = { delta, selection -> edit(selection) { indentSelectedText(delta) } },
             // The clipboard takes the text the user can see selected, from this frame's state.
-            copy = { selection ->
-                clipboard.setText(AnnotatedString(state.withRibbonSelection(selection).selectedText))
-                edit(selection) { this }
-            },
-            cut = { selection ->
-                clipboard.setText(AnnotatedString(state.withRibbonSelection(selection).selectedText))
-                edit(selection) { replaceSelectedText("") }
-            },
-            paste = { selection ->
-                clipboard.getText()?.text?.let { text -> edit(selection) { replaceSelectedText(text) } }
-            },
+            copy = { selection -> clipboard.copy(state, selection) },
+            cut = { selection -> clipboard.cut(state, selection) },
+            // Formatting included, as Ctrl+V does; the right-click menu also offers it without.
+            paste = { selection -> clipboard.paste(selection, keepFormatting = true) },
             insertLink = { label, url, selection -> edit(selection) { insertLink(label, url) } },
             insertPicture = insertPicture,
         ),

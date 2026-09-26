@@ -94,7 +94,8 @@ data class WorkspaceState(
     val selectedNotebookId: String,
     val selectedSectionId: String,
     val selectedPageId: String,
-    val activeTab: RibbonTab = RibbonTab.Draw,
+    /** Document first: the app opens ready for writing. */
+    val activeTab: RibbonTab = RibbonTab.Document,
     val navigationVisible: Boolean = true,
     val editorSelection: TextSelection = TextSelection(0),
     val typingMarks: Set<Mark> = emptySet(),
@@ -105,6 +106,8 @@ data class WorkspaceState(
     val selectedTextOutlineIds: Set<String> = emptySet(),
     val selectedObjectIds: Set<String> = emptySet(),
     val canvasClipboard: CanvasClipboard = CanvasClipboard(),
+    /** Text last copied from a text box, with its formatting — see [pasteText]. */
+    val textClipboard: TextClipboard? = null,
     val structuralUndo: List<StructuralSnapshot> = emptyList(),
     val structuralRedo: List<StructuralSnapshot> = emptyList(),
     /** Why the last read or write of notes storage failed, until one succeeds again. */
@@ -556,7 +559,7 @@ data class WorkspaceState(
         return editOutlines { it + image }.copy(textToolArmed = false, objectLassoArmed = false)
     }
 
-    private fun withRichText(buffer: RichTextBuffer): WorkspaceState {
+    internal fun withRichText(buffer: RichTextBuffer): WorkspaceState {
         val page = editablePage ?: return this
         val oldText = focusedTextOutline ?: return this
         val changedDoc = page.document.copy(outlines = page.document.outlines.map { outline ->

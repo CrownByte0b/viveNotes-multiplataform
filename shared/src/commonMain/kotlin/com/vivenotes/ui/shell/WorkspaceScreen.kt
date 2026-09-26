@@ -33,18 +33,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.focusable
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -86,11 +81,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -102,11 +95,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.withFrameNanos
 import kotlin.math.roundToInt
 import com.vivenotes.workspace.CanvasViewport
-import com.vivenotes.workspace.NotebookSummary
 import com.vivenotes.workspace.PageContent
-import com.vivenotes.workspace.PageSummary
 import com.vivenotes.workspace.RibbonTab
-import com.vivenotes.workspace.SectionSummary
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.model.Mark
 import com.vivenotes.model.BlockType
@@ -117,6 +107,7 @@ import com.vivenotes.workspace.primeHeight
 import com.vivenotes.workspace.isPrimeObject
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
+import com.vivenotes.ui.icons.ContextSymbols
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.TextSelection
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -144,9 +135,20 @@ import com.vivenotes.ui.ribbon.draw.DrawRibbon
 import com.vivenotes.ui.ribbon.file.FileRibbon
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
 import com.vivenotes.ui.ribbon.view.ViewRibbon
+import com.vivenotes.ui.canvas.TextClipboardActions
+import com.vivenotes.ui.canvas.TextContextMenu
+import com.vivenotes.ui.canvas.TextMenuRequest
+import com.vivenotes.ui.canvas.selectionForRightClick
+import com.vivenotes.ui.components.onSecondaryPress
+import com.vivenotes.ui.navigation.NavigationDialogs
+import com.vivenotes.ui.navigation.NavigationRequests
+import com.vivenotes.ui.navigation.NotebookPane
+import com.vivenotes.ui.navigation.PageListPane
+import com.vivenotes.workspace.NavigationItem
+import com.vivenotes.workspace.delete
+import com.vivenotes.workspace.rename
+import androidx.compose.ui.platform.LocalClipboardManager
 
-private val NotebookPaneWidth = 260.dp
-private val PagePaneWidth = 292.dp
 private val ObjectColors = listOf(
     "White" to 0xFFFFFFFF.toInt(), "Black" to 0xFF000000.toInt(),
     "Gray" to 0xFF6B7280.toInt(), "Red" to 0xFFEF4444.toInt(),
@@ -204,6 +206,10 @@ fun WorkspaceScreen(
     onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
     modifier: Modifier = Modifier,
     onAddPage: () -> Unit = { onStateChange { it.addPage() } },
+    /** Renames from the navigation menus; a stored workspace passes its session's, which also stores it. */
+    onRename: (NavigationItem, String) -> Unit = { item, name -> onStateChange { it.rename(item, name) } },
+    /** Deletes from the navigation menus, after they have asked; see [onRename]. */
+    onDelete: (NavigationItem) -> Unit = { item -> onStateChange { it.delete(item) } },
     /** Where pictures are stored; without it the Picture command is unavailable. */
     pictures: PictureLibrary? = null,
 ) {
@@ -211,6 +217,7 @@ fun WorkspaceScreen(
     val editorFocusRequester = remember { FocusRequester() }
     val canvasFocusRequester = remember { FocusRequester() }
     var editorFocusRequest by remember { mutableIntStateOf(0) }
+    val navigationRequests = remember { NavigationRequests() }
     fun applyEditorCommand(transform: (WorkspaceState) -> WorkspaceState) {
         onStateChange(transform)
         editorFocusRequest++
@@ -271,6 +278,7 @@ fun WorkspaceScreen(
                 ) {
                     NotebookPane(
                         state = state,
+                        requests = navigationRequests,
                         onSelectNotebook = { id -> onStateChange { it.selectNotebook(id) } },
                         onSelectSection = { id -> onStateChange { it.selectSection(id) } },
                     )
@@ -285,6 +293,7 @@ fun WorkspaceScreen(
                     PageListPane(
                         section = state.selectedSection,
                         selectedPageId = state.selectedPageId,
+                        requests = navigationRequests,
                         onAddPage = onAddPage,
                         onSelectPage = { id -> onStateChange { it.selectPage(id) } },
                     )
@@ -337,6 +346,12 @@ fun WorkspaceScreen(
                     },
                     onToggleTodo = { outlineId, blockId -> onStateChange { it.toggleTodo(outlineId, blockId) } },
                     onIndent = { delta -> onStateChange { it.indentSelectedText(delta) } },
+                    onTextCommand = ::applyEditorCommand,
+                    onOpenTextMenu = { id, selection ->
+                        onStateChange { current ->
+                            (if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)).selectText(selection)
+                        }
+                    },
                     onBodyChange = { id, value ->
                         onStateChange { current ->
                             val focused = if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)
@@ -351,245 +366,7 @@ fun WorkspaceScreen(
             }
         }
     }
-}
-
-@Composable
-private fun NotebookPane(
-    state: WorkspaceState,
-    onSelectNotebook: (String) -> Unit,
-    onSelectSection: (String) -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .width(NotebookPaneWidth)
-            .fillMaxHeight()
-            .testTag(WorkspaceTestTags.NotebookPane),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Column(Modifier.fillMaxSize()) {
-            Text(
-                text = "Notebooks",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 20.dp, top = 18.dp, bottom = 10.dp),
-            )
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                items(state.notebooks, key = NotebookSummary::id) { notebook ->
-                    NotebookRow(
-                        notebook = notebook,
-                        selected = notebook.id == state.selectedNotebookId,
-                        onClick = { onSelectNotebook(notebook.id) },
-                    )
-                    if (notebook.id == state.selectedNotebookId) {
-                        notebook.sections.forEach { section ->
-                            SectionRow(
-                                section = section,
-                                selected = section.id == state.selectedSectionId,
-                                onClick = { onSelectSection(section.id) },
-                            )
-                        }
-                    }
-                }
-            }
-            TextButton(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.padding(10.dp),
-            ) {
-                Text("＋ New notebook")
-            }
-        }
-    }
-}
-
-@Composable
-private fun NotebookRow(
-    notebook: NotebookSummary,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val container = if (selected) {
-        MaterialTheme.colorScheme.surfaceContainerHighest
-    } else {
-        Color.Transparent
-    }
-    Surface(
-        onClick = onClick,
-        color = container,
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.padding(horizontal = 8.dp),
-    ) {
-        ListItem(
-            headlineContent = {
-                Text(notebook.name, fontWeight = FontWeight.SemiBold)
-            },
-            leadingContent = {
-                Box(
-                    Modifier
-                        .size(13.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(notebook.colorArgb)),
-                )
-            },
-            trailingContent = { Text(if (selected) "⌄" else "›") },
-            colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
-        )
-    }
-}
-
-@Composable
-private fun SectionRow(
-    section: SectionSummary,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val container = if (selected) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        Color.Transparent
-    }
-    Row(
-        modifier = Modifier
-            .padding(horizontal = 10.dp)
-            .testTag(WorkspaceTestTags.section(section.id))
-            .clip(RoundedCornerShape(12.dp))
-            .background(container)
-            .clickable(onClick = onClick)
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            Modifier
-                .width(5.dp)
-                .height(26.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(Color(section.colorArgb)),
-        )
-        Text(
-            text = section.name,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (selected) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-        )
-    }
-}
-
-@Composable
-private fun PageListPane(
-    section: SectionSummary?,
-    selectedPageId: String,
-    onAddPage: () -> Unit,
-    onSelectPage: (String) -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .width(PagePaneWidth)
-            .fillMaxHeight()
-            .testTag(WorkspaceTestTags.PagePane),
-        color = MaterialTheme.colorScheme.surface,
-    ) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = section?.name ?: "No section",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = "${section?.pages?.size ?: 0} pages",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                FilledTonalButton(
-                    onClick = onAddPage,
-                    enabled = section != null,
-                    modifier = Modifier.testTag(WorkspaceTestTags.AddPage),
-                ) {
-                    Text("＋ Page")
-                }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                items(section?.pages.orEmpty(), key = PageSummary::id) { page ->
-                    PageRow(
-                        page = page,
-                        selected = page.id == selectedPageId,
-                        onClick = { onSelectPage(page.id) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PageRow(
-    page: PageSummary,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        color = if (selected) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            Color.Transparent
-        },
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(WorkspaceTestTags.page(page.id)),
-    ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-            Text(
-                text = page.title.ifBlank { "Untitled page" },
-                style = MaterialTheme.typography.titleMedium,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = page.preview,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(5.dp))
-            Text(
-                text = page.createdLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    NavigationDialogs(state, navigationRequests, onRename, onDelete)
 }
 
 @Composable
@@ -620,6 +397,10 @@ private fun PageCanvas(
     onSelectObjectsInRect: (Float, Float, Float, Float) -> Unit,
     onToggleTodo: (outlineId: String, blockId: String) -> Unit,
     onIndent: (Int) -> Unit,
+    /** Applies a text command and gives the keyboard back to the text box. */
+    onTextCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
+    /** A right-click in a text box: edit that box, with this range selected. */
+    onOpenTextMenu: (String, TextSelection) -> Unit,
     onBodyChange: (String, TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -648,6 +429,8 @@ private fun PageCanvas(
     val currentState by rememberUpdatedState(state)
     val measuredTextHeights = remember(page?.id) { mutableStateMapOf<String, Float>() }
     val textLayouts = remember(page?.id) { mutableStateMapOf<String, TextLayoutResult>() }
+    val textClipboard = TextClipboardActions(LocalClipboardManager.current, onTextCommand)
+    var textMenu by remember(page?.id) { mutableStateOf<TextMenuRequest?>(null) }
 
     LaunchedEffect(zoom) {
         val requested = pendingViewport ?: return@LaunchedEffect
@@ -889,8 +672,11 @@ private fun PageCanvas(
                                     Icon(DocumentSymbols.ContentCopy, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 }
-                                TextButton(onClick = { onSelectAllTextBox(outline.id) },
-                                    modifier = Modifier.testTag(WorkspaceTestTags.TextBoxSelectAll)) { Text("Select all") }
+                                TooltipIconButton("Select all text", onClick = { onSelectAllTextBox(outline.id) }, tooltipPosition = TooltipAnchorPosition.Above,
+                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.TextBoxSelectAll)) {
+                                    Icon(ContextSymbols.SelectAll, contentDescription = null,
+                                        modifier = Modifier.size(18.dp))
+                                }
                                 TooltipIconButton("Delete text box", onClick = { onDeleteTextBox(outline.id) }, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.TextBoxDelete)) {
                                     Icon(ObjectSymbols.Delete, contentDescription = null,
@@ -928,6 +714,18 @@ private fun PageCanvas(
                             .heightIn(min = maxOf(outline.minHeight, 80f).dp)
                             .onSizeChanged { size ->
                                 measuredTextHeights[outline.id] = with(density) { size.height.toDp().value }
+                            }
+                            // Ours in place of the text field's own menu, which it never sees.
+                            .onSecondaryPress(outline.id) { position ->
+                                val snapshot = currentState
+                                val inset = with(density) { TextBoxPadding.toPx() }
+                                val selection = selectionForRightClick(
+                                    current = snapshot.editorSelection.takeIf { snapshot.focusedTextOutlineId == outline.id },
+                                    layout = textLayouts[outline.id],
+                                    point = position - Offset(inset, inset),
+                                )
+                                onOpenTextMenu(outline.id, selection)
+                                textMenu = TextMenuRequest(outline.id, position, selection)
                             }
                             .testTag(WorkspaceTestTags.textBox(outline.id)),
                     ) {
@@ -979,9 +777,11 @@ private fun PageCanvas(
                                 color = palette.ink,
                             ),
                             modifier = Modifier.fillMaxWidth()
-                                .padding(8.dp)
+                                .padding(TextBoxPadding)
                                 // Tab indents, as on Android: in a note, indenting is what a writer means.
                                 .onPreviewKeyEvent { event ->
+                                    // Copy and paste keep formatting, which the field's own would drop.
+                                    if (textClipboard.onShortcut(event, currentState)) return@onPreviewKeyEvent true
                                     if (event.key != Key.Tab) return@onPreviewKeyEvent false
                                     if (event.type == KeyEventType.KeyDown) currentIndent(if (event.isShiftPressed) -1 else 1)
                                     true
@@ -992,6 +792,13 @@ private fun PageCanvas(
                                 }
                                 .semantics { contentDescription = "Text box ${index + 1}" }
                                 .testTag(if (index == 0) WorkspaceTestTags.BodyEditor else WorkspaceTestTags.textBox(outline.id) + "-editor"),
+                        )
+                        TextContextMenu(
+                            request = textMenu?.takeIf { it.outlineId == outline.id },
+                            state = state,
+                            clipboard = textClipboard,
+                            onEditorCommand = onTextCommand,
+                            onClose = { textMenu = null },
                         )
                     }
                     if (showChrome) {
@@ -1218,6 +1025,9 @@ private fun PageCanvas(
         }
     }
 }
+
+/** Between a text box's edge and its text. */
+private val TextBoxPadding = 8.dp
 
 /** Android's wording, for a page whose stored body could not be decoded. */
 internal const val UnreadablePageMessage =
