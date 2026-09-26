@@ -35,10 +35,11 @@ class SymbolRenderingTest {
     @Test
     fun everySymbolPaintsAVisibleShapeInItsBox() = runDesktopComposeUiTest {
         val symbols = symbolsOf(DocumentSymbols) + symbolsOf(ObjectSymbols).mapKeys { "Object.${it.key}" } +
-            symbolsOf(ContextSymbols).mapKeys { "Context.${it.key}" }
-        assertTrue(symbols.size >= 23, "found only ${symbols.keys}")
+            symbolsOf(ContextSymbols).mapKeys { "Context.${it.key}" } +
+            symbolsOf(ShellSymbols).mapKeys { "Shell.${it.key}" }
+        assertTrue(symbols.size >= 26, "found only ${symbols.keys}")
         assertTrue(symbols.keys.containsAll(listOf("Context.Edit", "Context.SelectAll", "Context.PasteAsText",
-            "Object.ExpandContent")))
+            "Object.ExpandContent", "Shell.Menu", "Shell.Undo", "Shell.Redo")))
         setContent {
             // A grid, so every symbol is inside the test window and can be captured.
             Column {

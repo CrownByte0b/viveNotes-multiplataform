@@ -1,8 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -10,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import com.vivenotes.ui.ribbon.PendingRibbonAction
 import com.vivenotes.ui.ribbon.PendingRibbonNote
 import com.vivenotes.ui.ribbon.RibbonBar
+import com.vivenotes.ui.ribbon.RibbonToggle
 import com.vivenotes.workspace.WorkspaceState
 
 object DrawRibbonTags {
@@ -23,20 +22,20 @@ internal fun DrawRibbon(
     state: WorkspaceState,
     onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
 ) {
-    RibbonBar(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), spacing = 8.dp) {
-        FilterChip(
+    RibbonBar(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), spacing = 8.dp) {
+        RibbonToggle(
+            label = "Select",
             selected = !state.textToolArmed && !state.objectLassoArmed,
             onClick = { onStateChange { it.selectPointer() } },
-            label = { Text("Select") },
             modifier = Modifier.testTag(DrawRibbonTags.PointerTool),
         )
         PendingRibbonAction("Pen")
         PendingRibbonAction("Highlighter")
         PendingRibbonAction("Eraser")
-        FilterChip(
+        RibbonToggle(
+            label = "Lasso",
             selected = state.objectLassoArmed,
             onClick = { onStateChange { it.toggleObjectLasso() } },
-            label = { Text("Lasso") },
             modifier = Modifier.testTag(DrawRibbonTags.ObjectLasso),
         )
         PendingRibbonAction("Shape")

@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +32,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.vivenotes.ui.components.TooltipIconButton
+import com.vivenotes.ui.shell.WorkspaceTestTags
+import com.vivenotes.ui.theme.LocalDesktopColors
 
 /**
  * Pieces every ribbon tab is built from. Each tab lives in its own package beside this file —
@@ -40,15 +44,16 @@ import com.vivenotes.ui.components.TooltipIconButton
 @Composable
 internal fun RibbonBar(
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 8.dp, vertical = 5.dp),
-    spacing: Dp = 2.dp,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+    spacing: Dp = 4.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Surface(color = MaterialTheme.colorScheme.surface) {
+    Surface(modifier = Modifier.testTag(WorkspaceTestTags.RibbonBar),
+        color = LocalDesktopColors.current.toolbar) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(76.dp)
+                .height(56.dp)
                 .horizontalScroll(rememberScrollState())
                 .then(modifier)
                 .padding(contentPadding),
@@ -76,17 +81,18 @@ internal fun RibbonIcon(
         onClick = onClick,
         enabled = enabled,
         colors = IconButtonDefaults.iconButtonColors(
-            containerColor = if (selected) colors.primaryContainer else Color.Transparent,
+            containerColor = if (selected) LocalDesktopColors.current.selection else Color.Transparent,
         ),
         modifier = Modifier
             .size(40.dp)
+            .clip(MaterialTheme.shapes.small)
             .testTag(tag)
             .semantics { this.selected = selected },
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (twoTone) Color.Unspecified else if (selected) colors.onPrimaryContainer else colors.onSurfaceVariant,
+            tint = if (twoTone) Color.Unspecified else if (selected) colors.onSurface else colors.onSurfaceVariant,
             modifier = Modifier.size(18.dp),
         )
     }
@@ -94,13 +100,33 @@ internal fun RibbonIcon(
 
 @Composable
 internal fun RibbonDivider() {
-    Spacer(Modifier.padding(horizontal = 6.dp).width(1.dp).height(22.dp).background(MaterialTheme.colorScheme.outlineVariant))
+    Spacer(Modifier.padding(horizontal = 6.dp).width(1.dp).height(20.dp).background(MaterialTheme.colorScheme.outlineVariant))
+}
+
+/** A compact desktop toggle for toolbar modes such as Select and Lasso. */
+@Composable
+internal fun RibbonToggle(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.semantics { this.selected = selected },
+        color = if (selected) LocalDesktopColors.current.selection else LocalDesktopColors.current.toolbar,
+        shape = MaterialTheme.shapes.small,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
+    }
 }
 
 /** A command whose port has not landed yet: shown, labelled, and not clickable. */
 @Composable
 internal fun PendingRibbonAction(label: String) {
-    OutlinedButton(onClick = {}, enabled = false) { Text(label) }
+    OutlinedButton(onClick = {}, enabled = false, shape = MaterialTheme.shapes.small) { Text(label) }
 }
 
 /** Says why a tab's commands are disabled. */

@@ -10,7 +10,7 @@ import com.vivenotes.ui.ribbon.RibbonBar
 /** The View tab. Its commands are listed as the Android app has them and enabled as each is ported. */
 @Composable
 internal fun ViewRibbon() {
-    RibbonBar(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), spacing = 8.dp) {
+    RibbonBar(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), spacing = 8.dp) {
         PendingRibbonAction("Zoom")
         PendingRibbonAction("Paper")
         PendingRibbonAction("Page color")

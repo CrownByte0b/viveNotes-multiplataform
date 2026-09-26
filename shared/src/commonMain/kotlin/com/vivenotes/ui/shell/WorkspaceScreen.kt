@@ -164,6 +164,8 @@ private val ObjectColors = listOf(
 
 /** Stable semantics identifiers used by desktop UI tests and future accessibility automation. */
 object WorkspaceTestTags {
+    const val HeaderBar = "workspace-header-bar"
+    const val RibbonBar = "workspace-ribbon-bar"
     const val NavigationToggle = "workspace-navigation-toggle"
     const val NotebookPane = "workspace-notebook-pane"
     const val PagePane = "workspace-page-pane"
@@ -221,23 +223,25 @@ fun WorkspaceScreen(
     val baseDensity = LocalDensity.current
     val effectiveSettings = previewSettings ?: interfaceSettings
     val pageDensity = effectiveSettings.documentDensity(baseDensity)
-    CompositionLocalProvider(
-        LocalDensity provides effectiveSettings.density(baseDensity),
-        LocalPopupLayerDensity provides baseDensity,
-    ) {
-        WorkspaceContent(state, onStateChange, modifier, onAddPage, onRename, onDelete, pictures,
-            onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity)
-    }
-    previewSettings?.let { draft ->
-        InterfaceDialog(
-            settings = draft,
-            onChange = { previewSettings = it.normalized() },
-            onApply = {
-                onInterfaceSettingsChange(previewSettings ?: draft)
-                previewSettings = null
-            },
-            onDismiss = { previewSettings = null },
-        )
+    Box(modifier.fillMaxSize()) {
+        CompositionLocalProvider(
+            LocalDensity provides effectiveSettings.density(baseDensity),
+            LocalPopupLayerDensity provides baseDensity,
+        ) {
+            WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), onAddPage, onRename, onDelete, pictures,
+                onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity)
+        }
+        previewSettings?.let { draft ->
+            InterfaceDialog(
+                settings = draft,
+                onChange = { previewSettings = it.normalized() },
+                onApply = {
+                    onInterfaceSettingsChange(previewSettings ?: draft)
+                    previewSettings = null
+                },
+                onDismiss = { previewSettings = null },
+            )
+        }
     }
 }
 

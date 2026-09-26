@@ -14,7 +14,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -104,9 +104,9 @@ internal fun LinkButton(
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TextButton(onClick = { expanded = false },
+                    OutlinedButton(onClick = { expanded = false }, shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag(DocumentRibbonTags.LinkCancel)) { Text("Cancel") }
-                    Button(onClick = ::submit, enabled = url != null,
+                    Button(onClick = ::submit, enabled = url != null, shape = MaterialTheme.shapes.small,
                         modifier = Modifier.testTag(DocumentRibbonTags.LinkSubmit)) { Text("Apply") }
                 }
             }

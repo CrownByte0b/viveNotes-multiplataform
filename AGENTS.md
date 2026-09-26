@@ -11,21 +11,8 @@ Before planning, diagnosing, or modifying this project:
 
 # UI design language
 
-Use Material 3 Expressive as the default design language for all new and modified UI.
-
-- Prefer official Material 3 Expressive components over custom widgets.
-- Use Material 3 Expressive motion patterns for transitions, state changes, loading, selection, navigation, and component interactions.
-- Keep shapes, typography, color, spacing, and motion consistent with the app’s Material 3 theme.
-- Reuse existing themed components and motion tokens instead of introducing one-off styling or animation values.
-- When no Expressive component exists, build with standard Material 3 Compose primitives while matching the Expressive visual and motion language.
-- Preserve accessibility: respect reduced-motion preferences, maintain readable contrast, provide semantic labels, and keep touch targets appropriately sized.
-- Do not introduce legacy Material 2 components.
-- Every button in the app whose visible label is only an icon or a swatch shows its accessibility
-  label (alt text) as a Material 3 plain tooltip on mouse hover. Build such controls with
-  `TooltipIconButton`, or wrap them in `HoverTooltip` (`ui/components/HoverTooltip.kt`), passing the
-  same string as the content description so the two cannot drift. `HoverTooltipRuleTest` hovers
-  every clickable control with alt text and fails on one without its tooltip; extend it when a new
-  screen or menu adds controls.
+- Use modern gnome/gtk4 desktop style look for the UI, keeping kotling multi platform toolkit.
+- Prefer official Material 3 icons
 
 # Code organization
 

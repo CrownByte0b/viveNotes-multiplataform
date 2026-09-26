@@ -44,6 +44,11 @@ class InterfaceDialogTest {
 
         onNodeWithTag(InterfaceTags.Open).performClick()
         onNodeWithTag(InterfaceTags.Dialog).assertIsDisplayed()
+        val backdrop = onNodeWithTag(InterfaceTags.Backdrop).fetchSemanticsNode().boundsInRoot
+        val dialog = onNodeWithTag(InterfaceTags.Dialog).fetchSemanticsNode().boundsInRoot
+        assertTrue(backdrop.width >= 2199f && backdrop.height >= 899f)
+        assertTrue(dialog.width <= 540f && dialog.height < 700f,
+            "Interface dialog should stay compact inside the desktop window: $dialog")
         onNodeWithText("Display scale (DPI): 75%").assertIsDisplayed()
         onNodeWithContentDescription("Display scale (DPI)").assertIsDisplayed()
         onNodeWithTag(InterfaceTags.DisplayScale).performTouchInput {
@@ -105,4 +110,30 @@ class InterfaceDialogTest {
             assertTrue(saved.fontScale < 1f)
         }
     }
+
+    @Test
+    fun largeDpiAndFontPreviewKeepTheActionsInsideAShortWindow() =
+        runDesktopComposeUiTest(width = 1200, height = 600) {
+            var saved = InterfaceSettings()
+            setContent {
+                var workspace by remember { mutableStateOf(WorkspaceState.demo().copy(activeTab = RibbonTab.Settings)) }
+                ViveNotesTheme(darkTheme = true) {
+                    WorkspaceScreen(workspace, { workspace = it(workspace) },
+                        onInterfaceSettingsChange = { saved = it })
+                }
+            }
+            onNodeWithTag(InterfaceTags.Open).performClick()
+            onNodeWithTag(InterfaceTags.FontScale).performTouchInput { click(center + Offset(170f, 0f)) }
+            onNodeWithTag(InterfaceTags.DisplayScale).performTouchInput { click(center + Offset(170f, 0f)) }
+
+            val dialog = onNodeWithTag(InterfaceTags.Dialog).fetchSemanticsNode().boundsInRoot
+            val apply = onNodeWithTag(InterfaceTags.Apply).fetchSemanticsNode().boundsInRoot
+            assertTrue(dialog.top >= 0f && dialog.bottom <= 600f, "dialog outside short window: $dialog")
+            assertTrue(apply.bottom <= 600f, "Apply was pushed out of the window: $apply")
+            onNodeWithTag(InterfaceTags.Apply).performClick()
+            runOnIdle {
+                assertTrue(saved.displayScale > 2f)
+                assertTrue(saved.fontScale > 1.5f)
+            }
+        }
 }

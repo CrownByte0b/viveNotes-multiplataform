@@ -19,10 +19,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,14 +49,15 @@ import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.ContextSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.ui.shell.WorkspaceTestTags
+import com.vivenotes.ui.theme.LocalDesktopColors
 import com.vivenotes.workspace.NavigationItem
 import com.vivenotes.workspace.NotebookSummary
 import com.vivenotes.workspace.PageSummary
 import com.vivenotes.workspace.SectionSummary
 import com.vivenotes.workspace.WorkspaceState
 
-private val NotebookPaneWidth = 260.dp
-private val PagePaneWidth = 292.dp
+private val NotebookPaneWidth = 248.dp
+private val PagePaneWidth = 280.dp
 
 /** Semantics identifiers for the navigation panes' menus and dialogs. */
 object NavigationTestTags {
@@ -88,18 +88,18 @@ internal fun NotebookPane(
             .width(NotebookPaneWidth)
             .fillMaxHeight()
             .testTag(WorkspaceTestTags.NotebookPane),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = LocalDesktopColors.current.sidebar,
     ) {
         Column(Modifier.fillMaxSize()) {
             Text(
                 text = "Notebooks",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 20.dp, top = 18.dp, bottom = 10.dp),
+                modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 8.dp),
             )
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 items(state.notebooks, key = NotebookSummary::id) { notebook ->
                     WithItemMenu(NavigationItem.Notebook(notebook.id), requests) { menuOpen ->
@@ -210,25 +210,20 @@ private fun NotebookRow(
 ) {
     Surface(
         onClick = onClick,
-        color = rowContainer(MaterialTheme.colorScheme.surfaceContainerHighest, menuOpen, selected),
-        shape = RoundedCornerShape(14.dp),
+        color = rowContainer(LocalDesktopColors.current.selection, menuOpen, selected),
+        shape = MaterialTheme.shapes.small,
         modifier = Modifier.padding(horizontal = 8.dp).testTag(NavigationTestTags.notebook(notebook.id)),
     ) {
-        ListItem(
-            headlineContent = {
-                Text(notebook.name, fontWeight = FontWeight.SemiBold)
-            },
-            leadingContent = {
-                Box(
-                    Modifier
-                        .size(13.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(notebook.colorArgb)),
-                )
-            },
-            trailingContent = { Text(if (selected) "⌄" else "›") },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().height(42.dp).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(Color(notebook.colorArgb)))
+            Text(notebook.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(if (selected) "⌄" else "›", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -241,31 +236,28 @@ private fun SectionRow(
 ) {
     Row(
         modifier = Modifier
-            .padding(horizontal = 10.dp)
+            .padding(horizontal = 8.dp)
             .testTag(WorkspaceTestTags.section(section.id))
-            .clip(RoundedCornerShape(12.dp))
-            .background(rowContainer(MaterialTheme.colorScheme.primaryContainer, menuOpen, selected))
+            .clip(MaterialTheme.shapes.small)
+            .background(rowContainer(LocalDesktopColors.current.selection, menuOpen, selected))
             .clickable(onClick = onClick)
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .height(36.dp)
+            .padding(start = 28.dp, end = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(
             Modifier
-                .width(5.dp)
-                .height(26.dp)
-                .clip(RoundedCornerShape(3.dp))
+                .width(4.dp)
+                .height(20.dp)
+                .clip(RoundedCornerShape(2.dp))
                 .background(Color(section.colorArgb)),
         )
         Text(
             text = section.name,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (selected) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -284,13 +276,13 @@ internal fun PageListPane(
             .width(PagePaneWidth)
             .fillMaxHeight()
             .testTag(WorkspaceTestTags.PagePane),
-        color = MaterialTheme.colorScheme.surface,
+        color = LocalDesktopColors.current.sidebar,
     ) {
         Column(Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -305,9 +297,11 @@ internal fun PageListPane(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                FilledTonalButton(
+                Button(
                     onClick = onAddPage,
                     enabled = section != null,
+                    shape = MaterialTheme.shapes.small,
+                    contentPadding = ButtonDefaults.ContentPadding,
                     modifier = Modifier.testTag(WorkspaceTestTags.AddPage),
                 ) {
                     Text("＋ Page")
@@ -316,7 +310,7 @@ internal fun PageListPane(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 items(section?.pages.orEmpty(), key = PageSummary::id) { page ->
                     WithItemMenu(NavigationItem.Page(page.id), requests) { menuOpen ->
@@ -342,37 +336,29 @@ private fun PageRow(
 ) {
     Surface(
         onClick = onClick,
-        color = rowContainer(MaterialTheme.colorScheme.primaryContainer, menuOpen, selected),
-        shape = RoundedCornerShape(14.dp),
+        color = rowContainer(LocalDesktopColors.current.selection, menuOpen, selected),
+        shape = MaterialTheme.shapes.small,
         modifier = Modifier
             .fillMaxWidth()
             .testTag(WorkspaceTestTags.page(page.id)),
     ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
             Text(
                 text = page.title.ifBlank { UntitledPage },
                 style = MaterialTheme.typography.titleMedium,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(3.dp))
             Text(
                 text = page.preview,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                maxLines = 2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(5.dp))
+            Spacer(Modifier.height(3.dp))
             Text(
                 text = page.createdLabel,
                 style = MaterialTheme.typography.labelMedium,

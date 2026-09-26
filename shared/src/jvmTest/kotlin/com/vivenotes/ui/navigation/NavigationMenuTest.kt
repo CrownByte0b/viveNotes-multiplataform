@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import androidx.compose.ui.graphics.toPixelMap
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
@@ -170,6 +172,10 @@ class NavigationMenuTest {
         onNodeWithTag(WorkspaceTestTags.page("homework-1")).performMouseInput { rightClick(center) }
         onNodeWithTag(NavigationTestTags.Delete).performClick()
         onNodeWithText("Delete Homework 1?").assertIsDisplayed()
+        val deletePixels = onNodeWithTag(NavigationTestTags.ConfirmDelete).captureToImage().toPixelMap()
+        val destructive = deletePixels[8, deletePixels.height / 2]
+        assertTrue(destructive.red > 0.6f && destructive.green < 0.25f && destructive.blue < 0.3f,
+            "Delete action should use a solid destructive red: $destructive")
         onNodeWithTag(NavigationTestTags.Cancel).performClick()
         onNodeWithTag(WorkspaceTestTags.page("homework-1")).assertIsDisplayed()
 
