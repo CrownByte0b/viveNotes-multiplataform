@@ -2,6 +2,7 @@ package com.vivenotes.desktop
 
 import com.vivenotes.data.AppDirectories
 import com.vivenotes.data.NotesLibrary
+import com.vivenotes.data.PictureLibrary
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +14,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.awt.Frame
 import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -33,6 +35,10 @@ internal class DesktopNotes(
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated)
     private var maintenance: Job? = null
+
+    /** Pictures for a window: its file dialog opens over [owner]. */
+    fun pictures(owner: Frame?): PictureLibrary =
+        DesktopPictures(library.attachments) { choosePictureFile(owner) }
     private var closing: Job? = null
 
     /** Starts reading the notes, and the upkeep. Only once AWT's toolkit has been chosen. */

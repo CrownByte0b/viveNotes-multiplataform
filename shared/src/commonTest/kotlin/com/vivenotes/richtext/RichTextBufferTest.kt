@@ -135,4 +135,89 @@ class RichTextBufferTest {
         assertEquals(listOf(2, 2, 0), changed.blocks.map { it.indent })
         assertEquals(listOf(Align.Center, Align.Center, Align.Start), changed.blocks.map { it.align })
     }
+
+    @Test
+    fun choosingTheSameListAgainReturnsToAParagraphAndOnlyATodoCarriesATick() {
+        val original = editor(Block.of("one"), Block.of("two")).select(TextSelection(0, 5))
+        val bulleted = original.setBlockType(BlockType.Bullet)
+        assertEquals(listOf(BlockType.Bullet, BlockType.Bullet), bulleted.blocks.map { it.type })
+        assertEquals(listOf(BlockType.Paragraph, BlockType.Paragraph),
+            bulleted.setBlockType(BlockType.Bullet).blocks.map { it.type })
+
+        val todo = bulleted.setBlockType(BlockType.Todo)
+        assertEquals(listOf(false, false), todo.blocks.map { it.checked })
+        val ticked = todo.toggleChecked(todo.blocks[0].id)
+        assertEquals(listOf(true, false), ticked.blocks.map { it.checked })
+        assertEquals(null, ticked.setBlockType(BlockType.Numbered).blocks[0].checked)
+        assertEquals(bulleted.blocks, bulleted.toggleChecked(bulleted.blocks[0].id).blocks,
+            "only a to-do has a tick to change")
+    }
+
+    @Test
+    fun enterInAListContinuesItAndANewTodoStartsUnticked() {
+        val bullet = Block(id = "b", type = BlockType.Bullet, indent = 1, runs = listOf(Run("item")))
+        val continued = editor(bullet).select(TextSelection(4)).acceptTextChange("item\n", TextSelection(5))
+        assertEquals(listOf("b", continued.blocks[1].id), continued.blocks.map { it.id })
+        assertTrue(continued.blocks[1].id != "b", "a new paragraph needs its own identity")
+        assertEquals(BlockType.Bullet, continued.blocks[1].type)
+        assertEquals(1, continued.blocks[1].indent)
+
+        val done = Block(id = "t", type = BlockType.Todo, checked = true, runs = listOf(Run("done")))
+        val next = editor(done).select(TextSelection(4)).replace("\nnext\nlast")
+        assertEquals(listOf(BlockType.Todo, BlockType.Todo, BlockType.Todo), next.blocks.map { it.type })
+        assertEquals(listOf(true, false, false), next.blocks.map { it.checked })
+    }
+
+    @Test
+    fun clearFormattingReturnsTheParagraphToPlainText() {
+        val listed = Block(id = "b", type = BlockType.Todo, indent = 2, align = Align.Center, checked = true,
+            runs = listOf(Run("task", setOf(Mark.Bold))))
+        val caret = editor(listed).select(TextSelection(2)).clearFormatting().blocks.single()
+        assertEquals(Block(id = "b", runs = listOf(Run("task", setOf(Mark.Bold)))), caret)
+        val selected = editor(listed).select(TextSelection(0, 4)).clearFormatting().blocks.single()
+        assertEquals(Block(id = "b", runs = listOf(Run("task"))), selected)
+    }
+
+    /** Android `LinkEditingTest.linksSelectedTextAndEditsTheStoredDestination`. */
+    @Test
+    fun linksSelectedTextAndEditsTheStoredDestination() {
+        val linked = editor(Block.of("read this now")).select(TextSelection(5, 9))
+            .insertLink("this", "https://example.com")
+        assertEquals("read this now", linked.text)
+        assertTrue(linked.blocks.single().runs.any { Mark.Link("https://example.com") in it.marks })
+        assertEquals(TextSelection(9), linked.selection)
+
+        val caretInLink = linked.select(TextSelection(7))
+        assertEquals(LinkTarget("this", "https://example.com"), caretInLink.linkTarget)
+        val edited = caretInLink.insertLink("that page", "https://example.org")
+        assertEquals("read that page now", edited.text)
+        assertEquals(listOf(Run("read "), Run("that page", setOf(Mark.Link("https://example.org"))), Run(" now")),
+            edited.blocks.single().runs)
+    }
+
+    @Test
+    fun linkInsertedAtTheCaretKeepsTheSurroundingFormatting() {
+        val original = editor(Block(id = "b", runs = listOf(Run("ab", setOf(Mark.Italic)))))
+            .select(TextSelection(1))
+        assertEquals(LinkTarget("", null), original.linkTarget)
+        val linked = original.insertLink("site", "https://example.com")
+        assertEquals("asiteb", linked.text)
+        assertEquals(setOf(Mark.Italic, Mark.Link("https://example.com")), linked.blocks.single().runs[1].marks)
+        assertEquals(original, original.insertLink("", "https://example.com"), "an empty label inserts nothing")
+    }
+
+    @Test
+    fun aLinkSplitByOtherFormattingIsStillOneLink() {
+        val url = Mark.Link("https://example.com")
+        val buffer = editor(Block(id = "b", runs = listOf(
+            Run("go "), Run("bold", setOf(Mark.Bold, url)), Run("link", setOf(url)), Run(" end"),
+        )))
+        assertEquals(LinkTarget("boldlink", url.href), buffer.select(TextSelection(11)).linkTarget)
+        assertEquals(LinkTarget("boldlink", url.href), buffer.select(TextSelection(3)).linkTarget)
+        assertEquals(LinkTarget("", null), buffer.select(TextSelection(13)).linkTarget)
+        val selected = buffer.select(TextSelection(3, 7))
+        assertEquals(LinkTarget("bold", url.href), selected.linkTarget)
+        assertEquals(listOf(null, url.href, url.href, null), listOf(2, 3, 10, 11).map(buffer::linkUrlAt),
+            "opening follows the character under the pointer, not the caret's either-side rule")
+    }
 }

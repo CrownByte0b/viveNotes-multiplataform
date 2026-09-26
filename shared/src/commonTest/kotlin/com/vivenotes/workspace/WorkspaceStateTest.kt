@@ -1,6 +1,10 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.data.ImportedPicture
 import com.vivenotes.model.Block
+import com.vivenotes.model.BlockType
+import com.vivenotes.model.PageStyle
+import com.vivenotes.model.Run
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.ShapeSegment
@@ -17,7 +21,7 @@ class WorkspaceStateTest {
     @Test
     fun pointerCommandClearsToolsAndCanvasSelection() {
         val initial = WorkspaceState.demo()
-        val text = initial.toggleTextTool().focusTextBox(initial.focusedTextOutline!!.id)
+        val text = initial.toggleTextTool().focusTextBox(initial.bodyTextOutline!!.id)
         val pointer = text.selectPointer()
         assertFalse(pointer.textToolArmed)
         assertFalse(pointer.objectLassoArmed)
@@ -87,7 +91,7 @@ class WorkspaceStateTest {
             })
         })
 
-        val formatted = withExtra.selectText(TextSelection(0, 6)).toggleSelectedMark(Mark.Bold)
+        val formatted = withExtra.focusBody().selectText(TextSelection(0, 6)).toggleSelectedMark(Mark.Bold)
 
         assertEquals(extra, formatted.selectedPage?.document?.outlines?.last())
         assertEquals(Mark.Bold, formatted.richText?.blocks?.first()?.runs?.first()?.marks?.single())
@@ -96,7 +100,7 @@ class WorkspaceStateTest {
     @Test
     fun textToolCreatesOnlyOnCanvasAndFocusedOutlineGetsFormatting() {
         val initial = WorkspaceState.demo()
-        val firstId = initial.focusedTextOutline!!.id
+        val firstId = initial.bodyTextOutline!!.id
         assertEquals(initial, initial.createTextBox(20f, 150f))
         val armed = initial.toggleTextTool()
         assertEquals(armed, armed.createTextBox(20f, 50f))
@@ -194,7 +198,7 @@ class WorkspaceStateTest {
 
     @Test
     fun textBoxClipboardPreservesStyledBlocksAndMintsNewIds() {
-        val initial = WorkspaceState.demo().selectText(TextSelection(0, 6))
+        val initial = WorkspaceState.demo().focusBody().selectText(TextSelection(0, 6))
             .toggleSelectedMark(Mark.Bold)
         val source = initial.focusedTextOutline!!
         val copied = initial.copyTextBox(source.id)
@@ -213,13 +217,13 @@ class WorkspaceStateTest {
     @Test
     fun textBoxBoundsDeleteLastAndUndoRedoAreStructural() {
         val initial = WorkspaceState.demo()
-        val id = initial.focusedTextOutline!!.id
+        val id = initial.bodyTextOutline!!.id
         val moved = initial.moveTextBox(id, -500f, -500f)
             .resizeTextBox(id, width = 10f, minHeight = 5000f)
-        assertEquals(0f, moved.focusedTextOutline!!.x)
-        assertEquals(0f, moved.focusedTextOutline!!.y)
-        assertEquals(120f, moved.focusedTextOutline!!.width)
-        assertEquals(4000f, moved.focusedTextOutline!!.minHeight)
+        assertEquals(0f, moved.bodyTextOutline!!.x)
+        assertEquals(0f, moved.bodyTextOutline!!.y)
+        assertEquals(120f, moved.bodyTextOutline!!.width)
+        assertEquals(4000f, moved.bodyTextOutline!!.minHeight)
         val deleted = moved.deleteTextBox(id)
         assertTrue(deleted.selectedPage!!.document.outlines.isEmpty())
         assertEquals(null, deleted.richText)
@@ -230,16 +234,16 @@ class WorkspaceStateTest {
     @Test
     fun structuralUndoKeepsTypingMadeAfterABoxMove() {
         val initial = WorkspaceState.demo()
-        val id = initial.focusedTextOutline!!.id
-        val moved = initial.moveTextBox(id, 80f, 0f)
+        val id = initial.bodyTextOutline!!.id
+        val moved = initial.moveTextBox(id, 80f, 0f).focusBody()
         val typed = moved.selectText(TextSelection(moved.richText!!.text.length))
             .replaceSelectedText(" added")
         val undone = typed.undoStructure()
-        assertEquals(initial.focusedTextOutline!!.x, undone.focusedTextOutline!!.x)
-        assertTrue(undone.richText!!.text.endsWith(" added"))
+        assertEquals(initial.bodyTextOutline!!.x, undone.bodyTextOutline!!.x)
+        assertTrue(undone.selectedPage!!.body.endsWith(" added"))
         val redone = undone.redoStructure()
-        assertEquals(80f, redone.focusedTextOutline!!.x)
-        assertTrue(redone.richText!!.text.endsWith(" added"))
+        assertEquals(80f, redone.bodyTextOutline!!.x)
+        assertTrue(redone.selectedPage!!.body.endsWith(" added"))
     }
 
     @Test
@@ -286,5 +290,93 @@ class WorkspaceStateTest {
             .resizeSelectedObjects(anchorX = 10f, anchorY = 200f, scaleX = 2f, scaleY = 2f)
         assertEquals(240f, (resized.selectedPage!!.document.outlines.first {
             it.id == "shape-a" } as Outline.Shape).width)
+    }
+
+    @Test
+    fun pictureLandsInsideTheVisibleCornerBelowTheTitleAtItsOwnAspect() {
+        val initial = WorkspaceState.demo()
+        val picture = ImportedPicture("a".repeat(64), pixelWidth = 800, pixelHeight = 400)
+
+        val top = initial.insertPicture(initial.selectedPageId, picture, viewLeft = 0f, viewTop = 0f)
+        val image = top.selectedPage!!.document.outlines.filterIsInstance<Outline.Image>().single()
+        assertEquals(WorkspaceState.PICTURE_INSERT_MARGIN, image.x)
+        assertEquals(PageStyle.TITLE_BAND_DP, image.y, "a picture must not land on the page header")
+        assertEquals(Outline.Image.DEFAULT_WIDTH, image.width)
+        assertEquals(Outline.Image.DEFAULT_WIDTH / 2, image.height)
+        assertEquals(picture.attachmentId, image.attachmentId)
+        assertTrue(top.structuralUndo.isNotEmpty(), "inserting a picture is undoable")
+        assertEquals(initial.selectedPage!!.document, top.undoStructure().selectedPage!!.document)
+
+        val scrolled = initial.toggleTextTool()
+            .insertPicture(initial.selectedPageId, picture, viewLeft = 300f, viewTop = 900f)
+        val placed = scrolled.selectedPage!!.document.outlines.filterIsInstance<Outline.Image>().single()
+        assertEquals(324f, placed.x)
+        assertEquals(924f, placed.y)
+        assertFalse(scrolled.textToolArmed, "nothing stays armed, so the next click reaches the picture")
+    }
+
+    @Test
+    fun pictureChosenForAnotherPageIsNotInserted() {
+        val initial = WorkspaceState.demo()
+        val moved = initial.selectPage("lecture-notes")
+        val picture = ImportedPicture("b".repeat(64), 10, 10)
+        assertEquals(moved, moved.insertPicture("homework-1", picture, 0f, 0f))
+        val unreadable = initial.updatePage(initial.selectedPageId) { it.copy(content = PageContent.Unreadable) }
+        assertEquals(unreadable, unreadable.insertPicture(initial.selectedPageId, picture, 0f, 0f))
+    }
+
+    @Test
+    fun todoTicksInATextBoxThatIsNotFocused() {
+        val initial = WorkspaceState.demo()
+        val outline = initial.bodyTextOutline!!
+        val listed = initial.focusBody().selectText(TextSelection(0)).setSelectedBlockType(BlockType.Todo).clearCanvasFocus()
+        val block = listed.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
+            .single { it.id == outline.id }.blocks.first()
+        assertEquals(false, block.checked)
+
+        val ticked = listed.toggleTodo(outline.id, block.id)
+        assertEquals(true, ticked.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
+            .single { it.id == outline.id }.blocks.first().checked)
+        assertEquals(listed, listed.toggleTodo(outline.id, "not-a-block"))
+    }
+
+    @Test
+    fun linkCommandEditsTheFocusedTextBox() {
+        val linked = WorkspaceState.demo().focusBody().selectText(TextSelection(0, 6))
+            .insertLink("Review", "https://example.com")
+        val runs = linked.richText!!.blocks.first().runs
+        assertEquals(Run("Review", setOf(Mark.Link("https://example.com"))), runs.first())
+        assertEquals(TextSelection(6), linked.editorSelection)
+    }
+
+    /** Regression: with no text box focused, text commands edited the page's first box anyway. */
+    @Test
+    fun textCommandsNeedAFocusedTextBox() {
+        val unfocused = WorkspaceState.demo()
+        assertEquals(null, unfocused.focusedTextOutline)
+        assertEquals(null, unfocused.richText)
+        listOf<(WorkspaceState) -> WorkspaceState>(
+            { it.selectText(TextSelection(0, 6)) },
+            { it.toggleSelectedMark(Mark.Bold) },
+            { it.setSelectedBlockType(BlockType.Bullet) },
+            { it.indentSelectedText(1) },
+            { it.clearSelectedFormatting() },
+            { it.insertLink("Review", "https://example.com") },
+            { it.replaceSelectedText("pasted") },
+        ).forEach { command -> assertEquals(unfocused, command(unfocused)) }
+
+        val focused = unfocused.focusBody().selectText(TextSelection(0, 6)).toggleSelectedMark(Mark.Bold)
+        assertTrue(Mark.Bold in focused.richText!!.blocks.first().runs.first().marks)
+        val left = focused.clearCanvasFocus()
+        assertEquals(left, left.setSelectedBlockType(BlockType.Bullet), "a box that was left is not edited")
+    }
+
+    @Test
+    fun theBodyIsTheFirstTextBoxWhateverIsFocused() {
+        val initial = WorkspaceState.demo()
+        val second = initial.toggleTextTool().createTextBox(40f, 600f).editSelectedText("other", TextSelection(5))
+        val edited = second.updateSelectedPage(body = "Replaced")
+        assertEquals("Replaced", edited.selectedPage!!.body)
+        assertEquals("other", edited.richText!!.text, "the focused box is not the body")
     }
 }

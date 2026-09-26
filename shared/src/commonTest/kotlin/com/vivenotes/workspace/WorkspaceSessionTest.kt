@@ -246,7 +246,10 @@ class WorkspaceSessionTest {
     }
 
     /** Replaces the open page's first text box with [text], as typing into it does. */
-    private fun WorkspaceSession.type(text: String) = update { it.editSelectedText(text, TextSelection(text.length)) }
+    /** Types into the page's first text box, focusing it first as the editor does. */
+    private fun WorkspaceSession.type(text: String) = update {
+        it.focusBody().editSelectedText(text, TextSelection(text.length))
+    }
 
     private fun PageDoc.text(): String =
         outlines.filterIsInstance<Outline.Text>().first().blocks.joinToString("\n") { it.text }

@@ -163,8 +163,9 @@ object DocumentSymbols {
         ImageVector.Builder(
             name = "Link",
             defaultWidth = 24.dp, defaultHeight = 24.dp,
-            viewportWidth = 960f, viewportHeight = 960f,
-        ).group(translationY = 960f) {
+            // Android's ms_rounded_link.xml is the older 24-unit symbol, with no offset group.
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).group {
             addPath(addPathNodes("M3.9,12c0,-1.16 0.94,-2.1 2.1,-2.1h4v-2H6c-2.21,0 -4,1.79 -4,4s1.79,4 4,4h4v-2H6c-1.16,0 -2.1,-0.94 -2.1,-2.1zM8,13h8v-2H8v2zM18,8h-4v2h4c1.16,0 2.1,0.94 2.1,2.1s-0.94,2.1 -2.1,2.1h-4v2h4c2.21,0 4,-1.79 4,-4s-1.79,-4 -4,-4z"), fill = SolidColor(Color.Black))
         }.build()
     }
@@ -174,7 +175,8 @@ object DocumentSymbols {
             name = "Image",
             defaultWidth = 24.dp, defaultHeight = 24.dp,
             viewportWidth = 960f, viewportHeight = 960f,
-        ).group(translationY = 960f) {
+            // Android's ms_rounded_image.xml is drawn in 0..960 already, with no offset group.
+        ).group {
             addPath(addPathNodes("M200,840Q167,840 143.5,816.5Q120,793 120,760L120,200Q120,167 143.5,143.5Q167,120 200,120L760,120Q793,120 816.5,143.5Q840,167 840,200L840,760Q840,793 816.5,816.5Q793,840 760,840L200,840ZM200,760L760,760Q760,760 760,760Q760,760 760,760L760,200Q760,200 760,200Q760,200 760,200L200,200Q200,200 200,200Q200,200 200,200L200,760Q200,760 200,760Q200,760 200,760ZM280,680L680,680Q692,680 698,669Q704,658 696,648L586,501Q580,493 570,493Q560,493 554,501L450,640L376,541Q370,533 360,533Q350,533 344,541L264,648Q256,658 262,669Q268,680 280,680Z"), fill = SolidColor(Color.Black))
         }.build()
     }

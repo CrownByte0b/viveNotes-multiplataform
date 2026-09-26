@@ -42,13 +42,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.focusable
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -73,7 +70,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.layout.onSizeChanged
@@ -91,16 +87,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.BaselineShift
-import androidx.compose.ui.text.ParagraphStyle
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -130,11 +119,31 @@ import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.TextSelection
-import multiplataform_vive.shared.generated.resources.Res
-import multiplataform_vive.shared.generated.resources.inter
-import multiplataform_vive.shared.generated.resources.jetbrains_mono
-import multiplataform_vive.shared.generated.resources.lora
-import org.jetbrains.compose.resources.Font
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.rememberTextMeasurer
+import com.vivenotes.data.PictureLibrary
+import com.vivenotes.ui.canvas.BlockSeparators
+import com.vivenotes.ui.canvas.PictureContent
+import com.vivenotes.ui.canvas.RichTextColors
+import com.vivenotes.ui.canvas.asAnnotatedString
+import com.vivenotes.ui.canvas.drawBlockDecorations
+import com.vivenotes.ui.canvas.linkAtPoint
+import com.vivenotes.ui.canvas.rememberPictureAssets
+import com.vivenotes.ui.canvas.todoAt
+import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.components.TooltipIconButton
+import com.vivenotes.ui.ribbon.document.DocumentTab
+import com.vivenotes.ui.ribbon.draw.DrawRibbon
+import com.vivenotes.ui.ribbon.file.FileRibbon
+import com.vivenotes.ui.ribbon.settings.SettingsRibbon
+import com.vivenotes.ui.ribbon.view.ViewRibbon
 
 private val NotebookPaneWidth = 260.dp
 private val PagePaneWidth = 292.dp
@@ -154,7 +163,6 @@ object WorkspaceTestTags {
     const val PageCanvas = "workspace-page-canvas"
     const val CanvasBackground = "workspace-canvas-background"
     const val ZoomIndicator = "workspace-zoom-indicator"
-    const val PointerTool = "workspace-pointer-tool"
     const val AddPage = "workspace-add-page"
     const val TitleEditor = "workspace-title-editor"
     const val BodyEditor = "workspace-body-editor"
@@ -166,7 +174,6 @@ object WorkspaceTestTags {
     const val ObjectDelete = "workspace-object-delete"
     const val ObjectLock = "workspace-object-lock"
     const val ObjectColor = "workspace-object-color"
-    const val ObjectLasso = "workspace-object-lasso"
     const val StructuralUndo = "workspace-structural-undo"
     const val StructuralRedo = "workspace-structural-redo"
     const val StorageError = "workspace-storage-error"
@@ -178,13 +185,6 @@ object WorkspaceTestTags {
     fun textGrip(id: String): String = "workspace-text-grip-$id"
     fun textWidthHandle(id: String): String = "workspace-text-width-$id"
     fun textHeightHandle(id: String): String = "workspace-text-height-$id"
-    const val ClearFormatting = "workspace-clear-formatting"
-    const val Styles = "workspace-document-styles"
-
-    fun blockType(type: BlockType): String = "workspace-document-block-${type.name}"
-    fun alignment(align: Align): String = "workspace-document-align-${align.name}"
-
-    fun documentMark(mark: Mark): String = "workspace-document-${mark::class.simpleName}"
 
     fun ribbonTab(tab: RibbonTab): String = "workspace-ribbon-${tab.name}"
     fun section(id: String): String = "workspace-section-$id"
@@ -204,8 +204,10 @@ fun WorkspaceScreen(
     onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
     modifier: Modifier = Modifier,
     onAddPage: () -> Unit = { onStateChange { it.addPage() } },
+    /** Where pictures are stored; without it the Picture command is unavailable. */
+    pictures: PictureLibrary? = null,
 ) {
-    val clipboard = LocalClipboardManager.current
+    val canvasOrigin = remember { CanvasOrigin() }
     val editorFocusRequester = remember { FocusRequester() }
     val canvasFocusRequester = remember { FocusRequester() }
     var editorFocusRequest by remember { mutableIntStateOf(0) }
@@ -213,9 +215,6 @@ fun WorkspaceScreen(
         onStateChange(transform)
         editorFocusRequest++
     }
-    // A ribbon command acts on the range captured when its pointer went down, if there was one.
-    fun WorkspaceState.withRibbonSelection(selection: TextSelection?): WorkspaceState =
-        selection?.let(::selectText) ?: this
     LaunchedEffect(editorFocusRequest) {
         if (editorFocusRequest > 0) editorFocusRequester.requestFocus()
     }
@@ -244,53 +243,13 @@ fun WorkspaceScreen(
             onUndo = { onStateChange { it.undoStructure() } },
             onRedo = { onStateChange { it.redoStructure() } },
         )
-        if (state.activeTab == RibbonTab.Document) {
-            DocumentRibbon(
-                richText = state.richText,
-                textToolArmed = state.textToolArmed,
-                onToggleTextTool = { onStateChange { it.toggleTextTool() } },
-                onToggleMark = { mark, selection ->
-                    applyEditorCommand { it.withRibbonSelection(selection).toggleSelectedMark(mark) }
-                },
-                onSetMark = { mark, selection ->
-                    applyEditorCommand { it.withRibbonSelection(selection).setSelectedMark(mark) }
-                },
-                onClearMark = { mark, selection ->
-                    applyEditorCommand { it.withRibbonSelection(selection).clearSelectedMark(mark) }
-                },
-                onClearFormatting = { selection ->
-                    applyEditorCommand { it.withRibbonSelection(selection).clearSelectedFormatting() }
-                },
-                onBlockType = { type, selection ->
-                    applyEditorCommand { it.withRibbonSelection(selection).setSelectedBlockType(type) }
-                },
-                onAlign = { align, selection ->
-                    applyEditorCommand { it.withRibbonSelection(selection).alignSelectedText(align) }
-                },
-                onIndent = { delta, selection ->
-                    applyEditorCommand { it.withRibbonSelection(selection).indentSelectedText(delta) }
-                },
-                // The clipboard takes the text the user can see selected, from this frame's state.
-                onCopy = { selection ->
-                    clipboard.setText(AnnotatedString(state.withRibbonSelection(selection).selectedText))
-                    applyEditorCommand { it.withRibbonSelection(selection) }
-                },
-                onCut = { selection ->
-                    clipboard.setText(AnnotatedString(state.withRibbonSelection(selection).selectedText))
-                    applyEditorCommand { it.withRibbonSelection(selection).replaceSelectedText("") }
-                },
-                onPaste = { selection ->
-                    clipboard.getText()?.text?.let { text ->
-                        applyEditorCommand { it.withRibbonSelection(selection).replaceSelectedText(text) }
-                    }
-                },
-            )
-        } else {
-            CommandRibbon(activeTab = state.activeTab,
-                lassoArmed = state.objectLassoArmed,
-                pointerActive = !state.textToolArmed && !state.objectLassoArmed,
-                onToggleLasso = { onStateChange { it.toggleObjectLasso() } },
-                onSelectPointer = { onStateChange { it.selectPointer() } })
+        // Each tab's buttons, and what they do, live in that tab's package under `ui/ribbon`.
+        when (state.activeTab) {
+            RibbonTab.File -> FileRibbon()
+            RibbonTab.Draw -> DrawRibbon(state, onStateChange)
+            RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures, { canvasOrigin.read() })
+            RibbonTab.View -> ViewRibbon()
+            RibbonTab.Settings -> SettingsRibbon()
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         StorageErrorBanner(state.storageError)
@@ -336,6 +295,8 @@ fun WorkspaceScreen(
                 }
                 PageCanvas(
                     state = state,
+                    pictures = pictures,
+                    canvasOrigin = canvasOrigin,
                     editorFocusRequester = editorFocusRequester,
                     canvasFocusRequester = canvasFocusRequester,
                     modifier = Modifier.weight(1f),
@@ -374,6 +335,8 @@ fun WorkspaceScreen(
                     onSelectObjectsInRect = { l, t, r, b ->
                         onStateChange { it.selectObjectsInRect(l, t, r, b) }
                     },
+                    onToggleTodo = { outlineId, blockId -> onStateChange { it.toggleTodo(outlineId, blockId) } },
+                    onIndent = { delta -> onStateChange { it.indentSelectedText(delta) } },
                     onBodyChange = { id, value ->
                         onStateChange { current ->
                             val focused = if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)
@@ -386,137 +349,6 @@ fun WorkspaceScreen(
                     },
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun TopNavigation(
-    activeTab: RibbonTab,
-    navigationVisible: Boolean,
-    onToggleNavigation: () -> Unit,
-    onSelectTab: (RibbonTab) -> Unit,
-    canUndo: Boolean,
-    canRedo: Boolean,
-    onUndo: () -> Unit,
-    onRedo: () -> Unit,
-) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(62.dp)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            IconButton(
-                onClick = onToggleNavigation,
-                modifier = Modifier
-                    .testTag(WorkspaceTestTags.NavigationToggle)
-                    .semantics {
-                        contentDescription = if (navigationVisible) {
-                            "Hide notebook navigation"
-                        } else {
-                            "Show notebook navigation"
-                        }
-                    },
-            ) {
-                Text(
-                    text = "☰",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            }
-            Text(
-                text = "ViveNotes",
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(end = 8.dp),
-            )
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                RibbonTab.entries.forEach { tab ->
-                    FilterChip(
-                        selected = activeTab == tab,
-                        onClick = { onSelectTab(tab) },
-                        label = { Text(tab.name) },
-                        modifier = Modifier.testTag(WorkspaceTestTags.ribbonTab(tab)),
-                    )
-                }
-            }
-            IconButton(onClick = onUndo, enabled = canUndo,
-                modifier = Modifier.testTag(WorkspaceTestTags.StructuralUndo)
-                    .semantics { contentDescription = "Undo canvas action" }) {
-                Text("↶", style = MaterialTheme.typography.titleLarge)
-            }
-            IconButton(onClick = onRedo, enabled = canRedo,
-                modifier = Modifier.testTag(WorkspaceTestTags.StructuralRedo)
-                    .semantics { contentDescription = "Redo canvas action" }) {
-                Text("↷", style = MaterialTheme.typography.titleLarge)
-            }
-            Text(
-                text = "Local preview",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun CommandRibbon(
-    activeTab: RibbonTab,
-    lassoArmed: Boolean,
-    pointerActive: Boolean,
-    onToggleLasso: () -> Unit,
-    onSelectPointer: () -> Unit,
-) {
-    val actions = when (activeTab) {
-        RibbonTab.File -> listOf("Import", "Export", "Print", "History")
-        RibbonTab.Document -> emptyList()
-        RibbonTab.Draw -> listOf("Select", "Pen", "Highlighter", "Eraser", "Lasso", "Shape", "Ruler")
-        RibbonTab.View -> listOf("Zoom", "Paper", "Page color", "Paper size", "Background")
-        RibbonTab.Settings -> listOf("Appearance", "Hardware", "Models", "Account", "About")
-    }
-
-    Surface(color = MaterialTheme.colorScheme.surface) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(76.dp)
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            actions.forEach { action ->
-                when (action) {
-                    "Select" -> FilterChip(
-                        selected = pointerActive,
-                        onClick = onSelectPointer,
-                        label = { Text("Select") },
-                        modifier = Modifier.testTag(WorkspaceTestTags.PointerTool),
-                    )
-                    "Lasso" -> FilterChip(
-                        selected = lassoArmed,
-                        onClick = onToggleLasso,
-                        label = { Text("Lasso") },
-                        modifier = Modifier.testTag(WorkspaceTestTags.ObjectLasso),
-                    )
-                    else -> OutlinedButton(onClick = {}, enabled = false) { Text(action) }
-                }
-            }
-            Text(
-                text = "Tools unlock as each port phase lands",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
         }
     }
 }
@@ -763,6 +595,8 @@ private fun PageRow(
 @Composable
 private fun PageCanvas(
     state: WorkspaceState,
+    pictures: PictureLibrary?,
+    canvasOrigin: CanvasOrigin,
     editorFocusRequester: FocusRequester,
     canvasFocusRequester: FocusRequester,
     onTitleChange: (String) -> Unit,
@@ -784,10 +618,20 @@ private fun PageCanvas(
     onToggleObjectLock: () -> Unit,
     onColorObjects: (Int) -> Unit,
     onSelectObjectsInRect: (Float, Float, Float, Float) -> Unit,
+    onToggleTodo: (outlineId: String, blockId: String) -> Unit,
+    onIndent: (Int) -> Unit,
     onBodyChange: (String, TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val page = state.selectedPage
+    val uriHandler = LocalUriHandler.current
+    val textMeasurer = rememberTextMeasurer()
+    val currentToggleTodo by rememberUpdatedState(onToggleTodo)
+    val currentIndent by rememberUpdatedState(onIndent)
+    val pictureAssets = rememberPictureAssets(
+        page?.document?.outlines.orEmpty().filterIsInstance<Outline.Image>().map { it.attachmentId }.distinct(),
+        pictures,
+    )
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
     val shellDark = MaterialTheme.colorScheme.background.luminance() < 0.45f
@@ -803,6 +647,7 @@ private fun PageCanvas(
     val currentSelectObjects by rememberUpdatedState(onSelectObjectsInRect)
     val currentState by rememberUpdatedState(state)
     val measuredTextHeights = remember(page?.id) { mutableStateMapOf<String, Float>() }
+    val textLayouts = remember(page?.id) { mutableStateMapOf<String, TextLayoutResult>() }
 
     LaunchedEffect(zoom) {
         val requested = pendingViewport ?: return@LaunchedEffect
@@ -818,6 +663,7 @@ private fun PageCanvas(
             ((point.y + verticalScroll.value) / zoom).toDp().value,
         )
     }
+    SideEffect { canvasOrigin.read = { toPage(Offset.Zero) } }
 
     fun hitsContent(point: Offset, snapshot: WorkspaceState): Boolean =
         snapshot.selectedPage?.document?.outlines?.any { outline ->
@@ -953,6 +799,13 @@ private fun PageCanvas(
             val canvasWidth = maxOf(2200f, sheet?.first ?: 0f, contentRight + 200f)
             val canvasHeight = maxOf(4500f, sheet?.second ?: 0f, contentBottom + 200f)
             val palette = canvasPalette(page.document.style, shellDark)
+            val darkPage = palette.background.luminance() < 0.45f
+            val richColors = RichTextColors(
+                // Android's `EditorStyle.accentColor`, for bullets, to-do boxes and quote stripes.
+                accent = Color(0xFF4CAF50),
+                link = if (darkPage) Color(0xFF8AB4F8) else Color(0xFF1A5FB4),
+                codeBackground = palette.ink.copy(alpha = 0.1f),
+            )
             ZoomedCanvas(zoom) {
             Box(Modifier.requiredSize(canvasWidth.dp, canvasHeight.dp)) {
                 CanvasPaper(page.document.style, palette, sheetFits, lasso)
@@ -972,7 +825,11 @@ private fun PageCanvas(
                                     inner()
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().testTag(WorkspaceTestTags.TitleEditor),
+                            modifier = Modifier.fillMaxWidth()
+                                // Typing a title leaves the text box: its formatting commands must
+                                // not go on acting on a box the caret has left.
+                                .onFocusChanged { if (it.isFocused) onClearCanvasFocus() }
+                                .testTag(WorkspaceTestTags.TitleEditor),
                         )
                         Spacer(Modifier.height(2.dp))
                         Box(Modifier.width(420.dp).height(1.dp).background(palette.rule))
@@ -1003,14 +860,14 @@ private fun PageCanvas(
                             modifier = Modifier.offset(x, (y - 76.dp).coerceAtLeast(0.dp)),
                         ) {
                             Row(Modifier.padding(3.dp)) {
-                                IconButton(onClick = onCopyObjects,
+                                TooltipIconButton("Copy selected text boxes", onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
-                                    Icon(DocumentSymbols.ContentCopy, contentDescription = "Copy selected text boxes",
+                                    Icon(DocumentSymbols.ContentCopy, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 }
-                                IconButton(onClick = onDeleteObjects,
+                                TooltipIconButton("Delete selected text boxes", onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
-                                    Icon(ObjectSymbols.Delete, contentDescription = "Delete selected text boxes",
+                                    Icon(ObjectSymbols.Delete, contentDescription = null,
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(18.dp))
                                 }
@@ -1027,16 +884,16 @@ private fun PageCanvas(
                             modifier = Modifier.offset(x, toolbarY),
                         ) {
                             Row(Modifier.padding(3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                IconButton(onClick = { onCopyTextBox(outline.id) },
+                                TooltipIconButton("Copy text box", onClick = { onCopyTextBox(outline.id) }, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.TextBoxCopy)) {
-                                    Icon(DocumentSymbols.ContentCopy, contentDescription = "Copy text box",
+                                    Icon(DocumentSymbols.ContentCopy, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 }
                                 TextButton(onClick = { onSelectAllTextBox(outline.id) },
                                     modifier = Modifier.testTag(WorkspaceTestTags.TextBoxSelectAll)) { Text("Select all") }
-                                IconButton(onClick = { onDeleteTextBox(outline.id) },
+                                TooltipIconButton("Delete text box", onClick = { onDeleteTextBox(outline.id) }, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.TextBoxDelete)) {
-                                    Icon(ObjectSymbols.Delete, contentDescription = "Delete text box",
+                                    Icon(ObjectSymbols.Delete, contentDescription = null,
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(18.dp))
                                 }
@@ -1079,7 +936,7 @@ private fun PageCanvas(
                             .testTag(WorkspaceTestTags.textBoxOutline(outline.id)))
                         BasicTextField(
                             value = TextFieldValue(
-                                annotatedString = richText?.asAnnotatedString() ?: buildAnnotatedString {},
+                                annotatedString = richText?.asAnnotatedString(richColors) ?: buildAnnotatedString {},
                                 selection = TextRange(richText?.selection?.start ?: 0,
                                     richText?.selection?.end ?: 0),
                                 composition = if (focused) state.editorComposition?.let {
@@ -1087,6 +944,34 @@ private fun PageCanvas(
                                 } else null,
                             ),
                             onValueChange = { onBodyChange(outline.id, it) },
+                            visualTransformation = BlockSeparators,
+                            onTextLayout = { textLayouts[outline.id] = it },
+                            decorationBox = { inner ->
+                                Box(Modifier
+                                    .drawBehind {
+                                        textLayouts[outline.id]?.let { layout ->
+                                            drawBlockDecorations(layout, outline.blocks, richColors, palette.ink, textMeasurer)
+                                        }
+                                    }
+                                    .pointerInput(outline.id) {
+                                        // A to-do's box ticks it; Ctrl+click opens a link, as desktop
+                                        // editors do, leaving a plain click to place the caret.
+                                        awaitEachGesture {
+                                            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                            val layout = textLayouts[outline.id] ?: return@awaitEachGesture
+                                            val snapshot = currentState.richTextFor(outline.id) ?: return@awaitEachGesture
+                                            val todo = todoAt(layout, snapshot.blocks, down.position, this)
+                                            val link = if (currentEvent.keyboardModifiers.isCtrlPressed)
+                                                snapshot.linkAtPoint(layout, down.position) else null
+                                            if (todo == null && link == null) return@awaitEachGesture
+                                            down.consume()
+                                            val up = waitForUpOrCancellation(PointerEventPass.Initial) ?: return@awaitEachGesture
+                                            up.consume()
+                                            todo?.let { currentToggleTodo(outline.id, it) }
+                                            link?.let { runCatching { uriHandler.openUri(it) } }
+                                        }
+                                    }) { inner() }
+                            },
                             minLines = 3,
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                             textStyle = MaterialTheme.typography.bodyLarge.copy(
@@ -1095,6 +980,12 @@ private fun PageCanvas(
                             ),
                             modifier = Modifier.fillMaxWidth()
                                 .padding(8.dp)
+                                // Tab indents, as on Android: in a note, indenting is what a writer means.
+                                .onPreviewKeyEvent { event ->
+                                    if (event.key != Key.Tab) return@onPreviewKeyEvent false
+                                    if (event.type == KeyEventType.KeyDown) currentIndent(if (event.isShiftPressed) -1 else 1)
+                                    true
+                                }
                                 .then(if (focused) Modifier.focusRequester(editorFocusRequester) else Modifier)
                                 .onFocusChanged {
                                     if (it.isFocused && !focused) onFocusTextBox(outline.id)
@@ -1156,9 +1047,11 @@ private fun PageCanvas(
                         tonalElevation = if (selected) 3.dp else 1.dp,
                         modifier = Modifier.offset(x, y).size(width, height)
                             .testTag(WorkspaceTestTags.primeObject(outline.id))
-                            .border(if (selected) 2.dp else 1.dp,
+                            // A picture shows its own edges; only its selection is outlined.
+                            .then(if (outline is Outline.Image && !selected) Modifier else Modifier.border(
+                                if (selected) 2.dp else 1.dp,
                                 if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                MaterialTheme.shapes.small)
+                                MaterialTheme.shapes.small))
                             .pointerInput(outline.id) {
                                 var total = Offset.Zero
                                 detectDragGestures(
@@ -1180,8 +1073,12 @@ private fun PageCanvas(
                             },
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text(label, style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (outline is Outline.Image && pictures != null) {
+                                PictureContent(pictureAssets[outline.attachmentId])
+                            } else {
+                                Text(label, style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                     if (selected && state.selectedTextOutlineIds.isEmpty()) {
@@ -1231,49 +1128,50 @@ private fun PageCanvas(
                                             is Outline.Equation -> Color(selected.colorArgb ?: 0xFF000000.toInt())
                                             else -> Color.Black
                                         }
-                                        IconButton(onClick = { colorMenu = true },
+                                        TooltipIconButton("Change object colour", onClick = { colorMenu = true },
+                                            tooltipPosition = TooltipAnchorPosition.Above,
                                             modifier = Modifier.size(40.dp)
                                                 .testTag(WorkspaceTestTags.ObjectColor)) {
-                                            Box(Modifier.size(18.dp).clip(CircleShape)
-                                                .background(swatch)
-                                                .semantics { contentDescription = "Change object colour" })
+                                            Box(Modifier.size(18.dp).clip(CircleShape).background(swatch))
                                         }
                                         DropdownMenu(expanded = colorMenu, onDismissRequest = { colorMenu = false }) {
                                             ObjectColors.chunked(5).forEach { colors ->
                                                 Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                                                     colors.forEach { (name, argb) ->
-                                                        Box(Modifier.size(40.dp).padding(4.dp)
-                                                            .clip(CircleShape)
-                                                            .background(Color(argb))
-                                                            .semantics { contentDescription = name }
-                                                            .clickable {
-                                                                colorMenu = false
-                                                                onColorObjects(argb)
-                                                            })
+                                                        HoverTooltip(name) {
+                                                            Box(Modifier.size(40.dp).padding(4.dp)
+                                                                .clip(CircleShape)
+                                                                .background(Color(argb))
+                                                                .clickable(role = Role.Button) {
+                                                                    colorMenu = false
+                                                                    onColorObjects(argb)
+                                                                }
+                                                                .semantics { contentDescription = name })
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                 }
-                                IconButton(onClick = onCopyObjects,
+                                TooltipIconButton("Copy selection", onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
-                                    Icon(DocumentSymbols.ContentCopy, contentDescription = "Copy selection",
+                                    Icon(DocumentSymbols.ContentCopy, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 }
                                 if (state.selectedTextOutlineIds.isEmpty()) {
-                                    IconButton(onClick = onToggleObjectLock,
+                                    TooltipIconButton(if (state.selectedObjectsLocked) "Unlock selection" else "Lock selection",
+                                        onClick = onToggleObjectLock, tooltipPosition = TooltipAnchorPosition.Above,
                                         modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectLock)) {
                                         Icon(if (state.selectedObjectsLocked) ObjectSymbols.Lock
                                             else ObjectSymbols.LockOpen,
-                                            contentDescription = if (state.selectedObjectsLocked)
-                                                "Unlock selection" else "Lock selection",
+                                            contentDescription = null,
                                             modifier = Modifier.size(18.dp))
                                     }
                                 }
-                                IconButton(onClick = onDeleteObjects,
+                                TooltipIconButton("Delete selection", onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
-                                    Icon(ObjectSymbols.Delete, contentDescription = "Delete selection",
+                                    Icon(ObjectSymbols.Delete, contentDescription = null,
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(18.dp))
                                 }
@@ -1376,77 +1274,7 @@ private fun ZoomedCanvas(zoom: Float, content: @Composable () -> Unit) {
     }
 }
 
-@Composable
-private fun RichTextBuffer.asAnnotatedString(): AnnotatedString {
-    val inter = FontFamily(Font(Res.font.inter))
-    val lora = FontFamily(Font(Res.font.lora))
-    val jetbrainsMono = FontFamily(Font(Res.font.jetbrains_mono))
-    return buildAnnotatedString {
-    blocks.forEachIndexed { blockIndex, block ->
-        if (blockIndex > 0) append('\n')
-        pushStyle(ParagraphStyle(textAlign = when (block.align) {
-            Align.Start -> TextAlign.Start
-            Align.Center -> TextAlign.Center
-            Align.End -> TextAlign.End
-        }))
-        pushStyle(SpanStyle(
-            fontWeight = when (block.type) {
-                BlockType.Heading1, BlockType.Heading2, BlockType.Heading3 -> FontWeight.Bold
-                else -> null
-            },
-            fontSize = when (block.type) {
-                BlockType.Heading1 -> 30.sp
-                BlockType.Heading2 -> 24.sp
-                BlockType.Heading3 -> 20.sp
-                else -> androidx.compose.ui.unit.TextUnit.Unspecified
-            },
-        ))
-        block.runs.forEach { run ->
-            val marks = run.marks
-            val selectedSize = marks.filterIsInstance<Mark.FontSize>().firstOrNull()?.sp
-            val script = Mark.Subscript in marks || Mark.Superscript in marks
-            val style = SpanStyle(
-                fontWeight = if (Mark.Bold in marks) FontWeight.Bold else null,
-                fontStyle = if (Mark.Italic in marks) FontStyle.Italic else null,
-                fontFamily = marks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.let {
-                    when (it.name.lowercase()) {
-                        "serif" -> FontFamily.Serif
-                        "monospace" -> FontFamily.Monospace
-                        "inter" -> inter
-                        "lora" -> lora
-                        "jetbrains_mono" -> jetbrainsMono
-                        "cursive" -> FontFamily.Cursive
-                        else -> FontFamily.SansSerif
-                    }
-                },
-                fontSize = when {
-                    script -> ((selectedSize ?: 15) * 0.8f).sp
-                    selectedSize != null -> selectedSize.sp
-                    else -> androidx.compose.ui.unit.TextUnit.Unspecified
-                },
-                baselineShift = when {
-                    Mark.Subscript in marks -> BaselineShift.Subscript
-                    Mark.Superscript in marks -> BaselineShift.Superscript
-                    else -> null
-                },
-                color = marks.filterIsInstance<Mark.TextColor>().firstOrNull()
-                    ?.let { Color(it.argb) } ?: Color.Unspecified,
-                background = marks.filterIsInstance<Mark.Highlight>().firstOrNull()
-                    ?.let { Color(it.argb) } ?: Color.Unspecified,
-                textDecoration = when {
-                    Mark.Underline in marks && Mark.Strikethrough in marks ->
-                        TextDecoration.combine(listOf(TextDecoration.Underline, TextDecoration.LineThrough))
-                    Mark.Underline in marks -> TextDecoration.Underline
-                    Mark.Strikethrough in marks -> TextDecoration.LineThrough
-                    else -> null
-                },
-            )
-            pushStyle(style)
-            append(run.editorText)
-            pop()
-        }
-        pop()
-        pop()
-    }
-    }
+/** The page point at the canvas's visible top left, read when a picture is inserted. */
+internal class CanvasOrigin {
+    var read: () -> Offset = { Offset.Zero }
 }

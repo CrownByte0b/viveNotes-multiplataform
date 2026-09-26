@@ -20,6 +20,18 @@ Use Material 3 Expressive as the default design language for all new and modifie
 - When no Expressive component exists, build with standard Material 3 Compose primitives while matching the Expressive visual and motion language.
 - Preserve accessibility: respect reduced-motion preferences, maintain readable contrast, provide semantic labels, and keep touch targets appropriately sized.
 - Do not introduce legacy Material 2 components.
+- Every button in the app whose visible label is only an icon or a swatch shows its accessibility
+  label (alt text) as a Material 3 plain tooltip on mouse hover. Build such controls with
+  `TooltipIconButton`, or wrap them in `HoverTooltip` (`ui/components/HoverTooltip.kt`), passing the
+  same string as the content description so the two cannot drift. `HoverTooltipRuleTest` hovers
+  every clickable control with alt text and fails on one without its tooltip; extend it when a new
+  screen or menu adds controls.
+
+# Code organization
+
+- Each ribbon tab lives in its own package under `ui/ribbon/<tab>/` (`document`, `draw`, `file`,
+  `view`, `settings`, …) holding that tab's buttons and the commands they run. Pieces shared by
+  several tabs stay in `ui/ribbon/`; `WorkspaceScreen` only chooses which tab to show.
 
 # Testing
 

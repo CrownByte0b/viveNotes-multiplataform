@@ -9,10 +9,12 @@ import java.io.File
  * closes at exit. The desktop's stand-in for the Android `NotesApplication` container, for storage.
  */
 class NotesLibrary private constructor(
-    /** Holds `notes.db`, its WAL files and the backup directory. */
+    /** Holds `notes.db`, its WAL files, the backup directory and the pictures. */
     val directory: File,
     internal val database: NotesDatabase,
     val repository: NotesRepository,
+    /** Pictures, in the `attachments` directory beside the database. */
+    val attachments: AttachmentStore,
     private val backups: DatabaseBackupManager,
 ) : AutoCloseable {
 
@@ -48,6 +50,7 @@ class NotesLibrary private constructor(
                 directory = directory,
                 database = database,
                 repository = NotesRepository(database),
+                attachments = AttachmentStore(File(directory, AttachmentStore.DIRECTORY), database),
                 backups = DatabaseBackupManager(database, File(directory, DatabaseBackupManager.DIRECTORY)),
             )
         }

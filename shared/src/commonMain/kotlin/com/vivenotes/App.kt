@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import com.vivenotes.data.PictureLibrary
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.WorkspaceSession
@@ -28,10 +29,13 @@ object AppTestTags {
     const val Opening = "app-opening"
 }
 
-/** The ViveNotes workspace over its stored notes: what every application window shows. */
+/**
+ * The ViveNotes workspace over its stored notes: what every application window shows. [pictures]
+ * is the platform's picture storage and chooser; without it pictures cannot be inserted or shown.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun App(session: WorkspaceSession) {
+fun App(session: WorkspaceSession, pictures: PictureLibrary? = null) {
     val state by session.state.collectAsState()
     ViveNotesTheme {
         val workspace = state
@@ -45,7 +49,8 @@ fun App(session: WorkspaceSession) {
                 )
             }
         } else {
-            WorkspaceScreen(state = workspace, onStateChange = session::update, onAddPage = session::addPage)
+            WorkspaceScreen(state = workspace, onStateChange = session::update, onAddPage = session::addPage,
+                pictures = pictures)
         }
     }
 }

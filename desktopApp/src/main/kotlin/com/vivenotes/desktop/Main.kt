@@ -1,6 +1,7 @@
 package com.vivenotes.desktop
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -57,13 +58,13 @@ private fun launchStandardWindow(notes: DesktopNotes) {
         Window(
             // The window stays until the notes are written and closed; then the application ends.
             onCloseRequest = { notes.close(::exitApplication) },
-            title = "ViveNotes",
+            title = "Vive Notes",
             state = rememberWindowState(size = DpSize(1440.dp, 900.dp)),
         ) {
             LaunchedEffect(window) {
                 window.minimumSize = Dimension(720, 540)
             }
-            App(notes.session)
+            App(notes.session, remember(window) { notes.pictures(window) })
         }
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
 import com.vivenotes.App
+import com.vivenotes.data.PictureLibrary
 import com.vivenotes.workspace.WorkspaceSession
 import java.awt.Dimension
 import java.awt.Toolkit
@@ -30,7 +31,7 @@ internal fun launchWayland(notes: DesktopNotes) {
         frame.minimumSize = Dimension(720, 540)
         frame.setSize(1440, 900)
         frame.setLocationRelativeTo(null)
-        frame.contentPane.add(createWaylandComposePanel(notes.session))
+        frame.contentPane.add(createWaylandComposePanel(notes.session, notes.pictures(frame)))
         frame.isVisible = true
     }
 }
@@ -42,8 +43,8 @@ internal fun requireNativeWaylandToolkit(toolkitClassName: String) {
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
-private fun createWaylandComposePanel(session: WorkspaceSession) = ComposePanel(
+private fun createWaylandComposePanel(session: WorkspaceSession, pictures: PictureLibrary) = ComposePanel(
     renderSettings = RenderSettings.SwingGraphics(),
 ).apply {
-    setContent { App(session) }
+    setContent { App(session, pictures) }
 }

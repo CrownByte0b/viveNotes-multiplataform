@@ -36,6 +36,8 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import com.vivenotes.ui.ribbon.document.DocumentRibbonTags
+import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.model.Mark
 import com.vivenotes.model.BlockType
@@ -43,6 +45,7 @@ import com.vivenotes.model.Outline
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.focusBody
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -134,14 +137,14 @@ class WorkspaceScreenTest {
             setWorkspace(
                 initial = WorkspaceState.demo()
                     .copy(activeTab = RibbonTab.Document)
-                    .selectText(TextSelection(0, 6)),
+                    .focusBody().selectText(TextSelection(0, 6)),
             ) { observed = it }
 
-            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Bold)).performClick()
-            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Bold)).assertIsSelected()
+            onNodeWithTag(DocumentRibbonTags.mark(Mark.Bold)).performClick()
+            onNodeWithTag(DocumentRibbonTags.mark(Mark.Bold)).assertIsSelected()
             runOnIdle { assertEquals(setOf(Mark.Bold), observed.richText?.blocks?.first()?.runs?.first()?.marks) }
 
-            onNodeWithTag(WorkspaceTestTags.ClearFormatting).performClick()
+            onNodeWithTag(DocumentRibbonTags.ClearFormatting).performClick()
             runOnIdle { assertEquals(emptySet(), observed.richText?.blocks?.first()?.runs?.first()?.marks) }
         }
 
@@ -149,8 +152,8 @@ class WorkspaceScreenTest {
     fun selectedRibbonButtonMatchesHoverFootprint() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             setWorkspace(initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
-                .selectText(TextSelection(0, 6)))
-            val button = onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Bold))
+                .focusBody().selectText(TextSelection(0, 6)))
+            val button = onNodeWithTag(DocumentRibbonTags.mark(Mark.Bold))
             val idle = button.captureToImage().toPixelMap()
             button.performMouseInput { moveTo(Offset(20f, 20f)) }
             mainClock.advanceTimeBy(300)
@@ -178,13 +181,13 @@ class WorkspaceScreenTest {
 
             onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextInputSelection(TextRange(0, 6))
             runOnIdle { assertEquals(TextSelection(0, 6), observed.editorSelection) }
-            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Bold)).performClick()
+            onNodeWithTag(DocumentRibbonTags.mark(Mark.Bold)).performClick()
             onNodeWithTag(WorkspaceTestTags.BodyEditor).assertIsFocused()
             runOnIdle {
                 assertEquals(TextSelection(0, 6), observed.editorSelection)
                 assertTrue(Mark.Bold in observed.richText!!.blocks.first().runs.first().marks)
             }
-            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Italic)).performClick()
+            onNodeWithTag(DocumentRibbonTags.mark(Mark.Italic)).performClick()
             runOnIdle {
                 assertEquals(TextSelection(0, 6), observed.editorSelection)
                 assertTrue(Mark.Italic in observed.richText!!.blocks.first().runs.first().marks)
@@ -213,7 +216,7 @@ class WorkspaceScreenTest {
                 assertEquals(TextSelection(0, 6), observed.editorSelection)
                 assertTrue(Mark.TextColor(red) in observed.richText!!.blocks.first().runs.first().marks)
             }
-            onNodeWithTag(WorkspaceTestTags.ClearFormatting).performClick()
+            onNodeWithTag(DocumentRibbonTags.ClearFormatting).performClick()
             runOnIdle {
                 assertEquals(TextSelection(0, 6), observed.editorSelection)
                 assertTrue(observed.richText!!.blocks.first().runs.first().marks.isEmpty())
@@ -228,10 +231,10 @@ class WorkspaceScreenTest {
             setWorkspace(initial = initial) { observed = it }
             onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextInputSelection(TextRange(0, 6))
 
-            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Underline)).performClick()
-            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Strikethrough)).performClick()
-            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Subscript)).performClick()
-            onNodeWithTag(WorkspaceTestTags.documentMark(Mark.Superscript)).performClick()
+            onNodeWithTag(DocumentRibbonTags.mark(Mark.Underline)).performClick()
+            onNodeWithTag(DocumentRibbonTags.mark(Mark.Strikethrough)).performClick()
+            onNodeWithTag(DocumentRibbonTags.mark(Mark.Subscript)).performClick()
+            onNodeWithTag(DocumentRibbonTags.mark(Mark.Superscript)).performClick()
             runOnIdle {
                 val marks = observed.richText!!.blocks.first().runs.first().marks
                 assertTrue(Mark.Underline in marks)
@@ -247,14 +250,14 @@ class WorkspaceScreenTest {
             runOnIdle { assertTrue(Mark.Highlight(yellow) in
                 observed.richText!!.blocks.first().runs.first().marks) }
 
-            onNodeWithTag(WorkspaceTestTags.blockType(BlockType.Bullet)).performScrollTo().performClick()
-            onNodeWithTag("document-increase-indent").performScrollTo().performClick()
+            onNodeWithTag(DocumentRibbonTags.blockType(BlockType.Bullet)).performScrollTo().performClick()
+            onNodeWithTag(DocumentRibbonTags.IncreaseIndent).performScrollTo().performClick()
             runOnIdle {
                 assertEquals(BlockType.Bullet, observed.richText!!.currentBlock.type)
                 assertEquals(1, observed.richText!!.currentBlock.indent)
             }
-            onNodeWithTag(WorkspaceTestTags.Styles).performScrollTo().performClick()
-            onNodeWithTag(WorkspaceTestTags.blockType(BlockType.Heading1)).performClick()
+            onNodeWithTag(DocumentRibbonTags.Styles).performScrollTo().performClick()
+            onNodeWithTag(DocumentRibbonTags.blockType(BlockType.Heading1)).performClick()
             runOnIdle {
                 assertEquals(BlockType.Heading1, observed.richText!!.currentBlock.type)
                 assertEquals(TextSelection(0, 6), observed.editorSelection)
@@ -268,15 +271,16 @@ class WorkspaceScreenTest {
             setWorkspace(initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)) {
                 observed = it
             }
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
 
-            onNodeWithTag(WorkspaceTestTags.blockType(BlockType.Bullet))
+            onNodeWithTag(DocumentRibbonTags.blockType(BlockType.Bullet))
                 .performScrollTo().performClick()
 
             runOnIdle { assertEquals(BlockType.Bullet, observed.richText?.currentBlock?.type) }
         }
 
     @Test
-    fun documentRibbonIncludesTheAndroidControlsAndDisablesUnportedActions() =
+    fun documentRibbonIncludesTheAndroidControlsAndDisablesOnlyWhatCannotRun() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             setWorkspace(initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document))
 
@@ -285,13 +289,44 @@ class WorkspaceScreenTest {
                 DocumentRibbonTags.Cut, DocumentRibbonTags.Copy,
                 DocumentRibbonTags.FontFamily, DocumentRibbonTags.FontSize,
                 DocumentRibbonTags.FontColor, DocumentRibbonTags.Highlight,
-                WorkspaceTestTags.ClearFormatting, WorkspaceTestTags.Styles,
+                DocumentRibbonTags.ClearFormatting, DocumentRibbonTags.Styles,
                 DocumentRibbonTags.Equation, DocumentRibbonTags.Link, DocumentRibbonTags.Picture,
             ).forEach { onNodeWithTag(it).assertExists() }
             onNodeWithTag(DocumentRibbonTags.Text).assertIsEnabled()
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
+            onNodeWithTag(DocumentRibbonTags.Link).assertIsEnabled()
+            // No LaTeX renderer on desktop yet, and this screen was given no picture storage.
             onNodeWithTag(DocumentRibbonTags.Equation).assertIsNotEnabled()
-            onNodeWithTag(DocumentRibbonTags.Link).assertIsNotEnabled()
             onNodeWithTag(DocumentRibbonTags.Picture).assertIsNotEnabled()
+        }
+
+    /** Regression: formatting ran against the page's first text box when no box was being edited. */
+    @Test
+    fun textCommandsAreDisabledUntilATextBoxIsBeingEdited() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+            val textCommands = listOf(
+                DocumentRibbonTags.mark(Mark.Bold), DocumentRibbonTags.blockType(BlockType.Bullet),
+                DocumentRibbonTags.IncreaseIndent, DocumentRibbonTags.ClearFormatting,
+                DocumentRibbonTags.Paste, DocumentRibbonTags.FontColor, DocumentRibbonTags.Link,
+            )
+
+            textCommands.forEach { onNodeWithTag(it).assertIsNotEnabled() }
+            onNodeWithTag(DocumentRibbonTags.blockType(BlockType.Bullet)).performClick()
+            runOnIdle { assertEquals(initial.selectedPage!!.document, observed.selectedPage!!.document) }
+            onNodeWithTag(DocumentRibbonTags.Text).assertIsEnabled()
+
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
+            textCommands.forEach { onNodeWithTag(it).assertIsEnabled() }
+
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(780f, 600f)) }
+            textCommands.forEach { onNodeWithTag(it).assertIsNotEnabled() }
+
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
+            onNodeWithTag(WorkspaceTestTags.TitleEditor).performClick()
+            onNodeWithTag(DocumentRibbonTags.mark(Mark.Bold)).assertIsNotEnabled()
         }
 
     @Test
@@ -366,7 +401,7 @@ class WorkspaceScreenTest {
     fun focusedNonEmptyTextBoxShowsCopySelectAllDeleteToolkit() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
-            val id = initial.focusedTextOutline!!.id
+            val id = initial.bodyTextOutline!!.id
             var observed = initial
             setWorkspace(initial = initial) { observed = it }
 
@@ -385,7 +420,7 @@ class WorkspaceScreenTest {
     fun textBoxOutlineAppearsOnlyWhileSelected() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
-            val id = initial.focusedTextOutline!!.id
+            val id = initial.bodyTextOutline!!.id
             setWorkspace(initial = initial)
 
             onNodeWithTag(WorkspaceTestTags.textBoxOutline(id)).assertDoesNotExist()
@@ -418,7 +453,7 @@ class WorkspaceScreenTest {
     fun doubleClickOnEmptyCanvasOffersSharedObjectPaste() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
-            val initial = base.copyTextBox(base.focusedTextOutline!!.id)
+            val initial = base.copyTextBox(base.bodyTextOutline!!.id)
             var observed = initial
             setWorkspace(initial = initial) { observed = it }
             val before = initial.selectedPage!!.document.outlines.size
@@ -518,7 +553,7 @@ class WorkspaceScreenTest {
             var observed = initial
             setWorkspace(initial = initial) { observed = it }
 
-            onNodeWithTag(WorkspaceTestTags.ObjectLasso).performClick()
+            onNodeWithTag(DrawRibbonTags.ObjectLasso).performClick()
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
                 swipe(start = Offset(250f, 320f), end = Offset(450f, 450f))
             }
@@ -555,8 +590,8 @@ class WorkspaceScreenTest {
             onNodeWithTag(WorkspaceTestTags.textBoxOutline(firstId)).assertExists()
             onNodeWithTag(WorkspaceTestTags.textBoxOutline(secondId)).assertExists()
 
-            onNodeWithTag(WorkspaceTestTags.PointerTool).performClick()
-            onNodeWithTag(WorkspaceTestTags.ObjectLasso).performClick()
+            onNodeWithTag(DrawRibbonTags.PointerTool).performClick()
+            onNodeWithTag(DrawRibbonTags.ObjectLasso).performClick()
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
                 moveTo(Offset(350f, 390f))
                 press()
@@ -598,7 +633,7 @@ class WorkspaceScreenTest {
             var observed = initial
             setWorkspace(initial = initial) { observed = it }
 
-            onNodeWithTag(WorkspaceTestTags.PointerTool).assertIsSelected()
+            onNodeWithTag(DrawRibbonTags.PointerTool).assertIsSelected()
 
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
                 moveTo(Offset(250f, 320f))
@@ -607,7 +642,7 @@ class WorkspaceScreenTest {
                 release()
             }
             runOnIdle { assertEquals(setOf(shape.id), observed.selectedObjectIds) }
-            onNodeWithTag(WorkspaceTestTags.PointerTool).performClick()
+            onNodeWithTag(DrawRibbonTags.PointerTool).performClick()
             runOnIdle { assertTrue(observed.selectedObjectIds.isEmpty()) }
         }
 
@@ -654,14 +689,14 @@ class WorkspaceScreenTest {
             }
             runOnIdle { assertFalse(observed.textToolArmed) }
             onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Draw)).performClick()
-            onNodeWithTag(WorkspaceTestTags.ObjectLasso).performClick()
-            onNodeWithTag(WorkspaceTestTags.ObjectLasso).assertIsSelected()
-            onNodeWithTag(WorkspaceTestTags.ObjectLasso).performKeyInput {
+            onNodeWithTag(DrawRibbonTags.ObjectLasso).performClick()
+            onNodeWithTag(DrawRibbonTags.ObjectLasso).assertIsSelected()
+            onNodeWithTag(DrawRibbonTags.ObjectLasso).performKeyInput {
                 keyDown(Key.Escape)
                 keyUp(Key.Escape)
             }
             runOnIdle { assertFalse(observed.objectLassoArmed) }
-            onNodeWithTag(WorkspaceTestTags.PointerTool).assertIsSelected()
+            onNodeWithTag(DrawRibbonTags.PointerTool).assertIsSelected()
         }
 
     @Test
@@ -685,6 +720,8 @@ class WorkspaceScreenTest {
             var observed = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
             setWorkspace(initial = observed) { observed = it }
             onNodeWithTag(DocumentRibbonTags.Text).performClick()
+            // Off the button, so its tooltip closes and the window is the only root again.
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { moveTo(Offset(780f, 500f)) }
             onRoot().performKeyInput { keyDown(Key.CtrlLeft) }
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
                 moveTo(Offset(780f, 500f))
@@ -708,7 +745,7 @@ class WorkspaceScreenTest {
             var observed = WorkspaceState.demo()
             setWorkspace(
                 initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
-                    .selectText(TextSelection(0, 6)),
+                    .focusBody().selectText(TextSelection(0, 6)),
             ) { observed = it }
 
             onNodeWithTag(DocumentRibbonTags.FontSize).performClick()
@@ -728,7 +765,7 @@ class WorkspaceScreenTest {
             var observed = WorkspaceState.demo()
             setWorkspace(
                 initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
-                    .selectText(TextSelection(0, 6)),
+                    .focusBody().selectText(TextSelection(0, 6)),
                 clipboard = clipboard,
             ) { observed = it }
 

@@ -5,6 +5,7 @@ import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Run
+import com.vivenotes.model.newId
 import com.vivenotes.model.opposingScript
 
 /** UTF-16 offsets into [RichTextBuffer.text], matching Compose and Android editor selections. */
@@ -69,15 +70,75 @@ data class RichTextBuffer(
         return changeMarks(range.min, range.max) { it.withMark(mark, false) }
     }
 
+    /** Android's Clear formatting: inline marks go, and so do the paragraphs' list, indent and alignment. */
     fun clearFormatting(): RichTextBuffer {
         val range = selection.clamped(text.length)
-        if (range.collapsed) return copy(typingMarks = emptySet())
-        return changeMarks(range.min, range.max) { marks ->
+        val plainBlocks = changeBlocks {
+            it.copy(type = BlockType.Paragraph, indent = 0, align = Align.Start, checked = null)
+        }
+        if (range.collapsed) return plainBlocks.copy(typingMarks = emptySet())
+        return plainBlocks.changeMarks(range.min, range.max) { marks ->
             marks.filterTo(mutableSetOf()) { it is Mark.Equation || it is Mark.Link }
         }
     }
 
-    fun setBlockType(type: BlockType): RichTextBuffer = changeBlocks { it.copy(type = type) }
+    /**
+     * Android's `SetBlockType`: choosing the style a paragraph already has returns it to a plain
+     * paragraph, which is how a list is left. A to-do keeps its tick; any other type has none.
+     */
+    fun setBlockType(type: BlockType): RichTextBuffer = changeBlocks {
+        val next = if (it.type == type) BlockType.Paragraph else type
+        it.copy(type = next, checked = if (next == BlockType.Todo) it.checked ?: false else null)
+    }
+
+    /** Ticks or unticks the to-do [blockId]; any other block is left alone. */
+    fun toggleChecked(blockId: String): RichTextBuffer = copy(blocks = blocks.map { block ->
+        if (block.id == blockId && block.type == BlockType.Todo) block.copy(checked = block.checked != true)
+        else block
+    })
+
+    /**
+     * What the link panel opens with: the selected text, or the whole link the caret is in, with
+     * the address it already has.
+     */
+    val linkTarget: LinkTarget
+        get() {
+            val range = selection.clamped(text.length)
+            if (!range.collapsed) {
+                return LinkTarget(text.substring(range.min, range.max),
+                    activeMarks.filterIsInstance<Mark.Link>().firstOrNull()?.href)
+            }
+            val link = linkAt(range.min) ?: return LinkTarget("", null)
+            return LinkTarget(text.substring(link.start, link.end), link.href)
+        }
+
+    /** The address of the link covering the character at [offset], for opening it. */
+    fun linkUrlAt(offset: Int): String? {
+        if (offset !in 0 until text.length) return null
+        return selectedRunPieces(offset, offset + 1).firstOrNull()
+            ?.filterIsInstance<Mark.Link>()?.firstOrNull()?.href
+    }
+
+    /**
+     * Android's `InsertLink`: links the selection as [label], or changes the link the caret is in,
+     * or inserts [label] linked at the caret. The caret ends after the link.
+     */
+    fun insertLink(label: String, url: String): RichTextBuffer {
+        val shown = label.replace('\n', ' ')
+        if (shown.isEmpty()) return this
+        val range = selection.clamped(text.length)
+        val target = if (range.collapsed) linkAt(range.min)?.let { TextSelection(it.start, it.end) } ?: range
+            else range
+        val relabelled = if (text.substring(target.min, target.max) == shown) this else {
+            val marks = if (target.collapsed) typingMarks else marksOfCharacterAt(target.min)
+            copy(selection = target, typingMarks = marks.filterNotTo(mutableSetOf()) {
+                it is Mark.Link || it is Mark.Equation
+            }).replace(shown)
+        }
+        val end = target.min + shown.length
+        return relabelled.changeMarks(target.min, end) { it.withMark(Mark.Link(url), true) }
+            .select(TextSelection(end))
+    }
 
     fun setAlign(align: Align): RichTextBuffer = changeBlocks { it.copy(align = align) }
 
@@ -98,15 +159,18 @@ data class RichTextBuffer(
         val insertedRuns = lines.map { line ->
             if (line.isEmpty()) emptyList() else listOf(Run(line, typingMarks))
         }
+        // Android's `SpannableCodec.normalize`: a paragraph split off continues the one it came
+        // from, which is what makes Enter in a list make another item. A new to-do starts unticked.
+        fun continued(): Block = first.copy(id = newId(), checked = first.checked?.let { false })
         val replacement = if (lines.size == 1) {
             listOf(first.copy(runs = mergeRuns(prefix + insertedRuns[0] + suffix)))
         } else {
             buildList {
                 add(first.copy(runs = mergeRuns(prefix + insertedRuns.first())))
                 lines.subList(1, lines.lastIndex).forEachIndexed { index, _ ->
-                    add(Block.empty().copy(runs = insertedRuns[index + 1]))
+                    add(continued().copy(runs = insertedRuns[index + 1]))
                 }
-                val tail = if (from.index == to.index) Block.empty() else last
+                val tail = if (from.index == to.index) continued() else last
                 add(tail.copy(runs = mergeRuns(insertedRuns.last() + suffix)))
             }
         }
@@ -211,6 +275,40 @@ data class RichTextBuffer(
         }
     }
 
+    /** The marks of the character that starts at [offset], rather than of the one before it. */
+    private fun marksOfCharacterAt(offset: Int): Set<Mark> =
+        selectedRunPieces(offset, offset + 1).firstOrNull() ?: marksAt(offset)
+
+    private data class LinkRange(val start: Int, val end: Int, val href: String)
+
+    /**
+     * The link touching [offset], either end included, as Android's `linkAtCaret` finds it. Adjacent
+     * runs to the same address are one link, even when other formatting splits them.
+     */
+    private fun linkAt(offset: Int): LinkRange? = linkRanges().firstOrNull { offset in it.start..it.end }
+
+    private fun linkRanges(): List<LinkRange> = buildList {
+        var blockStart = 0
+        blocks.forEach { block ->
+            var runStart = blockStart
+            var open: LinkRange? = null
+            block.runs.forEach { run ->
+                val runEnd = runStart + run.editorText.length
+                val href = run.marks.filterIsInstance<Mark.Link>().firstOrNull()?.href
+                val current = open
+                open = when {
+                    href == null -> null
+                    current?.href == href -> current.copy(end = runEnd)
+                    else -> LinkRange(runStart, runEnd, href)
+                }
+                if (current != null && open?.start != current.start) add(current)
+                runStart = runEnd
+            }
+            open?.let(::add)
+            blockStart += block.editorText.length + 1
+        }
+    }
+
     private fun marksAt(offset: Int): Set<Mark> {
         val position = locate(offset)
         val runs = blocks[position.index].runs
@@ -236,6 +334,9 @@ data class RichTextBuffer(
         error("Rich text buffer must contain a block")
     }
 }
+
+/** Text and address for the link panel; [url] is null when there is no link to edit. */
+data class LinkTarget(val text: String, val url: String?)
 
 private fun Set<Mark>.withMark(mark: Mark, add: Boolean): Set<Mark> {
     val retained = filterTo(mutableSetOf()) { existing ->

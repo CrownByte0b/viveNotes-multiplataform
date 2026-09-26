@@ -1,5 +1,6 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.data.ImportedPicture
 import com.vivenotes.data.pagePreview
 import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
@@ -124,11 +125,20 @@ data class WorkspaceState(
     private val editablePage: PageSummary?
         get() = selectedPage?.takeIf { it.editable }
 
+    /**
+     * The text box being edited, or null when none is. Text commands act on this box and nothing
+     * else: with no box focused there is nothing for Bold or a list to apply to.
+     */
     val focusedTextOutline: Outline.Text?
-        get() = selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()
-            ?.firstOrNull { it.id == focusedTextOutlineId }
-            ?: selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()?.firstOrNull()
+        get() = focusedTextOutlineId?.let { id ->
+            selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()?.firstOrNull { it.id == id }
+        }
 
+    /** The page's first text box: the one [PageSummary.body] reads and [updateSelectedPage] writes. */
+    val bodyTextOutline: Outline.Text?
+        get() = selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()?.firstOrNull()
+
+    /** The focused text box as an editing buffer; null — and the text commands disabled — without one. */
     val richText: RichTextBuffer?
         get() = focusedTextOutline?.let { RichTextBuffer(it.blocks, editorSelection, typingMarks) }
 
@@ -448,10 +458,16 @@ data class WorkspaceState(
         body: String = selectedPage?.body.orEmpty(),
     ): WorkspaceState {
         val current = selectedPage ?: return this
-        val withBody = if (body == current.body) this else {
-            val length = richText?.text?.length ?: 0
-            copy(editorSelection = TextSelection(0, length), typingMarks = emptySet())
-                .richText?.replace(body)?.let(::withRichText) ?: this
+        val target = bodyTextOutline
+        val withBody = if (body == current.body || target == null || target.blocks.isEmpty()) this else {
+            val whole = RichTextBuffer(target.blocks).let { it.select(TextSelection(0, it.text.length)) }
+            val replaced = whole.replace(body)
+            val page = editablePage
+            if (page == null) this else updatePage(page.id) { candidate ->
+                candidate.withDocument(candidate.document.copy(outlines = candidate.document.outlines.map {
+                    if (it.id == target.id) target.copy(blocks = replaced.blocks) else it
+                }))
+            }.let { if (focusedTextOutlineId == target.id) it.copy(editorSelection = replaced.selection) else it }
         }
         return withBody.updatePage(selectedPageId) { it.copy(title = title) }
     }
@@ -498,6 +514,47 @@ data class WorkspaceState(
 
     fun indentSelectedText(delta: Int): WorkspaceState =
         richText?.indent(delta)?.let(::withRichText) ?: this
+
+    /** Links the selection, changes the link at the caret, or inserts [label] linked there. */
+    fun insertLink(label: String, url: String): WorkspaceState =
+        richText?.insertLink(label, url)?.let(::withRichText) ?: this
+
+    /** Ticks or unticks a to-do in any text box, focused or not. */
+    fun toggleTodo(outlineId: String, blockId: String): WorkspaceState {
+        val page = editablePage ?: return this
+        val outline = page.document.outlines.firstOrNull { it.id == outlineId } as? Outline.Text ?: return this
+        if (outline.blocks.isEmpty()) return this
+        val blocks = RichTextBuffer(outline.blocks).toggleChecked(blockId).blocks
+        if (blocks == outline.blocks) return this
+        return updatePage(page.id) { current ->
+            current.withDocument(current.document.copy(outlines = current.document.outlines.map {
+                if (it.id == outlineId) outline.copy(blocks = blocks) else it
+            }))
+        }
+    }
+
+    /**
+     * Android's `insertImage`: puts a stored picture where the user is looking — [viewLeft] and
+     * [viewTop] are the page point at the canvas's top left — clear of the title band, at
+     * [Outline.Image.DEFAULT_WIDTH] and the picture's own aspect ratio. Nothing is left armed, so
+     * the next click reaches the picture. [pageId] is the page the picture was chosen for: the
+     * choice takes a while, and a picture must not land on a page opened meanwhile.
+     */
+    fun insertPicture(pageId: String, picture: ImportedPicture, viewLeft: Float, viewTop: Float): WorkspaceState {
+        val page = editablePage?.takeIf { it.id == pageId } ?: return this
+        val aspect = if (picture.pixelWidth > 0) picture.pixelHeight.toFloat() / picture.pixelWidth else 1f
+        val width = Outline.Image.DEFAULT_WIDTH
+        val titleFloor = if (page.document.style.hideTitle) 0f else PageStyle.TITLE_BAND_DP
+        val image = Outline.Image(
+            id = newId(),
+            x = (viewLeft + PICTURE_INSERT_MARGIN).coerceAtLeast(0f),
+            y = maxOf(viewTop + PICTURE_INSERT_MARGIN, titleFloor).coerceAtLeast(0f),
+            width = width,
+            height = (width * aspect).coerceAtLeast(Outline.Image.MIN_SIZE),
+            attachmentId = picture.attachmentId,
+        )
+        return editOutlines { it + image }.copy(textToolArmed = false, objectLassoArmed = false)
+    }
 
     private fun withRichText(buffer: RichTextBuffer): WorkspaceState {
         val page = editablePage ?: return this
@@ -558,6 +615,9 @@ data class WorkspaceState(
     )
 
     companion object {
+        /** Android's `INSERT_MARGIN`: how far inside the visible corner a picture is placed. */
+        const val PICTURE_INSERT_MARGIN = 24f
+
         fun demo(): WorkspaceState {
             val calculus = NotebookSummary(
                 id = "calculus",

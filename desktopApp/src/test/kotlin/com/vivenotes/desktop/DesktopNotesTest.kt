@@ -40,7 +40,9 @@ class DesktopNotesTest {
         notes.start()
         val open = openPage(notes)
 
-        notes.session.update { it.editSelectedText(LAST_WORDS, TextSelection(LAST_WORDS.length)) }
+        notes.session.update { state ->
+            state.focusTextBox(state.bodyTextOutline!!.id).editSelectedText(LAST_WORDS, TextSelection(LAST_WORDS.length))
+        }
         close(notes)
         ui.cancel()
 
