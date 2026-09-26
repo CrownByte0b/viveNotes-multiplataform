@@ -234,13 +234,14 @@ data class WorkspaceState(
         return copy(structuralUndo = undo, structuralRedo = structuralRedo.withoutIds())
     }
 
-    fun moveTextBox(id: String, dx: Float, dy: Float): WorkspaceState = editOutlines { outlines ->
+    fun moveTextBox(id: String, dx: Float, dy: Float, recordHistory: Boolean = true): WorkspaceState = editOutlines(recordHistory) { outlines ->
         outlines.map { if (it is Outline.Text && it.id == id)
             it.copy(x = (it.x + dx).coerceAtLeast(0f), y = (it.y + dy).coerceAtLeast(0f)) else it }
     }
 
-    fun resizeTextBox(id: String, width: Float? = null, minHeight: Float? = null): WorkspaceState =
-        editOutlines { outlines -> outlines.map { if (it is Outline.Text && it.id == id)
+    fun resizeTextBox(id: String, width: Float? = null, minHeight: Float? = null,
+                      recordHistory: Boolean = true): WorkspaceState =
+        editOutlines(recordHistory) { outlines -> outlines.map { if (it is Outline.Text && it.id == id)
             it.copy(width = width?.coerceIn(120f, 2000f) ?: it.width,
                 minHeight = minHeight?.coerceIn(0f, 4000f) ?: it.minHeight) else it } }
 
@@ -276,13 +277,16 @@ data class WorkspaceState(
         )
     }
 
-    private fun editOutlines(transform: (List<Outline>) -> List<Outline>): WorkspaceState {
+    private fun editOutlines(recordHistory: Boolean = true,
+                             transform: (List<Outline>) -> List<Outline>): WorkspaceState {
         val page = editablePage ?: return this
         val next = transform(page.document.outlines)
         if (next == page.document.outlines) return this
+        val updated = updatePage(page.id) { it.withDocument(it.document.copy(outlines = next)) }
+        if (!recordHistory) return updated
         val snapshot = StructuralSnapshot(page.id, page.document)
-        return updatePage(page.id) { it.withDocument(it.document.copy(outlines = next)) }
-            .copy(structuralUndo = (structuralUndo + snapshot).takeLast(100), structuralRedo = emptyList())
+        return updated.copy(structuralUndo = (structuralUndo + snapshot).takeLast(100),
+            structuralRedo = emptyList())
     }
 
     fun undoStructure(): WorkspaceState {
@@ -370,9 +374,9 @@ data class WorkspaceState(
             (it.id in selectedObjectIds && it.isPrimeObject()) }
     }.copy(selectedObjectIds = emptySet(), selectedTextOutlineIds = emptySet())
 
-    fun moveSelectedObjects(dx: Float, dy: Float): WorkspaceState {
+    fun moveSelectedObjects(dx: Float, dy: Float, recordHistory: Boolean = true): WorkspaceState {
         if (selectedObjectsLocked) return this
-        return editOutlines { outlines -> outlines.map {
+        return editOutlines(recordHistory) { outlines -> outlines.map {
             when {
                 it.id in selectedObjectIds && it.isPrimeObject() -> it.movedBy(dx, dy)
                 it is Outline.Text && it.id in selectedTextOutlineIds ->
@@ -382,9 +386,10 @@ data class WorkspaceState(
         } }
     }
 
-    fun resizeSelectedObjects(anchorX: Float, anchorY: Float, scaleX: Float, scaleY: Float): WorkspaceState {
+    fun resizeSelectedObjects(anchorX: Float, anchorY: Float, scaleX: Float, scaleY: Float,
+                              recordHistory: Boolean = true): WorkspaceState {
         if (selectedObjectsLocked || scaleX <= 0f || scaleY <= 0f) return this
-        return editOutlines { outlines -> outlines.map { outline ->
+        return editOutlines(recordHistory) { outlines -> outlines.map { outline ->
             if (outline.id !in selectedObjectIds) outline else when (outline) {
                 is Outline.Shape -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
                 is Outline.Table -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)

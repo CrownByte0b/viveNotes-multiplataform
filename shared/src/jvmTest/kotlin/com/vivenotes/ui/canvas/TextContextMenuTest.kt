@@ -70,6 +70,8 @@ class TextContextMenuTest {
         onNodeWithTag(TextMenuTags.Copy).assertIsNotEnabled()
         onNodeWithTag(TextMenuTags.Paste).assertIsNotEnabled()
         onNodeWithTag(TextMenuTags.PastePlainText).assertIsNotEnabled()
+        onNodeWithTag(TextMenuTags.CopyBox).assertIsEnabled()
+        onNodeWithTag(TextMenuTags.DeleteBox).assertIsEnabled()
 
         onNodeWithTag(TextMenuTags.SelectAll).performClick()
 
@@ -90,6 +92,8 @@ class TextContextMenuTest {
             TextMenuTags.Paste to listOf("Paste", "Ctrl+V"),
             TextMenuTags.PastePlainText to listOf("Paste as plain text", "Ctrl+Shift+V"),
             TextMenuTags.SelectAll to listOf("Select all", "Ctrl+A"),
+            TextMenuTags.CopyBox to listOf("Copy text box"),
+            TextMenuTags.DeleteBox to listOf("Delete text box"),
         )
         commands.forEach { (tag, words) -> onNodeWithTag(tag).assertTextEquals(*words.toTypedArray()) }
         // A shortcut squeezed onto a second line makes its row taller than the rest.

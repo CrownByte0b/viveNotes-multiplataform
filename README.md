@@ -24,7 +24,7 @@ The default on linux is wayland
 
 ```bash
 ./gradlew :desktopApp:run
-./gradlew :shared:jvmTest
+./gradlew :shared:jvmTest :desktopApp:test
 ```
 
 Force x11 backed

@@ -57,6 +57,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -107,7 +108,6 @@ import com.vivenotes.workspace.primeHeight
 import com.vivenotes.workspace.isPrimeObject
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
-import com.vivenotes.ui.icons.ContextSymbols
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.TextSelection
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -169,9 +169,6 @@ object WorkspaceTestTags {
     const val TitleEditor = "workspace-title-editor"
     const val BodyEditor = "workspace-body-editor"
     const val CanvasPaste = "workspace-canvas-paste"
-    const val TextBoxCopy = "workspace-text-box-copy"
-    const val TextBoxSelectAll = "workspace-text-box-select-all"
-    const val TextBoxDelete = "workspace-text-box-delete"
     const val ObjectCopy = "workspace-object-copy"
     const val ObjectDelete = "workspace-object-delete"
     const val ObjectLock = "workspace-object-lock"
@@ -185,8 +182,7 @@ object WorkspaceTestTags {
     fun textBox(id: String): String = "workspace-text-box-$id"
     fun textBoxOutline(id: String): String = "workspace-text-box-outline-$id"
     fun textGrip(id: String): String = "workspace-text-grip-$id"
-    fun textWidthHandle(id: String): String = "workspace-text-width-$id"
-    fun textHeightHandle(id: String): String = "workspace-text-height-$id"
+    fun textResizeHandle(id: String): String = "workspace-text-resize-$id"
 
     fun ribbonTab(tab: RibbonTab): String = "workspace-ribbon-${tab.name}"
     fun section(id: String): String = "workspace-section-$id"
@@ -318,24 +314,22 @@ fun WorkspaceScreen(
                         onStateChange { it.createTextBox(x, y) }
                         if (focusMoves) editorFocusRequest++
                     },
-                    onMoveTextBox = { id, dx, dy -> onStateChange { it.moveTextBox(id, dx, dy) } },
-                    onMoveSelectedTexts = { dx, dy -> onStateChange { it.moveSelectedObjects(dx, dy) } },
-                    onResizeTextBox = { id, width, height ->
-                        onStateChange { it.resizeTextBox(id, width, height) }
+                    onMoveTextBox = { id, dx, dy, history -> onStateChange { it.moveTextBox(id, dx, dy, history) } },
+                    onMoveSelectedTexts = { dx, dy, history -> onStateChange { it.moveSelectedObjects(dx, dy, history) } },
+                    onResizeTextBox = { id, width, height, history ->
+                        onStateChange { it.resizeTextBox(id, width, height, history) }
                     },
-                    onCopyTextBox = { id -> onStateChange { it.copyTextBox(id) } },
-                    onSelectAllTextBox = { id -> onStateChange { it.selectAllTextBox(id) } },
                     onDeleteTextBox = { id -> onStateChange { it.deleteTextBox(id) } },
                     onPasteCanvas = { x, y -> onStateChange { it.pasteCanvasAt(x, y) } },
                     onSelectObject = { id -> onStateChange { it.selectObject(id) } },
-                    onMoveObject = { id, dx, dy ->
+                    onMoveObject = { id, dx, dy, history ->
                         onStateChange { current ->
                             val selected = if (id in current.selectedObjectIds) current else current.selectObject(id)
-                            selected.moveSelectedObjects(dx, dy)
+                            selected.moveSelectedObjects(dx, dy, history)
                         }
                     },
-                    onResizeObjects = { ax, ay, sx, sy ->
-                        onStateChange { it.resizeSelectedObjects(ax, ay, sx, sy) }
+                    onResizeObjects = { ax, ay, sx, sy, history ->
+                        onStateChange { it.resizeSelectedObjects(ax, ay, sx, sy, history) }
                     },
                     onCopyObjects = { onStateChange { it.copySelectedObjects() } },
                     onDeleteObjects = { onStateChange { it.deleteSelectedObjects() } },
@@ -380,16 +374,14 @@ private fun PageCanvas(
     onFocusTextBox: (String) -> Unit,
     onClearCanvasFocus: () -> Unit,
     onCreateTextBox: (Float, Float) -> Unit,
-    onMoveTextBox: (String, Float, Float) -> Unit,
-    onMoveSelectedTexts: (Float, Float) -> Unit,
-    onResizeTextBox: (String, Float?, Float?) -> Unit,
-    onCopyTextBox: (String) -> Unit,
-    onSelectAllTextBox: (String) -> Unit,
+    onMoveTextBox: (String, Float, Float, Boolean) -> Unit,
+    onMoveSelectedTexts: (Float, Float, Boolean) -> Unit,
+    onResizeTextBox: (String, Float?, Float?, Boolean) -> Unit,
     onDeleteTextBox: (String) -> Unit,
     onPasteCanvas: (Float, Float) -> Unit,
     onSelectObject: (String) -> Unit,
-    onMoveObject: (String, Float, Float) -> Unit,
-    onResizeObjects: (Float, Float, Float, Float) -> Unit,
+    onMoveObject: (String, Float, Float, Boolean) -> Unit,
+    onResizeObjects: (Float, Float, Float, Float, Boolean) -> Unit,
     onCopyObjects: () -> Unit,
     onDeleteObjects: () -> Unit,
     onToggleObjectLock: () -> Unit,
@@ -453,24 +445,19 @@ private fun PageCanvas(
             val height = if (outline is Outline.Text) measuredTextHeights[outline.id]
                 ?: maxOf(150f, outline.minHeight) else outline.primeHeight()
             val focusedText = outline is Outline.Text && snapshot.focusedTextOutlineId == outline.id
-            val hasText = outline is Outline.Text && outline.blocks.any { block ->
-                block.runs.any { run -> run.plainText.isNotEmpty() }
-            }
-            val toolbarBelow = focusedText && hasText && outline.y < 140f
             val margin = if (focusedText) 16f else 0f
-            val chromeTop = if (focusedText) 80f else if (outline.id in snapshot.selectedObjectIds) 52f else 0f
-            val right = outline.x + if (toolbarBelow) maxOf(outline.width, 280f) else outline.width
-            point.x >= outline.x - margin && point.x <= right + margin &&
+            val chromeTop = if (focusedText) 32f else if (outline.id in snapshot.selectedObjectIds) 52f else 0f
+            point.x >= outline.x - margin && point.x <= outline.x + outline.width + margin &&
                 point.y >= outline.y - chromeTop &&
-                point.y <= outline.y + height + margin + if (toolbarBelow) 60f else 0f
+                point.y <= outline.y + height + margin
         } == true
 
     fun hitsSelectedTransform(point: Offset, snapshot: WorkspaceState): Boolean {
         val outlines = snapshot.selectedPage?.document?.outlines ?: return false
         val textGrip = outlines.filterIsInstance<Outline.Text>().any { text ->
             text.id in snapshot.selectedTextOutlineIds &&
-                point.x in text.x..(text.x + 96f) &&
-                point.y in (text.y - 28f).coerceAtLeast(0f)..text.y
+                point.x in text.x..(text.x + 48f) &&
+                point.y in (text.y - 32f).coerceAtLeast(0f)..text.y
         }
         val primeBounds = outlines.any { outline ->
             outline.id in snapshot.selectedObjectIds && outline.isPrimeObject() &&
@@ -657,57 +644,34 @@ private fun PageCanvas(
                             }
                         }
                     }
-                    if (showChrome) {
-                        val toolbarY = if (y < 140.dp) y + renderedHeight + 8.dp
-                            else y - 76.dp
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = MaterialTheme.shapes.medium,
-                            tonalElevation = 4.dp,
-                            modifier = Modifier.offset(x, toolbarY),
-                        ) {
-                            Row(Modifier.padding(3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                TooltipIconButton("Copy text box", onClick = { onCopyTextBox(outline.id) }, tooltipPosition = TooltipAnchorPosition.Above,
-                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.TextBoxCopy)) {
-                                    Icon(DocumentSymbols.ContentCopy, contentDescription = null,
-                                        modifier = Modifier.size(18.dp))
-                                }
-                                TooltipIconButton("Select all text", onClick = { onSelectAllTextBox(outline.id) }, tooltipPosition = TooltipAnchorPosition.Above,
-                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.TextBoxSelectAll)) {
-                                    Icon(ContextSymbols.SelectAll, contentDescription = null,
-                                        modifier = Modifier.size(18.dp))
-                                }
-                                TooltipIconButton("Delete text box", onClick = { onDeleteTextBox(outline.id) }, tooltipPosition = TooltipAnchorPosition.Above,
-                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.TextBoxDelete)) {
-                                    Icon(ObjectSymbols.Delete, contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                    }
                     if (showChrome || lassoSelected) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            shape = MaterialTheme.shapes.small,
-                            modifier = Modifier.offset(x, (y - 28.dp).coerceAtLeast(0.dp))
-                                .width(96.dp).height(24.dp)
+                        Box(
+                            modifier = Modifier.offset(x, (y - 32.dp).coerceAtLeast(0.dp))
+                                .size(48.dp, 32.dp)
                                 .testTag(WorkspaceTestTags.textGrip(outline.id))
                                 .semantics { contentDescription = "Move text box" }
                                 .pointerInput(outline.id, lassoSelected) {
-                                    var total = Offset.Zero
+                                    var firstChange = true
                                     detectDragGestures(
-                                        onDragStart = { total = Offset.Zero },
-                                        onDragEnd = {
-                                            val dx = with(density) { total.x.toDp().value }
-                                            val dy = with(density) { total.y.toDp().value }
-                                            if (lassoSelected) currentMoveSelectedTexts(dx, dy)
-                                            else currentMove(outline.id, dx, dy)
+                                        onDragStart = { firstChange = true },
+                                        onDrag = { change, drag ->
+                                            change.consume()
+                                            val dx = with(density) { drag.x.toDp().value }
+                                            val dy = with(density) { drag.y.toDp().value }
+                                            if (lassoSelected) currentMoveSelectedTexts(dx, dy, firstChange)
+                                            else currentMove(outline.id, dx, dy, firstChange)
+                                            firstChange = false
                                         },
-                                        onDrag = { change, drag -> change.consume(); total += drag },
                                     )
                                 },
-                        ) { Box(contentAlignment = Alignment.Center) { Text("⋮⋮", style = MaterialTheme.typography.labelMedium) } }
+                        ) {
+                            Box(Modifier.align(Alignment.Center).size(40.dp, 16.dp)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small),
+                                contentAlignment = Alignment.Center) {
+                                Text("⋮⋮", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                     Box(
                         modifier = Modifier.offset(x, y).width(width)
@@ -798,38 +762,46 @@ private fun PageCanvas(
                             state = state,
                             clipboard = textClipboard,
                             onEditorCommand = onTextCommand,
+                            onDeleteBox = onDeleteTextBox,
                             onClose = { textMenu = null },
                         )
                     }
                     if (showChrome) {
-                        Box(Modifier.offset(x + width - 6.dp,
-                            y + renderedHeight / 2 - 28.dp).size(20.dp, 56.dp)
-                            .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small)
-                            .testTag(WorkspaceTestTags.textWidthHandle(outline.id))
-                            .semantics { contentDescription = "Resize text box width" }
+                        Box(Modifier.offset(x + width - 12.dp,
+                            y + renderedHeight - 12.dp).size(24.dp)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small)
+                            .testTag(WorkspaceTestTags.textResizeHandle(outline.id))
+                            .semantics { contentDescription = "Resize text box" }
                             .pointerInput(outline.id) {
-                                var total = 0f
+                                var total = Offset.Zero
+                                var startWidth = 0f
+                                var startHeight = 0f
+                                var firstChange = true
                                 detectDragGestures(
-                                    onDragStart = { total = 0f },
-                                    onDragEnd = { currentResize(outline.id,
-                                        outline.width + with(density) { total.toDp().value }, null) },
-                                    onDrag = { change, drag -> change.consume(); total += drag.x },
+                                    onDragStart = {
+                                        total = Offset.Zero
+                                        firstChange = true
+                                        val current = currentState.selectedPage?.document?.outlines
+                                            ?.filterIsInstance<Outline.Text>()?.firstOrNull { it.id == outline.id }
+                                        startWidth = current?.width ?: outline.width
+                                        startHeight = maxOf(current?.minHeight ?: outline.minHeight,
+                                            measuredTextHeights[outline.id] ?: 80f)
+                                    },
+                                    onDrag = { change, drag ->
+                                        change.consume()
+                                        total += drag
+                                        currentResize(outline.id,
+                                            startWidth + with(density) { total.x.toDp().value },
+                                            startHeight + with(density) { total.y.toDp().value },
+                                            firstChange)
+                                        firstChange = false
+                                    },
                                 )
-                            })
-                        Box(Modifier.offset(x + width / 2 - 24.dp,
-                            y + renderedHeight - 5.dp).size(48.dp, 20.dp)
-                            .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small)
-                            .testTag(WorkspaceTestTags.textHeightHandle(outline.id))
-                            .semantics { contentDescription = "Resize text box minimum height" }
-                            .pointerInput(outline.id) {
-                                var total = 0f
-                                detectDragGestures(
-                                    onDragStart = { total = 0f },
-                                    onDragEnd = { currentResize(outline.id, null,
-                                        outline.minHeight + with(density) { total.toDp().value }) },
-                                    onDrag = { change, drag -> change.consume(); total += drag.y },
-                                )
-                            })
+                            }) {
+                            Icon(ObjectSymbols.ExpandContent, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.align(Alignment.Center).size(18.dp).rotate(90f))
+                        }
                     }
                 }
                 val currentMoveObject by rememberUpdatedState(onMoveObject)
@@ -863,17 +835,20 @@ private fun PageCanvas(
                                 if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                                 MaterialTheme.shapes.small))
                             .pointerInput(outline.id) {
-                                var total = Offset.Zero
+                                var firstChange = true
                                 detectDragGestures(
                                     onDragStart = {
-                                        total = Offset.Zero
+                                        firstChange = true
                                         if (outline.id !in currentState.selectedObjectIds)
                                             currentSelectObject(outline.id)
                                     },
-                                    onDragEnd = { currentMoveObject(outline.id,
-                                        with(density) { total.x.toDp().value },
-                                        with(density) { total.y.toDp().value }) },
-                                    onDrag = { change, drag -> change.consume(); total += drag },
+                                    onDrag = { change, drag ->
+                                        change.consume()
+                                        currentMoveObject(outline.id,
+                                            with(density) { drag.x.toDp().value },
+                                            with(density) { drag.y.toDp().value }, firstChange)
+                                        firstChange = false
+                                    },
                                 )
                             }
                             .clickable {
@@ -905,16 +880,31 @@ private fun PageCanvas(
                                 .pointerInput(outline.id, index, state.selectedObjectsLocked) {
                                     if (!state.selectedObjectsLocked) {
                                         var total = Offset.Zero
+                                        var previousScaleX = 1f
+                                        var previousScaleY = 1f
+                                        var firstChange = true
                                         detectDragGestures(
-                                            onDragStart = { total = Offset.Zero },
-                                            onDragEnd = {
-                                                val sx = 1f + with(density) { total.x.toDp().value } /
-                                                    outline.width.coerceAtLeast(1f) * (if (index % 2 == 0) -1 else 1)
-                                                val sy = 1f + with(density) { total.y.toDp().value } /
-                                                    outline.primeHeight().coerceAtLeast(1f) * (if (index < 2) -1 else 1)
-                                                currentResizeObjects(anchorX, anchorY, sx, sy)
+                                            onDragStart = {
+                                                total = Offset.Zero
+                                                previousScaleX = 1f
+                                                previousScaleY = 1f
+                                                firstChange = true
                                             },
-                                            onDrag = { change, drag -> change.consume(); total += drag },
+                                            onDrag = { change, drag ->
+                                                change.consume()
+                                                total += drag
+                                                val sx = (1f + with(density) { total.x.toDp().value } /
+                                                    outline.width.coerceAtLeast(1f) * (if (index % 2 == 0) -1 else 1))
+                                                    .coerceAtLeast(0.05f)
+                                                val sy = (1f + with(density) { total.y.toDp().value } /
+                                                    outline.primeHeight().coerceAtLeast(1f) * (if (index < 2) -1 else 1))
+                                                    .coerceAtLeast(0.05f)
+                                                currentResizeObjects(anchorX, anchorY,
+                                                    sx / previousScaleX, sy / previousScaleY, firstChange)
+                                                previousScaleX = sx
+                                                previousScaleY = sy
+                                                firstChange = false
+                                            },
                                         )
                                     }
                                 })

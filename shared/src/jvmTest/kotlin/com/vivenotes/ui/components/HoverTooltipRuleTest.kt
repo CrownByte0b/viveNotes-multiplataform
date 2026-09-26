@@ -47,7 +47,7 @@ class HoverTooltipRuleTest {
     private val inTooltip = hasAnyAncestor(SemanticsMatcher.keyIsDefined(SemanticsProperties.PaneTitle))
 
     @Test
-    fun ribbonNavigationAndTextToolkitControlsShowTheirAltTextOnHover() =
+    fun ribbonAndNavigationControlsShowTheirAltTextOnHover() =
         runDesktopComposeUiTest(width = 2000, height = 900) {
             setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.Document).focusBody())
             onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
@@ -57,7 +57,7 @@ class HoverTooltipRuleTest {
                 "Hide notebook navigation", "Undo canvas action", "Redo canvas action", "Text", "Paste",
                 "Font family", "Font size", "Bold", "Font colour", "Highlight", "Clear formatting",
                 "Bulleted list", "Numbered list", "To-do", "Decrease indent", "Increase indent",
-                "Align centre", "Styles", "Link", "Copy text box", "Select all text", "Delete text box",
+                "Align centre", "Styles", "Link",
             ).forEach { assertTrue(it in labels, "no control labelled \"$it\" was checked: $labels") }
         }
 
@@ -107,7 +107,8 @@ class HoverTooltipRuleTest {
         onNodeWithText("Notebooks").performMouseInput { click(center) }
 
         onNodeWithTag(WorkspaceTestTags.BodyEditor).performMouseInput { rightClick(Offset(15f, 10f)) }
-        assertMenuNamesItsItems("Cut", "Copy", "Paste", "Paste as plain text", "Select all")
+        assertMenuNamesItsItems("Cut", "Copy", "Paste", "Paste as plain text", "Select all",
+            "Copy text box", "Delete text box")
     }
 
     private fun ComposeUiTest.assertMenuNamesItsItems(vararg names: String) {

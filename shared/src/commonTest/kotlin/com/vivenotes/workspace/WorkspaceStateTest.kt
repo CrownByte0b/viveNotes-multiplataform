@@ -247,6 +247,24 @@ class WorkspaceStateTest {
     }
 
     @Test
+    fun liveCanvasTransformsKeepOneStructuralUndoSnapshotPerGesture() {
+        val initial = WorkspaceState.demo()
+        val id = initial.bodyTextOutline!!.id
+        val first = initial.moveTextBox(id, 20f, 10f)
+        val second = first.moveTextBox(id, 15f, 5f, recordHistory = false)
+        val resized = second.resizeTextBox(id, width = second.bodyTextOutline!!.width + 30f,
+            minHeight = second.bodyTextOutline!!.minHeight + 40f)
+            .resizeTextBox(id, width = second.bodyTextOutline!!.width + 50f,
+                minHeight = second.bodyTextOutline!!.minHeight + 60f, recordHistory = false)
+
+        assertEquals(initial.structuralUndo.size + 2, resized.structuralUndo.size)
+        val beforeResize = resized.undoStructure()
+        assertEquals(second.bodyTextOutline!!.width, beforeResize.bodyTextOutline!!.width)
+        assertEquals(second.bodyTextOutline!!.minHeight, beforeResize.bodyTextOutline!!.minHeight)
+        assertEquals(initial.bodyTextOutline!!.x, beforeResize.undoStructure().bodyTextOutline!!.x)
+    }
+
+    @Test
     fun primeLockWideningLassoAndClipboard() {
         val initial = WorkspaceState.demo()
         val page = initial.selectedPage!!

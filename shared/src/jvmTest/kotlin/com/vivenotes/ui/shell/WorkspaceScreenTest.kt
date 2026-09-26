@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -28,9 +29,12 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextInputSelection
@@ -38,6 +42,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ui.ribbon.document.DocumentRibbonTags
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
+import com.vivenotes.ui.canvas.TextMenuTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.model.Mark
 import com.vivenotes.model.BlockType
@@ -406,7 +411,7 @@ class WorkspaceScreenTest {
         }
 
     @Test
-    fun focusedNonEmptyTextBoxShowsCopySelectAllDeleteToolkit() =
+    fun focusedTextBoxHasNoFloatingToolkitAndUsesRightClickForWholeBoxActions() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
             val id = initial.bodyTextOutline!!.id
@@ -414,13 +419,12 @@ class WorkspaceScreenTest {
             setWorkspace(initial = initial) { observed = it }
 
             onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
-            onNodeWithTag(WorkspaceTestTags.TextBoxCopy).assertExists()
             onNodeWithTag(WorkspaceTestTags.ObjectColor).assertDoesNotExist()
-            onNodeWithTag(WorkspaceTestTags.TextBoxSelectAll).performClick()
-            runOnIdle { assertEquals(observed.richText!!.text.length, observed.editorSelection.max) }
-            onNodeWithTag(WorkspaceTestTags.TextBoxCopy).performClick()
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performMouseInput { rightClick(Offset(15f, 10f)) }
+            onNodeWithTag(TextMenuTags.CopyBox).performClick()
             runOnIdle { assertEquals(id, observed.canvasClipboard.texts.single().id) }
-            onNodeWithTag(WorkspaceTestTags.TextBoxDelete).performClick()
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performMouseInput { rightClick(Offset(15f, 10f)) }
+            onNodeWithTag(TextMenuTags.DeleteBox).performClick()
             runOnIdle { assertTrue(observed.selectedPage!!.document.outlines.none { it.id == id }) }
         }
 
@@ -442,19 +446,19 @@ class WorkspaceScreenTest {
         }
 
     @Test
-    fun emptyTextBoxHidesToolkitUntilTextIsEntered() =
+    fun emptyTextBoxHidesMoveAndResizeHandlesUntilTextIsEntered() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             val initial = WorkspaceState.demo().toggleTextTool().createTextBox(300f, 350f)
                 .copy(activeTab = RibbonTab.Document)
             val id = initial.focusedTextOutline!!.id
             setWorkspace(initial = initial)
 
-            onNodeWithTag(WorkspaceTestTags.TextBoxCopy).assertDoesNotExist()
             onNodeWithTag(WorkspaceTestTags.textGrip(id)).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.textResizeHandle(id)).assertDoesNotExist()
             onNodeWithTag(WorkspaceTestTags.textBox(id) + "-editor")
                 .performTextReplacement("A new note")
-            onNodeWithTag(WorkspaceTestTags.TextBoxCopy).assertExists()
             onNodeWithTag(WorkspaceTestTags.textGrip(id)).assertExists()
+            onNodeWithTag(WorkspaceTestTags.textResizeHandle(id)).assertExists()
         }
 
     @Test
@@ -682,6 +686,125 @@ class WorkspaceScreenTest {
                 assertTrue(observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>()
                     .first { it.id == shape.id }.x > shape.x)
             }
+        }
+
+    @Test
+    fun textGripMovesBeforeReleaseAndRecordsOneUndoStep() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().focusBody()
+            val id = initial.focusedTextOutlineId!!
+            val startX = initial.bodyTextOutline!!.x
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.textGrip(id)).performMouseInput {
+                moveTo(Offset(45f, 12f))
+                press()
+                moveTo(Offset(85f, 24f))
+            }
+            runOnIdle {
+                assertTrue(observed.bodyTextOutline!!.x > startX)
+                assertEquals(initial.structuralUndo.size + 1, observed.structuralUndo.size)
+            }
+            val firstX = observed.bodyTextOutline!!.x
+            onNodeWithTag(WorkspaceTestTags.textGrip(id)).performMouseInput {
+                moveTo(Offset(100f, 32f))
+            }
+            runOnIdle { assertTrue(observed.bodyTextOutline!!.x > firstX) }
+            onNodeWithTag(WorkspaceTestTags.textGrip(id)).performMouseInput { release() }
+            runOnIdle {
+                assertEquals(initial.structuralUndo.size + 1, observed.structuralUndo.size)
+                assertEquals(startX, observed.undoStructure().bodyTextOutline!!.x)
+            }
+        }
+
+    @Test
+    fun textBoxHasOneCornerHandleThatResizesBothAxesBeforeRelease() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().focusBody()
+            val id = initial.focusedTextOutlineId!!
+            val start = initial.bodyTextOutline!!
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.textResizeHandle(id)).assertExists()
+            onNodeWithTag(WorkspaceTestTags.textResizeHandle(id)).performMouseInput {
+                moveTo(Offset(12f, 12f))
+                press()
+                moveTo(Offset(62f, 52f))
+            }
+            runOnIdle {
+                val resized = observed.bodyTextOutline!!
+                assertTrue(resized.width > start.width)
+                assertTrue(resized.minHeight > start.minHeight)
+            }
+            onNodeWithTag(WorkspaceTestTags.textResizeHandle(id)).performMouseInput { release() }
+            runOnIdle {
+                assertEquals(initial.structuralUndo.size + 1, observed.structuralUndo.size)
+                assertEquals(start.width, observed.undoStructure().bodyTextOutline!!.width)
+            }
+        }
+
+    @Test
+    fun textMoveGripIsCompactAndUsesTheDarkSurfaceColour() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().focusBody()
+            val id = initial.focusedTextOutlineId!!
+            setWorkspace(initial = initial)
+
+            val grip = onNodeWithTag(WorkspaceTestTags.textGrip(id))
+            val bounds = grip.getUnclippedBoundsInRoot()
+            assertEquals(48.dp, bounds.right - bounds.left)
+            val pixels = grip.captureToImage().toPixelMap()
+            val surface = pixels[pixels.width / 6, pixels.height / 3]
+            assertTrue(surface.luminance() < 0.3f, "grip surface is too bright: $surface")
+        }
+
+    @Test
+    fun primeObjectMoveAndCornerResizeApplyBeforeRelease() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo()
+            val shape = Outline.Equation(id = "live-shape", x = 300f, y = 350f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id == base.selectedPageId) page.copy(
+                            document = page.document.copy(outlines = page.document.outlines + shape))
+                        else page
+                    })
+                })
+            })
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.primeObject(shape.id)).performMouseInput {
+                moveTo(Offset(40f, 35f))
+                press()
+                moveTo(Offset(90f, 65f))
+            }
+            runOnIdle {
+                assertTrue(observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Equation>()
+                    .first { it.id == shape.id }.x > shape.x)
+            }
+            onNodeWithTag(WorkspaceTestTags.primeObject(shape.id)).performMouseInput { release() }
+            val moved = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Equation>()
+                .first { it.id == shape.id }
+
+            onNodeWithTag(WorkspaceTestTags.objectCorner(shape.id, 3)).performMouseInput {
+                moveTo(Offset(7f, 7f))
+                press()
+                moveTo(Offset(47f, 37f))
+            }
+            runOnIdle {
+                val resized = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Equation>()
+                    .first { it.id == shape.id }
+                assertTrue(resized.width > moved.width,
+                    "width ${moved.width} -> ${resized.width}; selected ${observed.selectedObjectIds}")
+                assertTrue(resized.height > moved.height,
+                    "height ${moved.height} -> ${resized.height}")
+            }
+            onNodeWithTag(WorkspaceTestTags.objectCorner(shape.id, 3)).performMouseInput { release() }
+            runOnIdle { assertEquals(initial.structuralUndo.size + 2, observed.structuralUndo.size) }
         }
 
     @Test

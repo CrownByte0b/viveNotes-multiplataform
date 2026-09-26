@@ -12,6 +12,7 @@ import com.vivenotes.ui.components.ContextMenuDivider
 import com.vivenotes.ui.components.ContextMenuItem
 import com.vivenotes.ui.icons.ContextSymbols
 import com.vivenotes.ui.icons.DocumentSymbols
+import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.workspace.WorkspaceState
 
 /** Semantics identifiers for the text box's right-click menu. */
@@ -21,6 +22,8 @@ object TextMenuTags {
     const val Copy = "text-menu-copy"
     const val Paste = "text-menu-paste"
     const val PastePlainText = "text-menu-paste-plain"
+    const val CopyBox = "text-menu-copy-box"
+    const val DeleteBox = "text-menu-delete-box"
 }
 
 /**
@@ -46,10 +49,8 @@ internal fun selectionForRightClick(current: TextSelection?, layout: TextLayoutR
 }
 
 /**
- * The text box right-click menu: Cut, Copy, Paste and Paste as plain text, then Select all,
- * each with its icon and keyboard shortcut. Cut and Copy need a selection and the pastes need text
- * on the clipboard. Every command, and closing the menu, gives the keyboard back to the box with
- * [request]'s range.
+ * The text box right-click menu: text editing commands plus whole-box Copy and Delete.
+ * Cut and Copy need a selection and the pastes need text on the clipboard.
  */
 @Composable
 internal fun TextContextMenu(
@@ -57,6 +58,7 @@ internal fun TextContextMenu(
     state: WorkspaceState,
     clipboard: TextClipboardActions,
     onEditorCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
+    onDeleteBox: (String) -> Unit,
     onClose: () -> Unit,
 ) {
     // Asked once per opening: reading the system clipboard is not free.
@@ -123,6 +125,26 @@ internal fun TextContextMenu(
                 request?.let { onEditorCommand { current -> current.selectAllTextBox(it.outlineId) } }
             },
             modifier = Modifier.testTag(TextMenuTags.SelectAll),
+        )
+        ContextMenuDivider()
+        ContextMenuItem(
+            label = "Copy text box",
+            icon = DocumentSymbols.ContentCopy,
+            onClick = {
+                onClose()
+                request?.let { onEditorCommand { current -> current.copyTextBox(it.outlineId) } }
+            },
+            modifier = Modifier.testTag(TextMenuTags.CopyBox),
+        )
+        ContextMenuItem(
+            label = "Delete text box",
+            icon = ObjectSymbols.Delete,
+            destructive = true,
+            onClick = {
+                onClose()
+                request?.let { onDeleteBox(it.outlineId) }
+            },
+            modifier = Modifier.testTag(TextMenuTags.DeleteBox),
         )
     }
 }
