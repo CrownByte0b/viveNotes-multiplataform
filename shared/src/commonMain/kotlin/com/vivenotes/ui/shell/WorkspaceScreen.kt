@@ -131,6 +131,7 @@ import com.vivenotes.ui.canvas.linkAtPoint
 import com.vivenotes.ui.canvas.rememberPictureAssets
 import com.vivenotes.ui.canvas.todoAt
 import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.components.LocalPopupLayerDensity
 import com.vivenotes.ui.components.TooltipIconButton
 import com.vivenotes.ui.ribbon.document.DocumentTab
 import com.vivenotes.ui.ribbon.draw.DrawRibbon
@@ -220,7 +221,10 @@ fun WorkspaceScreen(
     val baseDensity = LocalDensity.current
     val effectiveSettings = previewSettings ?: interfaceSettings
     val pageDensity = effectiveSettings.documentDensity(baseDensity)
-    CompositionLocalProvider(LocalDensity provides effectiveSettings.density(baseDensity)) {
+    CompositionLocalProvider(
+        LocalDensity provides effectiveSettings.density(baseDensity),
+        LocalPopupLayerDensity provides baseDensity,
+    ) {
         WorkspaceContent(state, onStateChange, modifier, onAddPage, onRename, onDelete, pictures,
             onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity)
     }

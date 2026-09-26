@@ -4,6 +4,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -24,12 +30,14 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
 import com.vivenotes.ui.ribbon.document.DocumentRibbonTags
+import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.focusBody
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -40,6 +48,32 @@ import kotlin.test.fail
  */
 @OptIn(ExperimentalTestApi::class)
 class HoverTooltipRuleTest {
+
+    @Test
+    fun tooltipStaysCenteredAtDefaultDisplayScale() = assertTooltipStaysCentered(InterfaceSettings())
+
+    @Test
+    fun tooltipStaysCenteredAtMinimumInterfaceScale() = assertTooltipStaysCentered(
+        InterfaceSettings(displayScale = 0.5f, uiScale = 0.5f, fontScale = 0.75f))
+
+    private fun assertTooltipStaysCentered(settings: InterfaceSettings) =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.Document).focusBody(), settings)
+            mainClock.autoAdvance = false
+            val button = onNodeWithTag(DocumentRibbonTags.mark(Mark.Bold))
+            button.performMouseInput { moveTo(center) }
+            mainClock.advanceTimeBy(HoverTooltipDelayMillis + 20)
+
+            val buttonCenter = button.fetchSemanticsNode().boundsInWindow.center.x
+            fun assertCentered() {
+                val tooltip = onNodeWithText("Bold").fetchSemanticsNode().boundsInWindow
+                assertTrue(abs(tooltip.center.x - buttonCenter) <= 2f,
+                    "tooltip center ${tooltip.center.x} moved away from button center $buttonCenter")
+            }
+            assertCentered()
+            mainClock.advanceTimeBy(500)
+            assertCentered()
+        }
 
     private val controlsWithAltText = hasClickAction() and !hasSetTextAction() and
         SemanticsMatcher.keyIsDefined(SemanticsProperties.ContentDescription)
@@ -126,8 +160,35 @@ class HoverTooltipRuleTest {
         setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.Document).focusBody())
         onNodeWithTag(DocumentRibbonTags.mark(Mark.Bold)).performClick()
         onNodeWithTag(DocumentRibbonTags.mark(Mark.Italic)).performMouseInput { moveTo(center) }
+        mainClock.advanceTimeBy(HoverTooltipDelayMillis + 20)
         waitForIdle()
         assertTrue(onAllNodes(hasText("Italic") and inTooltip).fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun crossingButtonsQuicklyDoesNotFlashTooltips() = runDesktopComposeUiTest(width = 600, height = 300) {
+        setContent {
+            ViveNotesTheme(darkTheme = true) {
+                Row {
+                    TooltipIconButton("First", onClick = {}, modifier = Modifier.testTag("first")) {
+                        Box(Modifier.size(18.dp))
+                    }
+                    TooltipIconButton("Second", onClick = {}, modifier = Modifier.testTag("second")) {
+                        Box(Modifier.size(18.dp))
+                    }
+                }
+            }
+        }
+        mainClock.autoAdvance = false
+        onNodeWithTag("first").performMouseInput { moveTo(center) }
+        mainClock.advanceTimeBy(150)
+        assertTrue(onAllNodes(hasText("First") and inTooltip).fetchSemanticsNodes().isEmpty())
+        onNodeWithTag("second").performMouseInput { moveTo(center) }
+        mainClock.advanceTimeBy(150)
+        assertTrue(onAllNodes(hasText("First") and inTooltip).fetchSemanticsNodes().isEmpty())
+        assertTrue(onAllNodes(hasText("Second") and inTooltip).fetchSemanticsNodes().isEmpty())
+        mainClock.advanceTimeBy(110)
+        assertTrue(onAllNodes(hasText("Second") and inTooltip).fetchSemanticsNodes().isNotEmpty())
     }
 
     /**
@@ -144,6 +205,7 @@ class HoverTooltipRuleTest {
             val label = node.config[SemanticsProperties.ContentDescription].joinToString(" ")
             onNode(SemanticsMatcher("node ${node.id}") { it.id == node.id })
                 .performMouseInput { moveTo(center) }
+            mainClock.advanceTimeBy(HoverTooltipDelayMillis + 20)
             waitForIdle()
             if (onAllNodes(hasText(label) and inTooltip).fetchSemanticsNodes().isEmpty()) missing += label
             label
@@ -152,11 +214,14 @@ class HoverTooltipRuleTest {
         return labels
     }
 
-    private fun ComposeUiTest.setWorkspace(initial: WorkspaceState) {
+    private fun ComposeUiTest.setWorkspace(
+        initial: WorkspaceState,
+        settings: InterfaceSettings = InterfaceSettings(displayScale = 1f),
+    ) {
         setContent {
             var state by remember { mutableStateOf(initial) }
             ViveNotesTheme(darkTheme = true) {
-                WorkspaceScreen(state = state, onStateChange = { state = it(state) })
+                WorkspaceScreen(state = state, onStateChange = { state = it(state) }, interfaceSettings = settings)
             }
         }
     }
