@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +29,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
 
@@ -66,23 +68,31 @@ fun ContextMenu(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val contentDensity = LocalDensity.current
+    // Component popup layers use host window coordinates. Keep their placement at the host density,
+    // while menu rows retain the user's Interface scale, as HoverTooltip does for its popup.
+    val layerDensity = LocalPopupLayerDensity.current ?: contentDensity
     // Where the menu is, kept through its closing animation after [anchor] has gone.
     var shownAt by remember { mutableStateOf(Offset.Zero) }
     if (anchor != null) shownAt = anchor
     // A point-sized anchor at the pointer: the menu opens from it, and flips at the window's edges.
-    Box(Modifier.offset { shownAt.round() }) {
-        DropdownMenuPopup(expanded = anchor != null, onDismissRequest = onDismiss) {
-            val shape = MenuDefaults.standaloneGroupShape
-            // One step above the panes and the canvas, with an outline: a dark shadow barely shows
-            // against the dark theme, so the edge carries the separation.
-            DropdownMenuGroup(
-                shapes = MenuDefaults.groupShapes(shape = shape, inactiveShape = shape),
-                modifier = modifier,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                contentPadding = PaddingValues(vertical = 4.dp),
-                content = content,
-            )
+    CompositionLocalProvider(LocalDensity provides layerDensity) {
+        Box(Modifier.offset { shownAt.round() }) {
+            DropdownMenuPopup(expanded = anchor != null, onDismissRequest = onDismiss) {
+                CompositionLocalProvider(LocalDensity provides contentDensity) {
+                    val shape = MenuDefaults.standaloneGroupShape
+                    // One step above the panes and the canvas, with an outline: a dark shadow barely shows
+                    // against the dark theme, so the edge carries the separation.
+                    DropdownMenuGroup(
+                        shapes = MenuDefaults.groupShapes(shape = shape, inactiveShape = shape),
+                        modifier = modifier,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        contentPadding = PaddingValues(vertical = 4.dp),
+                        content = content,
+                    )
+                }
+            }
         }
     }
 }

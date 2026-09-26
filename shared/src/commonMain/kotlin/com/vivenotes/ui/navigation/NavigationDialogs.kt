@@ -1,15 +1,33 @@
 package com.vivenotes.ui.navigation
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -17,18 +35,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
 import com.vivenotes.ui.icons.ContextSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.workspace.NavigationItem
@@ -113,11 +139,12 @@ private fun RenameDialog(
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     val valid = value.text.isNotBlank()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(ContextSymbols.Edit, contentDescription = null) },
-        title = { Text("Rename $noun") },
-        text = {
+    NavigationDialogFrame(
+        title = "Rename $noun",
+        icon = ContextSymbols.Edit,
+        iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+        onDismiss = onDismiss,
+        content = {
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = it },
@@ -137,15 +164,18 @@ private fun RenameDialog(
                     .testTag(NavigationTestTags.NameField),
             )
         },
-        confirmButton = {
-            TextButton(
+        actions = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.testTag(NavigationTestTags.Cancel),
+            ) { Text("Cancel") }
+            Button(
                 onClick = { onConfirm(value.text) },
                 enabled = valid,
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier.testTag(NavigationTestTags.ConfirmRename),
             ) { Text("Rename") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.testTag(NavigationTestTags.Cancel)) { Text("Cancel") }
         },
     )
 }
@@ -161,28 +191,106 @@ private fun DeleteDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(ObjectSymbols.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-        title = { Text("Delete $name?") },
-        text = {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    NavigationDialogFrame(
+        title = "Delete $name?",
+        icon = ObjectSymbols.Delete,
+        iconTint = MaterialTheme.colorScheme.error,
+        onDismiss = onDismiss,
+        content = {
             Text(
                 when (item) {
                     is NavigationItem.Notebook -> "This notebook, its sections and all of their pages will be deleted."
                     is NavigationItem.Section -> "This section and all of its pages will be deleted."
                     is NavigationItem.Page -> "This page will be deleted."
                 },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
-        confirmButton = {
-            TextButton(
+        actions = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.focusRequester(focus).testTag(NavigationTestTags.Cancel),
+            ) {
+                Text("Cancel")
+            }
+            Button(
                 onClick = onConfirm,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                shape = MaterialTheme.shapes.small,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
                 modifier = Modifier.testTag(NavigationTestTags.ConfirmDelete),
             ) { Text("Delete") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.testTag(NavigationTestTags.Cancel)) { Text("Cancel") }
-        },
     )
+}
+
+/** Compact desktop-sized Material dialog, shared by the two navigation commands. */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun NavigationDialogFrame(
+    title: String,
+    icon: ImageVector,
+    iconTint: Color,
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .semantics { paneTitle = title }
+            .onPreviewKeyEvent { event ->
+                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                    onDismiss()
+                    true
+                } else false
+            },
+    ) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.42f))
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss)
+                .testTag(NavigationTestTags.Backdrop),
+        )
+        Surface(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .widthIn(max = 440.dp)
+                .fillMaxWidth(0.9f)
+                .focusProperties { onExit = { cancelFocusChange() } }
+                .focusGroup()
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
+                .testTag(NavigationTestTags.Dialog),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shadowElevation = 12.dp,
+        ) {
+            Column(Modifier.padding(20.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                }
+                HorizontalDivider(Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                content()
+                Spacer(Modifier.size(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                    content = actions,
+                )
+            }
+        }
+    }
 }

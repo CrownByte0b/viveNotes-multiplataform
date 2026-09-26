@@ -265,8 +265,9 @@ private fun WorkspaceContent(
     LaunchedEffect(editorFocusRequest) {
         if (editorFocusRequest > 0) editorFocusRequester.requestFocus()
     }
+    Box(modifier.fillMaxSize()) {
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .onPreviewKeyEvent { event ->
@@ -407,6 +408,7 @@ private fun WorkspaceContent(
         }
     }
     NavigationDialogs(state, navigationRequests, onRename, onDelete)
+    }
 }
 
 @Composable

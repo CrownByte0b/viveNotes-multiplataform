@@ -1,6 +1,7 @@
 package com.vivenotes.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,10 +28,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +61,8 @@ private val PagePaneWidth = 292.dp
 
 /** Semantics identifiers for the navigation panes' menus and dialogs. */
 object NavigationTestTags {
+    const val Dialog = "navigation-dialog"
+    const val Backdrop = "navigation-dialog-backdrop"
     const val Rename = "navigation-menu-rename"
     const val Delete = "navigation-menu-delete"
     const val NameField = "navigation-name-field"
@@ -141,6 +146,21 @@ private fun WithItemMenu(
     content: @Composable (menuOpen: Boolean) -> Unit,
 ) {
     var menuAt by remember(item) { mutableStateOf<Offset?>(null) }
+    var pendingCommand by remember(item) { mutableStateOf<NavigationCommand?>(null) }
+    val closeMotion = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+    LaunchedEffect(pendingCommand) {
+        val command = pendingCommand ?: return@LaunchedEffect
+        // Wait for Material's menu close motion before showing the in-window confirmation. The
+        // menu is a native popup layer, and opening a confirmation while it is closing leaves a
+        // ghost of that layer above the workspace on native Wayland.
+        animate(1f, 0f, animationSpec = closeMotion) { _, _ -> }
+        withFrameNanos { }
+        when (command) {
+            NavigationCommand.Rename -> requests.renaming = item
+            NavigationCommand.Delete -> requests.deleting = item
+        }
+        pendingCommand = null
+    }
     Box(Modifier.onSecondaryPress(item) { menuAt = it }) {
         content(menuAt != null)
         ContextMenu(anchor = menuAt, onDismiss = { menuAt = null }) {
@@ -149,7 +169,7 @@ private fun WithItemMenu(
                 icon = ContextSymbols.Edit,
                 onClick = {
                     menuAt = null
-                    requests.renaming = item
+                    pendingCommand = NavigationCommand.Rename
                 },
                 modifier = Modifier.testTag(NavigationTestTags.Rename),
             )
@@ -160,13 +180,15 @@ private fun WithItemMenu(
                 destructive = true,
                 onClick = {
                     menuAt = null
-                    requests.deleting = item
+                    pendingCommand = NavigationCommand.Delete
                 },
                 modifier = Modifier.testTag(NavigationTestTags.Delete),
             )
         }
     }
 }
+
+private enum class NavigationCommand { Rename, Delete }
 
 /** The container a row shows: its selection, else a quieter one while its menu is open. */
 @Composable

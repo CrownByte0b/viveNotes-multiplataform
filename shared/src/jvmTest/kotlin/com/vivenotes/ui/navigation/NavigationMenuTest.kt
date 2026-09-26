@@ -23,14 +23,65 @@ import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
+import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.WorkspaceState
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlin.math.abs
 
 /** Right-click menus on notebooks, sections and pages, and the dialogs behind them. */
 @OptIn(ExperimentalTestApi::class)
 class NavigationMenuTest {
+
+    @Test
+    fun notebookAndPageMenusWorkAtTheDefaultDisplayScale() = assertMenusAtScale(InterfaceSettings())
+
+    @Test
+    fun notebookAndPageMenusWorkAtTheMinimumScales() = assertMenusAtScale(
+        InterfaceSettings(displayScale = 0.5f, uiScale = 0.5f, fontScale = 0.5f))
+
+    @Test
+    fun notebookAndPageMenusWorkWithEnlargedUiAndFonts() = assertMenusAtScale(
+        InterfaceSettings(displayScale = 1.5f, uiScale = 1.5f, fontScale = 1.8f))
+
+    @Test
+    fun notebookAndPageMenusWorkAtTheMaximumDisplayScale() = assertMenusAtScale(
+        InterfaceSettings(displayScale = 2.5f))
+
+    private fun assertMenusAtScale(settings: InterfaceSettings) = runDesktopComposeUiTest(width = 3200, height = 1400) {
+        var observed = WorkspaceState.demo()
+        setWorkspace(settings) { observed = it }
+
+        val notebook = onNodeWithTag(NavigationTestTags.notebook("calculus"))
+        val clickX = notebook.fetchSemanticsNode().boundsInWindow.center.x
+        notebook.performMouseInput { rightClick(center) }
+        val menu = onNodeWithTag(NavigationTestTags.Rename)
+        assertTrue(abs(menu.fetchSemanticsNode().boundsInWindow.left - clickX) < 30f)
+        mainClock.advanceTimeBy(500)
+        assertTrue(abs(menu.fetchSemanticsNode().boundsInWindow.left - clickX) < 30f)
+        onNodeWithTag(NavigationTestTags.Rename).performClick()
+        onNodeWithTag(NavigationTestTags.NameField).performTextReplacement("Analysis")
+        onNodeWithTag(NavigationTestTags.ConfirmRename).performClick()
+        runOnIdle { assertEquals("Analysis", observed.notebooks.first().name) }
+
+        onNodeWithTag(WorkspaceTestTags.page("homework-1")).performMouseInput { rightClick(center) }
+        onNodeWithTag(NavigationTestTags.Rename).performClick()
+        onNodeWithTag(NavigationTestTags.NameField).performTextReplacement("Exercises")
+        onNodeWithTag(NavigationTestTags.ConfirmRename).performClick()
+        runOnIdle { assertEquals("Exercises", observed.notebooks.first().sections.first().pages[1].title) }
+
+        onNodeWithTag(WorkspaceTestTags.page("homework-1")).performMouseInput { rightClick(center) }
+        onNodeWithTag(NavigationTestTags.Delete).performClick()
+        onNodeWithTag(NavigationTestTags.ConfirmDelete).performClick()
+        runOnIdle { assertEquals(false, observed.notebooks.first().sections.first().pages.any { it.id == "homework-1" }) }
+
+        onNodeWithTag(NavigationTestTags.notebook("calculus")).performMouseInput { rightClick(center) }
+        onNodeWithTag(NavigationTestTags.Delete).performClick()
+        onNodeWithTag(NavigationTestTags.ConfirmDelete).performClick()
+        runOnIdle { assertEquals("biology", observed.selectedNotebookId) }
+    }
 
     @Test
     fun rightClickingASectionOpensItsMenuWithoutOpeningTheSection() =
@@ -58,6 +109,8 @@ class NavigationMenuTest {
         onNodeWithTag(WorkspaceTestTags.section("chapter-2")).performMouseInput { rightClick(center) }
         onNodeWithTag(NavigationTestTags.Rename).performClick()
 
+        onNodeWithTag(NavigationTestTags.Rename).assertDoesNotExist()
+        onNodeWithTag(NavigationTestTags.Delete).assertDoesNotExist()
         onNodeWithText("Rename section").assertIsDisplayed()
         onNodeWithTag(NavigationTestTags.NameField).assertTextContains("Chapter 2")
         onNodeWithTag(NavigationTestTags.NameField).performTextReplacement("   ")
@@ -68,6 +121,23 @@ class NavigationMenuTest {
         onNodeWithTag(NavigationTestTags.NameField).assertDoesNotExist()
         onNodeWithTag(WorkspaceTestTags.section("chapter-2")).assertTextContains("Series")
         runOnIdle { assertEquals("Series", observed.notebooks.first().sections[1].name) }
+    }
+
+    @Test
+    fun desktopDialogCoversTheWorkspaceAndEscapeClosesIt() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        setWorkspace()
+
+        onNodeWithTag(NavigationTestTags.notebook("calculus")).performMouseInput { rightClick(center) }
+        onNodeWithTag(NavigationTestTags.Rename).performClick()
+
+        val backdrop = onNodeWithTag(NavigationTestTags.Backdrop).fetchSemanticsNode().boundsInRoot
+        val dialog = onNodeWithTag(NavigationTestTags.Dialog).fetchSemanticsNode().boundsInRoot
+        assertTrue(backdrop.width >= 1399f && backdrop.height >= 899f,
+            "dialog backdrop should cover the workspace: $backdrop")
+        assertTrue(dialog.width <= 440f && dialog.height < 300f,
+            "navigation dialog should be compact on desktop: $dialog")
+        onNodeWithTag(NavigationTestTags.NameField).performKeyInput { pressKey(Key.Escape) }
+        onNodeWithTag(NavigationTestTags.Dialog).assertDoesNotExist()
     }
 
     @Test
@@ -86,6 +156,10 @@ class NavigationMenuTest {
         onNodeWithTag(NavigationTestTags.NameField).performTextReplacement("Something else")
         onNodeWithTag(NavigationTestTags.Cancel).performClick()
         runOnIdle { assertEquals("Calculus", observed.notebooks.first().name) }
+
+        // A native popup must finish closing without leaving an input layer over the workspace.
+        onNodeWithTag(WorkspaceTestTags.section("chapter-2")).performMouseInput { click(center) }
+        runOnIdle { assertEquals("chapter-2", observed.selectedSectionId) }
     }
 
     @Test
@@ -123,11 +197,15 @@ class NavigationMenuTest {
         runOnIdle { assertEquals("biology", observed.selectedNotebookId) }
     }
 
-    private fun ComposeUiTest.setWorkspace(onStateChange: (WorkspaceState) -> Unit = {}) {
+    private fun ComposeUiTest.setWorkspace(
+        settings: InterfaceSettings = InterfaceSettings(displayScale = 1f),
+        onStateChange: (WorkspaceState) -> Unit = {},
+    ) {
         setContent {
             var state by remember { mutableStateOf(WorkspaceState.demo()) }
             ViveNotesTheme(darkTheme = true) {
-                WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) })
+                WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) },
+                    interfaceSettings = settings)
             }
         }
     }
