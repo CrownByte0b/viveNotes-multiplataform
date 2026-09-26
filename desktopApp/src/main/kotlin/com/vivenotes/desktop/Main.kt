@@ -54,17 +54,21 @@ fun main(args: Array<String>) {
 
 private fun launchStandardWindow(notes: DesktopNotes) {
     notes.start()
+    val monitor = primaryMonitorArea()
+    val initialSize = initialWindowSize(monitor)
     application {
         Window(
             // The window stays until the notes are written and closed; then the application ends.
             onCloseRequest = { notes.close(::exitApplication) },
             title = "Vive Notes",
-            state = rememberWindowState(size = DpSize(1440.dp, 900.dp)),
+            state = rememberWindowState(size = DpSize(initialSize.width.dp, initialSize.height.dp)),
         ) {
             LaunchedEffect(window) {
-                window.minimumSize = Dimension(720, 540)
+                window.minimumSize = Dimension(720.coerceAtMost(monitor.workArea.width),
+                    540.coerceAtMost(monitor.workArea.height))
             }
-            App(notes.session, remember(window) { notes.pictures(window) })
+            App(notes.session, remember(window) { notes.pictures(window) }, notes.interfaceSettings,
+                notes::updateInterfaceSettings)
         }
     }
 }

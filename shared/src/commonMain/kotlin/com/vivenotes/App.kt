@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.ui.shell.WorkspaceScreen
+import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.WorkspaceState
@@ -35,7 +36,12 @@ object AppTestTags {
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun App(session: WorkspaceSession, pictures: PictureLibrary? = null) {
+fun App(
+    session: WorkspaceSession,
+    pictures: PictureLibrary? = null,
+    interfaceSettings: InterfaceSettings = InterfaceSettings(),
+    onInterfaceSettingsChange: (InterfaceSettings) -> Unit = {},
+) {
     val state by session.state.collectAsState()
     ViveNotesTheme {
         val workspace = state
@@ -50,7 +56,8 @@ fun App(session: WorkspaceSession, pictures: PictureLibrary? = null) {
             }
         } else {
             WorkspaceScreen(state = workspace, onStateChange = session::update, onAddPage = session::addPage,
-                onRename = session::rename, onDelete = session::delete, pictures = pictures)
+                onRename = session::rename, onDelete = session::delete, pictures = pictures,
+                interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange)
         }
     }
 }
@@ -62,6 +69,7 @@ fun SampleApp() {
     var workspace by remember { mutableStateOf(WorkspaceState.demo()) }
 
     ViveNotesTheme {
-        WorkspaceScreen(state = workspace, onStateChange = { workspace = it(workspace) })
+        WorkspaceScreen(state = workspace, onStateChange = { workspace = it(workspace) },
+            interfaceSettings = InterfaceSettings())
     }
 }

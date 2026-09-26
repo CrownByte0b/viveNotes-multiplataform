@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -86,6 +87,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.Layout
@@ -134,6 +136,8 @@ import com.vivenotes.ui.ribbon.document.DocumentTab
 import com.vivenotes.ui.ribbon.draw.DrawRibbon
 import com.vivenotes.ui.ribbon.file.FileRibbon
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
+import com.vivenotes.ui.ribbon.settings.InterfaceDialog
+import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.ribbon.view.ViewRibbon
 import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.ui.canvas.TextContextMenu
@@ -208,6 +212,42 @@ fun WorkspaceScreen(
     onDelete: (NavigationItem) -> Unit = { item -> onStateChange { it.delete(item) } },
     /** Where pictures are stored; without it the Picture command is unavailable. */
     pictures: PictureLibrary? = null,
+    // Standalone workspace callers retain the unscaled layout; App supplies the user's default.
+    interfaceSettings: InterfaceSettings = InterfaceSettings(displayScale = 1f),
+    onInterfaceSettingsChange: (InterfaceSettings) -> Unit = {},
+) {
+    var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
+    val baseDensity = LocalDensity.current
+    val effectiveSettings = previewSettings ?: interfaceSettings
+    val pageDensity = effectiveSettings.documentDensity(baseDensity)
+    CompositionLocalProvider(LocalDensity provides effectiveSettings.density(baseDensity)) {
+        WorkspaceContent(state, onStateChange, modifier, onAddPage, onRename, onDelete, pictures,
+            onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity)
+    }
+    previewSettings?.let { draft ->
+        InterfaceDialog(
+            settings = draft,
+            onChange = { previewSettings = it.normalized() },
+            onApply = {
+                onInterfaceSettingsChange(previewSettings ?: draft)
+                previewSettings = null
+            },
+            onDismiss = { previewSettings = null },
+        )
+    }
+}
+
+@Composable
+private fun WorkspaceContent(
+    state: WorkspaceState,
+    onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
+    modifier: Modifier,
+    onAddPage: () -> Unit,
+    onRename: (NavigationItem, String) -> Unit,
+    onDelete: (NavigationItem) -> Unit,
+    pictures: PictureLibrary?,
+    onInterface: () -> Unit,
+    pageDensity: Density,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val editorFocusRequester = remember { FocusRequester() }
@@ -252,7 +292,7 @@ fun WorkspaceScreen(
             RibbonTab.Draw -> DrawRibbon(state, onStateChange)
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures, { canvasOrigin.read() })
             RibbonTab.View -> ViewRibbon()
-            RibbonTab.Settings -> SettingsRibbon()
+            RibbonTab.Settings -> SettingsRibbon(onInterface)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         StorageErrorBanner(state.storageError)
@@ -298,6 +338,7 @@ fun WorkspaceScreen(
                         color = MaterialTheme.colorScheme.outlineVariant,
                     )
                 }
+                CompositionLocalProvider(LocalDensity provides pageDensity) {
                 PageCanvas(
                     state = state,
                     pictures = pictures,
@@ -357,6 +398,7 @@ fun WorkspaceScreen(
                         }
                     },
                 )
+                }
             }
         }
     }

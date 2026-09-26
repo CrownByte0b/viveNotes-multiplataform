@@ -8,6 +8,10 @@ of digital documents.
 All features are completely free, including cross-device sync. Your notes stay private: no data leaves your device,
 and all AI features run entirely on-device.
 
+# Features
+
+- Support for high DPI screens 144p and 4k
+
 [Demo Video](https://youtu.be/QZ6rd2uQD9E)
 
 # Self Host server

@@ -11,6 +11,22 @@ import java.io.File
  */
 object AppDirectories {
 
+    fun config(
+        osName: String = System.getProperty("os.name"),
+        environment: (String) -> String? = System::getenv,
+        home: String = System.getProperty("user.home"),
+    ): File = when {
+        osName.startsWith("Windows", ignoreCase = true) -> File(
+            environment("APPDATA")?.takeIf { it.isNotBlank() } ?: File(home, "AppData/Roaming").path,
+            "ViveNotes",
+        )
+        osName.startsWith("Mac", ignoreCase = true) -> File(home, "Library/Application Support/ViveNotes")
+        else -> File(
+            environment("XDG_CONFIG_HOME")?.takeIf { File(it).isAbsolute } ?: File(home, ".config").path,
+            "vivenotes",
+        )
+    }
+
     fun data(
         osName: String = System.getProperty("os.name"),
         environment: (String) -> String? = System::getenv,

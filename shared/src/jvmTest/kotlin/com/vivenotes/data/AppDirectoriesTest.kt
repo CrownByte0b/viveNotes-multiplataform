@@ -6,6 +6,14 @@ import kotlin.test.assertEquals
 
 class AppDirectoriesTest {
 
+    @Test
+    fun linuxConfigUsesXdgConfigHomeAndRejectsRelativePaths() {
+        assertEquals(File("/config/ada/vivenotes"), AppDirectories.config("Linux",
+            mapOf("XDG_CONFIG_HOME" to "/config/ada")::get, "/home/ada"))
+        assertEquals(File("/home/ada/.config/vivenotes"), AppDirectories.config("Linux",
+            mapOf("XDG_CONFIG_HOME" to "relative")::get, "/home/ada"))
+    }
+
     private fun data(os: String, vararg variables: Pair<String, String>) =
         AppDirectories.data(osName = os, environment = mapOf(*variables)::get, home = "/home/ada")
 

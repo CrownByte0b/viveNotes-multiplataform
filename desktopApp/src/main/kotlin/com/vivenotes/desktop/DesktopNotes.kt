@@ -5,6 +5,10 @@ import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
+import com.vivenotes.ui.ribbon.settings.InterfaceSettings
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,9 +35,18 @@ internal class DesktopNotes(
     private val library: NotesLibrary,
     private val scope: CoroutineScope,
     private val maintenanceInterval: Duration = 24.hours,
+    private val interfaceStore: InterfaceSettingsFile? = null,
 ) {
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated)
+    var interfaceSettings by mutableStateOf(interfaceStore?.load() ?: InterfaceSettings())
+        private set
+
+    fun updateInterfaceSettings(settings: InterfaceSettings) {
+        val value = settings.normalized()
+        interfaceStore?.save(value)
+        interfaceSettings = value
+    }
     private var maintenance: Job? = null
 
     /** Pictures for a window: its file dialog opens over [owner]. */
@@ -73,6 +86,7 @@ internal class DesktopNotes(
 
     companion object {
         fun open(directory: File = AppDirectories.data()): DesktopNotes =
-            DesktopNotes(NotesLibrary.open(directory), MainScope())
+            DesktopNotes(NotesLibrary.open(directory), MainScope(),
+                interfaceStore = InterfaceSettingsFile(File(AppDirectories.config(), "interface.properties")))
     }
 }

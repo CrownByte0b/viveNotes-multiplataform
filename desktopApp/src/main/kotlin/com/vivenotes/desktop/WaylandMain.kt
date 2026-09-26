@@ -5,7 +5,6 @@ import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
 import com.vivenotes.App
 import com.vivenotes.data.PictureLibrary
-import com.vivenotes.workspace.WorkspaceSession
 import java.awt.Dimension
 import java.awt.Toolkit
 import java.awt.event.WindowAdapter
@@ -19,6 +18,8 @@ internal fun launchWayland(notes: DesktopNotes) {
     System.setProperty("compose.layers.type", "COMPONENT")
     requireNativeWaylandToolkit(Toolkit.getDefaultToolkit().javaClass.name)
     notes.start()
+    val monitor = primaryMonitorArea()
+    val initialSize = initialWindowSize(monitor)
 
     SwingUtilities.invokeLater {
         val frame = JFrame("ViveNotes")
@@ -28,10 +29,12 @@ internal fun launchWayland(notes: DesktopNotes) {
         frame.addWindowListener(object : WindowAdapter() {
             override fun windowClosing(event: WindowEvent) = notes.close(frame::dispose)
         })
-        frame.minimumSize = Dimension(720, 540)
-        frame.setSize(1440, 900)
-        frame.setLocationRelativeTo(null)
-        frame.contentPane.add(createWaylandContent(notes.session, notes.pictures(frame)))
+        frame.minimumSize = Dimension(720.coerceAtMost(monitor.workArea.width),
+            540.coerceAtMost(monitor.workArea.height))
+        frame.size = initialSize
+        frame.setLocation(monitor.workArea.x + (monitor.workArea.width - initialSize.width) / 2,
+            monitor.workArea.y + (monitor.workArea.height - initialSize.height) / 2)
+        frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame)))
         frame.isVisible = true
     }
 }
@@ -44,10 +47,10 @@ internal fun requireNativeWaylandToolkit(toolkitClassName: String) {
 
 /** The Compose panel inside the [PopupLayerHost] its popups open in. */
 @OptIn(ExperimentalComposeUiApi::class)
-private fun createWaylandContent(session: WorkspaceSession, pictures: PictureLibrary): PopupLayerHost {
+private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary): PopupLayerHost {
     val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
     val host = PopupLayerHost(panel)
     panel.windowContainer = host
-    panel.setContent { App(session, pictures) }
+    panel.setContent { App(notes.session, pictures, notes.interfaceSettings, notes::updateInterfaceSettings) }
     return host
 }
