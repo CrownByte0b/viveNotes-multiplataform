@@ -16,6 +16,9 @@ import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.workspace.ShortcutDecision
 import com.vivenotes.workspace.ShortcutKey
 import com.vivenotes.workspace.ShortcutScope
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 
 /** The shortcuts in force, for anything that names one — a menu row's "Ctrl+C". */
 internal val LocalKeyBindings = compositionLocalOf { KeyBindings.Default }
@@ -34,9 +37,14 @@ internal fun Key.isModifier(): Boolean = this in ModifierKeys
  * each key event first — the workspace's outermost preview handler — to tell a held key's repeats
  * from new presses and to eat the character a used chord would also type: Compose delivers Ctrl+=
  * as a key press and then a typed "=", which a text field would insert after the zoom.
+ *
+ * A key counts as held only while its presses keep coming. A shortcut can take the focus away
+ * before its key is let go — Esc discarding the text box it was pressed in — and the release is
+ * then never seen; waiting for it would take the next press of that key for a repeat.
  */
-internal class ShortcutKeys {
-    private val held = mutableSetOf<Key>()
+internal class ShortcutKeys(private val time: TimeSource = TimeSource.Monotonic) {
+    /** When each key down was last pressed or repeated. */
+    private val held = mutableMapOf<Key, TimeMark>()
     private var repeat = false
     private var swallowTyped = false
 
@@ -44,7 +52,8 @@ internal class ShortcutKeys {
     fun observe(event: KeyEvent): Boolean {
         when (event.type) {
             KeyEventType.KeyDown -> {
-                repeat = !held.add(event.key)
+                repeat = held[event.key]?.let { it.elapsedNow() < RepeatGap } == true
+                held[event.key] = time.markNow()
                 swallowTyped = false
             }
             KeyEventType.KeyUp -> held.remove(event.key)
@@ -77,6 +86,12 @@ internal class ShortcutKeys {
         return used
     }
 }
+
+/**
+ * Longer than any keyboard's wait before its first repeat — up to a second on Windows, 660 ms by
+ * X11's default — and far longer than the gap between repeats.
+ */
+private val RepeatGap = 1200.milliseconds
 
 private val ModifierKeys = setOf(
     Key.CtrlLeft, Key.CtrlRight, Key.ShiftLeft, Key.ShiftRight,

@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -259,7 +260,17 @@ fun WorkspaceScreen(
     val baseDensity = LocalDensity.current
     val effectiveSettings = previewSettings ?: interfaceSettings
     val pageDensity = effectiveSettings.documentDensity(baseDensity)
-    Box(modifier.fillMaxSize()) {
+    // Keys reach only the focused element and what contains it, so the workspace is never left
+    // without one: at launch, and whenever the focused element goes (a discarded text box, a
+    // closed dialog), the canvas takes the focus and the keyboard shortcuts keep working.
+    val canvasFocusRequester = remember { FocusRequester() }
+    var workspaceHasFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(workspaceHasFocus) {
+        if (workspaceHasFocus) return@LaunchedEffect
+        withFrameNanos { }
+        canvasFocusRequester.requestFocus()
+    }
+    Box(modifier.fillMaxSize().onFocusChanged { workspaceHasFocus = it.hasFocus }.focusGroup()) {
         CompositionLocalProvider(
             LocalDensity provides effectiveSettings.density(baseDensity),
             LocalPopupLayerDensity provides baseDensity,
@@ -273,7 +284,7 @@ fun WorkspaceScreen(
                 }, bindings = bindings, onBindingsChange = { next ->
                     bindings = next
                     onKeyBindingsChange(next)
-                })
+                }, canvasFocusRequester = canvasFocusRequester)
         }
         previewSettings?.let { draft ->
             InterfaceDialog(
@@ -302,6 +313,8 @@ private fun WorkspaceContent(
     onViewChange: (ViewSettings) -> Unit,
     bindings: KeyBindings,
     onBindingsChange: (KeyBindings) -> Unit,
+    /** The workspace's own focus, which holds the keyboard when no control does. */
+    canvasFocusRequester: FocusRequester,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
@@ -322,7 +335,6 @@ private fun WorkspaceContent(
     val horizontalTabs = view.tabsLayout == TabsLayout.Horizontal
     val documentColorSelection = remember { DocumentColorSelection() }
     val editorFocusRequester = remember { FocusRequester() }
-    val canvasFocusRequester = remember { FocusRequester() }
     var editorFocusRequest by remember { mutableIntStateOf(0) }
     val navigationRequests = remember { NavigationRequests() }
     fun applyEditorCommand(transform: (WorkspaceState) -> WorkspaceState) {
@@ -626,6 +638,18 @@ private fun PageCanvas(
     val measuredTextHeights = remember(page?.id) { mutableStateMapOf<String, Float>() }
     val textLayouts = remember(page?.id) { mutableStateMapOf<String, TextLayoutResult>() }
     val textClipboard = TextClipboardActions(LocalClipboardManager.current, onTextCommand)
+    // The text box whose field holds the keyboard. Esc and a tap on the page end the editing but
+    // not the field's focus, and the field would go on taking keys — Ctrl+Z as its own text undo,
+    // and typing — so once its box is no longer the one being edited, the canvas takes the focus.
+    var keyboardTextBox by remember(page?.id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(keyboardTextBox, state.focusedTextOutlineId) {
+        val holder = keyboardTextBox ?: return@LaunchedEffect
+        if (holder == currentState.focusedTextOutlineId) return@LaunchedEffect
+        withFrameNanos { }
+        if (keyboardTextBox == holder && holder != currentState.focusedTextOutlineId) {
+            canvasFocusRequester.requestFocus()
+        }
+    }
     var textMenu by remember(page?.id) { mutableStateOf<TextMenuRequest?>(null) }
 
     LaunchedEffect(zoom) {
@@ -1082,7 +1106,12 @@ private fun PageCanvas(
                                 .onPreviewKeyEvent { event -> currentTextShortcut(event) }
                                 .then(if (focused) Modifier.focusRequester(editorFocusRequester) else Modifier)
                                 .onFocusChanged {
-                                    if (it.isFocused && !focused) onFocusTextBox(outline.id)
+                                    if (it.isFocused) {
+                                        keyboardTextBox = outline.id
+                                        if (!focused) onFocusTextBox(outline.id)
+                                    } else if (keyboardTextBox == outline.id) {
+                                        keyboardTextBox = null
+                                    }
                                 }
                                 .semantics { contentDescription = "Text box ${index + 1}" }
                                 .testTag(if (index == 0) WorkspaceTestTags.BodyEditor else WorkspaceTestTags.textBox(outline.id) + "-editor"),

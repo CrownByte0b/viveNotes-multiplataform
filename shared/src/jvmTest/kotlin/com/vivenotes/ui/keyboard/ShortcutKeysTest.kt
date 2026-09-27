@@ -14,6 +14,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TestTimeSource
 
 /**
  * The dispatcher below the workspace's key handlers, fed events one at a time. The Compose UI tests
@@ -68,6 +71,31 @@ class ShortcutKeysTest {
         send(down(Key.Minus, ctrl = true))
         send(down(Key.Minus, ctrl = true))
         assertEquals(listOf(ShortcutAction.ZoomOut, ShortcutAction.ZoomOut), ran)
+    }
+
+    /**
+     * Regression: Esc discarded the text box it was pressed in, its release went nowhere, and every
+     * later Esc was taken for a repeat and ignored.
+     */
+    @Test
+    fun aKeyWhoseReleaseWasLostIsPressedAgainNotHeld() {
+        val clock = TestTimeSource()
+        val keys = ShortcutKeys(clock)
+        var runs = 0
+        fun press(): Boolean {
+            val event = down(Key.Escape)
+            return keys.observe(event) ||
+                keys.dispatch(event, KeyBindings.Default, ShortcutScope.Anywhere) { runs++; true }
+        }
+        press()
+        // No release arrives. A real repeat follows within tens of milliseconds and is not run.
+        clock += 40.milliseconds
+        press()
+        assertEquals(1, runs)
+        // Pressed again a moment later, it is a new press.
+        clock += 2.seconds
+        press()
+        assertEquals(2, runs)
     }
 
     @Test
