@@ -20,7 +20,7 @@ import javax.swing.SwingUtilities
 import javax.swing.WindowConstants
 
 /** Native Wayland host for JetBrains Runtime's WLToolkit. */
-internal fun launchWayland(notes: DesktopNotes) {
+internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile) {
     System.setProperty("compose.layers.type", "COMPONENT")
     requireNativeWaylandToolkit(Toolkit.getDefaultToolkit().javaClass.name)
     notes.start()
@@ -28,7 +28,7 @@ internal fun launchWayland(notes: DesktopNotes) {
     val initialSize = initialWindowSize(monitor)
 
     SwingUtilities.invokeLater {
-        val frame = JFrame("ViveNotes")
+        val frame = JFrame(profile.windowTitle)
         // Disposed only once the notes are written and closed, which is when the process can end:
         // the same end as DISPOSE_ON_CLOSE, and not EXIT_ON_CLOSE's JBR shutdown-thread exception.
         frame.defaultCloseOperation = WindowConstants.DO_NOTHING_ON_CLOSE

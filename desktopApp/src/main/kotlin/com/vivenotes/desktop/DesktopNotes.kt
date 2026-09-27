@@ -1,6 +1,5 @@
 package com.vivenotes.desktop
 
-import com.vivenotes.data.AppDirectories
 import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.PictureLibrary
@@ -136,10 +135,12 @@ internal class DesktopNotes(
     companion object {
         val VIEW_SAVE_DELAY = 500.milliseconds
 
-        fun open(directory: File = AppDirectories.data()): DesktopNotes =
-            DesktopNotes(NotesLibrary.open(directory, AppDirectories.cache()), MainScope(),
-                interfaceStore = InterfaceSettingsFile(File(AppDirectories.config(), "interface.properties")),
-                viewStore = ViewSettingsFile(File(AppDirectories.config(), "view.properties")),
-                keyStore = KeyBindingsFile(File(AppDirectories.config(), "keyboard.properties")))
+        fun open(profile: DesktopProfile = DesktopProfile.fromProperty()): DesktopNotes {
+            val directories = profile.directories()
+            return DesktopNotes(NotesLibrary.open(directories.data, directories.cache), MainScope(),
+                interfaceStore = InterfaceSettingsFile(File(directories.config, "interface.properties")),
+                viewStore = ViewSettingsFile(File(directories.config, "view.properties")),
+                keyStore = KeyBindingsFile(File(directories.config, "keyboard.properties")))
+        }
     }
 }

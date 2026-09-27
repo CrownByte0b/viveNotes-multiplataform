@@ -49,6 +49,18 @@ tasks.withType<Test>().configureEach {
     jvmArgs(launchJvmArgs)
 }
 
+// Installed distributions use the production profile. Gradle's everyday run uses a stable,
+// separate development profile rooted at <repository>/devdb.
+tasks.register<JavaExec>("runProduction") {
+    group = "application"
+    description = "Run Vive Notes with the production profile"
+    mainClass.set("com.vivenotes.desktop.MainKt")
+    classpath = sourceSets.main.get().runtimeClasspath
+    jvmArgs(launchJvmArgs)
+    systemProperty("vivenotes.profile", "production")
+    workingDir = rootProject.projectDir
+}
+
 fun isJetBrainsRuntime(home: File): Boolean =
     File(home, "bin/java").canExecute() &&
         File(home, "release").takeIf { it.isFile }
@@ -82,14 +94,20 @@ val isLinuxWaylandSession = System.getProperty("os.name").startsWith("Linux", ig
 // configuration cache cannot serialize this script.
 afterEvaluate {
     tasks.named<JavaExec>("run") {
-        val waylandSession = isLinuxWaylandSession
-        val jbrHome = if (waylandSession) findJetBrainsRuntime() else null
-        if (jbrHome != null) setExecutable(File(jbrHome, "bin/java").absolutePath)
-        val missingJbr = waylandSession && jbrHome == null
-        doFirst {
-            check(!missingJbr || "--x11" in (this as JavaExec).args) {
-                "Native Wayland needs JetBrains Runtime. Install it via JetBrains Toolbox, " +
-                    "set VIVE_JBR_HOME, or run with --args='--x11'."
+        systemProperty("vivenotes.profile", "dev")
+        workingDir = rootProject.projectDir
+    }
+    listOf("run", "runProduction").forEach { taskName ->
+        tasks.named<JavaExec>(taskName) {
+            val waylandSession = isLinuxWaylandSession
+            val jbrHome = if (waylandSession) findJetBrainsRuntime() else null
+            if (jbrHome != null) setExecutable(File(jbrHome, "bin/java").absolutePath)
+            val missingJbr = waylandSession && jbrHome == null
+            doFirst {
+                check(!missingJbr || "--x11" in (this as JavaExec).args) {
+                    "Native Wayland needs JetBrains Runtime. Install it via JetBrains Toolbox, " +
+                        "set VIVE_JBR_HOME, or run with --args='--x11'."
+                }
             }
         }
     }

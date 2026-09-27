@@ -31,6 +31,7 @@ internal fun selectWindowBackend(
 }
 
 fun main(args: Array<String>) {
+    val profile = DesktopProfile.fromProperty()
     when (
         selectWindowBackend(
             args = args,
@@ -41,20 +42,20 @@ fun main(args: Array<String>) {
     ) {
         WindowBackend.NATIVE_WAYLAND -> {
             System.setProperty("awt.toolkit.name", "WLToolkit")
-            useWaylandWindowClass()
-            launchWayland(DesktopNotes.open())
+            useWaylandWindowClass(profile)
+            launchWayland(DesktopNotes.open(profile), profile)
         }
         WindowBackend.STANDARD -> {
             if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true)) {
                 System.setProperty("awt.toolkit.name", "XToolkit")
-                useX11WindowClass()
+                useX11WindowClass(profile)
             }
-            launchStandardWindow(DesktopNotes.open())
+            launchStandardWindow(DesktopNotes.open(profile), profile)
         }
     }
 }
 
-private fun launchStandardWindow(notes: DesktopNotes) {
+private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile) {
     notes.start()
     val monitor = primaryMonitorArea()
     val initialSize = initialWindowSize(monitor)
@@ -62,7 +63,7 @@ private fun launchStandardWindow(notes: DesktopNotes) {
         Window(
             // The window stays until the notes are written and closed; then the application ends.
             onCloseRequest = { notes.close(::exitApplication) },
-            title = "Vive Notes",
+            title = profile.windowTitle,
             state = rememberWindowState(size = DpSize(initialSize.width.dp, initialSize.height.dp)),
         ) {
             LaunchedEffect(window) {

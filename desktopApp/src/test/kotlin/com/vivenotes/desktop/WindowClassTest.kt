@@ -19,6 +19,8 @@ class WindowClassTest {
         try {
             useWaylandWindowClass()
             assertEquals("vivenotes", System.getProperty("awt.app.id"))
+            useWaylandWindowClass(DesktopProfile.DEVELOPMENT)
+            assertEquals("vivenotes-dev", System.getProperty("awt.app.id"))
         } finally {
             if (before == null) System.clearProperty("awt.app.id") else System.setProperty("awt.app.id", before)
         }
@@ -39,5 +41,9 @@ class WindowClassTest {
         val name = Class.forName("sun.awt.X11.XToolkit").getDeclaredMethod("getAWTAppClassName")
             .apply { isAccessible = true }.invoke(null)
         assertEquals("vivenotes", name)
+        assertTrue(useX11WindowClass(DesktopProfile.DEVELOPMENT))
+        assertEquals("vivenotes-dev", Class.forName("sun.awt.X11.XToolkit")
+            .getDeclaredMethod("getAWTAppClassName").apply { isAccessible = true }.invoke(null))
+        useX11WindowClass()
     }
 }
