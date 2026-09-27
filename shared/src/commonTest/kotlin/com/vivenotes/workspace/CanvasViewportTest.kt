@@ -6,6 +6,22 @@ import kotlin.test.assertTrue
 
 class CanvasViewportTest {
     @Test
+    fun middleAutoscrollContinuesAtDistanceBasedSpeedAndStopsAtBounds() {
+        val start = CanvasViewport(scrollX = 120f, scrollY = 80f)
+        val afterFrame = start.autoScrollBy(36f, 26f, 0.1f, 200f, 140f)
+        assertEquals(CanvasViewport(scrollX = 132f, scrollY = 86f), afterFrame)
+        assertEquals(CanvasViewport(scrollX = 144f, scrollY = 92f),
+            afterFrame.autoScrollBy(36f, 26f, 0.1f, 200f, 140f))
+        assertEquals(start, start.autoScrollBy(16f, -15f, 1f, 200f, 140f))
+        assertEquals(CanvasViewport(scrollX = 0f, scrollY = 0f),
+            start.autoScrollBy(-300f, -300f, 1f, 200f, 140f))
+        assertEquals(CanvasViewport(scrollX = 200f, scrollY = 140f),
+            start.autoScrollBy(300f, 300f, 1f, 200f, 140f))
+        assertEquals(start, start.autoScrollBy(Float.NaN, 10f, 1f, 200f, 140f))
+        assertEquals(start, start.autoScrollBy(100f, 10f, Float.NaN, 200f, 140f))
+    }
+
+    @Test
     fun wheelZoomKeepsPagePointUnderCursor() {
         val before = CanvasViewport(1f, 120f, 80f)
         val after = before.wheel(-2f, 300f, 200f)

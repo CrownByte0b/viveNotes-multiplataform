@@ -57,10 +57,12 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -72,9 +74,14 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.isTertiaryPressed
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed as isControlKeyPressed
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.key
@@ -114,10 +121,12 @@ import com.vivenotes.richtext.TextSelection
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.rememberTextMeasurer
 import com.vivenotes.data.PictureLibrary
@@ -281,6 +290,20 @@ private fun WorkspaceContent(
                     onStateChange { it.selectPointer() }
                     true
                 } else false
+            }
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown || !event.isControlKeyPressed) false
+                else when (event.key) {
+                    Key.Z -> if (state.structuralUndo.isNotEmpty()) {
+                        onStateChange { it.undoStructure() }
+                        true
+                    } else false
+                    Key.R -> if (state.structuralRedo.isNotEmpty()) {
+                        onStateChange { it.redoStructure() }
+                        true
+                    } else false
+                    else -> false
+                }
             }
             .focusRequester(canvasFocusRequester)
             .focusable(),
@@ -469,6 +492,12 @@ private fun PageCanvas(
     var pendingViewport by remember(page?.id) { mutableStateOf<CanvasViewport?>(null) }
     var pastePoint by remember(page?.id) { mutableStateOf<Offset?>(null) }
     var lasso by remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
+    var panActive by remember(page?.id) { mutableStateOf(false) }
+    var panAnchor by remember(page?.id) { mutableStateOf(Offset.Zero) }
+    var panPointer by remember(page?.id) { mutableStateOf(Offset.Zero) }
+    val panOffset = panPointer - panAnchor
+    val panCursorDirection = panDirection(panOffset.x, panOffset.y)
+    ApplyPanCursorWhilePressed(panActive, panCursorDirection)
     val currentCreate by rememberUpdatedState(onCreateTextBox)
     val currentClearCanvasFocus by rememberUpdatedState(onClearCanvasFocus)
     val currentPaste by rememberUpdatedState(onPasteCanvas)
@@ -485,6 +514,29 @@ private fun PageCanvas(
         horizontalScroll.scrollTo(requested.scrollX.roundToInt())
         verticalScroll.scrollTo(requested.scrollY.roundToInt())
         pendingViewport = null
+    }
+
+    LaunchedEffect(page?.id, panActive) {
+        if (!panActive) return@LaunchedEffect
+        var previousFrame = withFrameNanos { it }
+        while (panActive) {
+            if (panDirection(panPointer.x - panAnchor.x, panPointer.y - panAnchor.y) == PanDirection.Center) {
+                snapshotFlow { panPointer }.first {
+                    panDirection(it.x - panAnchor.x, it.y - panAnchor.y) != PanDirection.Center
+                }
+                previousFrame = withFrameNanos { it }
+            }
+            val frame = withFrameNanos { it }
+            val elapsed = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, 0.05f)
+            previousFrame = frame
+            val offset = panPointer - panAnchor
+            val before = CanvasViewport(zoom,
+                horizontalScroll.value.toFloat(), verticalScroll.value.toFloat())
+            val next = before.autoScrollBy(offset.x, offset.y, elapsed,
+                horizontalScroll.maxValue.toFloat(), verticalScroll.maxValue.toFloat())
+            horizontalScroll.dispatchRawDelta(next.scrollX - before.scrollX)
+            verticalScroll.dispatchRawDelta(next.scrollY - before.scrollY)
+        }
     }
 
     fun toPage(point: Offset): Offset = with(density) {
@@ -526,6 +578,31 @@ private fun PageCanvas(
         modifier
             .testTag(WorkspaceTestTags.PageCanvas)
             .background(MaterialTheme.colorScheme.background)
+            .drawWithContent {
+                drawContent()
+                if (panActive) {
+                    val c = panAnchor
+                    val radius = 14.dp.toPx()
+                    val ink = Color(0xFF30343B)
+                    drawCircle(Color(0xFFF7F7F7), radius, c)
+                    drawCircle(ink, radius, c, style = Stroke(width = 1.5.dp.toPx()))
+                    drawCircle(ink, 2.dp.toPx(), c)
+                    val arm = 6.dp.toPx()
+                    val tip = 10.dp.toPx()
+                    val wing = 2.5.dp.toPx()
+                    for ((dx, dy) in listOf(0 to -1, 1 to 0, 0 to 1, -1 to 0)) {
+                        val start = Offset(c.x + dx * arm, c.y + dy * arm)
+                        val end = Offset(c.x + dx * tip, c.y + dy * tip)
+                        drawLine(ink, start, end, 1.5.dp.toPx())
+                        drawLine(ink, end, Offset(end.x - dx * wing - dy * wing,
+                            end.y - dy * wing + dx * wing), 1.5.dp.toPx())
+                        drawLine(ink, end, Offset(end.x - dx * wing + dy * wing,
+                            end.y - dy * wing - dx * wing), 1.5.dp.toPx())
+                    }
+                }
+            }
+            .pointerHoverIcon(if (panActive) panPointerIcon(panCursorDirection) else PointerIcon.Default,
+                overrideDescendants = panActive)
             .pointerInput(page?.id) {
                 awaitPointerEventScope {
                     while (true) {
@@ -547,10 +624,34 @@ private fun PageCanvas(
                 }
             }
             .pointerInput(page?.id) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull() ?: continue
+                        if (panActive) {
+                            if (event.type == PointerEventType.Move) panPointer = change.position
+                            if (event.type == PointerEventType.Release && !event.buttons.isTertiaryPressed) {
+                                panActive = false
+                            }
+                            event.changes.forEach { it.consume() }
+                        } else if (event.type == PointerEventType.Press && event.buttons.isTertiaryPressed) {
+                            panAnchor = change.position
+                            panPointer = change.position
+                            panActive = true
+                            event.changes.forEach { it.consume() }
+                        }
+                    }
+                }
+            }
+            .pointerInput(page?.id) {
                 var previousTapTime = 0L
                 var previousTapPoint = Offset.Zero
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    if (down.isConsumed) {
+                        waitForUpOrCancellation(pass = PointerEventPass.Initial)
+                        return@awaitEachGesture
+                    }
                     val start = toPage(down.position)
                     val marquee = !hitsSelectedTransform(start, currentState) &&
                         (currentState.objectLassoArmed ||

@@ -31,6 +31,7 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.MouseButton
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.graphics.luminance
@@ -844,6 +845,94 @@ class WorkspaceScreenTest {
             onRoot().performKeyInput { keyUp(Key.CtrlLeft) }
             onNodeWithText("110%").assertExists()
         }
+
+    @Test
+    fun ctrlZAndCtrlRUndoAndRedoCanvasChanges() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        val base = WorkspaceState.demo()
+        val shape = Outline.Shape(id = "shortcut-shape", x = 300f, y = 350f)
+        val withShape = base.copy(notebooks = base.notebooks.map { notebook ->
+            notebook.copy(sections = notebook.sections.map { section ->
+                section.copy(pages = section.pages.map { page ->
+                    if (page.id == base.selectedPageId) page.copy(document = page.document.copy(
+                        outlines = page.document.outlines + shape)) else page
+                })
+            })
+        })
+        val initial = withShape.selectObject(shape.id).moveSelectedObjects(40f, 0f)
+        var observed = initial
+        setWorkspace(initial = initial) { observed = it }
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(780f, 500f)) }
+
+        onRoot().performKeyInput {
+            keyDown(Key.CtrlLeft); keyDown(Key.Z); keyUp(Key.Z); keyUp(Key.CtrlLeft)
+        }
+        runOnIdle {
+            assertEquals(300f, observed.selectedPage!!.document.outlines
+                .filterIsInstance<Outline.Shape>().first { it.id == shape.id }.x)
+            assertTrue(observed.structuralRedo.isNotEmpty())
+        }
+        onRoot().performKeyInput {
+            keyDown(Key.CtrlLeft); keyDown(Key.R); keyUp(Key.R); keyUp(Key.CtrlLeft)
+        }
+        runOnIdle { assertEquals(340f, observed.selectedPage!!.document.outlines
+            .filterIsInstance<Outline.Shape>().first { it.id == shape.id }.x) }
+    }
+
+    @Test
+    fun middleClickAutoscrollContinuesWhilePointerHoldsItsPosition() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = WorkspaceState.demo()
+        setWorkspace { observed = it }
+        mainClock.autoAdvance = false
+        val before = onNodeWithTag(WorkspaceTestTags.BodyEditor).getUnclippedBoundsInRoot()
+        val canvas = onNodeWithTag(WorkspaceTestTags.PageCanvas)
+
+        canvas.performMouseInput {
+            moveTo(Offset(520f, 420f))
+            press(MouseButton.Tertiary)
+            moveTo(Offset(620f, 520f))
+        }
+        mainClock.advanceTimeBy(300)
+        val panned = onNodeWithTag(WorkspaceTestTags.BodyEditor).getUnclippedBoundsInRoot()
+        assertTrue(panned.left < before.left && panned.top < before.top)
+        val anchorInk = androidx.compose.ui.graphics.Color(0xFF30343B)
+        assertEquals(anchorInk, canvas.captureToImage().toPixelMap()[520, 420])
+        mainClock.advanceTimeBy(300)
+        val continued = onNodeWithTag(WorkspaceTestTags.BodyEditor).getUnclippedBoundsInRoot()
+        assertTrue(continued.left < panned.left && continued.top < panned.top)
+        assertEquals(anchorInk, canvas.captureToImage().toPixelMap()[520, 420])
+        onNodeWithTag("workspace-pan-indicator").assertDoesNotExist()
+        runOnIdle { assertTrue(observed.selectedObjectIds.isEmpty()) }
+
+        canvas.performMouseInput { moveTo(Offset(450f, 350f)) }
+        mainClock.advanceTimeBy(300)
+        val returned = onNodeWithTag(WorkspaceTestTags.BodyEditor).getUnclippedBoundsInRoot()
+        assertTrue(returned.left > continued.left && returned.top > continued.top)
+        canvas.performMouseInput { release(MouseButton.Tertiary) }
+        mainClock.advanceTimeBy(300)
+        val stopped = onNodeWithTag(WorkspaceTestTags.BodyEditor).getUnclippedBoundsInRoot()
+        assertEquals(returned, stopped)
+        assertTrue(canvas.captureToImage().toPixelMap()[520, 420] != anchorInk)
+    }
+
+    @Test
+    fun quickMiddleClickReleaseRestoresPointerAndDoesNotKeepScrolling() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        setWorkspace { }
+        mainClock.autoAdvance = false
+        val canvas = onNodeWithTag(WorkspaceTestTags.PageCanvas)
+        val before = onNodeWithTag(WorkspaceTestTags.BodyEditor).getUnclippedBoundsInRoot()
+        canvas.performMouseInput {
+            moveTo(Offset(520f, 420f))
+            press(MouseButton.Tertiary)
+        }
+        val anchorInk = androidx.compose.ui.graphics.Color(0xFF30343B)
+        assertEquals(anchorInk, canvas.captureToImage().toPixelMap()[520, 420])
+        canvas.performMouseInput { release(MouseButton.Tertiary) }
+        mainClock.advanceTimeBy(300)
+        assertTrue(canvas.captureToImage().toPixelMap()[520, 420] != anchorInk)
+        canvas.performMouseInput { moveTo(Offset(620f, 520f)) }
+        mainClock.advanceTimeBy(300)
+        assertEquals(before, onNodeWithTag(WorkspaceTestTags.BodyEditor).getUnclippedBoundsInRoot())
+    }
 
     @Test
     fun canvasPlacementUsesPageCoordinatesAfterCursorAnchoredZoom() =
