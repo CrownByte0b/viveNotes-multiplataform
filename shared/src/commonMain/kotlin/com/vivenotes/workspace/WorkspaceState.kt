@@ -9,6 +9,7 @@ import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
 import com.vivenotes.model.PageStyle
+import com.vivenotes.model.ink.InkPage
 import com.vivenotes.model.newId
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.TextSelection
@@ -43,6 +44,8 @@ data class PageSummary(
     val preview: String,
     val createdLabel: String,
     val document: PageDoc,
+    /** Read-only ink display data, loaded beside the document body for the open page. */
+    val ink: InkPage? = null,
     val content: PageContent = PageContent.Loaded,
     /** When the page last changed in storage — what the page list's "By date modified" sorts on. */
     val updatedAt: Long = 0L,

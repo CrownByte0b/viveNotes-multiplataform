@@ -126,6 +126,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.ui.canvas.BlockSeparators
 import com.vivenotes.ui.canvas.PictureContent
+import com.vivenotes.ui.canvas.InkLayer
+import com.vivenotes.ui.canvas.contentEdge
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.asAnnotatedString
 import com.vivenotes.ui.canvas.drawBlockDecorations
@@ -734,14 +736,15 @@ private fun PageCanvas(
 
     // The page's size and edge, from everything on it: whether a chosen sheet still holds the
     // content decides whether it bounds the page or is only drawn as a guide.
+    val inkEdge = remember(page?.ink) { page?.ink?.contentEdge() ?: Offset.Zero }
     val extent = page?.document?.let { document ->
         PageExtent.of(
             document.style,
-            contentRight = document.outlines.maxOfOrNull { it.x + it.width } ?: 0f,
-            contentBottom = document.outlines.maxOfOrNull { outline ->
+            contentRight = maxOf(inkEdge.x, document.outlines.maxOfOrNull { it.x + it.width } ?: 0f),
+            contentBottom = maxOf(inkEdge.y, document.outlines.maxOfOrNull { outline ->
                 outline.y + if (outline is Outline.Text) measuredTextHeights[outline.id]
                     ?: maxOf(150f, outline.minHeight) else outline.primeHeight()
-            } ?: 0f,
+            } ?: 0f),
         )
     }
     val currentExtent by rememberUpdatedState(extent)
@@ -1277,6 +1280,7 @@ private fun PageCanvas(
                         }
                     }
                 }
+                InkLayer(page.ink, canvasSize, palette.ink, visibleWindow)
                 if (state.selectedObjectIds.isNotEmpty()) {
                     val selected = page.document.outlines.firstOrNull { it.id in state.selectedObjectIds }
                     if (selected != null) {

@@ -8,6 +8,8 @@ import com.vivenotes.data.db.StrokeColor
 import com.vivenotes.data.db.SyncStateEntity
 import com.vivenotes.model.PageDoc
 import com.vivenotes.model.newId
+import com.vivenotes.ink.InkCodec
+import com.vivenotes.ink.InkFixtures
 import kotlinx.coroutines.runBlocking
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -57,6 +59,19 @@ class InkStorageTest {
         val restored = repository.inkFor(pageId)
         assertEquals(listOf(kept.id, erased.id), restored.map { it.id })
         assertContentEquals(byteArrayOf(4, 5, 6), restored.last().points)
+    }
+
+    @Test
+    fun storedAndroidInkLoadsForDisplayWithoutRewritingItsBlob() = runBlocking<Unit> {
+        val pageId = newPage()
+        val blob = InkFixtures.twoPointStroke
+        val row = repository.addStroke(stroke(pageId, points = blob).copy(enc = InkCodec.ENCODING))
+
+        val shown = repository.loadInk(pageId)
+
+        assertEquals(listOf(row.id), shown.strokes.map { it.id })
+        assertEquals(listOf(10f, 30f), shown.strokes.single().samples.map { it.x })
+        assertContentEquals(blob, repository.inkFor(pageId).single().points)
     }
 
     @Test

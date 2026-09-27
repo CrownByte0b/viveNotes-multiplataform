@@ -6,6 +6,8 @@ import androidx.room.useWriterConnection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.vivenotes.data.db.StrokeColor
 import com.vivenotes.data.db.InkEraseEntity
 import com.vivenotes.data.db.InkEraseTargetEntity
@@ -31,6 +33,8 @@ import com.vivenotes.model.isBlank
 import com.vivenotes.model.migrated
 import com.vivenotes.model.TextDocumentCodec
 import com.vivenotes.model.newId
+import com.vivenotes.ink.InkPageReader
+import com.vivenotes.model.ink.InkPage
 
 /** Direct tombstone rows removed by one maintenance transaction; cascaded child counts are omitted. */
 data class DeletionPurgeResult(
@@ -65,7 +69,7 @@ class NotesRepository(
     private val codec: TextDocumentCodec = DocumentCodecs.default,
     /** Injectable so checkpoint-window behavior has deterministic tests. */
     private val clock: () -> Long = System::currentTimeMillis,
-) : NotesStore {
+) : NotesStore, InkSource {
 
     private val notebooks = db.notebookDao()
     private val sections = db.sectionDao()
@@ -738,6 +742,13 @@ class NotesRepository(
      * page.
      */
     suspend fun inkFor(pageId: String): List<InkStrokeEntity> = ink.byPage(pageId)
+
+    override suspend fun loadInk(pageId: String): InkPage {
+        val strokes = inkFor(pageId)
+        val erases = partialErasesFor(pageId)
+        val moves = inkMovesFor(pageId)
+        return withContext(Dispatchers.Default) { InkPageReader.read(pageId, strokes, erases, moves) }
+    }
 
     /** Appends one stroke. Strokes are immutable, so this is the only way ink is ever written. */
     suspend fun addStroke(stroke: InkStrokeEntity): InkStrokeEntity = db.withTransaction {

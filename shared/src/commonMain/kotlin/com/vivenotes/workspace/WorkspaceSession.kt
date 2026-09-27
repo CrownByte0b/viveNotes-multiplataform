@@ -1,6 +1,7 @@
 package com.vivenotes.workspace
 
 import com.vivenotes.data.NotebookFiles
+import com.vivenotes.data.InkSource
 import com.vivenotes.data.NotebookImportResult
 import com.vivenotes.data.NotesStore
 import com.vivenotes.data.PageLoad
@@ -9,6 +10,7 @@ import com.vivenotes.richtext.TextSelection
 import com.vivenotes.data.db.NotebookWithSections
 import com.vivenotes.data.db.PageEntity
 import com.vivenotes.model.PageDoc
+import com.vivenotes.model.ink.InkPage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +49,7 @@ class WorkspaceSession(
     private val autosaveDelayMillis: Long = AUTOSAVE_DELAY_MILLIS,
     /** A page's `updatedAt` as the page list shows it, worked out when its row arrives. */
     private val updatedLabel: (Long) -> String = { "" },
+    private val inkSource: InkSource? = store as? InkSource,
 ) : NavigationActions {
     private val current = MutableStateFlow<WorkspaceState?>(null)
 
@@ -307,7 +310,7 @@ class WorkspaceSession(
         val open = before.selectedPageId
         update { state ->
             val forgotten = if (open.isEmpty()) state else state.updatePage(open) {
-                it.copy(document = UNREAD_DOCUMENT, content = PageContent.Unloaded)
+                it.copy(document = UNREAD_DOCUMENT, ink = null, content = PageContent.Unloaded)
             }
             forgotten.copy(
                 selectedPageId = "",
@@ -410,8 +413,20 @@ class WorkspaceSession(
         enqueue {
             val load = attempt("This page could not be opened") { store.loadDoc(pageId) }
             loading.remove(pageId)
-            if (load != null) accept(pageId, load)
+            if (load != null) {
+                accept(pageId, load)
+                if (load is PageLoad.Loaded && inkSource != null) {
+                    attempt("This page's ink could not be read") { inkSource.loadInk(pageId) }
+                        ?.let { acceptInk(pageId, it) }
+                }
+            }
         }
+    }
+
+    private fun acceptInk(pageId: String, ink: InkPage) {
+        val state = current.value ?: return
+        if (ink.pageId != pageId || state.selectedPageId != pageId || state.selectedPage?.editable != true) return
+        current.value = state.updatePage(pageId) { it.copy(ink = ink) }
     }
 
     /** Puts a body just read into its page, if that page is still open and still waiting for it. */
@@ -436,7 +451,7 @@ class WorkspaceSession(
         val state = current.value ?: return
         if (state.page(pageId)?.content == PageContent.Unloaded) return
         current.value = state.updatePage(pageId) {
-            it.copy(document = UNREAD_DOCUMENT, content = PageContent.Unloaded)
+            it.copy(document = UNREAD_DOCUMENT, ink = null, content = PageContent.Unloaded)
         }
     }
 
@@ -530,6 +545,7 @@ class WorkspaceSession(
         preview = if (cached?.editable == true) cached.preview else row.preview,
         createdLabel = createdLabel(row.createdAt),
         document = cached?.document ?: UNREAD_DOCUMENT,
+        ink = cached?.ink,
         content = cached?.content ?: PageContent.Unloaded,
         updatedAt = row.updatedAt,
         updatedLabel = updatedLabel(row.updatedAt),

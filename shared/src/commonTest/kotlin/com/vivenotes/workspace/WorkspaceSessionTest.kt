@@ -1,9 +1,13 @@
 package com.vivenotes.workspace
 
 import com.vivenotes.data.PageLoad
+import com.vivenotes.data.InkSource
 import com.vivenotes.model.Block
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
+import com.vivenotes.model.ink.InkPage
+import com.vivenotes.model.ink.InkSample
+import com.vivenotes.model.ink.VisibleInkStroke
 import com.vivenotes.richtext.TextSelection
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -65,6 +69,30 @@ class WorkspaceSessionTest {
         val other = session.state.value!!.selectedSection!!.pages.first { it.id == series }
         assertEquals(PageContent.Unloaded, other.content)
         assertEquals("series", other.preview, "the list still shows the stored preview")
+    }
+
+    @Test
+    fun inkLoadsWithTheOpenPageAndNeverSchedulesDocumentAutosave() = runTest {
+        val reads = mutableListOf<String>()
+        val source = object : InkSource {
+            override suspend fun loadInk(pageId: String): InkPage {
+                reads += pageId
+                return InkPage(pageId, listOf(VisibleInkStroke("ink", "marker", 1, 6f,
+                    0xFF000000.toInt(), false, listOf(InkSample(10f, 20f)))))
+            }
+        }
+        val session = WorkspaceSession(store, backgroundScope, { "created $it" }, inkSource = source)
+        session.start()
+        runCurrent()
+        assertEquals(listOf(limits), reads)
+        assertEquals("ink", session.state.value!!.selectedPage!!.ink!!.strokes.single().id)
+
+        session.update { it.selectPage(series) }
+        runCurrent()
+        assertEquals(listOf(limits, series), reads)
+        assertNull(session.state.value!!.selectedSection!!.pages.first { it.id == limits }.ink)
+        session.flush()
+        assertTrue(store.saves.isEmpty())
     }
 
     @Test
