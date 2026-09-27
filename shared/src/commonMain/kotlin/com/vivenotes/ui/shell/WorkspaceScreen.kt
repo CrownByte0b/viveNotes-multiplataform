@@ -140,6 +140,8 @@ import com.vivenotes.ui.ribbon.document.DocumentTab
 import com.vivenotes.ui.ribbon.document.DocumentColorSelection
 import com.vivenotes.ui.ribbon.draw.DrawRibbon
 import com.vivenotes.ui.ribbon.file.FileRibbon
+import com.vivenotes.ui.ribbon.file.NotebookTransferDialog
+import com.vivenotes.workspace.FileActions
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
@@ -252,6 +254,8 @@ fun WorkspaceScreen(
     /** The keyboard shortcuts in force, and where Settings → Hardware sends changes to them. */
     keyBindings: KeyBindings = KeyBindings.Default,
     onKeyBindingsChange: (KeyBindings) -> Unit = {},
+    /** The File tab's `.vive` export and import; without it those commands are unavailable. */
+    fileActions: FileActions? = null,
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
     // Held here as well, so a caller that does not keep the settings still sees its changes.
@@ -284,7 +288,7 @@ fun WorkspaceScreen(
                 }, bindings = bindings, onBindingsChange = { next ->
                     bindings = next
                     onKeyBindingsChange(next)
-                }, canvasFocusRequester = canvasFocusRequester)
+                }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions)
         }
         previewSettings?.let { draft ->
             InterfaceDialog(
@@ -315,6 +319,7 @@ private fun WorkspaceContent(
     onBindingsChange: (KeyBindings) -> Unit,
     /** The workspace's own focus, which holds the keyboard when no control does. */
     canvasFocusRequester: FocusRequester,
+    fileActions: FileActions?,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
@@ -380,7 +385,8 @@ private fun WorkspaceContent(
         )
         // Each tab's buttons, and what they do, live in that tab's package under `ui/ribbon`.
         when (state.activeTab) {
-            RibbonTab.File -> FileRibbon()
+            RibbonTab.File -> FileRibbon(notebookOpen = state.selectedSection != null,
+                transferRunning = state.notebookTransfer.running, actions = fileActions)
             RibbonTab.Draw -> DrawRibbon(state, onStateChange)
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
                 { canvasOrigin.read() }, documentColorSelection)
@@ -537,6 +543,7 @@ private fun WorkspaceContent(
         }
     }
     NavigationDialogs(state, navigationRequests, navigation)
+    NotebookTransferDialog(state.notebookTransfer, onDismiss = { fileActions?.dismissTransfer() })
     editingShortcut?.let { action ->
         ShortcutCaptureDialog(
             action = action,

@@ -1,0 +1,2 @@
+tool=InputToolType.TOUCH sul=0.0 hasP=false hasT=false hasO=false
+-12.5 1024.75 0 -1.0 -1.0 -1.0

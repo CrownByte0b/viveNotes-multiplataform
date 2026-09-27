@@ -15,6 +15,8 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import com.vivenotes.data.NotebookFiles
+import com.vivenotes.data.NotebookTransferManager
 import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.NotesStore
 import com.vivenotes.data.PageLoad
@@ -22,7 +24,9 @@ import com.vivenotes.data.execute
 import com.vivenotes.model.plainText
 import com.vivenotes.ui.navigation.NavigationTestTags
 import com.vivenotes.ui.shell.UnreadablePageMessage
+import com.vivenotes.ui.ribbon.file.FileRibbonTags
 import com.vivenotes.ui.shell.WorkspaceTestTags
+import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.FakeNotesStore
 import com.vivenotes.workspace.NEW_SECTION_NAME
 import com.vivenotes.workspace.WorkspaceSession
@@ -258,6 +262,67 @@ class AppTest {
         }
     }
 
+    /**
+     * A notebook moves between two installations through the File tab: exported to a file from one
+     * real library, imported into a fresh one, where it replaces the untouched starter notebook and
+     * opens on the page that was written.
+     */
+    @Test
+    fun aNotebookExportedFromTheFileTabImportsIntoAnotherLibrary() {
+        val file = File(directory, "exports/Field notes.vive").apply { parentFile.mkdirs() }
+        NotesLibrary.open(File(directory, "first")).use { library ->
+            val files = FileNotebookFiles(library.transfers, file)
+            runDesktopComposeUiTest(width = 1400, height = 900) {
+                val app = showApp(library.repository, files)
+                awaitOpenPage()
+                onNodeWithTag(WorkspaceTestTags.TitleEditor).performTextReplacement("Herons")
+                onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextReplacement("Two at dawn by the reeds")
+
+                onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.File)).performClick()
+                onNodeWithTag(FileRibbonTags.ExportNotebook).performClick()
+                waitUntil(timeoutMillis = 10_000) { app.session.state.value?.notebookTransfer?.message != null }
+                onNodeWithTag(FileRibbonTags.TransferDialog)
+                    .assertTextContains("My Notebook was exported as a .vive notebook.")
+                onNodeWithTag(FileRibbonTags.TransferOk).performClick()
+                app.close()
+            }
+            assertEquals(listOf("My Notebook.vive"), files.suggestedNames)
+        }
+        assertTrue(file.length() > 0)
+
+        NotesLibrary.open(File(directory, "second")).use { library ->
+            runDesktopComposeUiTest(width = 1400, height = 900) {
+                val app = showApp(library.repository, FileNotebookFiles(library.transfers, file))
+                awaitOpenPage()
+                onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.File)).performClick()
+                onNodeWithTag(FileRibbonTags.ImportNotebook).performClick()
+                waitUntil(timeoutMillis = 10_000) {
+                    app.session.state.value?.let { it.notebookTransfer.message != null && it.selectedPage?.title == "Herons" } == true
+                }
+                onNodeWithTag(FileRibbonTags.TransferDialog).assertTextContains("My Notebook was imported.")
+                onNodeWithTag(FileRibbonTags.TransferOk).performClick()
+                awaitOpenPage()
+
+                onNodeWithTag(WorkspaceTestTags.TitleEditor).assertTextContains("Herons")
+                onNodeWithTag(WorkspaceTestTags.BodyEditor).assertTextContains("Two at dawn by the reeds")
+                assertEquals(1, app.session.state.value!!.notebooks.size, "the untouched starter was replaced")
+            }
+        }
+    }
+
+    /** `.vive` files at one fixed path: the dialogs answered, the real transfer behind them. */
+    private class FileNotebookFiles(private val transfers: NotebookTransferManager, private val file: File) : NotebookFiles {
+        val suggestedNames = mutableListOf<String>()
+        override suspend fun chooseExportDestination(suggestedName: String): String {
+            suggestedNames += suggestedName
+            return file.path
+        }
+        override suspend fun chooseImportSource(): String = file.path
+        override suspend fun export(notebookId: String, destination: String) =
+            transfers.exportNotebook(notebookId, File(destination))
+        override suspend fun import(source: String) = transfers.importNotebook(File(source))
+    }
+
     private class ShownApp(val test: ComposeUiTest, val scope: CoroutineScope, val session: WorkspaceSession) {
         /** What closing the window does first: every pending edit reaches storage. */
         fun close() {
@@ -271,14 +336,14 @@ class AppTest {
     }
 
     /** The app as a window shows it, with the session confined to the composition's thread. */
-    private fun ComposeUiTest.showApp(store: NotesStore): ShownApp {
+    private fun ComposeUiTest.showApp(store: NotesStore, notebookFiles: NotebookFiles? = null): ShownApp {
         lateinit var shown: ShownApp
         setContent {
             val scope = rememberCoroutineScope()
             val session = remember { WorkspaceSession(store, scope, ::formatCreated) }
             shown = remember { ShownApp(this, scope, session) }
             LaunchedEffect(session) { session.start() }
-            App(session)
+            App(session, notebookFiles = notebookFiles)
         }
         waitForIdle()
         return shown

@@ -1,6 +1,7 @@
 package com.vivenotes.desktop
 
 import com.vivenotes.data.AppDirectories
+import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.workspace.WorkspaceSession
@@ -89,6 +90,13 @@ internal class DesktopNotes(
     /** Pictures for a window: its file dialog opens over [owner]. */
     fun pictures(owner: Frame?): PictureLibrary =
         DesktopPictures(library.attachments) { choosePictureFile(owner) }
+
+    /** `.vive` export and import for a window: their file dialogs open over [owner]. */
+    fun notebookFiles(owner: Frame?): NotebookFiles = DesktopNotebookFiles(
+        library.transfers,
+        chooseSave = { name, directory -> chooseNotebookDestination(owner, name, directory) },
+        chooseOpen = { directory -> chooseNotebookSource(owner, directory) },
+    )
     private var closing: Job? = null
 
     /** Starts reading the notes, and the upkeep. Only once AWT's toolkit has been chosen. */
@@ -129,7 +137,7 @@ internal class DesktopNotes(
         val VIEW_SAVE_DELAY = 500.milliseconds
 
         fun open(directory: File = AppDirectories.data()): DesktopNotes =
-            DesktopNotes(NotesLibrary.open(directory), MainScope(),
+            DesktopNotes(NotesLibrary.open(directory, AppDirectories.cache()), MainScope(),
                 interfaceStore = InterfaceSettingsFile(File(AppDirectories.config(), "interface.properties")),
                 viewStore = ViewSettingsFile(File(AppDirectories.config(), "view.properties")),
                 keyStore = KeyBindingsFile(File(AppDirectories.config(), "keyboard.properties")))

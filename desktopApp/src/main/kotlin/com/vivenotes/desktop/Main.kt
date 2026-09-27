@@ -71,7 +71,8 @@ private fun launchStandardWindow(notes: DesktopNotes) {
             }
             App(notes.session, remember(window) { notes.pictures(window) }, notes.interfaceSettings,
                 notes::updateInterfaceSettings, notes.viewSettings, notes::updateViewSettings,
-                notes.keyBindings, notes::updateKeyBindings)
+                notes.keyBindings, notes::updateKeyBindings,
+                notebookFiles = remember(window) { notes.notebookFiles(window) })
         }
     }
 }

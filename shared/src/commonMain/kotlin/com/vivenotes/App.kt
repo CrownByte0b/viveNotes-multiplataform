@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
@@ -35,6 +36,7 @@ object AppTestTags {
 /**
  * The ViveNotes workspace over its stored notes: what every application window shows. [pictures]
  * is the platform's picture storage and chooser; without it pictures cannot be inserted or shown.
+ * [notebookFiles] likewise carries the File tab's `.vive` export and import.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -47,8 +49,11 @@ fun App(
     onViewSettingsChange: (ViewSettings) -> Unit = {},
     keyBindings: KeyBindings = KeyBindings.Default,
     onKeyBindingsChange: (KeyBindings) -> Unit = {},
+    /** The platform's `.vive` file dialogs; without them notebooks cannot be exported or imported. */
+    notebookFiles: NotebookFiles? = null,
 ) {
     val state by session.state.collectAsState()
+    val fileActions = remember(session, notebookFiles) { notebookFiles?.let(session::fileActions) }
     ViveNotesTheme {
         val workspace = state
         if (workspace == null) {
@@ -64,7 +69,7 @@ fun App(
             WorkspaceScreen(state = workspace, onStateChange = session::update, navigation = session, pictures = pictures,
                 interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange,
                 viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
-                keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange)
+                keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange, fileActions = fileActions)
         }
     }
 }

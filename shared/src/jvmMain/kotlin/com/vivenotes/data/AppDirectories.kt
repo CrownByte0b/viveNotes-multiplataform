@@ -27,6 +27,26 @@ object AppDirectories {
         )
     }
 
+    /**
+     * Scratch space nothing depends on keeping, such as the staging area of a `.vive` transfer:
+     * the XDG cache directory on Linux, the local (never roaming) application data on Windows.
+     */
+    fun cache(
+        osName: String = System.getProperty("os.name"),
+        environment: (String) -> String? = System::getenv,
+        home: String = System.getProperty("user.home"),
+    ): File = when {
+        osName.startsWith("Windows", ignoreCase = true) -> File(
+            environment("LOCALAPPDATA")?.takeIf { it.isNotBlank() } ?: File(home, "AppData/Local").path,
+            "ViveNotes/Cache",
+        )
+        osName.startsWith("Mac", ignoreCase = true) -> File(home, "Library/Caches/ViveNotes")
+        else -> File(
+            environment("XDG_CACHE_HOME")?.takeIf { File(it).isAbsolute } ?: File(home, ".cache").path,
+            "vivenotes",
+        )
+    }
+
     fun data(
         osName: String = System.getProperty("os.name"),
         environment: (String) -> String? = System::getenv,

@@ -15,6 +15,8 @@ class NotesLibrary private constructor(
     val repository: NotesRepository,
     /** Pictures, in the `attachments` directory beside the database. */
     val attachments: AttachmentStore,
+    /** `.vive` export and import, Android's portable notebook file. */
+    val transfers: NotebookTransferManager,
     private val backups: DatabaseBackupManager,
 ) : AutoCloseable {
 
@@ -42,15 +44,22 @@ class NotesLibrary private constructor(
     }
 
     companion object {
-        fun open(directory: File): NotesLibrary {
+        /**
+         * Opens the notes in [directory]. [cacheDirectory] holds only scratch files — the app passes
+         * the platform's cache directory; the default keeps a test's inside its own directory.
+         */
+        fun open(directory: File, cacheDirectory: File = File(directory, "cache")): NotesLibrary {
             directory.mkdirs()
             check(directory.isDirectory) { "Cannot create the notes directory $directory" }
             val database = NotesDatabase.create(File(directory, NotesDatabase.FILE_NAME))
+            val attachments = AttachmentStore(File(directory, AttachmentStore.DIRECTORY), database)
             return NotesLibrary(
                 directory = directory,
                 database = database,
                 repository = NotesRepository(database),
-                attachments = AttachmentStore(File(directory, AttachmentStore.DIRECTORY), database),
+                attachments = attachments,
+                transfers = NotebookTransferManager(database, attachments,
+                    File(cacheDirectory, NotebookTransferManager.DIRECTORY)),
                 backups = DatabaseBackupManager(database, File(directory, DatabaseBackupManager.DIRECTORY)),
             )
         }

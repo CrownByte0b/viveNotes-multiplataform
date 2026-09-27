@@ -121,6 +121,8 @@ data class WorkspaceState(
     val structuralRedo: List<StructuralSnapshot> = emptyList(),
     /** Why the last read or write of notes storage failed, until one succeeds again. */
     val storageError: String? = null,
+    /** The File tab's `.vive` export or import, while it runs and until its result is dismissed. */
+    val notebookTransfer: NotebookTransferState = NotebookTransferState(),
 ) {
     val selectedNotebook: NotebookSummary?
         get() = notebooks.firstOrNull { it.id == selectedNotebookId }

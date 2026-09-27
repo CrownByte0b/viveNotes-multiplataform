@@ -1,0 +1,3 @@
+tool=InputToolType.UNKNOWN sul=0.0 hasP=false hasT=false hasO=false
+10.0 20.0 0 -1.0 -1.0 -1.0
+30.0 40.0 10 -1.0 -1.0 -1.0

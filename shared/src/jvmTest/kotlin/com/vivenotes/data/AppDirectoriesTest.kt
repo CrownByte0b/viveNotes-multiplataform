@@ -56,4 +56,29 @@ class AppDirectoriesTest {
     fun macOsUsesApplicationSupport() {
         assertEquals(File("/home/ada/Library/Application Support/ViveNotes"), data("Mac OS X"))
     }
+
+    private fun cache(os: String, vararg variables: Pair<String, String>) =
+        AppDirectories.cache(osName = os, environment = mapOf(*variables)::get, home = "/home/ada")
+
+    @Test
+    fun linuxCacheFollowsXdgCacheHomeAndItsDefault() {
+        assertEquals(File("/cache/ada/vivenotes"), cache("Linux", "XDG_CACHE_HOME" to "/cache/ada"))
+        assertEquals(File("/home/ada/.cache/vivenotes"), cache("Linux"))
+        assertEquals(File("/home/ada/.cache/vivenotes"), cache("Linux", "XDG_CACHE_HOME" to "cache"))
+    }
+
+    /** Local, never roaming: a transfer's staging files must not follow the user between machines. */
+    @Test
+    fun windowsCacheIsInLocalApplicationData() {
+        assertEquals(
+            File("C:\\Users\\Ada\\AppData\\Local", "ViveNotes/Cache"),
+            cache("Windows 11", "LOCALAPPDATA" to "C:\\Users\\Ada\\AppData\\Local", "APPDATA" to "C:\\Roaming"),
+        )
+        assertEquals(File("/home/ada/AppData/Local/ViveNotes/Cache"), cache("Windows 11"))
+    }
+
+    @Test
+    fun macOsCacheIsInLibraryCaches() {
+        assertEquals(File("/home/ada/Library/Caches/ViveNotes"), cache("Mac OS X"))
+    }
 }

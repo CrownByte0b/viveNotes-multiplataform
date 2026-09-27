@@ -1,7 +1,11 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.data.NotebookFiles
+import com.vivenotes.data.NotebookImportResult
 import com.vivenotes.data.NotesStore
 import com.vivenotes.data.PageLoad
+import com.vivenotes.data.viveFileName
+import com.vivenotes.richtext.TextSelection
 import com.vivenotes.data.db.NotebookWithSections
 import com.vivenotes.data.db.PageEntity
 import com.vivenotes.model.PageDoc
@@ -17,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -62,6 +67,12 @@ class WorkspaceSession(
 
     /** A section just created, to open once the tree lists it: storage's flows trail its writes. */
     private var opening: String? = null
+
+    /** The page an import opens, as its section and id, once that section's list shows it. */
+    private var openingPage: Pair<String, String>? = null
+
+    /** Imports finished so far. A page edit queued before one must not be written after it. */
+    private var restores = 0
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun start() {
@@ -201,6 +212,129 @@ class WorkspaceSession(
         enqueue { attempt("The pages could not be reordered") { store.reorderPages(sectionId, orderedIds) } }
     }
 
+    /** The File tab's `.vive` commands, over one window's file dialogs. */
+    fun fileActions(files: NotebookFiles): FileActions = object : FileActions {
+        override fun exportNotebook() = exportNotebook(files)
+        override fun importNotebook() = importNotebook(files)
+        override fun dismissTransfer() = update { state ->
+            if (state.notebookTransfer.running) state else state.copy(notebookTransfer = NotebookTransferState())
+        }
+    }
+
+    /**
+     * Android's `exportCurrentNotebook`: once the user has chosen where, the open page is saved and
+     * the notebook holding the open section is written. The transfer runs in the store queue, so
+     * the save lands first, and the dialog it shows keeps the workspace still meanwhile.
+     */
+    private fun exportNotebook(files: NotebookFiles) {
+        val state = current.value ?: return
+        if (state.notebookTransfer.running) return
+        val notebook = state.notebooks.firstOrNull { entry ->
+            entry.sections.any { it.id == state.selectedSectionId }
+        } ?: return
+        scope.launch {
+            val destination = files.chooseExportDestination(viveFileName(notebook.name)) ?: return@launch
+            if (!beginTransfer()) return@launch
+            saveOpenPage()
+            enqueue {
+                val outcome = try {
+                    val result = files.export(notebook.id, destination)
+                    NotebookTransferState(message = "${result.notebookName} was exported as a .vive notebook.")
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    NotebookTransferState(error = failure.message ?: "The notebook could not be exported.")
+                }
+                update { it.copy(notebookTransfer = outcome) }
+            }
+        }
+    }
+
+    /**
+     * Android's `importNotebook`: the open page is saved, the chosen file restored, and what it held
+     * opened — the notebook's first section at its first page.
+     */
+    private fun importNotebook(files: NotebookFiles) {
+        if (current.value?.notebookTransfer?.running != false) return
+        scope.launch {
+            val source = files.chooseImportSource() ?: return@launch
+            if (!beginTransfer()) return@launch
+            saveOpenPage()
+            enqueue {
+                val result = try {
+                    files.import(source)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    update {
+                        it.copy(notebookTransfer = NotebookTransferState(
+                            error = failure.message ?: "The notebook could not be imported.",
+                        ))
+                    }
+                    return@enqueue
+                }
+                openImported(result)
+                val message = when {
+                    result.created -> "${result.notebookName} was imported."
+                    result.restored -> "${result.notebookName} was restored from the .vive notebook."
+                    else -> "${result.notebookName} was updated from the .vive notebook."
+                }
+                update { it.copy(notebookTransfer = NotebookTransferState(message = message)) }
+            }
+        }
+    }
+
+    /** Marks a transfer as under way, unless one already is. */
+    private fun beginTransfer(): Boolean {
+        val state = current.value ?: return false
+        if (state.notebookTransfer.running) return false
+        update { it.copy(notebookTransfer = NotebookTransferState(running = true)) }
+        return true
+    }
+
+    /**
+     * Opens what an import restored, without writing the page that was open over it.
+     *
+     * That page was saved before the import began, and the archive may since have replaced it, so
+     * its body is dropped unsaved and read again when it opens — Android opens the imported page
+     * without persisting the editor it leaves. Structural undo goes too: a snapshot taken before the
+     * import would put the replaced document back.
+     */
+    private suspend fun openImported(result: NotebookImportResult) {
+        restores++
+        autosave?.cancel()
+        val before = current.value ?: return
+        val open = before.selectedPageId
+        update { state ->
+            val forgotten = if (open.isEmpty()) state else state.updatePage(open) {
+                it.copy(document = UNREAD_DOCUMENT, content = PageContent.Unloaded)
+            }
+            forgotten.copy(
+                selectedPageId = "",
+                editorSelection = TextSelection(0),
+                typingMarks = emptySet(),
+                editorComposition = null,
+                focusedTextOutlineId = null,
+                selectedTextOutlineIds = emptySet(),
+                selectedObjectIds = emptySet(),
+                structuralUndo = emptyList(),
+                structuralRedo = emptyList(),
+            )
+        }
+        val sectionId = result.firstSectionId ?: before.selectedSectionId.takeIf { it.isNotEmpty() } ?: return
+        // The list held for that section predates the import, and an open page keeps the title it
+        // lists; storage's rows as they stand now replace it before anything opens.
+        attempt("This section's pages could not be read") { store.observePages(sectionId).first() }?.let { rows ->
+            update { state ->
+                state.withSectionPages(sectionId, rows.filterNot { it.id in deleting }
+                    .map { summaryOf(it, cached = null, open = false) })
+            }
+        }
+        val pageId = if (result.firstSectionId != null) result.firstPageId else open.takeIf { it.isNotEmpty() }
+        openingPage = pageId?.let { sectionId to it }
+        openWhenListed(sectionId)
+    }
+
     /** Writes whatever is still waiting to be saved, and returns once storage has it. */
     suspend fun flush() {
         if (!started) return
@@ -228,7 +362,11 @@ class WorkspaceSession(
         }
         val previous = before.selectedPage ?: return
         if (open.title != previous.title) {
-            enqueue { attempt("The page title could not be saved") { store.renamePage(open.id, open.title) } }
+            val generation = restores
+            enqueue {
+                if (generation != restores) return@enqueue
+                attempt("The page title could not be saved") { store.renamePage(open.id, open.title) }
+            }
         }
         if (open.document !== previous.document) scheduleAutosave()
     }
@@ -252,7 +390,11 @@ class WorkspaceSession(
         val previous = stored[page.id]
         if (previous == doc) return
         stored[page.id] = doc
+        val generation = restores
         enqueue {
+            // An import finished since this was asked for: the archive replaced the page, and this
+            // edit — made while the import ran — must not be written over it.
+            if (generation != restores) return@enqueue
             val saved = attempt("Changes to ${page.title.ifBlank { "Untitled page" }} could not be saved") {
                 store.saveDoc(page.id, doc)
             }
@@ -341,7 +483,27 @@ class WorkspaceSession(
         val id = opening ?: return
         if (current.value?.notebooks?.none { notebook -> notebook.sections.any { it.id == id } } != false) return
         opening = null
-        update { it.selectSection(id) }
+        // With a page to open, none is open until the section's list shows that page.
+        update { state -> state.selectSection(id).let { if (openingPage != null) it.copy(selectedPageId = "") else it } }
+        openPendingPage()
+    }
+
+    /**
+     * Opens [openingPage] once the open section lists it. False while it waits for that list; a
+     * wait the user has left for another section is given up.
+     */
+    private fun openPendingPage(): Boolean {
+        val (sectionId, pageId) = openingPage ?: return true
+        if (opening != null) return false
+        val state = current.value ?: return false
+        if (state.selectedSectionId != sectionId) {
+            openingPage = null
+            return true
+        }
+        if (state.selectedSection?.pages?.none { it.id == pageId } != false) return false
+        openingPage = null
+        update { it.selectPage(pageId) }
+        return true
     }
 
     private fun acceptPages(sectionId: String, all: List<PageEntity>) {
@@ -351,6 +513,7 @@ class WorkspaceSession(
             val cached = state.sectionById(sectionId)?.pages.orEmpty().associateBy { it.id }
             state.withSectionPages(sectionId, rows.map { summaryOf(it, cached[it.id], open = it.id == open) })
         }
+        if (!openPendingPage()) return
         val state = current.value ?: return
         if (state.selectedSectionId == sectionId && state.selectedPage == null) {
             rows.firstOrNull()?.let { first -> update { it.selectPage(first.id) } }

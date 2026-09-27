@@ -1,10 +1,16 @@
 package com.vivenotes.desktop
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
 import com.vivenotes.App
+import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.PictureLibrary
+import com.vivenotes.workspace.WorkspaceState
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.awt.Dimension
 import java.awt.Toolkit
 import java.awt.event.WindowAdapter
@@ -34,7 +40,7 @@ internal fun launchWayland(notes: DesktopNotes) {
         frame.size = initialSize
         frame.setLocation(monitor.workArea.x + (monitor.workArea.width - initialSize.width) / 2,
             monitor.workArea.y + (monitor.workArea.height - initialSize.height) / 2)
-        frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame)))
+        frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame), notes.notebookFiles(frame)))
         frame.isVisible = true
     }
 }
@@ -47,13 +53,30 @@ internal fun requireNativeWaylandToolkit(toolkitClassName: String) {
 
 /** The Compose panel inside the [PopupLayerHost] its popups open in. */
 @OptIn(ExperimentalComposeUiApi::class)
-private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary): PopupLayerHost {
+private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, notebookFiles: NotebookFiles): PopupLayerHost {
     val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
     val host = PopupLayerHost(panel)
     panel.windowContainer = host
     panel.setContent {
+        // WLToolkit's SwingGraphics host can keep the last file-dialog frame until another input
+        // event arrives. A transfer's state change asks Swing to paint the new in-window dialog.
+        LaunchedEffect(notes.session) {
+            repaintOnNotebookTransfer(notes.session.state) {
+                SwingUtilities.invokeLater {
+                    panel.repaint()
+                    host.repaint()
+                    host.topLevelAncestor?.repaint()
+                }
+            }
+        }
         App(notes.session, pictures, notes.interfaceSettings, notes::updateInterfaceSettings,
-            notes.viewSettings, notes::updateViewSettings, notes.keyBindings, notes::updateKeyBindings)
+            notes.viewSettings, notes::updateViewSettings, notes.keyBindings, notes::updateKeyBindings,
+            notebookFiles = notebookFiles)
     }
     return host
+}
+
+/** File dialogs can leave WLToolkit's last rendered frame on screen until its host repaints. */
+internal suspend fun repaintOnNotebookTransfer(states: Flow<WorkspaceState?>, repaint: () -> Unit) {
+    states.map { it?.notebookTransfer }.distinctUntilChanged().collect { repaint() }
 }
