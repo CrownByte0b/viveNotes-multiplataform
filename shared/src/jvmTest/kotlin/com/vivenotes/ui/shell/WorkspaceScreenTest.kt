@@ -878,6 +878,71 @@ class WorkspaceScreenTest {
             .filterIsInstance<Outline.Shape>().first { it.id == shape.id }.x) }
     }
 
+    /** Android's redo chord works beside the desktop's Ctrl+R. */
+    @Test
+    fun ctrlShiftZAlsoRedoes() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        val base = WorkspaceState.demo()
+        val shape = Outline.Shape(id = "redo-shape", x = 300f, y = 350f)
+        val withShape = base.copy(notebooks = base.notebooks.map { notebook ->
+            notebook.copy(sections = notebook.sections.map { section ->
+                section.copy(pages = section.pages.map { page ->
+                    if (page.id == base.selectedPageId) page.copy(document = page.document.copy(
+                        outlines = page.document.outlines + shape)) else page
+                })
+            })
+        })
+        var observed = withShape.selectObject(shape.id).moveSelectedObjects(40f, 0f)
+        setWorkspace(initial = observed) { observed = it }
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(780f, 500f)) }
+        onRoot().performKeyInput { keyDown(Key.CtrlLeft); keyDown(Key.Z); keyUp(Key.Z); keyUp(Key.CtrlLeft) }
+        onRoot().performKeyInput {
+            keyDown(Key.CtrlLeft); keyDown(Key.ShiftLeft); keyDown(Key.Z)
+            keyUp(Key.Z); keyUp(Key.ShiftLeft); keyUp(Key.CtrlLeft)
+        }
+        runOnIdle { assertEquals(340f, observed.selectedPage!!.document.outlines
+            .filterIsInstance<Outline.Shape>().first { it.id == shape.id }.x) }
+    }
+
+    /** Held down, Ctrl+N adds one page: a key's repeats are not new presses. */
+    @Test
+    fun ctrlNAddsOnePageEvenWhenHeld() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = WorkspaceState.demo()
+        setWorkspace { observed = it }
+        val before = observed.selectedSection!!.pages.size
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(780f, 500f)) }
+        // Held past the keyboard's repeat delay, the key sends repeats as a real one does.
+        onRoot().performKeyInput {
+            keyDown(Key.CtrlLeft); keyDown(Key.N); advanceEventTime(900); keyUp(Key.N); keyUp(Key.CtrlLeft)
+        }
+        runOnIdle { assertEquals(before + 1, observed.selectedSection!!.pages.size) }
+        onRoot().performKeyInput { keyDown(Key.CtrlLeft); keyDown(Key.N); keyUp(Key.N); keyUp(Key.CtrlLeft) }
+        runOnIdle { assertEquals(before + 2, observed.selectedSection!!.pages.size) }
+    }
+
+    /** Android's zoom keys, the numpad's among them; in a text box they zoom and type nothing. */
+    @Test
+    fun zoomKeysZoomFromTheCanvasAndFromATextBox() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = WorkspaceState.demo()
+        setWorkspace { observed = it }
+        fun ctrl(key: Key) = onRoot().performKeyInput { keyDown(Key.CtrlLeft); keyDown(key); keyUp(key); keyUp(Key.CtrlLeft) }
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(780f, 500f)) }
+        ctrl(Key.Equals)
+        onNodeWithText("125%").assertExists()
+        ctrl(Key.Minus)
+        ctrl(Key.Minus)
+        onNodeWithText("75%").assertExists()
+        ctrl(Key.Zero)
+        onNodeWithText("100%").assertExists()
+        ctrl(Key.NumPadAdd)
+        onNodeWithText("125%").assertExists()
+
+        onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
+        val text = runOnIdle { observed.richText!!.text }
+        ctrl(Key.Zero)
+        onNodeWithText("100%").assertExists()
+        runOnIdle { assertEquals(text, observed.richText!!.text) }
+    }
+
     @Test
     fun middleClickAutoscrollContinuesWhilePointerHoldsItsPosition() = runDesktopComposeUiTest(width = 1400, height = 900) {
         var observed = WorkspaceState.demo()

@@ -4,7 +4,11 @@ import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.PageLoad
 import com.vivenotes.model.plainText
 import com.vivenotes.richtext.TextSelection
+import com.vivenotes.workspace.KeyBindings
+import com.vivenotes.workspace.KeyChord
 import com.vivenotes.workspace.PageContent
+import com.vivenotes.workspace.ShortcutAction
+import com.vivenotes.workspace.ShortcutKey
 import com.vivenotes.workspace.TabsLayout
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.WorkspaceState
@@ -118,6 +122,30 @@ class DesktopNotesTest {
         ui.cancel()
 
         assertEquals(TabsLayout.Horizontal, ViewSettingsFile(file).load().tabsLayout)
+    }
+
+    /** A changed shortcut is written at once and is in force the next time the app opens. */
+    @Test
+    fun changedShortcutsAreWrittenAndComeBackAtTheNextLaunch() = runBlocking<Unit> {
+        val ui = CoroutineScope(coroutineContext + SupervisorJob())
+        val file = File(directory, "config/keyboard.properties")
+        val notes = DesktopNotes(NotesLibrary.open(directory), ui, keyStore = KeyBindingsFile(file))
+        notes.start()
+        assertEquals(KeyBindings.Default, notes.keyBindings)
+
+        val changed = KeyBindings.Default.rebind(ShortcutAction.NewPage, KeyChord(ShortcutKey.T, ctrl = true))
+        notes.updateKeyBindings(changed)
+        assertEquals(changed, notes.keyBindings)
+        assertEquals(changed, KeyBindingsFile(file).load())
+        close(notes)
+        ui.cancel()
+
+        val reopenedUi = CoroutineScope(coroutineContext + SupervisorJob())
+        val reopened = DesktopNotes(NotesLibrary.open(directory), reopenedUi, keyStore = KeyBindingsFile(file))
+        assertEquals(changed, reopened.keyBindings)
+        reopened.start()
+        close(reopened)
+        reopenedUi.cancel()
     }
 
     private suspend fun openPage(notes: DesktopNotes): WorkspaceState = withTimeout(10_000) {

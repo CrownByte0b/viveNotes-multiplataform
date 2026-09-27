@@ -30,12 +30,15 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
 import com.vivenotes.ui.ribbon.document.DocumentRibbonTags
+import com.vivenotes.ui.ribbon.settings.HardwareTags
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.ribbon.view.ViewRibbonTags
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.theme.ViveNotesTheme
+import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.RibbonTab
+import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.focusBody
 import kotlin.math.abs
@@ -92,7 +95,7 @@ class HoverTooltipRuleTest {
                 "Hide notebook navigation", "Undo canvas action", "Redo canvas action", "Text", "Paste",
                 "Font family", "Font size", "Bold", "Font colour", "Highlight", "Clear formatting",
                 "Bulleted list", "Numbered list", "To-do", "Decrease indent", "Increase indent",
-                "Align centre", "Styles", "Link", "Sort pages",
+                "Align centre", "Styles", "Link", "Sort pages", "Reset zoom to 100%",
             ).forEach { assertTrue(it in labels, "no control labelled \"$it\" was checked: $labels") }
         }
 
@@ -131,6 +134,21 @@ class HoverTooltipRuleTest {
             val swatches = hoverEveryControl(inMenu = true)
             listOf("Cream", "Navy", "Plum").forEach { assertTrue(it in swatches, "no swatch \"$it\": $swatches") }
         }
+
+    @Test
+    fun hardwarePaneControlsShowTheirAltTextOnHover() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        setContent {
+            var state by remember { mutableStateOf(WorkspaceState.demo().copy(activeTab = RibbonTab.Settings)) }
+            ViveNotesTheme(darkTheme = true) {
+                WorkspaceScreen(state = state, onStateChange = { state = it(state) },
+                    keyBindings = KeyBindings.Default.rebind(ShortcutAction.Undo, null))
+            }
+        }
+        onNodeWithTag(HardwareTags.Open).performClick()
+        val labels = hoverEveryControl()
+        listOf("Close Hardware", "Reset Undo shortcut")
+            .forEach { assertTrue(it in labels, "no control labelled \"$it\" was checked: $labels") }
+    }
 
     @Test
     fun textColourSwatchesShowTheirNamesOnHover() = runDesktopComposeUiTest(width = 2000, height = 900) {

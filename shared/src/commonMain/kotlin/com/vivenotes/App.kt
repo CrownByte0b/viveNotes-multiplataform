@@ -22,6 +22,7 @@ import com.vivenotes.data.PictureLibrary
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ViveNotesTheme
+import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.WorkspaceState
@@ -44,6 +45,8 @@ fun App(
     onInterfaceSettingsChange: (InterfaceSettings) -> Unit = {},
     viewSettings: ViewSettings = ViewSettings(),
     onViewSettingsChange: (ViewSettings) -> Unit = {},
+    keyBindings: KeyBindings = KeyBindings.Default,
+    onKeyBindingsChange: (KeyBindings) -> Unit = {},
 ) {
     val state by session.state.collectAsState()
     ViveNotesTheme {
@@ -60,7 +63,8 @@ fun App(
         } else {
             WorkspaceScreen(state = workspace, onStateChange = session::update, navigation = session, pictures = pictures,
                 interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange,
-                viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange)
+                viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
+                keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange)
         }
     }
 }

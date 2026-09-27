@@ -53,7 +53,7 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary):
     panel.windowContainer = host
     panel.setContent {
         App(notes.session, pictures, notes.interfaceSettings, notes::updateInterfaceSettings,
-            notes.viewSettings, notes::updateViewSettings)
+            notes.viewSettings, notes::updateViewSettings, notes.keyBindings, notes::updateKeyBindings)
     }
     return host
 }

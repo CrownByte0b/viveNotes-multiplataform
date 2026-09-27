@@ -7,6 +7,7 @@ import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
 import com.vivenotes.workspace.formatUpdated
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
+import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ViewSettings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +41,7 @@ internal class DesktopNotes(
     private val maintenanceInterval: Duration = 24.hours,
     private val interfaceStore: InterfaceSettingsFile? = null,
     private val viewStore: ViewSettingsFile? = null,
+    private val keyStore: KeyBindingsFile? = null,
 ) {
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated,
@@ -51,6 +53,16 @@ internal class DesktopNotes(
         val value = settings.normalized()
         interfaceStore?.save(value)
         interfaceSettings = value
+    }
+
+    var keyBindings by mutableStateOf(keyStore?.load() ?: KeyBindings.Default)
+        private set
+
+    /** Written at once: a shortcut changes one press at a time, never a stream of them. */
+    fun updateKeyBindings(bindings: KeyBindings) {
+        if (bindings == keyBindings) return
+        keyStore?.save(bindings)
+        keyBindings = bindings
     }
 
     var viewSettings by mutableStateOf(viewStore?.load() ?: ViewSettings())
@@ -119,6 +131,7 @@ internal class DesktopNotes(
         fun open(directory: File = AppDirectories.data()): DesktopNotes =
             DesktopNotes(NotesLibrary.open(directory), MainScope(),
                 interfaceStore = InterfaceSettingsFile(File(AppDirectories.config(), "interface.properties")),
-                viewStore = ViewSettingsFile(File(AppDirectories.config(), "view.properties")))
+                viewStore = ViewSettingsFile(File(AppDirectories.config(), "view.properties")),
+                keyStore = KeyBindingsFile(File(AppDirectories.config(), "keyboard.properties")))
     }
 }

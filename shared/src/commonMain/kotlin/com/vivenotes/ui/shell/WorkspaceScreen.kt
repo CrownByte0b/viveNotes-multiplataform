@@ -66,6 +66,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -77,13 +78,8 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isTertiaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isCtrlPressed as isControlKeyPressed
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.key.key
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -121,7 +117,6 @@ import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.flow.first
@@ -170,6 +165,15 @@ import com.vivenotes.ui.navigation.PageListPane
 import com.vivenotes.workspace.InMemoryNavigation
 import com.vivenotes.workspace.NavigationActions
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.input.key.KeyEvent
+import com.vivenotes.ui.keyboard.LocalKeyBindings
+import com.vivenotes.ui.keyboard.ShortcutKeys
+import com.vivenotes.ui.ribbon.settings.HardwarePane
+import com.vivenotes.ui.ribbon.settings.ResetAllShortcutsDialog
+import com.vivenotes.ui.ribbon.settings.ShortcutCaptureDialog
+import com.vivenotes.workspace.KeyBindings
+import com.vivenotes.workspace.ShortcutAction
+import com.vivenotes.workspace.ShortcutScope
 
 private val ObjectColors = listOf(
     "White" to 0xFFFFFFFF.toInt(), "Black" to 0xFF000000.toInt(),
@@ -244,10 +248,14 @@ fun WorkspaceScreen(
     /** This device's View settings — zoom, tabs layout, canvas brightness — and where changes go. */
     viewSettings: ViewSettings = ViewSettings(),
     onViewSettingsChange: (ViewSettings) -> Unit = {},
+    /** The keyboard shortcuts in force, and where Settings → Hardware sends changes to them. */
+    keyBindings: KeyBindings = KeyBindings.Default,
+    onKeyBindingsChange: (KeyBindings) -> Unit = {},
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
     // Held here as well, so a caller that does not keep the settings still sees its changes.
     var view by remember(viewSettings) { mutableStateOf(viewSettings.normalized()) }
+    var bindings by remember(keyBindings) { mutableStateOf(keyBindings) }
     val baseDensity = LocalDensity.current
     val effectiveSettings = previewSettings ?: interfaceSettings
     val pageDensity = effectiveSettings.documentDensity(baseDensity)
@@ -255,12 +263,16 @@ fun WorkspaceScreen(
         CompositionLocalProvider(
             LocalDensity provides effectiveSettings.density(baseDensity),
             LocalPopupLayerDensity provides baseDensity,
+            LocalKeyBindings provides bindings,
         ) {
             WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures,
                 onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
                 view = view, onViewChange = { next ->
                     view = next
                     onViewSettingsChange(next)
+                }, bindings = bindings, onBindingsChange = { next ->
+                    bindings = next
+                    onKeyBindingsChange(next)
                 })
         }
         previewSettings?.let { draft ->
@@ -288,15 +300,22 @@ private fun WorkspaceContent(
     pageDensity: Density,
     view: ViewSettings,
     onViewChange: (ViewSettings) -> Unit,
+    bindings: KeyBindings,
+    onBindingsChange: (KeyBindings) -> Unit,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
-    var paperPaneOpen by remember { mutableStateOf(false) }
+    var openPane by remember { mutableStateOf<DockedPane?>(null) }
+    fun togglePane(pane: DockedPane) {
+        openPane = if (openPane == pane) null else pane
+    }
+    var editingShortcut by remember { mutableStateOf<ShortcutAction?>(null) }
+    var confirmResetShortcuts by remember { mutableStateOf(false) }
     val currentView by rememberUpdatedState(view)
     val currentOnViewChange by rememberUpdatedState(onViewChange)
     val viewActions = remember(onStateChange) {
         viewActions(onStateChange, { currentView }, { currentOnViewChange(it) }, canvasControl,
-            onTogglePaperSizePane = { paperPaneOpen = !paperPaneOpen })
+            onTogglePaperSizePane = { togglePane(DockedPane.PaperSize) })
     }
     // Switch Background pins the canvas light or dark; until it is used it follows the theme.
     val canvasDark = view.canvasDark ?: (MaterialTheme.colorScheme.background.luminance() < 0.45f)
@@ -313,30 +332,24 @@ private fun WorkspaceContent(
     LaunchedEffect(editorFocusRequest) {
         if (editorFocusRequest > 0) editorFocusRequester.requestFocus()
     }
+    val currentState by rememberUpdatedState(state)
+    val currentBindings by rememberUpdatedState(bindings)
+    val shortcutKeys = remember { ShortcutKeys() }
+    val shortcuts = WorkspaceShortcuts({ currentState }, onStateChange, ::applyEditorCommand, navigation,
+        viewActions, TextClipboardActions(LocalClipboardManager.current, ::applyEditorCommand))
     Box(modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            // Shortcuts are dispatched from one table (Settings → Hardware lists and rebinds it):
+            // here ahead of the focused control, after it below, and in the text box being edited.
             .onPreviewKeyEvent { event ->
-                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
-                    onStateChange { it.selectPointer() }
-                    true
-                } else false
+                shortcutKeys.observe(event) ||
+                    shortcutKeys.dispatch(event, currentBindings, ShortcutScope.Anywhere, shortcuts::run)
             }
             .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown || !event.isControlKeyPressed) false
-                else when (event.key) {
-                    Key.Z -> if (state.structuralUndo.isNotEmpty()) {
-                        onStateChange { it.undoStructure() }
-                        true
-                    } else false
-                    Key.R -> if (state.structuralRedo.isNotEmpty()) {
-                        onStateChange { it.redoStructure() }
-                        true
-                    } else false
-                    else -> false
-                }
+                shortcutKeys.dispatch(event, currentBindings, ShortcutScope.Workspace, shortcuts::run)
             }
             .focusRequester(canvasFocusRequester)
             .focusable(),
@@ -360,7 +373,8 @@ private fun WorkspaceContent(
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
                 { canvasOrigin.read() }, documentColorSelection)
             RibbonTab.View -> ViewTab(state, view, canvasDark, viewActions)
-            RibbonTab.Settings -> SettingsRibbon(onInterface)
+            RibbonTab.Settings -> SettingsRibbon(onInterface, hardwareOpen = openPane == DockedPane.Hardware,
+                onHardware = { togglePane(DockedPane.Hardware) })
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         // Horizontal Tabs Layout: the notebook pane's selection as a strip of section tabs.
@@ -424,7 +438,10 @@ private fun WorkspaceContent(
                     zoom = view.zoom,
                     onZoomChange = { zoom -> currentOnViewChange(currentView.copy(zoom = zoom).normalized()) },
                     canvasDark = canvasDark,
-                    showMargins = paperPaneOpen,
+                    showMargins = openPane == DockedPane.PaperSize,
+                    onTextShortcut = { event ->
+                        shortcutKeys.dispatch(event, currentBindings, ShortcutScope.TextBox, shortcuts::run)
+                    },
                     editorFocusRequester = editorFocusRequester,
                     canvasFocusRequester = canvasFocusRequester,
                     modifier = Modifier.weight(1f),
@@ -462,7 +479,6 @@ private fun WorkspaceContent(
                         onStateChange { it.selectObjectsInRect(l, t, r, b) }
                     },
                     onToggleTodo = { outlineId, blockId -> onStateChange { it.toggleTodo(outlineId, blockId) } },
-                    onIndent = { delta -> onStateChange { it.indentSelectedText(delta) } },
                     onTextCommand = ::applyEditorCommand,
                     onOpenTextMenu = { id, selection ->
                         onStateChange { current ->
@@ -481,25 +497,59 @@ private fun WorkspaceContent(
                     },
                 )
                 }
-                if (paperPaneOpen) {
+                openPane?.let { pane ->
                     VerticalDivider(
                         modifier = Modifier.fillMaxHeight(),
                         color = MaterialTheme.colorScheme.outlineVariant,
                     )
-                    val page = state.selectedPage?.takeIf { it.editable }
-                    PaperSizePane(
-                        style = page?.document?.style ?: PageStyle(),
-                        enabled = page != null,
-                        actions = viewActions,
-                        onClose = { paperPaneOpen = false },
-                    )
+                    when (pane) {
+                        DockedPane.PaperSize -> {
+                            val page = state.selectedPage?.takeIf { it.editable }
+                            PaperSizePane(
+                                style = page?.document?.style ?: PageStyle(),
+                                enabled = page != null,
+                                actions = viewActions,
+                                onClose = { openPane = null },
+                            )
+                        }
+                        DockedPane.Hardware -> HardwarePane(
+                            bindings = bindings,
+                            onEdit = { editingShortcut = it },
+                            onReset = { onBindingsChange(bindings.reset(it)) },
+                            onResetAll = { confirmResetShortcuts = true },
+                            onClose = { openPane = null },
+                        )
+                    }
                 }
             }
         }
     }
     NavigationDialogs(state, navigationRequests, navigation)
+    editingShortcut?.let { action ->
+        ShortcutCaptureDialog(
+            action = action,
+            bindings = bindings,
+            onSet = { chord ->
+                onBindingsChange(bindings.rebind(action, chord))
+                editingShortcut = null
+            },
+            onDismiss = { editingShortcut = null },
+        )
+    }
+    if (confirmResetShortcuts) {
+        ResetAllShortcutsDialog(
+            onConfirm = {
+                onBindingsChange(bindings.resetAll())
+                confirmResetShortcuts = false
+            },
+            onDismiss = { confirmResetShortcuts = false },
+        )
+    }
     }
 }
+
+/** The settings pane docked right of the canvas: one at a time, as on Android. */
+internal enum class DockedPane { PaperSize, Hardware }
 
 @Composable
 private fun PageCanvas(
@@ -511,6 +561,8 @@ private fun PageCanvas(
     onZoomChange: (Float) -> Unit,
     canvasDark: Boolean,
     showMargins: Boolean,
+    /** A key in the text box being edited: true when a shortcut used it. */
+    onTextShortcut: (KeyEvent) -> Boolean,
     editorFocusRequester: FocusRequester,
     canvasFocusRequester: FocusRequester,
     onTitleChange: (String) -> Unit,
@@ -531,7 +583,6 @@ private fun PageCanvas(
     onColorObjects: (Int) -> Unit,
     onSelectObjectsInRect: (Float, Float, Float, Float) -> Unit,
     onToggleTodo: (outlineId: String, blockId: String) -> Unit,
-    onIndent: (Int) -> Unit,
     /** Applies a text command and gives the keyboard back to the text box. */
     onTextCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
     /** A right-click in a text box: edit that box, with this range selected. */
@@ -543,7 +594,7 @@ private fun PageCanvas(
     val uriHandler = LocalUriHandler.current
     val textMeasurer = rememberTextMeasurer()
     val currentToggleTodo by rememberUpdatedState(onToggleTodo)
-    val currentIndent by rememberUpdatedState(onIndent)
+    val currentTextShortcut by rememberUpdatedState(onTextShortcut)
     val pictureAssets = rememberPictureAssets(
         page?.document?.outlines.orEmpty().filterIsInstance<Outline.Image>().map { it.attachmentId }.distinct(),
         pictures,
@@ -1026,14 +1077,9 @@ private fun PageCanvas(
                             ),
                             modifier = Modifier.fillMaxWidth()
                                 .padding(TextBoxPadding)
-                                // Tab indents, as on Android: in a note, indenting is what a writer means.
-                                .onPreviewKeyEvent { event ->
-                                    // Copy and paste keep formatting, which the field's own would drop.
-                                    if (textClipboard.onShortcut(event, currentState)) return@onPreviewKeyEvent true
-                                    if (event.key != Key.Tab) return@onPreviewKeyEvent false
-                                    if (event.type == KeyEventType.KeyDown) currentIndent(if (event.isShiftPressed) -1 else 1)
-                                    true
-                                }
+                                // Ahead of the field's own keys: Tab indents, as on Android, and copy
+                                // and paste keep the formatting the field's own would drop.
+                                .onPreviewKeyEvent { event -> currentTextShortcut(event) }
                                 .then(if (focused) Modifier.focusRequester(editorFocusRequester) else Modifier)
                                 .onFocusChanged {
                                     if (it.isFocused && !focused) onFocusTextBox(outline.id)
@@ -1284,21 +1330,34 @@ private fun PageCanvas(
                 Modifier.align(Alignment.TopCenter).testTag(WorkspaceTestTags.UnreadablePage),
             )
         }
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.small,
-            tonalElevation = 2.dp,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp)
-                .testTag(WorkspaceTestTags.ZoomIndicator)
-                .semantics { contentDescription = "Canvas zoom ${(zoom * 100).roundToInt()} percent" },
-        ) {
-            Text("${(zoom * 100).roundToInt()}%",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+        // The zoom readout is also the quickest way back: a click returns to 100%. The Box holds the
+        // corner: TooltipBox does not put its modifier on its outermost layout, so align is lost there.
+        Box(Modifier.align(Alignment.BottomEnd).padding(12.dp)) {
+            HoverTooltip(ResetZoomLabel, position = TooltipAnchorPosition.Above) {
+                Surface(
+                    onClick = { currentZoomChange(1f) },
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = MaterialTheme.shapes.small,
+                    tonalElevation = 2.dp,
+                    modifier = Modifier
+                        .testTag(WorkspaceTestTags.ZoomIndicator)
+                        .semantics {
+                            contentDescription = ResetZoomLabel
+                            stateDescription = "Canvas zoom ${(zoom * 100).roundToInt()} percent"
+                        },
+                ) {
+                    Text("${(zoom * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                }
+            }
         }
     }
 }
+
+/** The zoom indicator's action, which is also its tooltip. */
+internal const val ResetZoomLabel = "Reset zoom to 100%"
 
 /** Between a text box's edge and its text. */
 private val TextBoxPadding = 8.dp

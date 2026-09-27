@@ -32,16 +32,21 @@ dependencies {
 
 // Skiko loads a native library; JDK 24+ warns about that, and a future release will block it.
 val nativeAccessJvmArg = "--enable-native-access=ALL-UNNAMED"
+// X11 has no property for the window class, so WindowClass.kt sets XToolkit's field. The package
+// exists only in Linux runtimes; elsewhere the JVM would warn about opening it.
+val launchJvmArgs = listOf(nativeAccessJvmArg) +
+    if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true))
+        listOf("--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED") else emptyList()
 
 compose.desktop {
     application {
         mainClass = "com.vivenotes.desktop.MainKt"
-        jvmArgs += nativeAccessJvmArg
+        jvmArgs += launchJvmArgs
     }
 }
 
 tasks.withType<Test>().configureEach {
-    jvmArgs(nativeAccessJvmArg)
+    jvmArgs(launchJvmArgs)
 }
 
 fun isJetBrainsRuntime(home: File): Boolean =

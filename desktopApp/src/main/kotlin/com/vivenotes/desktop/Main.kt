@@ -41,11 +41,13 @@ fun main(args: Array<String>) {
     ) {
         WindowBackend.NATIVE_WAYLAND -> {
             System.setProperty("awt.toolkit.name", "WLToolkit")
+            useWaylandWindowClass()
             launchWayland(DesktopNotes.open())
         }
         WindowBackend.STANDARD -> {
             if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true)) {
                 System.setProperty("awt.toolkit.name", "XToolkit")
+                useX11WindowClass()
             }
             launchStandardWindow(DesktopNotes.open())
         }
@@ -68,7 +70,8 @@ private fun launchStandardWindow(notes: DesktopNotes) {
                     540.coerceAtMost(monitor.workArea.height))
             }
             App(notes.session, remember(window) { notes.pictures(window) }, notes.interfaceSettings,
-                notes::updateInterfaceSettings, notes.viewSettings, notes::updateViewSettings)
+                notes::updateInterfaceSettings, notes.viewSettings, notes::updateViewSettings,
+                notes.keyBindings, notes::updateKeyBindings)
         }
     }
 }

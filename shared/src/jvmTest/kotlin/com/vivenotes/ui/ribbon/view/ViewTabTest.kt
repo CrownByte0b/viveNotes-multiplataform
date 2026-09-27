@@ -6,7 +6,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -224,17 +228,44 @@ class ViewTabTest {
         var reported: ViewSettings? = null
         setWorkspace(onView = { reported = it })
         onNodeWithTag(ViewRibbonTags.ZoomIn).performClick()
-        onNodeWithTag(WorkspaceTestTags.ZoomIndicator).assertContentDescriptionEquals("Canvas zoom 125 percent")
+        assertZoomState("Canvas zoom 125 percent")
         onNodeWithTag(ViewRibbonTags.Zoom).performClick()
         onNodeWithTag(ViewRibbonTags.zoomStep(0.5f)).performClick()
-        onNodeWithTag(WorkspaceTestTags.ZoomIndicator).assertContentDescriptionEquals("Canvas zoom 50 percent")
+        assertZoomState("Canvas zoom 50 percent")
         runOnIdle { assertEquals(0.5f, reported?.zoom) }
 
         // Android's rule: zoom is how this device looks at the notes, not a property of one page.
         onNodeWithTag(WorkspaceTestTags.page("lecture-notes")).performClick()
-        onNodeWithTag(WorkspaceTestTags.ZoomIndicator).assertContentDescriptionEquals("Canvas zoom 50 percent")
+        assertZoomState("Canvas zoom 50 percent")
         onNodeWithTag(ViewRibbonTags.ActualSize).performClick()
-        onNodeWithTag(WorkspaceTestTags.ZoomIndicator).assertContentDescriptionEquals("Canvas zoom 100 percent")
+        assertZoomState("Canvas zoom 100 percent")
+    }
+
+    /** The corner readout is also a button: a click puts the canvas back to 100%. */
+    @Test
+    fun clickingTheZoomIndicatorResetsTheZoom() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        var reported: ViewSettings? = null
+        setWorkspace(onView = { reported = it })
+        onNodeWithTag(ViewRibbonTags.ZoomIn).performClick()
+        onNodeWithTag(ViewRibbonTags.ZoomIn).performClick()
+        assertZoomState("Canvas zoom 150 percent")
+        onNodeWithTag(WorkspaceTestTags.ZoomIndicator)
+            .assertContentDescriptionEquals("Reset zoom to 100%")
+            .assertTextEquals("150%")
+            .performClick()
+        assertZoomState("Canvas zoom 100 percent")
+        onNodeWithTag(WorkspaceTestTags.ZoomIndicator).assertTextEquals("100%")
+        runOnIdle { assertEquals(1f, reported?.zoom) }
+    }
+
+    /** Regression: wrapped in its tooltip, the indicator lost its corner and covered the page title. */
+    @Test
+    fun theZoomIndicatorStaysInTheCanvasBottomRightCorner() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        setWorkspace()
+        val canvas = onNodeWithTag(WorkspaceTestTags.PageCanvas).fetchSemanticsNode().boundsInRoot
+        val indicator = onNodeWithTag(WorkspaceTestTags.ZoomIndicator).fetchSemanticsNode().boundsInRoot
+        assertTrue(canvas.right - indicator.right in 0f..40f && canvas.bottom - indicator.bottom in 0f..40f,
+            "the indicator $indicator is not in the bottom-right corner of the canvas $canvas")
     }
 
     /** Regression: the ribbon zoomed about the window's centre and scrolled the title off the top. */
@@ -244,7 +275,7 @@ class ViewTabTest {
         val canvasTop = onNodeWithTag(WorkspaceTestTags.PageCanvas).fetchSemanticsNode().boundsInRoot.top
         onNodeWithTag(ViewRibbonTags.ZoomIn).performClick()
         onNodeWithTag(ViewRibbonTags.ZoomIn).performClick()
-        onNodeWithTag(WorkspaceTestTags.ZoomIndicator).assertContentDescriptionEquals("Canvas zoom 150 percent")
+        assertZoomState("Canvas zoom 150 percent")
         val title = onNodeWithTag(WorkspaceTestTags.TitleEditor).fetchSemanticsNode().boundsInRoot
         assertTrue(title.top >= canvasTop, "the title was scrolled off: ${title.top} above $canvasTop")
     }
@@ -256,8 +287,7 @@ class ViewTabTest {
         onNodeWithTag(ViewRibbonTags.PageWidth).performClick()
         val viewport = onNodeWithTag(WorkspaceTestTags.PageCanvas).fetchSemanticsNode().size.width
         val page = maxOf(720f, observed.selectedPage!!.document.outlines.maxOf { it.x + it.width })
-        onNodeWithTag(WorkspaceTestTags.ZoomIndicator)
-            .assertContentDescriptionEquals("Canvas zoom ${(viewport / page * 100).roundToInt()} percent")
+        assertZoomState("Canvas zoom ${(viewport / page * 100).roundToInt()} percent")
     }
 
     @Test
@@ -328,6 +358,12 @@ class ViewTabTest {
                     onViewSettingsChange = onView)
             }
         }
+    }
+
+    /** The zoom the corner indicator reports: its state, beside the reset it offers. */
+    private fun ComposeUiTest.assertZoomState(description: String) {
+        onNodeWithTag(WorkspaceTestTags.ZoomIndicator)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, description))
     }
 
     private fun ComposeUiTest.setWorkspace(onStateChange: (WorkspaceState) -> Unit) =

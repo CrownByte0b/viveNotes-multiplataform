@@ -13,6 +13,8 @@ import com.vivenotes.ui.components.ContextMenuItem
 import com.vivenotes.ui.icons.ContextSymbols
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
+import com.vivenotes.ui.keyboard.LocalKeyBindings
+import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.workspace.WorkspaceState
 
 /** Semantics identifiers for the text box's right-click menu. */
@@ -63,6 +65,8 @@ internal fun TextContextMenu(
 ) {
     // Asked once per opening: reading the system clipboard is not free.
     val canPaste = remember(request) { request != null && clipboard.canPaste() }
+    // The keys shown are the ones in force, which Settings → Hardware can change.
+    val bindings = LocalKeyBindings.current
     ContextMenu(
         anchor = request?.at,
         onDismiss = {
@@ -74,7 +78,7 @@ internal fun TextContextMenu(
         ContextMenuItem(
             label = "Cut",
             icon = DocumentSymbols.ContentCut,
-            shortcut = "Ctrl+X",
+            shortcut = bindings.primary(ShortcutAction.Cut)?.label,
             enabled = !selection.collapsed,
             onClick = {
                 onClose()
@@ -85,7 +89,7 @@ internal fun TextContextMenu(
         ContextMenuItem(
             label = "Copy",
             icon = DocumentSymbols.ContentCopy,
-            shortcut = "Ctrl+C",
+            shortcut = bindings.primary(ShortcutAction.Copy)?.label,
             enabled = !selection.collapsed,
             onClick = {
                 onClose()
@@ -96,7 +100,7 @@ internal fun TextContextMenu(
         ContextMenuItem(
             label = "Paste",
             icon = DocumentSymbols.ContentPaste,
-            shortcut = "Ctrl+V",
+            shortcut = bindings.primary(ShortcutAction.Paste)?.label,
             enabled = canPaste,
             onClick = {
                 onClose()
@@ -107,7 +111,7 @@ internal fun TextContextMenu(
         ContextMenuItem(
             label = "Paste as plain text",
             icon = ContextSymbols.PasteAsText,
-            shortcut = "Ctrl+Shift+V",
+            shortcut = bindings.primary(ShortcutAction.PastePlainText)?.label,
             enabled = canPaste,
             onClick = {
                 onClose()
@@ -119,7 +123,7 @@ internal fun TextContextMenu(
         ContextMenuItem(
             label = "Select all",
             icon = ContextSymbols.SelectAll,
-            shortcut = "Ctrl+A",
+            shortcut = bindings.primary(ShortcutAction.SelectAll)?.label,
             onClick = {
                 onClose()
                 request?.let { onEditorCommand { current -> current.selectAllTextBox(it.outlineId) } }
