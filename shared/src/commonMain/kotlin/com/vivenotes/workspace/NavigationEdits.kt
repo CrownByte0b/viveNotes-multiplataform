@@ -1,5 +1,7 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.data.ACCENT_PALETTE
+import com.vivenotes.model.newId
 import com.vivenotes.richtext.TextSelection
 
 /** A notebook, section or page, as the navigation panes' right-click menus act on it. */
@@ -104,3 +106,67 @@ private fun WorkspaceState.withoutHistoryOf(removed: Set<String>): WorkspaceStat
     structuralUndo = structuralUndo.filterNot { it.pageId in removed },
     structuralRedo = structuralRedo.filterNot { it.pageId in removed },
 )
+
+/** What a notebook left unnamed in the New notebook dialog is called (Android's default). */
+const val NEW_NOTEBOOK_NAME = "New Notebook"
+
+/** What a section left unnamed is called — also the first section of every new notebook. */
+const val NEW_SECTION_NAME = "New Section"
+
+/** [name] trimmed, or [NEW_NOTEBOOK_NAME] when blank: unlike a rename, creating has a default. */
+fun notebookName(name: String): String = name.trim().ifEmpty { NEW_NOTEBOOK_NAME }
+
+/** [name] trimmed, or [NEW_SECTION_NAME] when blank. */
+fun sectionName(name: String): String = name.trim().ifEmpty { NEW_SECTION_NAME }
+
+/** Shows or hides a notebook's sections in the notebook pane. Nothing else changes, not even what is open. */
+fun WorkspaceState.setNotebookExpanded(id: String, expanded: Boolean): WorkspaceState {
+    if (notebooks.none { it.id == id && it.expanded != expanded }) return this
+    return copy(notebooks = notebooks.map { if (it.id == id) it.copy(expanded = expanded) else it })
+}
+
+/**
+ * Adds a notebook at the end with one [NEW_SECTION_NAME] section, and opens that section — the whole
+ * of it for the in-memory sample. A stored workspace creates both in storage: `WorkspaceSession`.
+ */
+fun WorkspaceState.addNotebook(name: String): WorkspaceState {
+    val section = SectionSummary(newId(), NEW_SECTION_NAME, ACCENT_PALETTE.first(), emptyList())
+    val notebook = NotebookSummary(newId(), notebookName(name), accent(notebooks.size), listOf(section))
+    return copy(notebooks = notebooks + notebook).selectSection(section.id)
+}
+
+/** Adds a section at the end of [notebookId] and opens it on a new page, as Android does. */
+fun WorkspaceState.addSection(notebookId: String, name: String): WorkspaceState {
+    val notebook = notebooks.firstOrNull { it.id == notebookId } ?: return this
+    val section = SectionSummary(newId(), sectionName(name), accent(notebook.sections.size), emptyList())
+    return copy(notebooks = notebooks.map { if (it.id == notebookId) it.copy(sections = it.sections + section) else it })
+        .selectSection(section.id)
+        .addPage()
+}
+
+/** Puts [notebookId]'s sections in [orderedIds]' order — see [inOrder]. */
+fun WorkspaceState.reorderSections(notebookId: String, orderedIds: List<String>): WorkspaceState =
+    copy(notebooks = notebooks.map { notebook ->
+        if (notebook.id == notebookId) notebook.copy(sections = notebook.sections.inOrder(orderedIds) { it.id }) else notebook
+    })
+
+/** Puts [sectionId]'s pages in [orderedIds]' order — see [inOrder]. */
+fun WorkspaceState.reorderPages(sectionId: String, orderedIds: List<String>): WorkspaceState =
+    copy(notebooks = notebooks.map { notebook ->
+        notebook.copy(sections = notebook.sections.map { section ->
+            if (section.id == sectionId) section.copy(pages = section.pages.inOrder(orderedIds) { it.id }) else section
+        })
+    })
+
+/**
+ * The repository's reorder rule: what is here decides membership and [orderedIds] only the sequence,
+ * so anything the list did not show when it was dragged keeps its relative place at the end.
+ */
+private fun <T> List<T>.inOrder(orderedIds: List<String>, id: (T) -> String): List<T> {
+    val byId = associateBy(id)
+    val requested = orderedIds.distinct().mapNotNull(byId::get)
+    return requested + filterNot { it in requested }
+}
+
+/** The colour storage gives the [index]th notebook, or section of a notebook. */
+private fun accent(index: Int): Int = ACCENT_PALETTE[index % ACCENT_PALETTE.size]

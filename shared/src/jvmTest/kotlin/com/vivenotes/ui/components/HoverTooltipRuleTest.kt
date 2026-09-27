@@ -92,7 +92,7 @@ class HoverTooltipRuleTest {
                 "Hide notebook navigation", "Undo canvas action", "Redo canvas action", "Text", "Paste",
                 "Font family", "Font size", "Bold", "Font colour", "Highlight", "Clear formatting",
                 "Bulleted list", "Numbered list", "To-do", "Decrease indent", "Increase indent",
-                "Align centre", "Styles", "Link",
+                "Align centre", "Styles", "Link", "Sort pages",
             ).forEach { assertTrue(it in labels, "no control labelled \"$it\" was checked: $labels") }
         }
 
@@ -153,7 +153,7 @@ class HoverTooltipRuleTest {
 
         onNodeWithTag(WorkspaceTestTags.page("lecture-notes")).performMouseInput { rightClick(center) }
         assertMenuNamesItsItems("Rename page", "Delete page")
-        onNodeWithText("Notebooks").performMouseInput { click(center) }
+        onNodeWithTag(WorkspaceTestTags.PagePane).performMouseInput { click(bottomCenter - Offset(0f, 20f)) }
 
         onNodeWithTag(WorkspaceTestTags.BodyEditor).performMouseInput { rightClick(Offset(15f, 10f)) }
         assertMenuNamesItsItems("Cut", "Copy", "Paste", "Paste as plain text", "Select all",

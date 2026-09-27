@@ -28,4 +28,25 @@ class CreatedLabelTest {
     fun anUnrecordedCreationIsBlank() {
         assertEquals("", formatCreated(0L, newYork, Locale.US))
     }
+
+    private val stamp = ZonedDateTime.of(2026, 9, 22, 14, 5, 0, 0, newYork).toInstant().toEpochMilli()
+
+    /** Android's page list `relativeDate`, step by step. */
+    @Test
+    fun theModifiedLabelReadsLikeTheAndroidPageList() {
+        fun label(ago: Long) = formatUpdated(stamp, now = stamp + ago, zone = newYork, locale = Locale.US)
+
+        assertEquals("Just now", label(59_999))
+        assertEquals("1 min ago", label(60_000))
+        assertEquals("59 min ago", label(3_599_999))
+        assertEquals("2:05 PM", label(3_600_000))
+        assertEquals("2:05 PM", label(86_399_999))
+        assertEquals("Sep 22, 2026", label(86_400_000))
+    }
+
+    @Test
+    fun anUnrecordedModificationIsBlank() {
+        assertEquals("", formatUpdated(0L, now = stamp, zone = newYork, locale = Locale.US))
+    }
 }
+

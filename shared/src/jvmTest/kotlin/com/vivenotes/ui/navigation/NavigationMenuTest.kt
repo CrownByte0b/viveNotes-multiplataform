@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
@@ -98,7 +99,7 @@ class NavigationMenuTest {
             runOnIdle { assertEquals("chapter-1", observed.selectedSectionId) }
 
             // Escape closes it too, but the desktop window turns Escape into "back", outside this harness.
-            onNodeWithText("Notebooks").performMouseInput { click(center) }
+            onNodeWithTag(WorkspaceTestTags.PagePane).performMouseInput { click(bottomCenter - Offset(0f, 20f)) }
             onNodeWithTag(NavigationTestTags.Rename).assertDoesNotExist()
             runOnIdle { assertEquals("chapter-1", observed.selectedSectionId) }
         }

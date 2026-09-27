@@ -31,6 +31,10 @@ class FakeNotesStore : NotesStore {
     val renames = mutableListOf<Pair<String, String>>()
     val loads = mutableListOf<String>()
     val deletes = mutableListOf<String>()
+    val expansions = mutableListOf<Pair<String, Boolean>>()
+
+    /** Each reorder as the notebook or section it was for and the order asked for. */
+    val reorders = mutableListOf<Pair<String, List<String>>>()
 
     /** Saves and deletes in the order storage received them, as `save:<id>` and `delete:<id>`. */
     val writes = mutableListOf<String>()
@@ -88,8 +92,46 @@ class FakeNotesStore : NotesStore {
 
     override suspend fun pageById(id: String): PageEntity? = pageRows.value.firstOrNull { it.id == id }
 
+    override suspend fun createNotebook(name: String): String {
+        val notebook = NotebookEntity(id(name), name, 0, tree.value.size, createdAt = ++now, updatedAt = now)
+        tree.value = tree.value + NotebookWithSections(notebook, emptyList())
+        return notebook.id
+    }
+
+    override suspend fun createSection(notebookId: String, name: String): String {
+        val id = id(name)
+        tree.value = tree.value.map { entry ->
+            if (entry.notebook.id != notebookId) entry
+            else entry.copy(sections = entry.sections + SectionEntity(id, notebookId, name, 0, entry.sections.size, ++now, now))
+        }
+        return id
+    }
+
     override suspend fun createPage(sectionId: String, title: String): String =
         addPage(sectionId, title, pageRows.value.count { it.sectionId == sectionId }, PageDoc.empty())
+
+    override suspend fun setNotebookExpanded(id: String, expanded: Boolean) {
+        expansions += id to expanded
+        tree.value = tree.value.map { entry ->
+            if (entry.notebook.id == id) entry.copy(notebook = entry.notebook.copy(expanded = expanded)) else entry
+        }
+    }
+
+    override suspend fun reorderSections(notebookId: String, orderedIds: List<String>) {
+        reorders += notebookId to orderedIds
+        tree.value = tree.value.map { entry ->
+            if (entry.notebook.id != notebookId) entry
+            else entry.copy(sections = resequenced(entry.sections, orderedIds, SectionEntity::id)
+                .mapIndexed { index, section -> section.copy(sortIndex = index) })
+        }
+    }
+
+    override suspend fun reorderPages(sectionId: String, orderedIds: List<String>) {
+        reorders += sectionId to orderedIds
+        val inSection = pageRows.value.filter { it.sectionId == sectionId }.sortedBy { it.sortIndex }
+        val indices = resequenced(inSection, orderedIds, PageEntity::id).withIndex().associate { it.value.id to it.index }
+        pageRows.value = pageRows.value.map { row -> indices[row.id]?.let { row.copy(sortIndex = it) } ?: row }
+    }
 
     override suspend fun renamePage(id: String, title: String) {
         renames += id to title
@@ -162,4 +204,10 @@ class FakeNotesStore : NotesStore {
     }
 
     private fun id(name: String) = "${name.lowercase().replace(' ', '-')}-${nextId++}"
+
+    /** The repository's rule: the live rows say what is there, [orderedIds] only in what order. */
+    private fun <T> resequenced(live: List<T>, orderedIds: List<String>, id: (T) -> String): List<T> {
+        val requested = orderedIds.mapNotNull { wanted -> live.firstOrNull { id(it) == wanted } }
+        return requested + live.filterNot { it in requested }
+    }
 }

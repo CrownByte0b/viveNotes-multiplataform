@@ -58,8 +58,7 @@ fun App(
                 )
             }
         } else {
-            WorkspaceScreen(state = workspace, onStateChange = session::update, onAddPage = session::addPage,
-                onRename = session::rename, onDelete = session::delete, pictures = pictures,
+            WorkspaceScreen(state = workspace, onStateChange = session::update, navigation = session, pictures = pictures,
                 interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange,
                 viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange)
         }

@@ -5,6 +5,7 @@ import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
+import com.vivenotes.workspace.formatUpdated
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.workspace.ViewSettings
 import androidx.compose.runtime.getValue
@@ -41,7 +42,8 @@ internal class DesktopNotes(
     private val viewStore: ViewSettingsFile? = null,
 ) {
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
-    val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated)
+    val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated,
+        updatedLabel = { formatUpdated(it) })
     var interfaceSettings by mutableStateOf(interfaceStore?.load() ?: InterfaceSettings())
         private set
 

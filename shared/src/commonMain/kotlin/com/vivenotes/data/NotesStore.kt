@@ -37,8 +37,23 @@ interface NotesStore {
 
     suspend fun pageById(id: String): PageEntity?
 
+    /** Creates an empty notebook at the end of the rail and returns its id. */
+    suspend fun createNotebook(name: String): String
+
+    /** Creates an empty section at the end of [notebookId] and returns its id. */
+    suspend fun createSection(notebookId: String, name: String): String
+
     /** Creates a page holding `PageDoc.empty()` and returns its id. */
     suspend fun createPage(sectionId: String, title: String = ""): String
+
+    /** Whether the rail shows the notebook's sections. Local only: never pushed to sync. */
+    suspend fun setNotebookExpanded(id: String, expanded: Boolean)
+
+    /** Puts a notebook's sections in [orderedIds]' order; sections it does not name keep theirs, last. */
+    suspend fun reorderSections(notebookId: String, orderedIds: List<String>)
+
+    /** Puts a section's pages in [orderedIds]' order; pages it does not name keep theirs, last. */
+    suspend fun reorderPages(sectionId: String, orderedIds: List<String>)
 
     suspend fun renamePage(id: String, title: String)
 

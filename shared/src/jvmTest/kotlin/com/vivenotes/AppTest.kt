@@ -3,6 +3,7 @@ package com.vivenotes
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
@@ -23,6 +24,7 @@ import com.vivenotes.ui.navigation.NavigationTestTags
 import com.vivenotes.ui.shell.UnreadablePageMessage
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.workspace.FakeNotesStore
+import com.vivenotes.workspace.NEW_SECTION_NAME
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
 import kotlinx.coroutines.CompletableDeferred
@@ -193,6 +195,67 @@ class AppTest {
             onAllNodesWithTag(WorkspaceTestTags.StorageError).fetchSemanticsNodes().isEmpty()
         }
         assertTrue(store.saves.single().second.plainText() == "Saved now")
+    }
+
+    /**
+     * The notebook pane over real storage: a section created, a page dragged, a notebook folded and
+     * another created are all in the database when the app closes.
+     */
+    @Test
+    fun notebooksAndSectionsMadeFoldedAndReorderedInThePaneAreStored() {
+        NotesLibrary.open(directory).use { library ->
+            val notebookId = runBlocking {
+                library.repository.seedIfEmpty()
+                library.repository.observeTree().first().single().notebook.id
+            }
+            var first = ""
+            var second = ""
+            runDesktopComposeUiTest(width = 1400, height = 900) {
+                val app = showApp(library.repository)
+                awaitOpenPage()
+
+                onNodeWithTag(NavigationTestTags.addSection(notebookId)).performClick()
+                onNodeWithTag(NavigationTestTags.NameField).performTextReplacement("Reading")
+                onNodeWithTag(NavigationTestTags.ConfirmCreate).performClick()
+                waitUntil(timeoutMillis = 10_000) {
+                    val state = app.session.state.value
+                    state?.selectedSection?.name == "Reading" && state.selectedPage != null
+                }
+                first = app.session.state.value!!.selectedPageId
+                onNodeWithTag(WorkspaceTestTags.AddPage).performClick()
+                waitUntil(timeoutMillis = 10_000) { app.session.state.value?.selectedSection?.pages?.size == 2 }
+                second = app.session.state.value!!.selectedSection!!.pages.last().id
+
+                val pitch = onNodeWithTag(WorkspaceTestTags.page(second)).fetchSemanticsNode().boundsInRoot.top -
+                    onNodeWithTag(WorkspaceTestTags.page(first)).fetchSemanticsNode().boundsInRoot.top
+                onNodeWithTag(NavigationTestTags.pageDrag(first), useUnmergedTree = true).performMouseInput {
+                    val distance = pitch * 1.4f
+                    moveTo(center)
+                    press()
+                    repeat(12) { moveBy(Offset(0f, distance / 12)) }
+                    release()
+                }
+                waitUntil(timeoutMillis = 10_000) {
+                    app.session.state.value?.selectedSection?.pages?.map { it.id } == listOf(second, first)
+                }
+
+                onNodeWithTag(NavigationTestTags.notebook(notebookId)).performClick()
+                onNodeWithTag(NavigationTestTags.AddNotebook).performClick()
+                onNodeWithTag(NavigationTestTags.NameField).performTextReplacement("Travel")
+                onNodeWithTag(NavigationTestTags.ConfirmCreate).performClick()
+                waitUntil(timeoutMillis = 10_000) { app.session.state.value?.selectedNotebook?.name == "Travel" }
+                app.close()
+            }
+            runBlocking {
+                val tree = library.repository.observeTree().first()
+                assertEquals(listOf(false, true), tree.map { it.notebook.expanded })
+                assertEquals(listOf(NEW_SECTION_NAME), tree.last().liveSections.map { it.name })
+                val reading = tree.first().liveSections.single { it.name == "Reading" }
+                val pages = library.repository.observePages(reading.id).first()
+                assertEquals(listOf(second, first), pages.map { it.id }, "the dragged order")
+                assertEquals("Travel", tree.last().notebook.name)
+            }
+        }
     }
 
     private class ShownApp(val test: ComposeUiTest, val scope: CoroutineScope, val session: WorkspaceSession) {

@@ -29,20 +29,32 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.vivenotes.ui.icons.ContextSymbols
+import com.vivenotes.ui.icons.NavigationSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.ui.components.DesktopDialogFrame
 import com.vivenotes.ui.theme.LocalDesktopColors
+import com.vivenotes.workspace.NEW_NOTEBOOK_NAME
+import com.vivenotes.workspace.NEW_SECTION_NAME
+import com.vivenotes.workspace.NavigationActions
 import com.vivenotes.workspace.NavigationItem
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.nameOf
 
 internal const val UntitledPage = "Untitled page"
 
-/** The rename or delete a navigation menu asked for, held until its dialog closes. */
+/** The rename, delete or new item the navigation panes asked for, held until its dialog closes. */
 internal class NavigationRequests {
     var renaming: NavigationItem? by mutableStateOf(null)
     var deleting: NavigationItem? by mutableStateOf(null)
+    var creating: NewItem? by mutableStateOf(null)
+}
+
+/** What a New row in the notebook pane creates. */
+internal sealed interface NewItem {
+    data object Notebook : NewItem
+    data class Section(val notebookId: String) : NewItem
 }
 
 /** What the menus and dialogs call [this]. */
@@ -54,29 +66,53 @@ internal val NavigationItem.noun: String
     }
 
 /**
- * The dialogs behind the navigation menus. A rename asks for the new name; a delete asks first,
- * because it takes everything inside with it. A request for something no longer in [state] — gone
- * while the menu was open — is dropped.
+ * The dialogs behind the navigation panes. A rename asks for the new name and a new notebook or
+ * section for its name; a delete asks first, because it takes everything inside with it. A request
+ * for something no longer in [state] — gone while the menu was open — is dropped.
  */
 @Composable
 internal fun NavigationDialogs(
     state: WorkspaceState,
     requests: NavigationRequests,
-    onRename: (NavigationItem, String) -> Unit,
-    onDelete: (NavigationItem) -> Unit,
+    navigation: NavigationActions,
 ) {
     requests.renaming?.let { item ->
         val current = state.nameOf(item)
         if (current == null) {
             SideEffect { requests.renaming = null }
         } else {
-            RenameDialog(
-                noun = item.noun,
-                current = current,
+            NameDialog(
+                title = "Rename ${item.noun}",
+                icon = ContextSymbols.Edit,
+                initial = current,
+                confirmLabel = "Rename",
+                confirmTag = NavigationTestTags.ConfirmRename,
+                defaultName = null,
                 onDismiss = { requests.renaming = null },
                 onConfirm = { name ->
                     requests.renaming = null
-                    onRename(item, name)
+                    navigation.rename(item, name)
+                },
+            )
+        }
+    }
+    requests.creating?.let { item ->
+        val notebookId = (item as? NewItem.Section)?.notebookId
+        if (notebookId != null && state.notebooks.none { it.id == notebookId }) {
+            SideEffect { requests.creating = null }
+        } else {
+            NameDialog(
+                title = if (notebookId == null) "New notebook" else "New section",
+                icon = if (notebookId == null) NavigationSymbols.Book else NavigationSymbols.Add,
+                initial = "",
+                confirmLabel = "Create",
+                confirmTag = NavigationTestTags.ConfirmCreate,
+                defaultName = if (notebookId == null) NEW_NOTEBOOK_NAME else NEW_SECTION_NAME,
+                onDismiss = { requests.creating = null },
+                onConfirm = { name ->
+                    requests.creating = null
+                    if (notebookId == null) navigation.createNotebook(name)
+                    else navigation.createSection(notebookId, name)
                 },
             )
         }
@@ -92,7 +128,7 @@ internal fun NavigationDialogs(
                 onDismiss = { requests.deleting = null },
                 onConfirm = {
                     requests.deleting = null
-                    onDelete(item)
+                    navigation.delete(item)
                 },
             )
         }
@@ -100,24 +136,31 @@ internal fun NavigationDialogs(
 }
 
 /**
- * Asks for a new name. The field opens on the current name, all of it selected, so replacing it is
- * one keystroke and fixing a typo does not mean retyping the rest (Android's `NameEntryDialog`).
- * A blank name cannot be confirmed: there is no sensible default for something already named.
+ * Asks for a name (Android's `NameEntryDialog`). The field opens on [initial], all of it selected,
+ * so replacing a name is one keystroke and fixing a typo does not mean retyping the rest.
+ *
+ * With a [defaultName] — creating something — a blank name is allowed and means that default, which
+ * the empty field shows. Without one, renaming, a blank name cannot be confirmed: there is no
+ * sensible default for something already named.
  */
 @Composable
-private fun RenameDialog(
-    noun: String,
-    current: String,
+private fun NameDialog(
+    title: String,
+    icon: ImageVector,
+    initial: String,
+    confirmLabel: String,
+    confirmTag: String,
+    defaultName: String?,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    var value by remember { mutableStateOf(TextFieldValue(current, TextRange(0, current.length))) }
+    var value by remember { mutableStateOf(TextFieldValue(initial, TextRange(0, initial.length))) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    val valid = value.text.isNotBlank()
+    val valid = defaultName != null || value.text.isNotBlank()
     DesktopDialogFrame(
-        title = "Rename $noun",
-        icon = ContextSymbols.Edit,
+        title = title,
+        icon = icon,
         iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
         onDismiss = onDismiss,
         backdropTag = NavigationTestTags.Backdrop,
@@ -128,6 +171,7 @@ private fun RenameDialog(
                 onValueChange = { value = it },
                 singleLine = true,
                 label = { Text("Name") },
+                placeholder = defaultName?.let { { Text(it) } },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { if (valid) onConfirm(value.text) }),
                 modifier = Modifier
@@ -152,8 +196,8 @@ private fun RenameDialog(
                 onClick = { onConfirm(value.text) },
                 enabled = valid,
                 shape = MaterialTheme.shapes.small,
-                modifier = Modifier.testTag(NavigationTestTags.ConfirmRename),
-            ) { Text("Rename") }
+                modifier = Modifier.testTag(confirmTag),
+            ) { Text(confirmLabel) }
         },
     )
 }

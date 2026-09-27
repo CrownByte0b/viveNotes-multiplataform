@@ -32,17 +32,6 @@ import com.vivenotes.model.migrated
 import com.vivenotes.model.TextDocumentCodec
 import com.vivenotes.model.newId
 
-/** Palette used for new notebooks and sections, cycled by creation order. */
-val ACCENT_PALETTE = listOf(
-    0xFF4CAF50.toInt(), // green
-    0xFF2196F3.toInt(), // blue
-    0xFFE91E63.toInt(), // pink
-    0xFF9C27B0.toInt(), // purple
-    0xFFFF9800.toInt(), // orange
-    0xFF00BCD4.toInt(), // cyan
-    0xFFFFC107.toInt(), // amber
-)
-
 /** Direct tombstone rows removed by one maintenance transaction; cascaded child counts are omitted. */
 data class DeletionPurgeResult(
     val cutoff: Long,
@@ -202,7 +191,7 @@ class NotesRepository(
 
     // --- notebooks -------------------------------------------------------------------------
 
-    suspend fun createNotebook(name: String): String {
+    override suspend fun createNotebook(name: String): String {
         clearReplaceableStarter()
         val now = clock()
         val index = notebooks.nextSortIndex()
@@ -233,7 +222,7 @@ class NotesRepository(
      * outbox row and therefore a network push despite changing no note. The transaction makes the
      * suppression flag and the write indivisible; Room serializes it with remote applies.
      */
-    suspend fun setNotebookExpanded(id: String, expanded: Boolean) = db.withTransaction {
+    override suspend fun setNotebookExpanded(id: String, expanded: Boolean) = db.withTransaction {
         sync.setApplyingRemote(true)
         notebooks.setExpanded(id, expanded)
         sync.setApplyingRemote(false)
@@ -281,7 +270,7 @@ class NotesRepository(
 
     // --- sections --------------------------------------------------------------------------
 
-    suspend fun createSection(notebookId: String, name: String): String {
+    override suspend fun createSection(notebookId: String, name: String): String {
         clearReplaceableStarter()
         val now = clock()
         val index = sections.nextSortIndex(notebookId)
@@ -319,7 +308,7 @@ class NotesRepository(
     suspend fun pageCount(sectionId: String): Int = pages.countIn(sectionId)
 
     /** Rewrites a notebook's section order. See [reorderPages], which this mirrors exactly. */
-    suspend fun reorderSections(notebookId: String, orderedIds: List<String>) {
+    override suspend fun reorderSections(notebookId: String, orderedIds: List<String>) {
         clearReplaceableStarter()
         db.withTransaction {
             resequence(
@@ -382,7 +371,7 @@ class NotesRepository(
      * One transaction, so a list is never half-renumbered; and indices are rewritten from zero
      * rather than shuffled, which is what keeps them dense however many drags have happened.
      */
-    suspend fun reorderPages(sectionId: String, orderedIds: List<String>) {
+    override suspend fun reorderPages(sectionId: String, orderedIds: List<String>) {
         clearReplaceableStarter()
         db.withTransaction {
             resequence(

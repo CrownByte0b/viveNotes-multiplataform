@@ -340,6 +340,114 @@ class WorkspaceSessionTest {
         assertTrue("Series could not be deleted" in error && "read-only disk" in error, error)
     }
 
+    @Test
+    fun aNotebookFoldsAtOnceAndItsDisclosureIsStored() = runTest {
+        val session = started()
+        val calculus = session.state.value!!.notebooks.single().id
+
+        session.setNotebookExpanded(calculus, false)
+        assertEquals(false, session.state.value!!.notebooks.single().expanded, "shown before storage has it")
+        runCurrent()
+
+        assertEquals(listOf(calculus to false), store.expansions)
+        assertEquals(false, session.state.value!!.notebooks.single().expanded)
+        assertEquals(sections[0], session.state.value!!.selectedSectionId, "folding opens and closes nothing")
+        assertEquals(limits, session.state.value!!.selectedPageId)
+
+        session.setNotebookExpanded(calculus, false)
+        runCurrent()
+        assertEquals(1, store.expansions.size, "an unchanged disclosure is not written again")
+    }
+
+    /** Disclosure is a row field like any other: another writer's change arrives with the tree. */
+    @Test
+    fun aNotebookFoldedInStorageIsShownFolded() = runTest {
+        val session = started()
+        val calculus = session.state.value!!.notebooks.single().id
+
+        store.setNotebookExpanded(calculus, false)
+        runCurrent()
+
+        assertEquals(false, session.state.value!!.notebooks.single().expanded)
+    }
+
+    /** Android's `createSection`: stored with a page of its own, then opened on that page. */
+    @Test
+    fun aNewSectionIsStoredWithAPageAndOpensOnIt() = runTest {
+        val session = started()
+        session.type("left behind")
+        val calculus = session.state.value!!.notebooks.single().id
+
+        session.createSection(calculus, "  Chapter 3 ")
+        runCurrent()
+
+        val state = session.state.value!!
+        val section = state.notebooks.single().sections.last()
+        assertEquals("Chapter 3", section.name)
+        assertEquals(section.id, state.selectedSectionId)
+        val page = store.pageIdsIn(section.id).single()
+        assertEquals(page, state.selectedPageId)
+        assertEquals(PageContent.Loaded, state.selectedPage!!.content)
+        assertEquals("left behind", store.saves.single().second.text(), "the page left was saved")
+    }
+
+    /** Android's `createNotebook`: a blank name is the default, and its first section opens, empty. */
+    @Test
+    fun aNewNotebookIsStoredWithANewSectionAndOpensOnIt() = runTest {
+        val session = started()
+
+        session.createNotebook("   ")
+        runCurrent()
+
+        val state = session.state.value!!
+        val notebook = state.notebooks.last()
+        assertEquals(NEW_NOTEBOOK_NAME, notebook.name)
+        assertEquals(listOf(NEW_SECTION_NAME), notebook.sections.map { it.name })
+        assertEquals(notebook.id, state.selectedNotebookId)
+        assertEquals(notebook.sections.single().id, state.selectedSectionId)
+        assertEquals("", state.selectedPageId)
+        assertTrue(store.pageIdsIn(notebook.sections.single().id).isEmpty())
+    }
+
+    /**
+     * A dragged order goes to storage and comes back with the next read. The session changes nothing
+     * first: the pane holds the dragged order meanwhile, and a read in between must not undo it.
+     */
+    @Test
+    fun aDraggedOrderIsStoredAndArrivesFromStorage() = runTest {
+        val session = started()
+        val calculus = session.state.value!!.notebooks.single().id
+
+        session.reorderPages(sections[0], listOf(series, limits))
+        session.reorderSections(calculus, listOf(sections[1], sections[0]))
+        assertEquals(listOf(limits, series), session.state.value!!.selectedSection!!.pages.map { it.id })
+        runCurrent()
+
+        val state = session.state.value!!
+        assertEquals(listOf(series, limits), state.selectedSection!!.pages.map { it.id })
+        assertEquals(listOf(sections[1], sections[0]), state.notebooks.single().sections.map { it.id })
+        assertEquals(sections[0], state.selectedSectionId)
+        assertEquals(listOf(sections[0] to listOf(series, limits), calculus to listOf(sections[1], sections[0])),
+            store.reorders)
+    }
+
+    @Test
+    fun pagesCarryWhenTheyLastChangedForThePageList() = runTest {
+        val session = WorkspaceSession(store, backgroundScope, createdLabel = { "created $it" },
+            updatedLabel = { "updated $it" })
+        session.start()
+        runCurrent()
+        assertEquals(1_000L, session.state.value!!.selectedPage!!.updatedAt)
+        assertEquals("updated 1000", session.state.value!!.selectedPage!!.updatedLabel)
+
+        store.touchPage(series, "Series")
+        runCurrent()
+
+        val touched = session.state.value!!.selectedSection!!.pages.first { it.id == series }
+        assertEquals(1_001L, touched.updatedAt)
+        assertEquals("updated 1001", touched.updatedLabel)
+    }
+
     private fun TestScope.session() =
         WorkspaceSession(store, backgroundScope, createdLabel = { "created $it" })
 

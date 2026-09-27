@@ -106,4 +106,64 @@ class NavigationEditsTest {
         assertEquals(listOf("lecture-notes"), deleted.structuralUndo.map { it.pageId })
         assertTrue(deleted.undoStructure().selectedPage!!.document.outlines.any { it is Outline.Text })
     }
+
+    @Test
+    fun foldingANotebookChangesOnlyItsDisclosure() {
+        val editing = demo.focusBody()
+        val folded = editing.setNotebookExpanded("calculus", false)
+
+        assertEquals(listOf(false, false), folded.notebooks.map { it.expanded })
+        assertEquals(editing.copy(notebooks = folded.notebooks), folded, "what is open and being edited stays")
+        assertTrue(folded.setNotebookExpanded("calculus", true).notebooks.first().expanded)
+        assertSame(folded, folded.setNotebookExpanded("biology", false), "already folded")
+        assertSame(demo, demo.setNotebookExpanded("no-such-notebook", false))
+    }
+
+    /** Android's `createNotebook`: a blank name is "New Notebook", and it opens on a "New Section". */
+    @Test
+    fun aNewNotebookOpensOnItsNewSection() {
+        val named = demo.addNotebook("  Physics ")
+        val notebook = named.notebooks.last()
+        assertEquals("Physics", notebook.name)
+        assertEquals(listOf(NEW_SECTION_NAME), notebook.sections.map { it.name })
+        assertTrue(notebook.expanded)
+        assertEquals(notebook.id, named.selectedNotebookId)
+        assertEquals(notebook.sections.single().id, named.selectedSectionId)
+        assertEquals("", named.selectedPageId, "like Android, the new section starts without a page")
+
+        assertEquals(NEW_NOTEBOOK_NAME, demo.addNotebook("   ").notebooks.last().name)
+    }
+
+    /** Android's `createSection`: the new section opens on a page of its own. */
+    @Test
+    fun aNewSectionOpensOnANewPage() {
+        val added = demo.addSection("biology", "Genetics")
+        val section = added.notebooks.first { it.id == "biology" }.sections.last()
+        assertEquals("Genetics", section.name)
+        assertEquals(section.id, added.selectedSectionId)
+        assertEquals("biology", added.selectedNotebookId)
+        assertEquals(section.pages.single().id, added.selectedPageId)
+
+        assertEquals(NEW_SECTION_NAME, demo.addSection("calculus", "").notebooks.first().sections.last().name)
+        assertSame(demo, demo.addSection("no-such-notebook", "Name"))
+    }
+
+    @Test
+    fun newNotebooksAndSectionsTakeTheStoragePaletteInTurn() {
+        val sections = demo.addSection("calculus", "Third").notebooks.first().sections
+        assertEquals(com.vivenotes.data.ACCENT_PALETTE[2], sections.last().colorArgb)
+        assertEquals(com.vivenotes.data.ACCENT_PALETTE[2], demo.addNotebook("Third").notebooks.last().colorArgb)
+    }
+
+    /** The repository's resequencing rule: the ids set the order, what is actually there the members. */
+    @Test
+    fun reorderingFollowsTheShownOrderAndKeepsWhatItDidNotShow() {
+        val sections = demo.reorderSections("calculus", listOf("chapter-2", "chapter-1"))
+        assertEquals(listOf("chapter-2", "chapter-1"), sections.notebooks.first().sections.map { it.id })
+        assertEquals("chapter-1", sections.selectedSectionId, "reordering opens nothing")
+
+        val pages = demo.reorderPages("chapter-1", listOf("homework-1", "gone-meanwhile"))
+        assertEquals(listOf("homework-1", "lecture-notes"), pages.selectedSection!!.pages.map { it.id })
+        assertEquals(demo.notebooks.last(), pages.notebooks.last(), "other notebooks are untouched")
+    }
 }

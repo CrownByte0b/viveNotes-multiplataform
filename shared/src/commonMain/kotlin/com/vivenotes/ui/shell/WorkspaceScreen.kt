@@ -167,9 +167,8 @@ import com.vivenotes.ui.navigation.NavigationDialogs
 import com.vivenotes.ui.navigation.NavigationRequests
 import com.vivenotes.ui.navigation.NotebookPane
 import com.vivenotes.ui.navigation.PageListPane
-import com.vivenotes.workspace.NavigationItem
-import com.vivenotes.workspace.delete
-import com.vivenotes.workspace.rename
+import com.vivenotes.workspace.InMemoryNavigation
+import com.vivenotes.workspace.NavigationActions
 import androidx.compose.ui.platform.LocalClipboardManager
 
 private val ObjectColors = listOf(
@@ -232,11 +231,11 @@ fun WorkspaceScreen(
     state: WorkspaceState,
     onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
     modifier: Modifier = Modifier,
-    onAddPage: () -> Unit = { onStateChange { it.addPage() } },
-    /** Renames from the navigation menus; a stored workspace passes its session's, which also stores it. */
-    onRename: (NavigationItem, String) -> Unit = { item, name -> onStateChange { it.rename(item, name) } },
-    /** Deletes from the navigation menus, after they have asked; see [onRename]. */
-    onDelete: (NavigationItem) -> Unit = { item -> onStateChange { it.delete(item) } },
+    /**
+     * What the notebook and page panes ask for — new, renamed, deleted, folded and reordered items.
+     * A stored workspace passes its session, which also stores them.
+     */
+    navigation: NavigationActions = InMemoryNavigation(onStateChange),
     /** Where pictures are stored; without it the Picture command is unavailable. */
     pictures: PictureLibrary? = null,
     // Standalone workspace callers retain the unscaled layout; App supplies the user's default.
@@ -257,7 +256,7 @@ fun WorkspaceScreen(
             LocalDensity provides effectiveSettings.density(baseDensity),
             LocalPopupLayerDensity provides baseDensity,
         ) {
-            WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), onAddPage, onRename, onDelete, pictures,
+            WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures,
                 onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
                 view = view, onViewChange = { next ->
                     view = next
@@ -283,9 +282,7 @@ private fun WorkspaceContent(
     state: WorkspaceState,
     onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
     modifier: Modifier,
-    onAddPage: () -> Unit,
-    onRename: (NavigationItem, String) -> Unit,
-    onDelete: (NavigationItem) -> Unit,
+    navigation: NavigationActions,
     pictures: PictureLibrary?,
     onInterface: () -> Unit,
     pageDensity: Density,
@@ -395,7 +392,7 @@ private fun WorkspaceContent(
                     NotebookPane(
                         state = state,
                         requests = navigationRequests,
-                        onSelectNotebook = { id -> onStateChange { it.selectNotebook(id) } },
+                        navigation = navigation,
                         onSelectSection = { id -> onStateChange { it.selectSection(id) } },
                     )
                 }
@@ -410,7 +407,7 @@ private fun WorkspaceContent(
                         section = state.selectedSection,
                         selectedPageId = state.selectedPageId,
                         requests = navigationRequests,
-                        onAddPage = onAddPage,
+                        navigation = navigation,
                         onSelectPage = { id -> onStateChange { it.selectPage(id) } },
                     )
                     VerticalDivider(
@@ -500,7 +497,7 @@ private fun WorkspaceContent(
             }
         }
     }
-    NavigationDialogs(state, navigationRequests, onRename, onDelete)
+    NavigationDialogs(state, navigationRequests, navigation)
     }
 }
 

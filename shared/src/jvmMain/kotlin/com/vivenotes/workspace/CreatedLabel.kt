@@ -20,3 +20,24 @@ fun formatCreated(
     val time = DateTimeFormatter.ofPattern("h:mm a", locale).format(created)
     return "$day    $time"
 }
+
+/**
+ * A page's modified stamp as the Android page list writes it: "Just now" inside a minute, "5 min
+ * ago" inside the hour, the time of day inside a day, and "Sep 22, 2026" beyond. Zero is blank.
+ */
+fun formatUpdated(
+    timestamp: Long,
+    now: Long = System.currentTimeMillis(),
+    zone: ZoneId = ZoneId.systemDefault(),
+    locale: Locale = Locale.getDefault(),
+): String {
+    if (timestamp == 0L) return ""
+    val elapsed = now - timestamp
+    val updated = Instant.ofEpochMilli(timestamp).atZone(zone)
+    return when {
+        elapsed < 60_000 -> "Just now"
+        elapsed < 3_600_000 -> "${elapsed / 60_000} min ago"
+        elapsed < 86_400_000 -> DateTimeFormatter.ofPattern("h:mm a", locale).format(updated)
+        else -> DateTimeFormatter.ofPattern("MMM d, yyyy", locale).format(updated)
+    }
+}

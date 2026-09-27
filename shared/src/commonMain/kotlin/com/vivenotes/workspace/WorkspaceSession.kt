@@ -37,10 +37,12 @@ import kotlinx.coroutines.launch
 class WorkspaceSession(
     private val store: NotesStore,
     private val scope: CoroutineScope,
-    /** A page's `createdAt` as the page list and the page header show it. */
+    /** A page's `createdAt` as the page header shows it. */
     private val createdLabel: (Long) -> String,
     private val autosaveDelayMillis: Long = AUTOSAVE_DELAY_MILLIS,
-) {
+    /** A page's `updatedAt` as the page list shows it, worked out when its row arrives. */
+    private val updatedLabel: (Long) -> String = { "" },
+) : NavigationActions {
     private val current = MutableStateFlow<WorkspaceState?>(null)
 
     /** Null until storage has been seeded and its notebooks read once. */
@@ -57,6 +59,9 @@ class WorkspaceSession(
     private val deleting = mutableSetOf<String>()
     private var autosave: Job? = null
     private var started = false
+
+    /** A section just created, to open once the tree lists it: storage's flows trail its writes. */
+    private var opening: String? = null
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun start() {
@@ -94,7 +99,7 @@ class WorkspaceSession(
     }
 
     /** Creates a page at the end of the open section, in storage first, and opens it. */
-    fun addPage() {
+    override fun addPage() {
         val sectionId = current.value?.selectedSectionId?.takeIf { it.isNotEmpty() } ?: return
         saveOpenPage()
         enqueue {
@@ -109,7 +114,7 @@ class WorkspaceSession(
      * Renames a notebook, section or page: shown at once, then stored. The open page's title is
      * already stored by [react] as it changes, like typing into the title.
      */
-    fun rename(item: NavigationItem, name: String) {
+    override fun rename(item: NavigationItem, name: String) {
         val state = current.value ?: return
         val trimmed = name.trim()
         if (trimmed.isEmpty() || state.nameOf(item) == null || state.nameOf(item) == trimmed) return
@@ -131,7 +136,7 @@ class WorkspaceSession(
      * from storage. The open page is saved first, as Android does, because storage decides from
      * what it holds whether there was anything worth keeping.
      */
-    fun delete(item: NavigationItem) {
+    override fun delete(item: NavigationItem) {
         val name = current.value?.nameOf(item) ?: return
         saveOpenPage()
         deleting += item.id
@@ -146,6 +151,54 @@ class WorkspaceSession(
             }
             deleting -= item.id
         }
+    }
+
+    /** Folds a notebook open or shut: shown at once, then stored on this device only. */
+    override fun setNotebookExpanded(id: String, expanded: Boolean) {
+        val notebook = current.value?.notebooks?.firstOrNull { it.id == id } ?: return
+        if (notebook.expanded == expanded) return
+        update { it.setNotebookExpanded(id, expanded) }
+        enqueue { attempt("${notebook.name} could not be ${if (expanded) "expanded" else "collapsed"}") {
+            store.setNotebookExpanded(id, expanded)
+        } }
+    }
+
+    /**
+     * Creates a notebook with a [NEW_SECTION_NAME] section in storage, then opens that section once
+     * the tree lists it. Like Android, the new section starts without a page.
+     */
+    override fun createNotebook(name: String) {
+        val named = notebookName(name)
+        enqueue {
+            val sectionId = attempt("$named could not be created") {
+                store.createSection(store.createNotebook(named), NEW_SECTION_NAME)
+            } ?: return@enqueue
+            openWhenListed(sectionId)
+        }
+    }
+
+    /** Creates a section with one page in storage, then opens it once the tree lists it (Android). */
+    override fun createSection(notebookId: String, name: String) {
+        val named = sectionName(name)
+        enqueue {
+            val sectionId = attempt("$named could not be created") {
+                store.createSection(notebookId, named).also { store.createPage(it) }
+            } ?: return@enqueue
+            openWhenListed(sectionId)
+        }
+    }
+
+    /**
+     * Stores a dragged order. The pane keeps showing that order until the tree agrees, so nothing
+     * is changed here first — a tree read in between would only put the old order back meanwhile.
+     */
+    override fun reorderSections(notebookId: String, orderedIds: List<String>) {
+        enqueue { attempt("The sections could not be reordered") { store.reorderSections(notebookId, orderedIds) } }
+    }
+
+    /** Stores a dragged page order; see [reorderSections]. */
+    override fun reorderPages(sectionId: String, orderedIds: List<String>) {
+        enqueue { attempt("The pages could not be reordered") { store.reorderPages(sectionId, orderedIds) } }
     }
 
     /** Writes whatever is still waiting to be saved, and returns once storage has it. */
@@ -255,6 +308,7 @@ class WorkspaceSession(
                 sections = entry.liveSections.filterNot { it.id in deleting }.map { section ->
                     SectionSummary(section.id, section.name, section.colorArgb, known[section.id]?.pages.orEmpty())
                 },
+                expanded = entry.notebook.expanded,
             )
         }
         if (current.value == null) {
@@ -274,6 +328,20 @@ class WorkspaceSession(
                     ?: next.copy(selectedNotebookId = "", selectedSectionId = "", selectedPageId = "")
             }
         }
+        openPendingSection()
+    }
+
+    private fun openWhenListed(sectionId: String) {
+        opening = sectionId
+        // The tree may already have arrived while the store call was finishing.
+        openPendingSection()
+    }
+
+    private fun openPendingSection() {
+        val id = opening ?: return
+        if (current.value?.notebooks?.none { notebook -> notebook.sections.any { it.id == id } } != false) return
+        opening = null
+        update { it.selectSection(id) }
     }
 
     private fun acceptPages(sectionId: String, all: List<PageEntity>) {
@@ -300,6 +368,8 @@ class WorkspaceSession(
         createdLabel = createdLabel(row.createdAt),
         document = cached?.document ?: UNREAD_DOCUMENT,
         content = cached?.content ?: PageContent.Unloaded,
+        updatedAt = row.updatedAt,
+        updatedLabel = updatedLabel(row.updatedAt),
     )
 
     private fun WorkspaceState.withPageAdded(sectionId: String, row: PageEntity): WorkspaceState {

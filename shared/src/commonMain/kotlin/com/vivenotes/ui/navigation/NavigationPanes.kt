@@ -2,30 +2,19 @@ package com.vivenotes.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animate
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,31 +24,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.vivenotes.ui.components.ContextMenu
 import com.vivenotes.ui.components.ContextMenuDivider
 import com.vivenotes.ui.components.ContextMenuItem
 import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.ContextSymbols
+import com.vivenotes.ui.icons.NavigationSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
-import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.theme.LocalDesktopColors
 import com.vivenotes.workspace.NavigationItem
-import com.vivenotes.workspace.NotebookSummary
-import com.vivenotes.workspace.PageSummary
-import com.vivenotes.workspace.SectionSummary
-import com.vivenotes.workspace.WorkspaceState
 
-private val NotebookPaneWidth = 248.dp
-private val PagePaneWidth = 280.dp
-
-/** Semantics identifiers for the navigation panes' menus and dialogs. */
+/** Semantics identifiers for the navigation panes, their menus and dialogs. */
 object NavigationTestTags {
     const val Dialog = "navigation-dialog"
     const val Backdrop = "navigation-dialog-backdrop"
@@ -67,9 +50,16 @@ object NavigationTestTags {
     const val Delete = "navigation-menu-delete"
     const val NameField = "navigation-name-field"
     const val ConfirmRename = "navigation-confirm-rename"
+    const val ConfirmCreate = "navigation-confirm-create"
     const val ConfirmDelete = "navigation-confirm-delete"
     const val Cancel = "navigation-dialog-cancel"
     fun notebook(id: String): String = "navigation-notebook-$id"
+    fun sectionDrag(id: String): String = "navigation-section-drag-$id"
+    fun addSection(notebookId: String): String = "navigation-add-section-$notebookId"
+    const val AddNotebook = "navigation-add-notebook"
+    const val SortPages = "navigation-sort-pages"
+    fun sort(sort: PageSort): String = "navigation-sort-${sort.name}"
+    fun pageDrag(id: String): String = "navigation-page-drag-$id"
     const val SectionTabs = "navigation-section-tabs"
     const val NotebookChooser = "navigation-notebook-chooser"
     fun notebookChoice(id: String): String = "navigation-notebook-choice-$id"
@@ -77,76 +67,15 @@ object NavigationTestTags {
 }
 
 /**
- * The notebooks with the open one's sections. Right-clicking a notebook or section opens its menu;
- * what the menu asks for is carried out through [requests].
- */
-@Composable
-internal fun NotebookPane(
-    state: WorkspaceState,
-    requests: NavigationRequests,
-    onSelectNotebook: (String) -> Unit,
-    onSelectSection: (String) -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .width(NotebookPaneWidth)
-            .fillMaxHeight()
-            .testTag(WorkspaceTestTags.NotebookPane),
-        color = LocalDesktopColors.current.sidebar,
-    ) {
-        Column(Modifier.fillMaxSize()) {
-            Text(
-                text = "Notebooks",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 8.dp),
-            )
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                items(state.notebooks, key = NotebookSummary::id) { notebook ->
-                    WithItemMenu(NavigationItem.Notebook(notebook.id), requests) { menuOpen ->
-                        NotebookRow(
-                            notebook = notebook,
-                            selected = notebook.id == state.selectedNotebookId,
-                            menuOpen = menuOpen,
-                            onClick = { onSelectNotebook(notebook.id) },
-                        )
-                    }
-                    if (notebook.id == state.selectedNotebookId) {
-                        notebook.sections.forEach { section ->
-                            WithItemMenu(NavigationItem.Section(section.id), requests) { menuOpen ->
-                                SectionRow(
-                                    section = section,
-                                    selected = section.id == state.selectedSectionId,
-                                    menuOpen = menuOpen,
-                                    onClick = { onSelectSection(section.id) },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            TextButton(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.padding(10.dp),
-            ) {
-                Text("＋ New notebook")
-            }
-        }
-    }
-}
-
-/**
  * The right-click menu of one notebook, section or page: Rename, then Delete set apart below it.
- * [content] is told while the menu is open, so the row can show whose menu it is.
+ * [content] is told while the menu is open, so the row can show whose menu it is. [modifier] goes on
+ * the outermost layout, which in a lazy list is what may be lifted over its neighbours.
  */
 @Composable
 internal fun WithItemMenu(
     item: NavigationItem,
     requests: NavigationRequests,
+    modifier: Modifier = Modifier,
     content: @Composable (menuOpen: Boolean) -> Unit,
 ) {
     var menuAt by remember(item) { mutableStateOf<Offset?>(null) }
@@ -165,7 +94,7 @@ internal fun WithItemMenu(
         }
         pendingCommand = null
     }
-    Box(Modifier.onSecondaryPress(item) { menuAt = it }) {
+    Box(modifier.onSecondaryPress(item) { menuAt = it }) {
         content(menuAt != null)
         ContextMenu(anchor = menuAt, onDismiss = { menuAt = null }) {
             ContextMenuItem(
@@ -194,180 +123,73 @@ internal fun WithItemMenu(
 
 private enum class NavigationCommand { Rename, Delete }
 
-/** The container a row shows: its selection, else a quieter one while its menu is open. */
+/**
+ * A row's background: raised while it is open or being dragged — a dragged row is drawn over its
+ * neighbours, so it cannot stay transparent — a quieter tone while its menu is open, else none.
+ */
 @Composable
-private fun rowContainer(selected: Color, menuOpen: Boolean, isSelected: Boolean): Color {
+internal fun rowContainer(selected: Boolean, dragging: Boolean, menuOpen: Boolean): Color {
     val target = when {
-        isSelected -> selected
+        selected || dragging -> LocalDesktopColors.current.selection
         menuOpen -> MaterialTheme.colorScheme.surfaceContainerHigh
         else -> Color.Transparent
     }
     return animateColorAsState(target, MaterialTheme.motionScheme.defaultEffectsSpec()).value
 }
 
+/** Android's row corner in both panes. */
+internal val RowShape = RoundedCornerShape(4.dp)
+
+/**
+ * The grip in a reorderable row, shared so the two panes cannot drift apart. The glyph is smaller
+ * than the area that grabs it, so it reads as texture rather than as one more button.
+ *
+ * Its alt text stays its own rather than merging into the row's: the row is the button that opens
+ * the page or section, and its name is what it should be announced by.
+ */
 @Composable
-private fun NotebookRow(
-    notebook: NotebookSummary,
-    selected: Boolean,
-    menuOpen: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        color = rowContainer(LocalDesktopColors.current.selection, menuOpen, selected),
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier.padding(horizontal = 8.dp).testTag(NavigationTestTags.notebook(notebook.id)),
+internal fun DragHandle(description: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(HandleArea)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .semantics(mergeDescendants = true) { contentDescription = description },
+        contentAlignment = Alignment.Center,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().height(42.dp).padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(Color(notebook.colorArgb)))
-            Text(notebook.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(if (selected) "⌄" else "›", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Icon(
+            imageVector = NavigationSymbols.DragIndicator,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(HandleGlyph),
+        )
     }
 }
 
+private val HandleArea = 20.dp
+private val HandleGlyph = 15.dp
+
+/** "+ New Section" and "+ New Notebook": a quiet row rather than a button, as on Android. */
 @Composable
-private fun SectionRow(
-    section: SectionSummary,
-    selected: Boolean,
-    menuOpen: Boolean,
-    onClick: () -> Unit,
-) {
+internal fun AddRow(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier
-            .padding(horizontal = 8.dp)
-            .testTag(WorkspaceTestTags.section(section.id))
-            .clip(MaterialTheme.shapes.small)
-            .background(rowContainer(LocalDesktopColors.current.selection, menuOpen, selected))
+        modifier = modifier
+            .fillMaxWidth()
             .clickable(onClick = onClick)
-            .fillMaxWidth()
-            .height(36.dp)
-            .padding(start = 28.dp, end = 10.dp),
+            .padding(start = 28.dp, end = 10.dp)
+            .height(32.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(
-            Modifier
-                .width(4.dp)
-                .height(20.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(Color(section.colorArgb)),
+        Icon(
+            imageVector = NavigationSymbols.Add,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
         )
+        Spacer(Modifier.width(8.dp))
         Text(
-            text = section.name,
+            text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-/** The open section's pages. Right-clicking a page opens its menu, carried out through [requests]. */
-@Composable
-internal fun PageListPane(
-    section: SectionSummary?,
-    selectedPageId: String,
-    requests: NavigationRequests,
-    onAddPage: () -> Unit,
-    onSelectPage: (String) -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .width(PagePaneWidth)
-            .fillMaxHeight()
-            .testTag(WorkspaceTestTags.PagePane),
-        color = LocalDesktopColors.current.sidebar,
-    ) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = section?.name ?: "No section",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = "${section?.pages?.size ?: 0} pages",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Button(
-                    onClick = onAddPage,
-                    enabled = section != null,
-                    shape = MaterialTheme.shapes.small,
-                    contentPadding = ButtonDefaults.ContentPadding,
-                    modifier = Modifier.testTag(WorkspaceTestTags.AddPage),
-                ) {
-                    Text("＋ Page")
-                }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                items(section?.pages.orEmpty(), key = PageSummary::id) { page ->
-                    WithItemMenu(NavigationItem.Page(page.id), requests) { menuOpen ->
-                        PageRow(
-                            page = page,
-                            selected = page.id == selectedPageId,
-                            menuOpen = menuOpen,
-                            onClick = { onSelectPage(page.id) },
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PageRow(
-    page: PageSummary,
-    selected: Boolean,
-    menuOpen: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        color = rowContainer(LocalDesktopColors.current.selection, menuOpen, selected),
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(WorkspaceTestTags.page(page.id)),
-    ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
-            Text(
-                text = page.title.ifBlank { UntitledPage },
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = page.preview,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = page.createdLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }

@@ -44,6 +44,10 @@ data class PageSummary(
     val createdLabel: String,
     val document: PageDoc,
     val content: PageContent = PageContent.Loaded,
+    /** When the page last changed in storage — what the page list's "By date modified" sorts on. */
+    val updatedAt: Long = 0L,
+    /** [updatedAt] as the page list shows it: "Just now", "5 min ago", a time, or a date. */
+    val updatedLabel: String = "",
 ) {
     val body: String get() = document.outlines.filterIsInstance<Outline.Text>()
         .firstOrNull()?.blocks?.joinToString("\n") { it.text }.orEmpty()
@@ -84,6 +88,8 @@ data class NotebookSummary(
     val name: String,
     val colorArgb: Int,
     val sections: List<SectionSummary>,
+    /** Whether the notebook pane lists its sections under it (Android's rail disclosure). */
+    val expanded: Boolean = true,
 )
 
 /**
@@ -602,6 +608,7 @@ data class WorkspaceState(
             preview = "Start writing…",
             createdLabel = "Just now",
             document = textDocument(""),
+            updatedLabel = "Just now",
         )
         return updateSection(section.id) { it.copy(pages = it.pages + page) }
             .copy(selectedPageId = id, editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null)
@@ -656,6 +663,8 @@ data class WorkspaceState(
                                 title = "Lecture notes",
                                 preview = "The basic idea of integral calculus is…",
                                 createdLabel = "Today, 9:20 AM",
+                                updatedAt = 3L,
+                                updatedLabel = "Today, 9:20 AM",
                                 document = textDocument("The basic idea of integral calculus is to calculate area by adding increasingly small pieces."),
                             ),
                             PageSummary(
@@ -663,6 +672,8 @@ data class WorkspaceState(
                                 title = "Homework 1",
                                 preview = "Review limits and derivatives before Friday.",
                                 createdLabel = "Today, 10:45 AM",
+                                updatedAt = 4L,
+                                updatedLabel = "Today, 10:45 AM",
                                 document = textDocument("Review limits and derivatives before Friday.\n\nUse this space to continue the note. Changes in this first skeleton are kept in memory only."),
                             ),
                         ),
@@ -677,6 +688,8 @@ data class WorkspaceState(
                                 title = "Sequences",
                                 preview = "Convergence, bounds, and worked examples.",
                                 createdLabel = "Yesterday",
+                                updatedAt = 2L,
+                                updatedLabel = "Yesterday",
                                 document = textDocument("Convergence, bounds, and worked examples."),
                             ),
                         ),
@@ -698,11 +711,15 @@ data class WorkspaceState(
                                 title = "Meiosis",
                                 preview = "Anaphase I and cytokinesis.",
                                 createdLabel = "Monday",
+                                updatedAt = 1L,
+                                updatedLabel = "Monday",
                                 document = textDocument("Anaphase I\n\nHomologous chromosomes separate and move to opposite poles."),
                             ),
                         ),
                     ),
                 ),
+                // One notebook folded shut, so the sample shows both states of the pane's disclosure.
+                expanded = false,
             )
             return WorkspaceState(
                 notebooks = listOf(calculus, biology),
