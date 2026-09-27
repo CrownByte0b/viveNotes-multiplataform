@@ -6,6 +6,7 @@ import com.vivenotes.data.PictureLibrary
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
+import com.vivenotes.workspace.ViewSettings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -22,6 +23,7 @@ import java.awt.Frame
 import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * This process's notes, from launch to the last window closing: the library in the platform data
@@ -36,6 +38,7 @@ internal class DesktopNotes(
     private val scope: CoroutineScope,
     private val maintenanceInterval: Duration = 24.hours,
     private val interfaceStore: InterfaceSettingsFile? = null,
+    private val viewStore: ViewSettingsFile? = null,
 ) {
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated)
@@ -46,6 +49,26 @@ internal class DesktopNotes(
         val value = settings.normalized()
         interfaceStore?.save(value)
         interfaceSettings = value
+    }
+
+    var viewSettings by mutableStateOf(viewStore?.load() ?: ViewSettings())
+        private set
+    private var viewSave: Job? = null
+
+    /**
+     * Shown at once, written [VIEW_SAVE_DELAY] later: Ctrl+wheel reports a zoom per notch, and one
+     * gesture should be one write. [close] writes one still pending.
+     */
+    fun updateViewSettings(settings: ViewSettings) {
+        val value = settings.normalized()
+        if (value == viewSettings) return
+        viewSettings = value
+        val store = viewStore ?: return
+        viewSave?.cancel()
+        viewSave = scope.launch {
+            delay(VIEW_SAVE_DELAY)
+            store.save(value)
+        }
     }
     private var maintenance: Job? = null
 
@@ -74,6 +97,10 @@ internal class DesktopNotes(
         if (closing != null) return
         closing = scope.launch {
             try {
+                if (viewSave?.isActive == true) {
+                    viewSave?.cancel()
+                    viewStore?.save(viewSettings)
+                }
                 session.flush()
             } finally {
                 sessionJob.cancel()
@@ -85,8 +112,11 @@ internal class DesktopNotes(
     }
 
     companion object {
+        val VIEW_SAVE_DELAY = 500.milliseconds
+
         fun open(directory: File = AppDirectories.data()): DesktopNotes =
             DesktopNotes(NotesLibrary.open(directory), MainScope(),
-                interfaceStore = InterfaceSettingsFile(File(AppDirectories.config(), "interface.properties")))
+                interfaceStore = InterfaceSettingsFile(File(AppDirectories.config(), "interface.properties")),
+                viewStore = ViewSettingsFile(File(AppDirectories.config(), "view.properties")))
     }
 }

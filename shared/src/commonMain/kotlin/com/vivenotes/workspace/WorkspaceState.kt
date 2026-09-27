@@ -55,10 +55,13 @@ data class PageSummary(
 private fun PageSummary.withDocument(next: PageDoc): PageSummary =
     copy(document = next, preview = pagePreview(next))
 
-/** Structural history changes containers, while edits made later to surviving text stay intact. */
+/**
+ * Structural history changes containers, while edits made later to surviving text stay intact. The
+ * page's style is not structural either: undoing a move must not also undo a ruling chosen since.
+ */
 private fun PageDoc.withCurrentTextFrom(current: PageDoc): PageDoc {
     val liveBlocks = current.outlines.filterIsInstance<Outline.Text>().associate { it.id to it.blocks }
-    return copy(outlines = outlines.map { outline ->
+    return copy(style = current.style, outlines = outlines.map { outline ->
         if (outline is Outline.Text) outline.copy(blocks = liveBlocks[outline.id] ?: outline.blocks)
         else outline
     })
@@ -207,7 +210,7 @@ data class WorkspaceState(
 
     fun createTextBox(x: Float, y: Float): WorkspaceState {
         val page = editablePage
-        if (!textToolArmed || page == null || y < PageStyle.TITLE_BAND_DP) return this
+        if (!textToolArmed || page == null || y < page.document.style.titleFloor) return this
         val outline = Outline.Text.empty(y = y).copy(x = x.coerceAtLeast(0f))
         val removedIds = page.document.outlines.filterIsInstance<Outline.Text>()
             .filter { it.isUnwritten() }.map { it.id }.toSet()
@@ -480,6 +483,17 @@ data class WorkspaceState(
         return withBody.updatePage(selectedPageId) { it.copy(title = title) }
     }
 
+    /**
+     * Changes the open page's appearance — the View tab's page controls. Part of the document, so
+     * it autosaves like typing; not structural history, so Undo leaves it alone.
+     */
+    fun updatePageStyle(transform: (PageStyle) -> PageStyle): WorkspaceState {
+        val page = editablePage ?: return this
+        val next = transform(page.document.style)
+        if (next == page.document.style) return this
+        return updatePage(page.id) { it.withDocument(it.document.copy(style = next)) }
+    }
+
     fun selectText(selection: TextSelection): WorkspaceState {
         val next = richText?.select(selection) ?: return this
         return copy(editorSelection = next.selection, typingMarks = next.typingMarks)
@@ -552,7 +566,7 @@ data class WorkspaceState(
         val page = editablePage?.takeIf { it.id == pageId } ?: return this
         val aspect = if (picture.pixelWidth > 0) picture.pixelHeight.toFloat() / picture.pixelWidth else 1f
         val width = Outline.Image.DEFAULT_WIDTH
-        val titleFloor = if (page.document.style.hideTitle) 0f else PageStyle.TITLE_BAND_DP
+        val titleFloor = page.document.style.titleFloor
         val image = Outline.Image(
             id = newId(),
             x = (viewLeft + PICTURE_INSERT_MARGIN).coerceAtLeast(0f),

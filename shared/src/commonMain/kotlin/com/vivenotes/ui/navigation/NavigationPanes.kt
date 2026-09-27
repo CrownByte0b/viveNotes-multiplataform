@@ -70,6 +70,10 @@ object NavigationTestTags {
     const val ConfirmDelete = "navigation-confirm-delete"
     const val Cancel = "navigation-dialog-cancel"
     fun notebook(id: String): String = "navigation-notebook-$id"
+    const val SectionTabs = "navigation-section-tabs"
+    const val NotebookChooser = "navigation-notebook-chooser"
+    fun notebookChoice(id: String): String = "navigation-notebook-choice-$id"
+    fun sectionTab(id: String): String = "navigation-section-tab-$id"
 }
 
 /**
@@ -140,7 +144,7 @@ internal fun NotebookPane(
  * [content] is told while the menu is open, so the row can show whose menu it is.
  */
 @Composable
-private fun WithItemMenu(
+internal fun WithItemMenu(
     item: NavigationItem,
     requests: NavigationRequests,
     content: @Composable (menuOpen: Boolean) -> Unit,

@@ -3,6 +3,10 @@ package com.vivenotes.ui.ribbon
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.Role
+import com.vivenotes.ui.icons.DocumentSymbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -95,6 +99,43 @@ internal fun RibbonIcon(
             tint = if (twoTone) Color.Unspecified else if (selected) colors.onSurface else colors.onSurfaceVariant,
             modifier = Modifier.size(18.dp),
         )
+    }
+}
+
+/**
+ * A ribbon command that names itself: icon, label and, for a menu, a drop-down arrow. Its label is
+ * on screen, so it needs no tooltip. [active] marks a setting that is on.
+ */
+@Composable
+internal fun RibbonCommand(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    active: Boolean = false,
+    enabled: Boolean = true,
+    dropdown: Boolean = false,
+    icon: @Composable () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier
+            .height(36.dp)
+            .clip(MaterialTheme.shapes.small)
+            .background(if (active) LocalDesktopColors.current.selection else Color.Transparent)
+            .clickable(enabled = enabled, role = if (dropdown) Role.DropdownList else Role.Button, onClick = onClick)
+            .semantics { this.selected = active }
+            .alpha(if (enabled) 1f else 0.42f)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        icon()
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+            color = colors.onSurface)
+        if (dropdown) {
+            Icon(DocumentSymbols.ArrowDropDown, contentDescription = null, tint = colors.onSurfaceVariant,
+                modifier = Modifier.size(16.dp))
+        }
     }
 }
 

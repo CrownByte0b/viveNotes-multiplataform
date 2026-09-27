@@ -33,13 +33,34 @@ class CanvasViewportTest {
             (after.scrollY + 200f) / after.zoom, 0.001f)
     }
 
+    /** The wheel reaches the View tab's whole range, Android's 5% overview included. */
     @Test
     fun wheelZoomClampsAndReportsPercent() {
         var viewport = CanvasViewport()
         repeat(20) { viewport = viewport.wheel(-1000f, 0f, 0f) }
         assertEquals(400, viewport.percent)
-        repeat(20) { viewport = viewport.wheel(1000f, 0f, 0f) }
-        assertEquals(25, viewport.percent)
+        repeat(40) { viewport = viewport.wheel(1000f, 0f, 0f) }
+        assertEquals(5, viewport.percent)
         assertEquals(viewport, viewport.wheel(Float.NaN, 20f, 20f))
+    }
+
+    @Test
+    fun ribbonZoomKeepsTheAnchoredPagePointStill() {
+        val before = CanvasViewport(1f, 300f, 200f)
+        val after = before.zoomTo(2f, 400f, 250f)
+
+        assertEquals(2f, after.zoom)
+        assertEquals((before.scrollX + 400f) / before.zoom, (after.scrollX + 400f) / after.zoom, 0.001f)
+        assertEquals((before.scrollY + 250f) / before.zoom, (after.scrollY + 250f) / after.zoom, 0.001f)
+    }
+
+    @Test
+    fun ribbonZoomClampsToTheViewRangeAndNeverScrollsBeforeTheOrigin() {
+        assertEquals(ViewSettings.MAX_ZOOM, CanvasViewport().zoomTo(10f, 0f, 0f).zoom)
+        assertEquals(ViewSettings.MIN_ZOOM, CanvasViewport().zoomTo(0.001f, 0f, 0f).zoom)
+        val zoomedOut = CanvasViewport(1f, 0f, 0f).zoomTo(0.5f, 400f, 300f)
+        assertEquals(0f, zoomedOut.scrollX)
+        assertEquals(0f, zoomedOut.scrollY)
+        assertEquals(CanvasViewport(), CanvasViewport().zoomTo(Float.NaN, 0f, 0f))
     }
 }

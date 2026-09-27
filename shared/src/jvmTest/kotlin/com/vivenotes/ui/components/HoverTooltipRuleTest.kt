@@ -31,6 +31,7 @@ import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
 import com.vivenotes.ui.ribbon.document.DocumentRibbonTags
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
+import com.vivenotes.ui.ribbon.view.ViewRibbonTags
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.theme.ViveNotesTheme
@@ -115,6 +116,20 @@ class HoverTooltipRuleTest {
 
             onNodeWithTag(WorkspaceTestTags.ObjectColor).performClick()
             assertTrue("Purple" in hoverEveryControl(inMenu = true), "the object colour swatches were not checked")
+        }
+
+    @Test
+    fun viewTabIconControlsAndPageColoursShowTheirAltTextOnHover() =
+        runDesktopComposeUiTest(width = 2000, height = 900) {
+            setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.View))
+            onNodeWithTag(ViewRibbonTags.PaperSize).performClick()
+            val labels = hoverEveryControl()
+            listOf("Zoom level", "Zoom in", "Zoom out", "Close Paper Size")
+                .forEach { assertTrue(it in labels, "no control labelled \"$it\" was checked: $labels") }
+
+            onNodeWithTag(ViewRibbonTags.PageColor).performClick()
+            val swatches = hoverEveryControl(inMenu = true)
+            listOf("Cream", "Navy", "Plum").forEach { assertTrue(it in swatches, "no swatch \"$it\": $swatches") }
         }
 
     @Test

@@ -22,6 +22,7 @@ import com.vivenotes.data.PictureLibrary
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ViveNotesTheme
+import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.WorkspaceState
 
@@ -41,6 +42,8 @@ fun App(
     pictures: PictureLibrary? = null,
     interfaceSettings: InterfaceSettings = InterfaceSettings(),
     onInterfaceSettingsChange: (InterfaceSettings) -> Unit = {},
+    viewSettings: ViewSettings = ViewSettings(),
+    onViewSettingsChange: (ViewSettings) -> Unit = {},
 ) {
     val state by session.state.collectAsState()
     ViveNotesTheme {
@@ -57,7 +60,8 @@ fun App(
         } else {
             WorkspaceScreen(state = workspace, onStateChange = session::update, onAddPage = session::addPage,
                 onRename = session::rename, onDelete = session::delete, pictures = pictures,
-                interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange)
+                interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange,
+                viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange)
         }
     }
 }

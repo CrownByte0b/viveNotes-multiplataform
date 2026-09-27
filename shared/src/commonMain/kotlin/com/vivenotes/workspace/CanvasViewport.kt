@@ -26,12 +26,22 @@ data class CanvasViewport(val zoom: Float = 1f, val scrollX: Float = 0f, val scr
     /** Keep the page point under the cursor still as a wheel step changes scale. */
     fun wheel(deltaY: Float, cursorX: Float, cursorY: Float): CanvasViewport {
         if (!deltaY.isFinite() || deltaY == 0f) return this
-        val next = (zoom * 1.1f.pow((-deltaY).coerceIn(-4f, 4f))).coerceIn(0.25f, 4f)
-        val ratio = next / zoom
+        return zoomTo(zoom * 1.1f.pow((-deltaY).coerceIn(-4f, 4f)), cursorX, cursorY)
+    }
+
+    /**
+     * Scales to [next], clamped to the View tab's range, keeping the page point at view pixel
+     * ([anchorX], [anchorY]) where it is. The ribbon anchors at the window's centre, the wheel at
+     * the cursor.
+     */
+    fun zoomTo(next: Float, anchorX: Float, anchorY: Float): CanvasViewport {
+        if (!next.isFinite() || !anchorX.isFinite() || !anchorY.isFinite()) return this
+        val clamped = next.coerceIn(ViewSettings.MIN_ZOOM, ViewSettings.MAX_ZOOM)
+        val ratio = clamped / zoom
         return CanvasViewport(
-            zoom = next,
-            scrollX = ((scrollX + cursorX) * ratio - cursorX).coerceAtLeast(0f),
-            scrollY = ((scrollY + cursorY) * ratio - cursorY).coerceAtLeast(0f),
+            zoom = clamped,
+            scrollX = ((scrollX + anchorX) * ratio - anchorX).coerceAtLeast(0f),
+            scrollY = ((scrollY + anchorY) * ratio - anchorY).coerceAtLeast(0f),
         )
     }
 }

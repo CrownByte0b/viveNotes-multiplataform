@@ -68,7 +68,7 @@ private fun launchStandardWindow(notes: DesktopNotes) {
                     540.coerceAtMost(monitor.workArea.height))
             }
             App(notes.session, remember(window) { notes.pictures(window) }, notes.interfaceSettings,
-                notes::updateInterfaceSettings)
+                notes::updateInterfaceSettings, notes.viewSettings, notes::updateViewSettings)
         }
     }
 }

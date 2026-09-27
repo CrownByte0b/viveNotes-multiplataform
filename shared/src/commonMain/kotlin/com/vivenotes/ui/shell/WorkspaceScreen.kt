@@ -32,7 +32,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -100,7 +99,6 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.withFrameNanos
 import kotlin.math.roundToInt
 import com.vivenotes.workspace.CanvasViewport
@@ -149,7 +147,17 @@ import com.vivenotes.ui.ribbon.file.FileRibbon
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
-import com.vivenotes.ui.ribbon.view.ViewRibbon
+import com.vivenotes.ui.ribbon.view.PaperSizePane
+import com.vivenotes.ui.ribbon.view.ViewTab
+import com.vivenotes.ui.ribbon.view.viewActions
+import com.vivenotes.ui.canvas.PageExtent
+import com.vivenotes.ui.canvas.documentExtent
+import com.vivenotes.ui.navigation.SectionTabsBar
+import com.vivenotes.workspace.TabsLayout
+import com.vivenotes.workspace.ViewSettings
+import com.vivenotes.workspace.titleFloor
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.DpSize
 import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.ui.canvas.TextContextMenu
 import com.vivenotes.ui.canvas.TextMenuRequest
@@ -181,6 +189,12 @@ object WorkspaceTestTags {
     const val PagePane = "workspace-page-pane"
     const val PageCanvas = "workspace-page-canvas"
     const val CanvasBackground = "workspace-canvas-background"
+    /** Everything that can be scrolled to; on an infinite page it grows as it is scrolled. */
+    const val CanvasExtent = "workspace-canvas-extent"
+    /** The sheet while it holds all the content and so is the page's edge. */
+    const val PageSheet = "workspace-page-sheet"
+    /** The dashed outline of a sheet the content has outgrown. */
+    const val SheetGuide = "workspace-sheet-guide"
     const val ZoomIndicator = "workspace-zoom-indicator"
     const val AddPage = "workspace-add-page"
     const val TitleEditor = "workspace-title-editor"
@@ -228,8 +242,13 @@ fun WorkspaceScreen(
     // Standalone workspace callers retain the unscaled layout; App supplies the user's default.
     interfaceSettings: InterfaceSettings = InterfaceSettings(displayScale = 1f),
     onInterfaceSettingsChange: (InterfaceSettings) -> Unit = {},
+    /** This device's View settings — zoom, tabs layout, canvas brightness — and where changes go. */
+    viewSettings: ViewSettings = ViewSettings(),
+    onViewSettingsChange: (ViewSettings) -> Unit = {},
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
+    // Held here as well, so a caller that does not keep the settings still sees its changes.
+    var view by remember(viewSettings) { mutableStateOf(viewSettings.normalized()) }
     val baseDensity = LocalDensity.current
     val effectiveSettings = previewSettings ?: interfaceSettings
     val pageDensity = effectiveSettings.documentDensity(baseDensity)
@@ -239,7 +258,11 @@ fun WorkspaceScreen(
             LocalPopupLayerDensity provides baseDensity,
         ) {
             WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), onAddPage, onRename, onDelete, pictures,
-                onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity)
+                onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
+                view = view, onViewChange = { next ->
+                    view = next
+                    onViewSettingsChange(next)
+                })
         }
         previewSettings?.let { draft ->
             InterfaceDialog(
@@ -266,8 +289,21 @@ private fun WorkspaceContent(
     pictures: PictureLibrary?,
     onInterface: () -> Unit,
     pageDensity: Density,
+    view: ViewSettings,
+    onViewChange: (ViewSettings) -> Unit,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
+    val canvasControl = remember { CanvasViewControl() }
+    var paperPaneOpen by remember { mutableStateOf(false) }
+    val currentView by rememberUpdatedState(view)
+    val currentOnViewChange by rememberUpdatedState(onViewChange)
+    val viewActions = remember(onStateChange) {
+        viewActions(onStateChange, { currentView }, { currentOnViewChange(it) }, canvasControl,
+            onTogglePaperSizePane = { paperPaneOpen = !paperPaneOpen })
+    }
+    // Switch Background pins the canvas light or dark; until it is used it follows the theme.
+    val canvasDark = view.canvasDark ?: (MaterialTheme.colorScheme.background.luminance() < 0.45f)
+    val horizontalTabs = view.tabsLayout == TabsLayout.Horizontal
     val documentColorSelection = remember { DocumentColorSelection() }
     val editorFocusRequester = remember { FocusRequester() }
     val canvasFocusRequester = remember { FocusRequester() }
@@ -326,14 +362,23 @@ private fun WorkspaceContent(
             RibbonTab.Draw -> DrawRibbon(state, onStateChange)
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
                 { canvasOrigin.read() }, documentColorSelection)
-            RibbonTab.View -> ViewRibbon()
+            RibbonTab.View -> ViewTab(state, view, canvasDark, viewActions)
             RibbonTab.Settings -> SettingsRibbon(onInterface)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        // Horizontal Tabs Layout: the notebook pane's selection as a strip of section tabs.
+        if (horizontalTabs && state.navigationVisible) {
+            SectionTabsBar(
+                state = state,
+                requests = navigationRequests,
+                onSelectNotebook = { id -> onStateChange { it.selectNotebook(id) } },
+                onSelectSection = { id -> onStateChange { it.selectSection(id) } },
+            )
+        }
         StorageErrorBanner(state.storageError)
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val showNotebookPane = maxWidth >= 1040.dp && state.navigationVisible
+            val showNotebookPane = maxWidth >= 1040.dp && state.navigationVisible && !horizontalTabs
             val showPagePane = maxWidth >= 760.dp
             val paneMotion = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
 
@@ -378,6 +423,11 @@ private fun WorkspaceContent(
                     state = state,
                     pictures = pictures,
                     canvasOrigin = canvasOrigin,
+                    canvasControl = canvasControl,
+                    zoom = view.zoom,
+                    onZoomChange = { zoom -> currentOnViewChange(currentView.copy(zoom = zoom).normalized()) },
+                    canvasDark = canvasDark,
+                    showMargins = paperPaneOpen,
                     editorFocusRequester = editorFocusRequester,
                     canvasFocusRequester = canvasFocusRequester,
                     modifier = Modifier.weight(1f),
@@ -434,6 +484,19 @@ private fun WorkspaceContent(
                     },
                 )
                 }
+                if (paperPaneOpen) {
+                    VerticalDivider(
+                        modifier = Modifier.fillMaxHeight(),
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                    val page = state.selectedPage?.takeIf { it.editable }
+                    PaperSizePane(
+                        style = page?.document?.style ?: PageStyle(),
+                        enabled = page != null,
+                        actions = viewActions,
+                        onClose = { paperPaneOpen = false },
+                    )
+                }
             }
         }
     }
@@ -446,6 +509,11 @@ private fun PageCanvas(
     state: WorkspaceState,
     pictures: PictureLibrary?,
     canvasOrigin: CanvasOrigin,
+    canvasControl: CanvasViewControl,
+    zoom: Float,
+    onZoomChange: (Float) -> Unit,
+    canvasDark: Boolean,
+    showMargins: Boolean,
     editorFocusRequester: FocusRequester,
     canvasFocusRequester: FocusRequester,
     onTitleChange: (String) -> Unit,
@@ -485,10 +553,14 @@ private fun PageCanvas(
     )
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
-    val shellDark = MaterialTheme.colorScheme.background.luminance() < 0.45f
     val horizontalScroll = rememberScrollState()
     val verticalScroll = rememberScrollState()
-    var zoom by remember(page?.id) { mutableFloatStateOf(1f) }
+    // Zoom is this device's View setting, kept across pages; read through this in pointer handlers,
+    // which outlive the composition that created them.
+    val zoomState = rememberUpdatedState(zoom)
+    val currentZoomChange by rememberUpdatedState(onZoomChange)
+    val zoomTracking = remember { ZoomTracking(zoom) }
+    var viewportPx by remember { mutableStateOf(IntSize.Zero) }
     var pendingViewport by remember(page?.id) { mutableStateOf<CanvasViewport?>(null) }
     var pastePoint by remember(page?.id) { mutableStateOf<Offset?>(null) }
     var lasso by remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
@@ -509,11 +581,45 @@ private fun PageCanvas(
     var textMenu by remember(page?.id) { mutableStateOf<TextMenuRequest?>(null) }
 
     LaunchedEffect(zoom) {
-        val requested = pendingViewport ?: return@LaunchedEffect
+        val previous = zoomTracking.applied
+        zoomTracking.applied = zoom
+        // The wheel asks for its own cursor-anchored scroll. A change from the ribbon keeps the
+        // middle of the window still, except on an axis scrolled to its start, whose page edge
+        // stays in view — zooming at the top of a page must not scroll its title away. Page Width
+        // also brings the page's left edge to the window's.
+        val requested = pendingViewport?.takeIf { it.zoom == zoom } ?: if (previous == zoom) null else {
+            val alignLeft = canvasControl.alignLeftOnNextZoom
+            val scrollX = horizontalScroll.value.toFloat()
+            val scrollY = verticalScroll.value.toFloat()
+            val anchored = CanvasViewport(previous, scrollX, scrollY).zoomTo(zoom,
+                if (alignLeft || scrollX == 0f) 0f else viewportPx.width / 2f,
+                if (scrollY == 0f) 0f else viewportPx.height / 2f)
+            if (alignLeft) anchored.copy(scrollX = 0f) else anchored
+        }
+        canvasControl.alignLeftOnNextZoom = false
+        requested ?: return@LaunchedEffect
         withFrameNanos { }
         horizontalScroll.scrollTo(requested.scrollX.roundToInt())
         verticalScroll.scrollTo(requested.scrollY.roundToInt())
-        pendingViewport = null
+        if (pendingViewport == requested) pendingViewport = null
+    }
+
+    // How far the canvas has been extended to meet the user, in whole screenfuls: a high-water
+    // mark, so scrolling back never shrinks the canvas from under the scroll position, and quantised
+    // so it changes about once a screenful rather than once a frame.
+    var reachedX by remember(page?.id) { mutableIntStateOf(0) }
+    var reachedY by remember(page?.id) { mutableIntStateOf(0) }
+    LaunchedEffect(page?.id, viewportPx, zoom) {
+        snapshotFlow {
+            val across = viewportPx.width / zoom
+            val down = viewportPx.height / zoom
+            val x = if (across > 0f) ((horizontalScroll.value / zoom + across) / across).toInt() else 0
+            val y = if (down > 0f) ((verticalScroll.value / zoom + down) / down).toInt() else 0
+            x to y
+        }.collect { (x, y) ->
+            if (x > reachedX) reachedX = x
+            if (y > reachedY) reachedY = y
+        }
     }
 
     LaunchedEffect(page?.id, panActive) {
@@ -530,7 +636,7 @@ private fun PageCanvas(
             val elapsed = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, 0.05f)
             previousFrame = frame
             val offset = panPointer - panAnchor
-            val before = CanvasViewport(zoom,
+            val before = CanvasViewport(zoomState.value,
                 horizontalScroll.value.toFloat(), verticalScroll.value.toFloat())
             val next = before.autoScrollBy(offset.x, offset.y, elapsed,
                 horizontalScroll.maxValue.toFloat(), verticalScroll.maxValue.toFloat())
@@ -541,11 +647,29 @@ private fun PageCanvas(
 
     fun toPage(point: Offset): Offset = with(density) {
         Offset(
-            ((point.x + horizontalScroll.value) / zoom).toDp().value,
-            ((point.y + verticalScroll.value) / zoom).toDp().value,
+            ((point.x + horizontalScroll.value) / zoomState.value).toDp().value,
+            ((point.y + verticalScroll.value) / zoomState.value).toDp().value,
         )
     }
     SideEffect { canvasOrigin.read = { toPage(Offset.Zero) } }
+
+    // The page's size and edge, from everything on it: whether a chosen sheet still holds the
+    // content decides whether it bounds the page or is only drawn as a guide.
+    val extent = page?.document?.let { document ->
+        PageExtent.of(
+            document.style,
+            contentRight = document.outlines.maxOfOrNull { it.x + it.width } ?: 0f,
+            contentBottom = document.outlines.maxOfOrNull { outline ->
+                outline.y + if (outline is Outline.Text) measuredTextHeights[outline.id]
+                    ?: maxOf(150f, outline.minHeight) else outline.primeHeight()
+            } ?: 0f,
+        )
+    }
+    val currentExtent by rememberUpdatedState(extent)
+    SideEffect {
+        canvasControl.viewportWidthDp = viewportPx.width / density.density
+        canvasControl.pageWidthDp = extent?.page?.width?.value ?: 0f
+    }
 
     fun hitsContent(point: Offset, snapshot: WorkspaceState): Boolean =
         snapshot.selectedPage?.document?.outlines?.any { outline ->
@@ -577,6 +701,7 @@ private fun PageCanvas(
     Box(
         modifier
             .testTag(WorkspaceTestTags.PageCanvas)
+            .onSizeChanged { viewportPx = it }
             .background(MaterialTheme.colorScheme.background)
             .drawWithContent {
                 drawContent()
@@ -611,12 +736,12 @@ private fun PageCanvas(
                             val change = event.changes.firstOrNull() ?: continue
                             val delta = if (change.scrollDelta.y != 0f) change.scrollDelta.y
                                 else change.scrollDelta.x
-                            val base = pendingViewport ?: CanvasViewport(zoom,
+                            val base = pendingViewport ?: CanvasViewport(zoomState.value,
                                 horizontalScroll.value.toFloat(), verticalScroll.value.toFloat())
                             val next = base.wheel(delta, change.position.x, change.position.y)
-                            if (next.zoom != zoom) {
-                                zoom = next.zoom
+                            if (next.zoom != base.zoom) {
                                 pendingViewport = next
+                                currentZoomChange(next.zoom)
                             }
                             event.changes.forEach { it.consume() }
                         }
@@ -653,9 +778,10 @@ private fun PageCanvas(
                         return@awaitEachGesture
                     }
                     val start = toPage(down.position)
+                    val titleFloor = currentState.selectedPage?.document?.style?.titleFloor ?: PageStyle.TITLE_BAND_DP
                     val marquee = !hitsSelectedTransform(start, currentState) &&
                         (currentState.objectLassoArmed ||
-                        (!currentState.textToolArmed && start.y >= PageStyle.TITLE_BAND_DP &&
+                        (!currentState.textToolArmed && start.y >= titleFloor &&
                             !hitsContent(start, currentState)))
                     var last = down
                     do {
@@ -687,17 +813,20 @@ private fun PageCanvas(
                         val point = toPage(last.position)
                         val x = point.x
                         val y = point.y
-                        if (!handled && !hitsContent(point, currentState) && y >= PageStyle.TITLE_BAND_DP) {
+                        if (!handled && !hitsContent(point, currentState) && y >= titleFloor) {
                             focusManager.clearFocus()
                             canvasFocusRequester.requestFocus()
-                            val isDouble = !currentState.canvasClipboard.isEmpty &&
+                            // Beside a sheet that bounds the page there is nowhere to put anything.
+                            val style = currentState.selectedPage?.document?.style
+                            val placeable = style != null && currentExtent?.canPlaceAt(style, x, y) == true
+                            val isDouble = placeable && !currentState.canvasClipboard.isEmpty &&
                                 last.uptimeMillis - previousTapTime in 1..350 &&
                                 (point - previousTapPoint).getDistance() < 32f
                             if (isDouble) {
                                 pastePoint = point
                             } else {
                                 pastePoint = null
-                                if (currentState.textToolArmed) currentCreate(x, y)
+                                if (currentState.textToolArmed && placeable) currentCreate(x, y)
                                 else currentClearCanvasFocus()
                             }
                             previousTapTime = last.uptimeMillis
@@ -715,16 +844,17 @@ private fun PageCanvas(
         if (page.content == PageContent.Unloaded) return@Box
         Box(Modifier.fillMaxSize().horizontalScroll(horizontalScroll)
             .verticalScroll(verticalScroll)) {
-            val sheet = page.document.style.pageSizeDp
-            val contentRight = page.document.outlines.maxOfOrNull { it.x + it.width } ?: 0f
-            val contentBottom = page.document.outlines.maxOfOrNull { outline ->
-                outline.y + if (outline is Outline.Text) measuredTextHeights[outline.id]
-                    ?: maxOf(150f, outline.minHeight) else outline.primeHeight()
-            } ?: 0f
-            val sheetFits = sheet != null && contentRight <= sheet.first && contentBottom <= sheet.second
-            val canvasWidth = maxOf(2200f, sheet?.first ?: 0f, contentRight + 200f)
-            val canvasHeight = maxOf(4500f, sheet?.second ?: 0f, contentBottom + 200f)
-            val palette = canvasPalette(page.document.style, shellDark)
+            val pageExtent = extent ?: return@Box
+            // The window onto the page, in page dp: what the viewport shows at this zoom.
+            val window = with(density) { DpSize((viewportPx.width / zoom).toDp(), (viewportPx.height / zoom).toDp()) }
+            val canvasSize = pageExtent.canvasSize(window, reachedX, reachedY, density, zoom)
+            // Read while drawing, so scrolling redraws the ruling and recomposes nothing.
+            val visibleWindow: () -> Rect = {
+                val left = horizontalScroll.value / zoom
+                val top = verticalScroll.value / zoom
+                Rect(left, top, left + viewportPx.width / zoom, top + viewportPx.height / zoom)
+            }
+            val palette = canvasPalette(page.document.style, canvasDark)
             val darkPage = palette.background.luminance() < 0.45f
             val richColors = RichTextColors(
                 // Android's `EditorStyle.accentColor`, for bullets, to-do boxes and quote stripes.
@@ -733,8 +863,9 @@ private fun PageCanvas(
                 codeBackground = palette.ink.copy(alpha = 0.1f),
             )
             ZoomedCanvas(zoom) {
-            Box(Modifier.requiredSize(canvasWidth.dp, canvasHeight.dp)) {
-                CanvasPaper(page.document.style, palette, sheetFits, lasso)
+            Box(Modifier.documentExtent(canvasSize).testTag(WorkspaceTestTags.CanvasExtent)) {
+                CanvasPaper(page.document.style, palette, pageExtent, canvasSize, zoom, visibleWindow,
+                    showMargins, lasso)
                 if (!page.document.style.hideTitle) {
                     Column(Modifier.offset(16.dp, 8.dp).width(720.dp)) {
                         BasicTextField(
@@ -1232,6 +1363,9 @@ private fun ZoomedCanvas(zoom: Float, content: @Composable () -> Unit) {
         }
     }
 }
+
+/** The zoom the canvas's scroll offsets were last laid out for, so a new one can be anchored. */
+private class ZoomTracking(var applied: Float)
 
 /** The page point at the canvas's visible top left, read when a picture is inserted. */
 internal class CanvasOrigin {

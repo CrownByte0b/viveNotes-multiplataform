@@ -51,6 +51,9 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary):
     val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
     val host = PopupLayerHost(panel)
     panel.windowContainer = host
-    panel.setContent { App(notes.session, pictures, notes.interfaceSettings, notes::updateInterfaceSettings) }
+    panel.setContent {
+        App(notes.session, pictures, notes.interfaceSettings, notes::updateInterfaceSettings,
+            notes.viewSettings, notes::updateViewSettings)
+    }
     return host
 }
