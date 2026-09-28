@@ -115,7 +115,7 @@ class NotesRepository(
      * pane is open stays on screen until something else changes a hierarchy table — the same
      * staleness the purge itself has, since it runs daily rather than at the instant of expiry.
      */
-    fun observeDeletedItems(): Flow<List<DeletedItem>> = deletionRecovery.observeRoots().map { rows ->
+    override fun observeDeletedItems(): Flow<List<DeletedItem>> = deletionRecovery.observeRoots().map { rows ->
         val recoverableSince = clock() - DELETION_RETENTION_MILLIS
         rows.filter { it.deletedAt > recoverableSince }.map { row ->
             DeletedItem(
@@ -138,7 +138,7 @@ class NotesRepository(
      * remain deleted. Clearing the first-run marker and restoring the row are one transaction so a
      * crash cannot leave a real restored notebook looking like a replaceable placeholder.
      */
-    suspend fun restoreDeletedItem(key: DeletedItemKey): Boolean {
+    override suspend fun restoreDeletedItem(key: DeletedItemKey): Boolean {
         val now = clock()
         return db.withTransaction {
             val restored = when (key.kind) {
@@ -258,19 +258,19 @@ class NotesRepository(
      * seeded "My Notebook" is a decision about it, so a device that connects afterwards must not
      * treat it as untouched packaging and throw it away.
      */
-    suspend fun closeNotebook(id: String) {
+    override suspend fun closeNotebook(id: String) {
         clearReplaceableStarter()
         val now = clock()
         notebooks.setClosed(id, now, now)
     }
 
     /** Puts it back in the rail. A cloud-only notebook has to be brought back before this. */
-    suspend fun reopenNotebook(id: String) {
+    override suspend fun reopenNotebook(id: String) {
         clearReplaceableStarter()
         notebooks.setClosed(id, null, clock())
     }
 
-    fun observeClosedNotebooks(): Flow<List<ClosedNotebook>> = notebooks.observeClosed()
+    override fun observeClosedNotebooks(): Flow<List<ClosedNotebook>> = notebooks.observeClosed()
 
     // --- sections --------------------------------------------------------------------------
 
@@ -589,10 +589,10 @@ class NotesRepository(
     override suspend fun saveDoc(pageId: String, doc: PageDoc) = writeDoc(pageId, doc)
 
     /** Newest first. The compressed payloads deliberately do not travel with the list. */
-    suspend fun revisionHistory(pageId: String): List<PageRevisionSummary> =
+    override suspend fun revisionHistory(pageId: String): List<PageRevisionSummary> =
         revisions.history(pageId)
 
-    suspend fun loadRevision(pageId: String, revisionId: String): PageRevisionLoad {
+    override suspend fun loadRevision(pageId: String, revisionId: String): PageRevisionLoad {
         val row = revisions.byId(pageId, revisionId) ?: return PageRevisionLoad.NotFound
         val summary = DocumentRevisionPayload.summary(row)
         return runCatching {
@@ -609,7 +609,7 @@ class NotesRepository(
      * Makes a checkpoint current and first checkpoints the state it replaces, even when the normal
      * coalescing window has not elapsed. A restore therefore never destroys the route back.
      */
-    suspend fun restoreRevision(pageId: String, revisionId: String): PageRevisionLoad {
+    override suspend fun restoreRevision(pageId: String, revisionId: String): PageRevisionLoad {
         val row = revisions.byId(pageId, revisionId) ?: return PageRevisionLoad.NotFound
         val summary = DocumentRevisionPayload.summary(row)
         val doc = runCatching { DocumentRevisionPayload.unpack(row) }.getOrElse {

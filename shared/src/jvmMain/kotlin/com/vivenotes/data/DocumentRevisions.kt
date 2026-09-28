@@ -14,16 +14,6 @@ import java.security.MessageDigest
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
-/** Result of reading or restoring one historical page checkpoint. */
-sealed interface PageRevisionLoad {
-    data class Loaded(
-        val revision: PageRevisionSummary,
-        val doc: PageDoc,
-    ) : PageRevisionLoad
-    data object NotFound : PageRevisionLoad
-    data class Unreadable(val revision: PageRevisionSummary, val cause: Throwable) : PageRevisionLoad
-}
-
 /** Compression and integrity boundary for revision payloads. */
 internal object DocumentRevisionPayload {
     const val ENCODING = "gzip/1"

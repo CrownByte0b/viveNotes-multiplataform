@@ -19,6 +19,15 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.FileActions
+import com.vivenotes.workspace.FilePane
+import com.vivenotes.workspace.FilePaneState
+import com.vivenotes.data.DeletedItemKey
+import com.vivenotes.data.DeletedItemKind
+import com.vivenotes.data.db.PageRevisionSummary
+import com.vivenotes.data.db.ClosedNotebook
+import com.vivenotes.data.db.NotebookEntity
+import com.vivenotes.model.PageDoc
+import com.vivenotes.data.DeletedItem
 import com.vivenotes.workspace.NotebookTransferState
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
@@ -32,6 +41,14 @@ class FileTabTest {
 
     private val calls = mutableListOf<String>()
     private val actions = object : FileActions {
+        override fun openPane(pane: FilePane) { calls += "pane:$pane" }
+        override fun closePane() { calls += "close-pane" }
+        override fun selectRevision(id: String) { calls += "select:$id" }
+        override fun restoreRevision() { calls += "restore-revision" }
+        override fun restoreDeletedItem(item: DeletedItem) { calls += "restore-deleted" }
+        override fun reopenNotebook(id: String) { calls += "reopen:$id" }
+        override fun closeNotebook() { calls += "close-notebook" }
+        override fun deleteNotebook() { calls += "delete-notebook" }
         override fun exportNotebook() { calls += "export" }
         override fun importNotebook() { calls += "import" }
         override fun dismissTransfer() { calls += "dismiss" }
@@ -60,8 +77,11 @@ class FileTabTest {
             "Export Notebook", "Import", "Delete Notebook")
         val lefts = labels.map { onNodeWithText(it).fetchSemanticsNode().boundsInRoot.left }
         assertEquals(lefts.sorted(), lefts, "in Android's order")
-        listOf("Export PDF", "Version History", "Deleted Items", "Closed Notebooks", "Close Notebook",
-            "Delete Notebook").forEach { onNodeWithText(it).assertIsNotEnabled() }
+        onNodeWithText("Export PDF").assertIsNotEnabled()
+        listOf(FileRibbonTags.VersionHistory, FileRibbonTags.DeletedItems, FileRibbonTags.ClosedNotebooks,
+            FileRibbonTags.CloseNotebook, FileRibbonTags.DeleteNotebook).forEach {
+            onNodeWithTag(it).assertIsEnabled()
+        }
     }
 
     @Test
@@ -72,6 +92,64 @@ class FileTabTest {
         onNodeWithTag(FileRibbonTags.ImportNotebook).assertIsEnabled().performClick()
 
         runOnIdle { assertEquals(listOf("export", "import"), calls) }
+    }
+
+    @Test
+    fun historyAndShelvesOpenAndNotebookCommandsAskBeforeChangingIt() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        setWorkspace()
+        onNodeWithTag(FileRibbonTags.VersionHistory).performClick()
+        onNodeWithTag(FileRibbonTags.DeletedItems).performClick()
+        onNodeWithTag(FileRibbonTags.ClosedNotebooks).performClick()
+        onNodeWithTag(FileRibbonTags.CloseNotebook).performClick()
+        onNodeWithText("Close Calculus?").fetchSemanticsNode()
+        onNodeWithText("Cancel").performClick()
+        runOnIdle { assertTrue("close-notebook" !in calls) }
+        onNodeWithTag(FileRibbonTags.CloseNotebook).performClick()
+        onNodeWithTag(FilePaneTags.ConfirmNotebook).performClick()
+        onNodeWithTag(FileRibbonTags.DeleteNotebook).performClick()
+        onNodeWithTag(FilePaneTags.ConfirmNotebook).performClick()
+        runOnIdle { assertEquals(listOf("pane:VersionHistory", "pane:DeletedItems", "pane:ClosedNotebooks",
+            "close-notebook", "delete-notebook"), calls) }
+    }
+
+    @Test
+    fun filePaneShowsStoredItemsAndInvokesRecoveryActions() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        val item = DeletedItem(DeletedItemKey("gone", DeletedItemKind.Page), "Draft", "Book", "Chapter", 42)
+        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
+            filePane = FilePaneState(pane = FilePane.DeletedItems, deletedItems = listOf(item))))
+        onNodeWithTag(FilePaneTags.deleted("gone")).fetchSemanticsNode()
+        onNodeWithTag(FilePaneTags.restoreDeleted("gone")).performClick()
+        runOnIdle { assertTrue("restore-deleted" in calls) }
+    }
+
+    @Test
+    fun revisionPreviewNeedsConfirmation() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        val revision = PageRevisionSummary("rev", "lecture-notes", 42, 120)
+        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
+            filePane = FilePaneState(pane = FilePane.VersionHistory, revisionPageId = "lecture-notes",
+                revisions = listOf(revision), selectedRevisionId = "rev", preview = PageDoc.empty())))
+        onNodeWithTag(FilePaneTags.Preview).fetchSemanticsNode()
+        onNodeWithTag(FilePaneTags.RestoreRevision).performClick()
+        onNodeWithText("Cancel").performClick()
+        runOnIdle { assertTrue("restore-revision" !in calls) }
+        onNodeWithTag(FilePaneTags.RestoreRevision).performClick()
+        onNodeWithTag(FilePaneTags.ConfirmRestore).performClick()
+        runOnIdle { assertTrue("restore-revision" in calls) }
+    }
+
+    @Test
+    fun closedNotebookShelfReopensLocalContentAndMarksUnavailableContent() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        val local = ClosedNotebook(NotebookEntity("local", "Local Book", 0, 0,
+            createdAt = 1, updatedAt = 2, closedAt = 3), 2, 5, true)
+        val remote = ClosedNotebook(NotebookEntity("remote", "Remote Book", 0, 1,
+            createdAt = 1, updatedAt = 2, closedAt = 3), 1, 2, false)
+        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
+            filePane = FilePaneState(pane = FilePane.ClosedNotebooks,
+                closedNotebooks = listOf(local, remote))))
+        onNodeWithTag(FilePaneTags.closed("local")).fetchSemanticsNode()
+        onNodeWithTag(FilePaneTags.reopen("remote")).assertIsNotEnabled()
+        onNodeWithTag(FilePaneTags.reopen("local")).performClick()
+        runOnIdle { assertTrue("reopen:local" in calls) }
     }
 
     @Test

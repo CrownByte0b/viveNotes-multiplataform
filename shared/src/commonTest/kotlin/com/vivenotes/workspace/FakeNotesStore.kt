@@ -1,11 +1,17 @@
 package com.vivenotes.workspace
 
 import com.vivenotes.data.DeletionOutcome
+import com.vivenotes.data.DeletedItem
+import com.vivenotes.data.DeletedItemKey
+import com.vivenotes.data.DeletedItemKind
+import com.vivenotes.data.PageRevisionLoad
 import com.vivenotes.data.NotesStore
 import com.vivenotes.data.PageLoad
 import com.vivenotes.data.db.NotebookEntity
+import com.vivenotes.data.db.ClosedNotebook
 import com.vivenotes.data.db.NotebookWithSections
 import com.vivenotes.data.db.PageEntity
+import com.vivenotes.data.db.PageRevisionSummary
 import com.vivenotes.data.db.SectionEntity
 import com.vivenotes.data.pagePreview
 import com.vivenotes.model.PageDoc
@@ -22,6 +28,11 @@ import kotlinx.coroutines.flow.map
 class FakeNotesStore : NotesStore {
 
     private val tree = MutableStateFlow<List<NotebookWithSections>>(emptyList())
+    private val closed = MutableStateFlow<List<NotebookWithSections>>(emptyList())
+    private val deletedItems = MutableStateFlow<List<DeletedItem>>(emptyList())
+    private val deletedRows = mutableMapOf<String, NotebookWithSections>()
+    private val deletedPageRows = mutableMapOf<String, List<PageEntity>>()
+    val revisions = mutableMapOf<String, MutableList<Pair<PageRevisionSummary, PageDoc>>>()
     private val pageRows = MutableStateFlow<List<PageEntity>>(emptyList())
     private val bodies = mutableMapOf<String, PageLoad>()
     private var nextId = 0
@@ -155,10 +166,58 @@ class FakeNotesStore : NotesStore {
     /** Takes the rows out of the flows, as a tombstone does; nothing here restores them. */
     override suspend fun deleteNotebook(id: String): DeletionOutcome {
         recordDelete(id)
-        val sectionIds = tree.value.firstOrNull { it.notebook.id == id }?.sections.orEmpty().map { it.id }.toSet()
+        val entry = tree.value.firstOrNull { it.notebook.id == id }
+        if (entry != null) {
+            deletedRows[id] = entry
+            deletedPageRows[id] = pageRows.value.filter { row -> entry.sections.any { it.id == row.sectionId } }
+            deletedItems.value += DeletedItem(DeletedItemKey(id, DeletedItemKind.Notebook), entry.notebook.name,
+                deletedAt = ++now, sectionCount = entry.sections.size, pageCount = deletedPageRows[id]!!.size)
+        }
+        val sectionIds = entry?.sections.orEmpty().map { it.id }.toSet()
         tree.value = tree.value.filterNot { it.notebook.id == id }
         pageRows.value = pageRows.value.filterNot { it.sectionId in sectionIds }
         return DeletionOutcome.Tombstoned
+    }
+
+    override suspend fun closeNotebook(id: String) {
+        val entry = tree.value.firstOrNull { it.notebook.id == id } ?: return
+        tree.value = tree.value.filterNot { it.notebook.id == id }
+        closed.value += entry.copy(notebook = entry.notebook.copy(closedAt = ++now))
+    }
+
+    override suspend fun reopenNotebook(id: String) {
+        val entry = closed.value.firstOrNull { it.notebook.id == id } ?: return
+        closed.value = closed.value.filterNot { it.notebook.id == id }
+        tree.value += entry.copy(notebook = entry.notebook.copy(closedAt = null))
+    }
+
+    override fun observeClosedNotebooks(): Flow<List<ClosedNotebook>> = closed.map { entries ->
+        entries.map { entry -> ClosedNotebook(entry.notebook, entry.sections.size,
+            entry.sections.sumOf { section -> pageRows.value.count { it.sectionId == section.id } }, true) }
+    }
+
+    override fun observeDeletedItems(): Flow<List<DeletedItem>> = deletedItems
+
+    override suspend fun restoreDeletedItem(key: DeletedItemKey): Boolean {
+        val entry = deletedRows.remove(key.id) ?: return false
+        tree.value += entry
+        pageRows.value += deletedPageRows.remove(key.id).orEmpty()
+        deletedItems.value = deletedItems.value.filterNot { it.key == key }
+        return true
+    }
+
+    override suspend fun revisionHistory(pageId: String): List<PageRevisionSummary> =
+        revisions[pageId].orEmpty().map { it.first }
+
+    override suspend fun loadRevision(pageId: String, revisionId: String): PageRevisionLoad =
+        revisions[pageId].orEmpty().firstOrNull { it.first.id == revisionId }?.let {
+            PageRevisionLoad.Loaded(it.first, it.second)
+        } ?: PageRevisionLoad.NotFound
+
+    override suspend fun restoreRevision(pageId: String, revisionId: String): PageRevisionLoad {
+        val loaded = loadRevision(pageId, revisionId)
+        if (loaded is PageRevisionLoad.Loaded) saveDoc(pageId, loaded.doc)
+        return loaded
     }
 
     override suspend fun deleteSection(id: String): DeletionOutcome {

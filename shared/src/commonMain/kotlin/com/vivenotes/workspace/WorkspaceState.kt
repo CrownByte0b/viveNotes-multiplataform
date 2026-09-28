@@ -126,6 +126,7 @@ data class WorkspaceState(
     val storageError: String? = null,
     /** The File tab's `.vive` export or import, while it runs and until its result is dismissed. */
     val notebookTransfer: NotebookTransferState = NotebookTransferState(),
+    val filePane: FilePaneState = FilePaneState(),
 ) {
     val selectedNotebook: NotebookSummary?
         get() = notebooks.firstOrNull { it.id == selectedNotebookId }

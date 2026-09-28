@@ -5,6 +5,8 @@ import com.vivenotes.data.InkSource
 import com.vivenotes.data.NotebookImportResult
 import com.vivenotes.data.NotesStore
 import com.vivenotes.data.PageLoad
+import com.vivenotes.data.PageRevisionLoad
+import com.vivenotes.data.DeletedItem
 import com.vivenotes.data.viveFileName
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.data.db.NotebookWithSections
@@ -164,6 +166,7 @@ class WorkspaceSession(
                 }
             }
             deleting -= item.id
+            if (current.value?.filePane?.pane == FilePane.DeletedItems) refreshFilePane(FilePane.DeletedItems)
         }
     }
 
@@ -217,10 +220,162 @@ class WorkspaceSession(
 
     /** The File tab's `.vive` commands, over one window's file dialogs. */
     fun fileActions(files: NotebookFiles): FileActions = object : FileActions {
+        override fun openPane(pane: FilePane) = this@WorkspaceSession.openFilePane(pane)
+        override fun closePane() = update { it.copy(filePane = FilePaneState()) }
+        override fun selectRevision(id: String) = this@WorkspaceSession.selectRevision(id)
+        override fun restoreRevision() = this@WorkspaceSession.restoreSelectedRevision()
+        override fun restoreDeletedItem(item: DeletedItem) = this@WorkspaceSession.restoreDeleted(item)
+        override fun reopenNotebook(id: String) = this@WorkspaceSession.reopenNotebook(id)
+        override fun closeNotebook() {
+            val notebook = currentNotebook() ?: return
+            saveOpenPage()
+            enqueue {
+                if (openPageHasUnsavedChanges()) return@enqueue
+                attempt("${notebook.name} could not be closed") { store.closeNotebook(notebook.id) }
+            }
+        }
+        override fun deleteNotebook() {
+            val notebook = currentNotebook() ?: return
+            saveOpenPage()
+            enqueue {
+                if (openPageHasUnsavedChanges()) return@enqueue
+                delete(NavigationItem.Notebook(notebook.id))
+            }
+        }
         override fun exportNotebook() = exportNotebook(files)
         override fun importNotebook() = importNotebook(files)
         override fun dismissTransfer() = update { state ->
             if (state.notebookTransfer.running) state else state.copy(notebookTransfer = NotebookTransferState())
+        }
+    }
+
+    private fun currentNotebook(): NotebookSummary? = current.value?.let { state ->
+        state.notebooks.firstOrNull { notebook -> notebook.sections.any { it.id == state.selectedSectionId } }
+    }
+
+    private fun openFilePane(pane: FilePane) {
+        if (pane == FilePane.VersionHistory && current.value?.selectedPage == null) return
+        if (pane == FilePane.VersionHistory) saveOpenPage()
+        update { it.copy(filePane = FilePaneState(pane = pane, loading = true)) }
+        enqueue { refreshFilePane(pane) }
+    }
+
+    private suspend fun refreshFilePane(pane: FilePane) {
+        if (current.value?.filePane?.pane != pane) return
+        when (pane) {
+            FilePane.VersionHistory -> {
+                val pageId = current.value?.selectedPageId?.takeIf { it.isNotEmpty() } ?: return
+                val rows = attempt("Version history could not be read") { store.revisionHistory(pageId) }
+                update { state -> if (state.filePane.pane == pane && state.selectedPageId == pageId)
+                    state.copy(filePane = state.filePane.copy(loading = false, revisionPageId = pageId,
+                        revisions = rows.orEmpty(), dateLabels = rows.orEmpty().associate { it.createdAt to createdLabel(it.createdAt) },
+                        error = if (rows == null) "Version history could not be read." else null))
+                    else state }
+            }
+            FilePane.DeletedItems -> {
+                val rows = attempt("Deleted items could not be read") { store.observeDeletedItems().first() }
+                update { state -> if (state.filePane.pane == pane)
+                    state.copy(filePane = state.filePane.copy(loading = false, deletedItems = rows.orEmpty(),
+                        dateLabels = rows.orEmpty().associate { it.deletedAt to createdLabel(it.deletedAt) },
+                        error = if (rows == null) "Deleted items could not be read." else null)) else state }
+            }
+            FilePane.ClosedNotebooks -> {
+                val rows = attempt("Closed notebooks could not be read") { store.observeClosedNotebooks().first() }
+                update { state -> if (state.filePane.pane == pane)
+                    state.copy(filePane = state.filePane.copy(loading = false, closedNotebooks = rows.orEmpty(),
+                        dateLabels = rows.orEmpty().mapNotNull { row -> row.notebook.closedAt?.let { it to createdLabel(it) } }.toMap(),
+                        error = if (rows == null) "Closed notebooks could not be read." else null)) else state }
+            }
+        }
+    }
+
+    private fun selectRevision(id: String) {
+        val pane = current.value?.filePane ?: return
+        val pageId = pane.revisionPageId ?: return
+        if (pane.pane != FilePane.VersionHistory || pane.revisions.none { it.id == id } || pane.busy) return
+        update { it.copy(filePane = it.filePane.copy(selectedRevisionId = id, preview = null, loading = true,
+            error = null, message = null)) }
+        enqueue {
+            val result = attempt("This version could not be read") { store.loadRevision(pageId, id) }
+            update { state -> if (state.filePane.pane != FilePane.VersionHistory ||
+                state.filePane.selectedRevisionId != id || state.selectedPageId != pageId) state else
+                state.copy(filePane = state.filePane.copy(loading = false,
+                    preview = (result as? PageRevisionLoad.Loaded)?.doc,
+                    error = if (result is PageRevisionLoad.Loaded) null else "This version is unavailable or unreadable.")) }
+        }
+    }
+
+    private fun restoreSelectedRevision() {
+        val pane = current.value?.filePane ?: return
+        val pageId = pane.revisionPageId ?: return
+        val id = pane.selectedRevisionId ?: return
+        if (pane.pane != FilePane.VersionHistory || pane.preview == null || pane.busy ||
+            current.value?.selectedPageId != pageId) return
+        saveOpenPage()
+        update { it.copy(filePane = it.filePane.copy(busy = true, error = null, message = null)) }
+        enqueue {
+            if (openPageHasUnsavedChanges()) {
+                update { state -> if (state.filePane.pane == FilePane.VersionHistory)
+                    state.copy(filePane = state.filePane.copy(busy = false,
+                        error = "The current page could not be saved, so this version was not restored.")) else state }
+                return@enqueue
+            }
+            val result = attempt("This version could not be restored") { store.restoreRevision(pageId, id) }
+            if (result is PageRevisionLoad.Loaded) {
+                restores++
+                autosave?.cancel()
+                stored.remove(pageId)
+                current.value = current.value?.updatePage(pageId) { page ->
+                    page.copy(document = UNREAD_DOCUMENT, ink = null, content = PageContent.Unloaded)
+                }
+                load(pageId)
+            }
+            val rows = attempt("Version history could not be read") { store.revisionHistory(pageId) }
+            update { state -> if (state.filePane.pane == FilePane.VersionHistory)
+                state.copy(filePane = state.filePane.copy(busy = false, loading = false,
+                revisions = rows.orEmpty(), selectedRevisionId = null, preview = null,
+                dateLabels = rows.orEmpty().associate { it.createdAt to createdLabel(it.createdAt) },
+                message = if (result is PageRevisionLoad.Loaded) "Version restored. Your previous page is in history." else null,
+                error = if (result is PageRevisionLoad.Loaded) null else "This version is unavailable or unreadable.")) else state }
+        }
+    }
+
+    /** A failed queued save restores [stored] to its old value; destructive File actions stop here. */
+    private fun openPageHasUnsavedChanges(): Boolean = current.value?.selectedPage?.let { page ->
+        page.editable && page.document != stored[page.id]
+    } ?: false
+
+    private fun restoreDeleted(item: DeletedItem) {
+        if (current.value?.filePane?.pane != FilePane.DeletedItems || current.value?.filePane?.busy == true) return
+        update { it.copy(filePane = it.filePane.copy(busy = true, error = null, message = null)) }
+        enqueue {
+            val restored = attempt("${item.name} could not be restored") { store.restoreDeletedItem(item.key) }
+            val rows = attempt("Deleted items could not be read") { store.observeDeletedItems().first() }
+            update { state -> if (state.filePane.pane == FilePane.DeletedItems)
+                state.copy(filePane = state.filePane.copy(busy = false, deletedItems = rows.orEmpty(),
+                dateLabels = rows.orEmpty().associate { row -> row.deletedAt to createdLabel(row.deletedAt) },
+                message = if (restored == true) "${item.name} was restored." else null,
+                error = if (restored == true) null else "${item.name} is no longer available to restore.")) else state }
+        }
+    }
+
+    private fun reopenNotebook(id: String) {
+        val pane = current.value?.filePane ?: return
+        if (pane.pane != FilePane.ClosedNotebooks || pane.busy ||
+            pane.closedNotebooks.none { it.notebook.id == id && it.contentOnDevice }) return
+        update { it.copy(filePane = it.filePane.copy(busy = true, error = null, message = null)) }
+        enqueue {
+            val reopened = attempt("This notebook could not be reopened") { store.reopenNotebook(id) }
+            if (reopened != null) {
+                store.observeTree().first().firstOrNull { it.notebook.id == id }?.liveSections?.firstOrNull()?.let {
+                    openWhenListed(it.id)
+                }
+            }
+            val rows = attempt("Closed notebooks could not be read") { store.observeClosedNotebooks().first() }
+            update { state -> if (state.filePane.pane == FilePane.ClosedNotebooks)
+                state.copy(filePane = state.filePane.copy(busy = false, closedNotebooks = rows.orEmpty(),
+                message = if (reopened != null) "Notebook reopened." else null,
+                error = if (reopened != null) null else "This notebook could not be reopened.")) else state }
         }
     }
 

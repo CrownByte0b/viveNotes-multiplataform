@@ -1,7 +1,9 @@
 package com.vivenotes.data
 
 import com.vivenotes.data.db.NotebookWithSections
+import com.vivenotes.data.db.ClosedNotebook
 import com.vivenotes.data.db.PageEntity
+import com.vivenotes.data.db.PageRevisionSummary
 import com.vivenotes.model.PageDoc
 import com.vivenotes.model.plainText
 import kotlinx.coroutines.flow.Flow
@@ -69,6 +71,20 @@ interface NotesStore {
 
     /** Tombstones a page, or flushes one that was never written on. */
     suspend fun deletePage(id: String): DeletionOutcome
+
+    /** Shelves a notebook without deleting its contents, and lists/reopens shelved notebooks. */
+    suspend fun closeNotebook(id: String)
+    suspend fun reopenNotebook(id: String)
+    fun observeClosedNotebooks(): Flow<List<ClosedNotebook>>
+
+    /** Recovery roots remain available for the storage retention period. */
+    fun observeDeletedItems(): Flow<List<DeletedItem>>
+    suspend fun restoreDeletedItem(key: DeletedItemKey): Boolean
+
+    /** Page checkpoints include document and ink; restoring one saves the previous page first. */
+    suspend fun revisionHistory(pageId: String): List<PageRevisionSummary>
+    suspend fun loadRevision(pageId: String, revisionId: String): PageRevisionLoad
+    suspend fun restoreRevision(pageId: String, revisionId: String): PageRevisionLoad
 
     /** Never an empty stand-in for content that failed to decode — see [PageLoad.Unreadable]. */
     suspend fun loadDoc(pageId: String): PageLoad

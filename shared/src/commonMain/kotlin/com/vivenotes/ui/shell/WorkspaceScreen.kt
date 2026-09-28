@@ -142,8 +142,12 @@ import com.vivenotes.ui.ribbon.document.DocumentTab
 import com.vivenotes.ui.ribbon.document.DocumentColorSelection
 import com.vivenotes.ui.ribbon.draw.DrawRibbon
 import com.vivenotes.ui.ribbon.file.FileRibbon
+import com.vivenotes.ui.ribbon.file.FilePaneContent
+import com.vivenotes.ui.ribbon.file.FileConfirmDialog
+import com.vivenotes.ui.ribbon.file.FilePaneTags
 import com.vivenotes.ui.ribbon.file.NotebookTransferDialog
 import com.vivenotes.workspace.FileActions
+import com.vivenotes.workspace.FilePane
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
@@ -326,6 +330,8 @@ private fun WorkspaceContent(
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
     var openPane by remember { mutableStateOf<DockedPane?>(null) }
+    var notebookConfirmation by remember { mutableStateOf<String?>(null) }
+    var confirmRevision by remember { mutableStateOf(false) }
     fun togglePane(pane: DockedPane) {
         openPane = if (openPane == pane) null else pane
     }
@@ -352,6 +358,12 @@ private fun WorkspaceContent(
         if (editorFocusRequest > 0) editorFocusRequester.requestFocus()
     }
     val currentState by rememberUpdatedState(state)
+    LaunchedEffect(state.selectedPageId, state.filePane.pane) {
+        if (state.filePane.pane == FilePane.VersionHistory &&
+            state.filePane.revisionPageId != null && state.filePane.revisionPageId != state.selectedPageId) {
+            fileActions?.openPane(FilePane.VersionHistory)
+        }
+    }
     val currentBindings by rememberUpdatedState(bindings)
     val shortcutKeys = remember { ShortcutKeys() }
     val shortcuts = WorkspaceShortcuts({ currentState }, onStateChange, ::applyEditorCommand, navigation,
@@ -388,7 +400,10 @@ private fun WorkspaceContent(
         // Each tab's buttons, and what they do, live in that tab's package under `ui/ribbon`.
         when (state.activeTab) {
             RibbonTab.File -> FileRibbon(notebookOpen = state.selectedSection != null,
-                transferRunning = state.notebookTransfer.running, actions = fileActions)
+                pageOpen = state.selectedPage != null,
+                transferRunning = state.notebookTransfer.running, actions = fileActions,
+                onCloseNotebook = { notebookConfirmation = "close" },
+                onDeleteNotebook = { notebookConfirmation = "delete" })
             RibbonTab.Draw -> DrawRibbon(state, onStateChange)
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
                 { canvasOrigin.read() }, documentColorSelection)
@@ -517,7 +532,11 @@ private fun WorkspaceContent(
                     },
                 )
                 }
-                openPane?.let { pane ->
+                if (state.filePane.pane != null && fileActions != null) {
+                    VerticalDivider(modifier = Modifier.fillMaxHeight(),
+                        color = MaterialTheme.colorScheme.outlineVariant)
+                    FilePaneContent(state.filePane, fileActions, onRestoreRevision = { confirmRevision = true })
+                } else openPane?.let { pane ->
                     VerticalDivider(
                         modifier = Modifier.fillMaxHeight(),
                         color = MaterialTheme.colorScheme.outlineVariant,
@@ -546,6 +565,36 @@ private fun WorkspaceContent(
     }
     NavigationDialogs(state, navigationRequests, navigation)
     NotebookTransferDialog(state.notebookTransfer, onDismiss = { fileActions?.dismissTransfer() })
+    if (confirmRevision) {
+        FileConfirmDialog("Restore this version?",
+            "The saved version will replace this page. Your current version will be kept in history.",
+            "Restore", onDismiss = { confirmRevision = false }, onConfirm = {
+                confirmRevision = false
+                fileActions?.restoreRevision()
+            }, tag = FilePaneTags.ConfirmRestore)
+    }
+    notebookConfirmation?.let { operation ->
+        val notebook = state.notebooks.firstOrNull { entry ->
+            entry.sections.any { it.id == state.selectedSectionId }
+        }
+        if (notebook == null) {
+            SideEffect { notebookConfirmation = null }
+        } else {
+            FileConfirmDialog(
+                title = "${if (operation == "close") "Close" else "Delete"} ${notebook.name}?",
+                detail = if (operation == "close")
+                    "Nothing is deleted. The notebook leaves the panel until you reopen it from Closed Notebooks."
+                else "This notebook, its sections and all of their pages will be deleted. Written pages can be restored from Deleted Items for 7 days.",
+                verb = if (operation == "close") "Close" else "Delete",
+                destructive = operation == "delete",
+                onDismiss = { notebookConfirmation = null },
+                onConfirm = {
+                    notebookConfirmation = null
+                    if (operation == "close") fileActions?.closeNotebook() else fileActions?.deleteNotebook()
+                },
+            )
+        }
+    }
     editingShortcut?.let { action ->
         ShortcutCaptureDialog(
             action = action,

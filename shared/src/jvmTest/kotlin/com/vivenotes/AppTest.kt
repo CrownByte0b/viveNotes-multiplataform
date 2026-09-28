@@ -25,6 +25,7 @@ import com.vivenotes.model.plainText
 import com.vivenotes.ui.navigation.NavigationTestTags
 import com.vivenotes.ui.shell.UnreadablePageMessage
 import com.vivenotes.ui.ribbon.file.FileRibbonTags
+import com.vivenotes.ui.ribbon.file.FilePaneTags
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.FakeNotesStore
@@ -306,6 +307,54 @@ class AppTest {
                 onNodeWithTag(WorkspaceTestTags.TitleEditor).assertTextContains("Herons")
                 onNodeWithTag(WorkspaceTestTags.BodyEditor).assertTextContains("Two at dawn by the reeds")
                 assertEquals(1, app.session.state.value!!.notebooks.size, "the untouched starter was replaced")
+            }
+        }
+    }
+
+    @Test
+    fun fileTabClosesReopensDeletesAndRestoresANotebookInRealStorage() {
+        NotesLibrary.open(directory).use { library ->
+            val files = FileNotebookFiles(library.transfers, File(directory, "unused.vive"))
+            runDesktopComposeUiTest(width = 1800, height = 900) {
+                val app = showApp(library.repository, files)
+                awaitOpenPage()
+                onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextReplacement("A page worth keeping")
+                onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.File)).performClick()
+                val notebookId = app.session.state.value!!.selectedNotebookId
+
+                onNodeWithTag(FileRibbonTags.CloseNotebook).performClick()
+                onNodeWithTag(FilePaneTags.ConfirmNotebook).performClick()
+                waitUntil(timeoutMillis = 10_000) { app.session.state.value?.notebooks?.isEmpty() == true }
+                onNodeWithTag(FileRibbonTags.ClosedNotebooks).performClick()
+                waitUntil(timeoutMillis = 10_000) {
+                    app.session.state.value?.filePane?.closedNotebooks?.any { it.notebook.id == notebookId } == true
+                }
+                onNodeWithTag(FilePaneTags.reopen(notebookId)).performClick()
+                waitUntil(timeoutMillis = 10_000) {
+                    app.session.state.value?.selectedNotebookId == notebookId &&
+                        app.session.state.value?.selectedPage?.body == "A page worth keeping"
+                }
+
+                onNodeWithTag(FileRibbonTags.DeleteNotebook).performClick()
+                onNodeWithTag(FilePaneTags.ConfirmNotebook).performClick()
+                waitUntil(timeoutMillis = 10_000) { app.session.state.value?.notebooks?.isEmpty() == true }
+                onNodeWithTag(FileRibbonTags.DeletedItems).performClick()
+                waitUntil(timeoutMillis = 10_000) {
+                    app.session.state.value?.filePane?.deletedItems?.any { it.key.id == notebookId } == true
+                }
+                onNodeWithTag(FilePaneTags.restoreDeleted(notebookId)).performClick()
+                waitUntil(timeoutMillis = 10_000) { app.session.state.value?.notebooks?.any { it.id == notebookId } == true }
+                app.close()
+            }
+            runBlocking {
+                val tree = library.repository.observeTree().first()
+                assertEquals(listOf("My Notebook"), tree.map { it.notebook.name })
+                val bodies = tree.single().liveSections.flatMap { section ->
+                    library.repository.observePages(section.id).first().map { page ->
+                        (library.repository.loadDoc(page.id) as PageLoad.Loaded).doc.plainText()
+                    }
+                }
+                assertTrue("A page worth keeping" in bodies)
             }
         }
     }

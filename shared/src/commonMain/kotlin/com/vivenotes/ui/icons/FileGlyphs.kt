@@ -47,3 +47,34 @@ fun exportNotebookGlyph(neutral: Color, accent: Color): ImageVector =
 /** Import — a book with an arrow coming down into it through the cover. */
 fun importNotebookGlyph(neutral: Color, accent: Color): ImageVector =
     fileGlyph("ImportNotebook", listOf(ImportNotebookCover), listOf(ImportNotebookArrow), neutral, accent)
+
+/** Material Symbols Rounded `history`, with the hands accented. */
+fun versionHistoryGlyph(neutral: Color, accent: Color): ImageVector = fileGlyph("VersionHistory",
+    listOf("M480-120q-126 0-223-76.5T131-392q-4-15 6-27.5t27-14.5q16-2 29 6t18 24q24 90 99 " +
+        "147t170 57q117 0 198.5-81.5T760-480q0-117-81.5-198.5T480-760q-69 0-129 32t-101 " +
+        "88h70q17 0 28.5 11.5T360-600q0 17-11.5 28.5T320-560H160q-17 " +
+        "0-28.5-11.5T120-600v-160q0-17 11.5-28.5T160-800q17 0 28.5 11.5T200-760v54q51-64 " +
+        "124.5-99T480-840q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-480q0 75-28.5 140.5t-77" +
+        " 114q-48.5 48.5-114 77T480-120Z"),
+    listOf("M520,-496l100 100q11 11 11 28t-11 28q-11 11-28 " +
+        "11t-28-11L452-452q-6-6-9-13.5t-3-15.5v-159q0-17 11.5-28.5T480-680q17 0 28.5 " +
+        "11.5T520-640v144Z"), neutral, accent)
+
+private const val BinBody =
+    "M280-120q-33 0-56.5-23.5T200-200v-520q-17 0-28.5-11.5T160-760q0-17 " +
+        "11.5-28.5T200-800h160q0-17 11.5-28.5T400-840h160q17 0 28.5 11.5T600-800h160q17 0 " +
+        "28.5 11.5T800-760q0 17-11.5 28.5T760-720v520q0 33-23.5 " +
+        "56.5T680-120H280ZM680,-720H280v520h400v-520Z"
+
+/** Material Symbols Rounded `restore_from_trash`. */
+fun deletedItemsGlyph(neutral: Color, accent: Color): ImageVector = fileGlyph("DeletedItems", listOf(BinBody),
+    listOf("M440,-486v126q0 17 11.5 28.5T480-320q17 0 28.5-11.5T520-360v-126l36 35q11 11 27.5 " +
+        "11t28.5-12q11-11 11-28t-11-28L508-612q-12-12-28-12t-28 12L348-508q-11 11-11.5 " +
+        "27.5T348-452q11 11 27.5 11.5T404-451l36-35Z"), neutral, accent)
+
+/** Material Symbols Rounded `delete`, with its contents in the destructive colour. */
+fun deleteNotebookGlyph(neutral: Color, warning: Color): ImageVector = fileGlyph("DeleteNotebook", listOf(BinBody),
+    listOf("M400-280q17 0 28.5-11.5T440-320v-280q0-17-11.5-28.5T400-640q-17 0-28.5 " +
+        "11.5T360-600v280q0 17 11.5 28.5T400-280ZM560,-280q17 0 " +
+        "28.5-11.5T600-320v-280q0-17-11.5-28.5T560-640q-17 0-28.5 11.5T520-600v280q0 17 11.5 " +
+        "28.5T560-280Z"), neutral, warning)
