@@ -42,6 +42,7 @@ internal class DesktopNotes(
     private val interfaceStore: InterfaceSettingsFile? = null,
     private val viewStore: ViewSettingsFile? = null,
     private val keyStore: KeyBindingsFile? = null,
+    val thumbnails: DesktopVideoThumbnails? = null,
 ) {
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated,
@@ -140,7 +141,8 @@ internal class DesktopNotes(
             return DesktopNotes(NotesLibrary.open(directories.data, directories.cache), MainScope(),
                 interfaceStore = InterfaceSettingsFile(File(directories.config, "interface.properties")),
                 viewStore = ViewSettingsFile(File(directories.config, "view.properties")),
-                keyStore = KeyBindingsFile(File(directories.config, "keyboard.properties")))
+                keyStore = KeyBindingsFile(File(directories.config, "keyboard.properties")),
+                thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")))
         }
     }
 }

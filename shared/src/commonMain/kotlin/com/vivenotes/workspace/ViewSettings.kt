@@ -16,6 +16,8 @@ data class ViewSettings(
     val tabsLayout: TabsLayout = TabsLayout.Vertical,
     /** Switch Background's override. Null follows the app theme until the button is first used. */
     val canvasDark: Boolean? = null,
+    /** Whether this device fetches and shows YouTube thumbnail previews. */
+    val linkPreviews: Boolean = true,
 ) {
     fun normalized(): ViewSettings =
         copy(zoom = zoom.takeIf { it.isFinite() }?.coerceIn(MIN_ZOOM, MAX_ZOOM) ?: 1f)

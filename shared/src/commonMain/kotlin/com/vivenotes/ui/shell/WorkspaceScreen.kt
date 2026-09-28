@@ -59,6 +59,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -124,8 +126,11 @@ import kotlinx.coroutines.flow.first
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.rememberTextMeasurer
 import com.vivenotes.data.PictureLibrary
+import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.ui.canvas.BlockSeparators
 import com.vivenotes.ui.canvas.PictureContent
+import com.vivenotes.ui.canvas.TextBoxPreviews
+import com.vivenotes.ui.canvas.storedEquationPreviews
 import com.vivenotes.ui.canvas.InkLayer
 import com.vivenotes.ui.canvas.contentEdge
 import com.vivenotes.ui.canvas.RichTextColors
@@ -251,6 +256,7 @@ fun WorkspaceScreen(
     navigation: NavigationActions = InMemoryNavigation(onStateChange),
     /** Where pictures are stored; without it the Picture command is unavailable. */
     pictures: PictureLibrary? = null,
+    thumbnails: VideoThumbnailSource? = null,
     // Standalone workspace callers retain the unscaled layout; App supplies the user's default.
     interfaceSettings: InterfaceSettings = InterfaceSettings(displayScale = 1f),
     onInterfaceSettingsChange: (InterfaceSettings) -> Unit = {},
@@ -286,7 +292,7 @@ fun WorkspaceScreen(
             LocalPopupLayerDensity provides baseDensity,
             LocalKeyBindings provides bindings,
         ) {
-            WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures,
+            WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
                 onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
                 view = view, onViewChange = { next ->
                     view = next
@@ -317,6 +323,7 @@ private fun WorkspaceContent(
     modifier: Modifier,
     navigation: NavigationActions,
     pictures: PictureLibrary?,
+    thumbnails: VideoThumbnailSource?,
     onInterface: () -> Unit,
     pageDensity: Density,
     view: ViewSettings,
@@ -409,7 +416,8 @@ private fun WorkspaceContent(
                 { canvasOrigin.read() }, documentColorSelection)
             RibbonTab.View -> ViewTab(state, view, canvasDark, viewActions)
             RibbonTab.Settings -> SettingsRibbon(onInterface, hardwareOpen = openPane == DockedPane.Hardware,
-                onHardware = { togglePane(DockedPane.Hardware) })
+                onHardware = { togglePane(DockedPane.Hardware) }, linkPreviews = view.linkPreviews,
+                onLinkPreviewsChange = { enabled -> onViewChange(view.copy(linkPreviews = enabled)) })
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         // Horizontal Tabs Layout: the notebook pane's selection as a strip of section tabs.
@@ -468,6 +476,7 @@ private fun WorkspaceContent(
                 PageCanvas(
                     state = state,
                     pictures = pictures,
+                    thumbnails = thumbnails.takeIf { view.linkPreviews },
                     canvasOrigin = canvasOrigin,
                     canvasControl = canvasControl,
                     zoom = view.zoom,
@@ -481,7 +490,10 @@ private fun WorkspaceContent(
                     canvasFocusRequester = canvasFocusRequester,
                     modifier = Modifier.weight(1f),
                     onTitleChange = { title -> onStateChange { it.updateSelectedPage(title = title) } },
-                    onFocusTextBox = { id -> onStateChange { it.focusTextBox(id) } },
+                    onFocusTextBox = { id ->
+                        onStateChange { it.focusTextBox(id) }
+                        editorFocusRequest++
+                    },
                     onClearCanvasFocus = { onStateChange { it.clearCanvasFocus() } },
                     onCreateTextBox = { x, y ->
                         // Decided on what is on screen: a box placed there is the one that types next.
@@ -625,6 +637,7 @@ internal enum class DockedPane { PaperSize, Hardware }
 private fun PageCanvas(
     state: WorkspaceState,
     pictures: PictureLibrary?,
+    thumbnails: VideoThumbnailSource?,
     canvasOrigin: CanvasOrigin,
     canvasControl: CanvasViewControl,
     zoom: Float,
@@ -1114,9 +1127,23 @@ private fun PageCanvas(
                         if (focused || lassoSelected) Box(Modifier.matchParentSize()
                             .border(1.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
                             .testTag(WorkspaceTestTags.textBoxOutline(outline.id)))
+                        val styledText = richText?.asAnnotatedString(richColors) ?: buildAnnotatedString {}
+                        val showingPreview = if (!focused && styledText.isNotEmpty()) {
+                            TextBoxPreviews(
+                                source = styledText,
+                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, color = palette.ink),
+                                ink = palette.ink,
+                                availableWidthDp = outline.width - 2 * TextBoxPadding.value,
+                                thumbnails = thumbnails,
+                                onEdit = { onFocusTextBox(outline.id) },
+                                onOpenVideo = { url -> runCatching { uriHandler.openUri(url) } },
+                                modifier = Modifier.fillMaxWidth().padding(TextBoxPadding).zIndex(1f),
+                                storedEquations = richText?.storedEquationPreviews().orEmpty(),
+                            )
+                        } else false
                         BasicTextField(
                             value = TextFieldValue(
-                                annotatedString = richText?.asAnnotatedString(richColors) ?: buildAnnotatedString {},
+                                annotatedString = styledText,
                                 selection = TextRange(richText?.selection?.start ?: 0,
                                     richText?.selection?.end ?: 0),
                                 composition = if (focused) state.editorComposition?.let {
@@ -1159,6 +1186,7 @@ private fun PageCanvas(
                                 color = palette.ink,
                             ),
                             modifier = Modifier.fillMaxWidth()
+                                .alpha(if (showingPreview) 0f else 1f)
                                 .padding(TextBoxPadding)
                                 // Ahead of the field's own keys: Tab indents, as on Android, and copy
                                 // and paste keep the formatting the field's own would drop.

@@ -16,7 +16,8 @@ class ViewSettingsFileTest {
             val store = ViewSettingsFile(file)
             assertEquals(ViewSettings(), store.load())
 
-            val saved = ViewSettings(zoom = 0.5f, tabsLayout = TabsLayout.Horizontal, canvasDark = false)
+            val saved = ViewSettings(zoom = 0.5f, tabsLayout = TabsLayout.Horizontal, canvasDark = false,
+                linkPreviews = false)
             store.save(saved)
             assertEquals(saved, ViewSettingsFile(file).load())
 

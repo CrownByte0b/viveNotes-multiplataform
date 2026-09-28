@@ -54,6 +54,7 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.uiToolingPreview)
+            implementation(libs.ratex)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.kotlinx.coroutinesCore)
@@ -70,6 +71,9 @@ kotlin {
         jvmMain.dependencies {
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
+            runtimeOnly("io.github.darriousliu:ratex-native-linux-x86-64:0.1.14")
+            runtimeOnly("io.github.darriousliu:ratex-native-linux-aarch64:0.1.14")
+            runtimeOnly("io.github.darriousliu:ratex-native-windows-x86-64:0.1.14")
         }
         jvmTest.dependencies {
             implementation(compose.desktop.currentOs)

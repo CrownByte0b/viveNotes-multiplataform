@@ -73,7 +73,7 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile) {
             App(notes.session, remember(window) { notes.pictures(window) }, notes.interfaceSettings,
                 notes::updateInterfaceSettings, notes.viewSettings, notes::updateViewSettings,
                 notes.keyBindings, notes::updateKeyBindings,
-                notebookFiles = remember(window) { notes.notebookFiles(window) })
+                notebookFiles = remember(window) { notes.notebookFiles(window) }, thumbnails = notes.thumbnails)
         }
     }
 }

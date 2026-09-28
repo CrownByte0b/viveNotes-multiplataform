@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.PictureLibrary
+import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ViveNotesTheme
@@ -51,6 +52,7 @@ fun App(
     onKeyBindingsChange: (KeyBindings) -> Unit = {},
     /** The platform's `.vive` file dialogs; without them notebooks cannot be exported or imported. */
     notebookFiles: NotebookFiles? = null,
+    thumbnails: VideoThumbnailSource? = null,
 ) {
     val state by session.state.collectAsState()
     val fileActions = remember(session, notebookFiles) { notebookFiles?.let(session::fileActions) }
@@ -67,6 +69,7 @@ fun App(
             }
         } else {
             WorkspaceScreen(state = workspace, onStateChange = session::update, navigation = session, pictures = pictures,
+                thumbnails = thumbnails,
                 interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange,
                 viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange, fileActions = fileActions)

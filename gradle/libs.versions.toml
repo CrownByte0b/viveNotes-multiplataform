@@ -12,6 +12,7 @@ kotlin-wrappers = "2026.9.2"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 material3 = "1.12.0-alpha03"
+ratex = "0.1.14"
 # The Android app's Room line (2.8.1 there), so both builds compile the same schema. Room 2.8 is
 # tested against androidx.sqlite 2.6.
 room = "2.8.5"
@@ -40,6 +41,7 @@ androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref =
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 wrappers-browser = { module = "org.jetbrains.kotlin-wrappers:kotlin-browser", version.ref = "kotlin-wrappers" }
+ratex = { module = "io.github.darriousliu:ratex", version.ref = "ratex" }
 
 [plugins]
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }

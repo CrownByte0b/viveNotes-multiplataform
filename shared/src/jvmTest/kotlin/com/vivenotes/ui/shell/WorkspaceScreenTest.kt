@@ -61,6 +61,17 @@ import kotlin.test.assertTrue
 class WorkspaceScreenTest {
 
     @Test
+    fun latexPreviewOnAStoredTextBoxRevealsTheEditableSource() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val latex = "Area is \$\\frac{a}{b}\$."
+            setWorkspace(initial = WorkspaceState.demo().updateSelectedPage(body = latex).clearCanvasFocus())
+
+            onNodeWithTag("text-box-preview").assertIsDisplayed().performClick()
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).assertTextContains(latex).assertIsFocused()
+            onNodeWithTag("text-box-preview").assertDoesNotExist()
+        }
+
+    @Test
     fun largeWindowShowsThreePaneWorkspace() = runDesktopComposeUiTest(width = 1400, height = 900) {
         setWorkspace()
 
