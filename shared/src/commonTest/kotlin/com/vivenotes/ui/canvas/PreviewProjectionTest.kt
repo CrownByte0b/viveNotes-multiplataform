@@ -9,6 +9,19 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class PreviewProjectionTest {
+    @Test fun linkGlyphAtParagraphEndStaysOnTheLinksLine() {
+        val source = AnnotatedString("Review\nNext", paragraphStyles = listOf(
+            AnnotatedString.Range(ParagraphStyle(), 0, 6),
+            AnnotatedString.Range(ParagraphStyle(), 7, 11),
+        ))
+
+        val projected = previewProjection(source, listOf(6 until 6))
+
+        assertEquals("Review\uFFFC\u200BNext", projected.text)
+        assertEquals(listOf(0 to 7, 8 to 12), projected.paragraphStyles.map { it.start to it.end })
+        assertEquals(8, projectedOffset(7, listOf(6 until 6)))
+    }
+
     @Test fun multilineReplacementLeavesNoParagraphBoundaryInsideAPlaceholder() {
         val sourceText = "Before\n\$\$\nx^2\n\$\$\nAfter"
         val source = AnnotatedString(sourceText,

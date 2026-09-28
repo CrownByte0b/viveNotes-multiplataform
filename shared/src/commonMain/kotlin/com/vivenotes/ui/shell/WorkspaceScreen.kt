@@ -134,6 +134,8 @@ import com.vivenotes.ui.canvas.storedEquationPreviews
 import com.vivenotes.ui.canvas.InkLayer
 import com.vivenotes.ui.canvas.contentEdge
 import com.vivenotes.ui.canvas.RichTextColors
+import com.vivenotes.ui.ribbon.document.LinkEditorDialog
+import com.vivenotes.ui.ribbon.document.LinkEditorRequest
 import com.vivenotes.ui.canvas.asAnnotatedString
 import com.vivenotes.ui.canvas.drawBlockDecorations
 import com.vivenotes.ui.canvas.linkAtPoint
@@ -343,6 +345,7 @@ private fun WorkspaceContent(
         openPane = if (openPane == pane) null else pane
     }
     var editingShortcut by remember { mutableStateOf<ShortcutAction?>(null) }
+    var linkEditor by remember { mutableStateOf<LinkEditorRequest?>(null) }
     var confirmResetShortcuts by remember { mutableStateOf(false) }
     val currentView by rememberUpdatedState(view)
     val currentOnViewChange by rememberUpdatedState(onViewChange)
@@ -413,7 +416,7 @@ private fun WorkspaceContent(
                 onDeleteNotebook = { notebookConfirmation = "delete" })
             RibbonTab.Draw -> DrawRibbon(state, onStateChange)
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
-                { canvasOrigin.read() }, documentColorSelection)
+                { canvasOrigin.read() }, documentColorSelection, onLinkRequest = { linkEditor = it })
             RibbonTab.View -> ViewTab(state, view, canvasDark, viewActions)
             RibbonTab.Settings -> SettingsRibbon(onInterface, hardwareOpen = openPane == DockedPane.Hardware,
                 onHardware = { togglePane(DockedPane.Hardware) }, linkPreviews = view.linkPreviews,
@@ -576,6 +579,7 @@ private fun WorkspaceContent(
         }
     }
     NavigationDialogs(state, navigationRequests, navigation)
+    linkEditor?.let { request -> LinkEditorDialog(request, onDismiss = { linkEditor = null }) }
     NotebookTransferDialog(state.notebookTransfer, onDismiss = { fileActions?.dismissTransfer() })
     if (confirmRevision) {
         FileConfirmDialog("Restore this version?",
@@ -1139,6 +1143,9 @@ private fun PageCanvas(
                                 onOpenVideo = { url -> runCatching { uriHandler.openUri(url) } },
                                 modifier = Modifier.fillMaxWidth().padding(TextBoxPadding).zIndex(1f),
                                 storedEquations = richText?.storedEquationPreviews().orEmpty(),
+                                links = richText?.linkSpans().orEmpty(),
+                                linkColor = richColors.link,
+                                onOpenLink = { url -> runCatching { uriHandler.openUri(url) } },
                             )
                         } else false
                         BasicTextField(

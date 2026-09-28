@@ -78,6 +78,7 @@ internal fun DocumentRibbon(
     textToolArmed: Boolean,
     commands: DocumentCommands,
     colorSelection: DocumentColorSelection,
+    onLinkRequest: (LinkEditorRequest) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val accent = if (colors.surface.luminance() < 0.5f) Color(0xFF3B9ADC) else Color(0xFF1B6FA8)
@@ -173,11 +174,14 @@ internal fun DocumentRibbon(
         RibbonIcon(DocumentSymbols.Function, "Equation", enabled = false, tag = DocumentRibbonTags.Equation) {}
         LinkButton(
             enabled = editable,
-            onOpen = {
+            onClick = {
                 val captured = takeSelection() ?: richText?.selection
-                captured to (captured?.let { richText?.select(it)?.linkTarget } ?: LinkTarget("", null))
+                onLinkRequest(LinkEditorRequest(
+                    captured,
+                    captured?.let { richText?.select(it)?.linkTarget } ?: LinkTarget("", null),
+                    commands.insertLink,
+                ))
             },
-            onSubmit = commands.insertLink,
         )
         RibbonIcon(DocumentSymbols.Image, "Picture", enabled = commands.insertPicture != null,
             tag = DocumentRibbonTags.Picture) { commands.insertPicture?.invoke() }

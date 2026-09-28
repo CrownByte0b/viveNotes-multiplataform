@@ -213,6 +213,7 @@ class RichTextBufferTest {
             Run("go "), Run("bold", setOf(Mark.Bold, url)), Run("link", setOf(url)), Run(" end"),
         )))
         assertEquals(LinkTarget("boldlink", url.href), buffer.select(TextSelection(11)).linkTarget)
+        assertEquals(listOf(RichTextBuffer.LinkSpan(3, 11, url.href)), buffer.linkSpans())
         assertEquals(LinkTarget("boldlink", url.href), buffer.select(TextSelection(3)).linkTarget)
         assertEquals(LinkTarget("", null), buffer.select(TextSelection(13)).linkTarget)
         val selected = buffer.select(TextSelection(3, 7))

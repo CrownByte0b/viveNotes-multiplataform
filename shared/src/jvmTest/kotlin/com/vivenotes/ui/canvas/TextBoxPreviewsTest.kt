@@ -4,19 +4,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.ParagraphStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.unit.sp
 import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.model.Block
+import com.vivenotes.model.Mark
+import com.vivenotes.model.Run
 import com.vivenotes.richtext.RichTextBuffer
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
@@ -28,6 +35,39 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class TextBoxPreviewsTest {
+    @Test
+    fun linkedTextIsBlueUnderlinedAndHasAnOpenLinkIconBesideIt() = runDesktopComposeUiTest {
+        val url = "https://example.com"
+        val buffer = RichTextBuffer(listOf(Block(id = "link", runs = listOf(
+            Run("Review", setOf(Mark.Link(url))), Run(" later"),
+        ))))
+        var opened: String? = null
+        var edits = 0
+        var rendered: AnnotatedString? = null
+        setContent {
+            val source = buffer.asAnnotatedString(RichTextColors(Color.Green, Color.Blue, Color.Gray))
+            rendered = source
+            TextBoxPreviews(source, TextStyle(fontSize = 15.sp), Color.Black, 300f,
+                thumbnails = null, onEdit = { edits++ }, onOpenVideo = {},
+                links = buffer.linkSpans(), linkColor = Color.Blue, onOpenLink = { opened = it })
+        }
+        val linkStyle = rendered!!.spanStyles.first { it.start == 0 && it.end == 6 }.item
+        assertEquals(Color.Blue, linkStyle.color)
+        assertEquals(TextDecoration.Underline, linkStyle.textDecoration)
+        onNodeWithTag("link-icon-0", useUnmergedTree = true).assertIsDisplayed().performClick()
+        assertEquals(url, opened)
+        assertEquals(0, edits)
+        opened = null
+        onRoot().performKeyInput { keyDown(Key.CtrlLeft) }
+        onNodeWithTag("text-box-preview").performMouseInput { click(Offset(3f, 7f)) }
+        onRoot().performKeyInput { keyUp(Key.CtrlLeft) }
+        assertEquals(url, opened)
+        assertEquals(0, edits)
+        onNodeWithTag("text-box-preview").performTouchInput { click(Offset(3f, 7f)) }
+        assertEquals(1, edits)
+        assertEquals("Review later", buffer.text)
+    }
+
     @Test
     fun latexPreviewIsVisibleAndOpensItsSourceForEditing() = runDesktopComposeUiTest {
         var edits = 0

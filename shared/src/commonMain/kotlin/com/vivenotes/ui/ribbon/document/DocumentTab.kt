@@ -48,6 +48,7 @@ internal fun DocumentTab(
     pictures: PictureLibrary?,
     visibleOrigin: () -> Offset,
     colorSelection: DocumentColorSelection,
+    onLinkRequest: (LinkEditorRequest) -> Unit,
 ) {
     val clipboard = TextClipboardActions(LocalClipboardManager.current, onEditorCommand)
     val scope = rememberCoroutineScope()
@@ -91,5 +92,6 @@ internal fun DocumentTab(
             insertPicture = insertPicture,
         ),
         colorSelection = colorSelection,
+        onLinkRequest = onLinkRequest,
     )
 }

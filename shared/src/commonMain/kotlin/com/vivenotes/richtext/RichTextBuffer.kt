@@ -331,19 +331,20 @@ data class RichTextBuffer(
     private fun marksOfCharacterAt(offset: Int): Set<Mark> =
         selectedRunPieces(offset, offset + 1).firstOrNull() ?: marksAt(offset)
 
-    private data class LinkRange(val start: Int, val end: Int, val href: String)
+    data class LinkSpan(val start: Int, val end: Int, val href: String)
 
     /**
      * The link touching [offset], either end included, as Android's `linkAtCaret` finds it. Adjacent
      * runs to the same address are one link, even when other formatting splits them.
      */
-    private fun linkAt(offset: Int): LinkRange? = linkRanges().firstOrNull { offset in it.start..it.end }
+    private fun linkAt(offset: Int): LinkSpan? = linkSpans().firstOrNull { offset in it.start..it.end }
 
-    private fun linkRanges(): List<LinkRange> = buildList {
+    /** Contiguous linked text, even when other formatting splits its runs. */
+    fun linkSpans(): List<LinkSpan> = buildList {
         var blockStart = 0
         blocks.forEach { block ->
             var runStart = blockStart
-            var open: LinkRange? = null
+            var open: LinkSpan? = null
             block.runs.forEach { run ->
                 val runEnd = runStart + run.editorText.length
                 val href = run.marks.filterIsInstance<Mark.Link>().firstOrNull()?.href
@@ -351,7 +352,7 @@ data class RichTextBuffer(
                 open = when {
                     href == null -> null
                     current?.href == href -> current.copy(end = runEnd)
-                    else -> LinkRange(runStart, runEnd, href)
+                    else -> LinkSpan(runStart, runEnd, href)
                 }
                 if (current != null && open?.start != current.start) add(current)
                 runStart = runEnd

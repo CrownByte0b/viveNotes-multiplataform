@@ -32,6 +32,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInputSelection
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
@@ -168,6 +169,28 @@ class DocumentTabTest {
         runOnIdle {
             assertEquals(Run("Review", setOf(Mark.Link("https://example.com/notes"))),
                 observed.richText!!.blocks.first().runs.first())
+        }
+    }
+
+    @Test
+    fun linkPanelFieldsAcceptClicksAndTyping() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = document
+        setWorkspace(document) { observed = it }
+        onNodeWithTag(DocumentRibbonTags.Link).performScrollTo().performClick()
+        val backdrop = onNodeWithTag("document-link-backdrop").fetchSemanticsNode().boundsInRoot
+        assertTrue(backdrop.width >= 1399f && backdrop.height >= 899f,
+            "The link form must share the workspace window: $backdrop")
+
+        onNodeWithTag(DocumentRibbonTags.LinkText).performMouseInput { click(center) }
+        onNodeWithTag(DocumentRibbonTags.LinkText).assertIsFocused().performTextInput("Vive")
+        onNodeWithTag(DocumentRibbonTags.LinkAddress).performMouseInput { click(center) }
+        onNodeWithTag(DocumentRibbonTags.LinkAddress).assertIsFocused().performTextInput("example.com")
+        onNodeWithTag(DocumentRibbonTags.LinkSubmit).performClick()
+
+        runOnIdle {
+            assertTrue(observed.richText!!.blocks.first().runs.any {
+                it.text == "Vive" && Mark.Link("https://example.com") in it.marks
+            })
         }
     }
 
