@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextLayoutResult
 import com.vivenotes.richtext.TextSelection
+import com.vivenotes.richtext.LinkTarget
 import com.vivenotes.ui.components.ContextMenu
 import com.vivenotes.ui.components.ContextMenuDivider
 import com.vivenotes.ui.components.ContextMenuItem
@@ -24,6 +25,8 @@ object TextMenuTags {
     const val Copy = "text-menu-copy"
     const val Paste = "text-menu-paste"
     const val PastePlainText = "text-menu-paste-plain"
+    const val InsertLink = "text-menu-insert-link"
+    const val ClearFormatting = "text-menu-clear-formatting"
     const val CopyBox = "text-menu-copy-box"
     const val DeleteBox = "text-menu-delete-box"
 }
@@ -60,6 +63,7 @@ internal fun TextContextMenu(
     state: WorkspaceState,
     clipboard: TextClipboardActions,
     onEditorCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
+    onLinkRequest: (String, TextSelection, LinkTarget) -> Unit,
     onDeleteBox: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -120,6 +124,30 @@ internal fun TextContextMenu(
             modifier = Modifier.testTag(TextMenuTags.PastePlainText),
         )
         ContextMenuDivider()
+        if (!selection.collapsed) {
+            ContextMenuItem(
+                label = "Insert link",
+                icon = DocumentSymbols.Link,
+                onClick = {
+                    onClose()
+                    request?.let { onLinkRequest(it.outlineId, it.selection,
+                        state.richTextFor(it.outlineId)?.select(it.selection)?.linkTarget ?: LinkTarget("", null)) }
+                },
+                modifier = Modifier.testTag(TextMenuTags.InsertLink),
+            )
+            ContextMenuItem(
+                label = "Clear formatting",
+                icon = DocumentSymbols.FormatClear,
+                onClick = {
+                    onClose()
+                    request?.let { onEditorCommand { current ->
+                        current.focusTextBox(it.outlineId).selectText(it.selection).clearSelectedFormatting()
+                    } }
+                },
+                modifier = Modifier.testTag(TextMenuTags.ClearFormatting),
+            )
+            ContextMenuDivider()
+        }
         ContextMenuItem(
             label = "Select all",
             icon = ContextSymbols.SelectAll,

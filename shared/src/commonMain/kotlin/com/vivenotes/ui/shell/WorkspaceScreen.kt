@@ -105,6 +105,7 @@ import com.vivenotes.workspace.PageContent
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.model.Mark
+import com.vivenotes.richtext.LinkTarget
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Align
 import com.vivenotes.model.Outline
@@ -530,6 +531,13 @@ private fun WorkspaceContent(
                     },
                     onToggleTodo = { outlineId, blockId -> onStateChange { it.toggleTodo(outlineId, blockId) } },
                     onTextCommand = ::applyEditorCommand,
+                    onTextLinkRequest = { id, selection, target ->
+                        linkEditor = LinkEditorRequest(selection, target) { label, url, captured ->
+                            applyEditorCommand { current ->
+                                current.focusTextBox(id).selectText(captured ?: selection).insertLink(label, url)
+                            }
+                        }
+                    },
                     onOpenTextMenu = { id, selection ->
                         onStateChange { current ->
                             (if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)).selectText(selection)
@@ -672,6 +680,7 @@ private fun PageCanvas(
     onToggleTodo: (outlineId: String, blockId: String) -> Unit,
     /** Applies a text command and gives the keyboard back to the text box. */
     onTextCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
+    onTextLinkRequest: (String, TextSelection, LinkTarget) -> Unit,
     /** A right-click in a text box: edit that box, with this range selected. */
     onOpenTextMenu: (String, TextSelection) -> Unit,
     onBodyChange: (String, TextFieldValue) -> Unit,
@@ -1132,6 +1141,9 @@ private fun PageCanvas(
                             .border(1.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
                             .testTag(WorkspaceTestTags.textBoxOutline(outline.id)))
                         val styledText = richText?.asAnnotatedString(richColors) ?: buildAnnotatedString {}
+                        val menuSelection = textMenu?.takeIf { it.outlineId == outline.id }?.selection
+                            ?.takeUnless { it.collapsed }
+                        val selectionTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
                         val showingPreview = if (!focused && styledText.isNotEmpty()) {
                             TextBoxPreviews(
                                 source = styledText,
@@ -1164,6 +1176,11 @@ private fun PageCanvas(
                                 Box(Modifier
                                     .drawBehind {
                                         textLayouts[outline.id]?.let { layout ->
+                                            if (menuSelection != null && keyboardTextBox != outline.id) {
+                                                val start = menuSelection.min.coerceIn(0, layout.layoutInput.text.length)
+                                                val end = menuSelection.max.coerceIn(0, layout.layoutInput.text.length)
+                                                if (start < end) drawPath(layout.getPathForRange(start, end), selectionTint)
+                                            }
                                             drawBlockDecorations(layout, outline.blocks, richColors, palette.ink, textMeasurer)
                                         }
                                     }
@@ -1215,6 +1232,7 @@ private fun PageCanvas(
                             state = state,
                             clipboard = textClipboard,
                             onEditorCommand = onTextCommand,
+                            onLinkRequest = onTextLinkRequest,
                             onDeleteBox = onDeleteTextBox,
                             onClose = { textMenu = null },
                         )

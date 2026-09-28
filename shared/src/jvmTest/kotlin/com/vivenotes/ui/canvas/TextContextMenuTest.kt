@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -16,6 +17,8 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithTag
@@ -23,6 +26,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTextInputSelection
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
@@ -35,12 +40,14 @@ import com.vivenotes.model.Outline
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
+import com.vivenotes.ui.ribbon.document.DocumentRibbonTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.focusBody
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /** The text box's right-click menu and its clipboard shortcuts, through the real editor. */
 @OptIn(ExperimentalTestApi::class)
@@ -68,6 +75,8 @@ class TextContextMenuTest {
         onNodeWithTag(TextMenuTags.SelectAll).assertIsEnabled()
         onNodeWithTag(TextMenuTags.Cut).assertIsNotEnabled()
         onNodeWithTag(TextMenuTags.Copy).assertIsNotEnabled()
+        onNodeWithTag(TextMenuTags.InsertLink).assertDoesNotExist()
+        onNodeWithTag(TextMenuTags.ClearFormatting).assertDoesNotExist()
         onNodeWithTag(TextMenuTags.Paste).assertIsNotEnabled()
         onNodeWithTag(TextMenuTags.PastePlainText).assertIsNotEnabled()
         onNodeWithTag(TextMenuTags.CopyBox).assertIsEnabled()
@@ -145,6 +154,67 @@ class TextContextMenuTest {
         editor.performMouseInput { rightClick(onFirstWord) }
         runOnIdle { assertEquals(TextSelection(0, 6), observed.editorSelection) }
         onNodeWithTag(TextMenuTags.Copy).assertIsEnabled()
+        onNodeWithTag(TextMenuTags.InsertLink).assertIsEnabled()
+        onNodeWithTag(TextMenuTags.ClearFormatting).assertIsEnabled()
+    }
+
+    @Test
+    fun selectedTextStaysVisiblyMarkedWhileMenuHasFocus() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = boldReview
+        setWorkspace(boldReview, FakeClipboard()) { observed = it }
+        val editor = onNodeWithTag(WorkspaceTestTags.BodyEditor)
+        editor.performTextInputSelection(TextRange(0))
+        val before = editor.captureToImage().toPixelMap()
+
+        editor.performTextInputSelection(TextRange(0, 6))
+        editor.performMouseInput { rightClick(onFirstWord) }
+        onNodeWithTag(TextMenuTags.InsertLink).assertIsDisplayed()
+        val during = editor.captureToImage().toPixelMap()
+
+        runOnIdle { assertEquals(TextSelection(0, 6), observed.editorSelection) }
+        val changed = (2 until 48).sumOf { x -> (2 until 20).count { y -> before[x, y] != during[x, y] } }
+        assertTrue(changed > 20, "selected text lost its visible highlight when the menu opened")
+    }
+
+    @Test
+    fun clearFormattingUsesTheSelectedRange() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = boldReview
+        setWorkspace(boldReview, FakeClipboard()) { observed = it }
+        val editor = onNodeWithTag(WorkspaceTestTags.BodyEditor)
+        editor.performTextInputSelection(TextRange(0, 6))
+        editor.performMouseInput { rightClick(onFirstWord) }
+        onNodeWithTag(TextMenuTags.ClearFormatting).performClick()
+
+        editor.assertIsFocused()
+        runOnIdle {
+            assertEquals(TextSelection(0, 6), observed.editorSelection)
+            assertEquals(emptySet(), observed.richText!!.blocks.first().runs.first().marks)
+        }
+    }
+
+    @Test
+    fun insertLinkOpensPrefilledDialogAndLinksTheSelection() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = boldReview
+        setWorkspace(boldReview, FakeClipboard()) { observed = it }
+        val editor = onNodeWithTag(WorkspaceTestTags.BodyEditor)
+        editor.performTextInputSelection(TextRange(0, 6))
+        editor.performMouseInput { rightClick(onFirstWord) }
+        onNodeWithTag(TextMenuTags.InsertLink).performClick()
+
+        onNodeWithTag(DocumentRibbonTags.LinkPanel).assertIsDisplayed()
+        onNodeWithTag(DocumentRibbonTags.LinkText).assertTextContains("Review")
+        onNodeWithTag(DocumentRibbonTags.LinkAddress).performTextReplacement("example.com/notes")
+        onNodeWithTag(DocumentRibbonTags.LinkSubmit).performClick()
+
+        editor.assertIsFocused()
+        editor.performTextInput(" plain words")
+        runOnIdle {
+            assertTrue(Mark.Link("https://example.com/notes") in observed.richText!!.blocks.first().runs.first().marks)
+            assertEquals("Review plain words", observed.richText!!.text.take(18))
+            assertTrue(observed.richText!!.blocks.first().runs.drop(1).none { run ->
+                run.marks.any { it is Mark.Link }
+            }, "typing after the link must stay outside it")
+        }
     }
 
     @Test

@@ -207,6 +207,38 @@ class RichTextBufferTest {
     }
 
     @Test
+    fun typingAfterAnInsertedLinkLeavesTheLinkEvenAcrossSpaces() {
+        val url = Mark.Link("https://example.com")
+        val linked = editor(Block.of("link"))
+            .select(TextSelection(0, 4)).insertLink("link", url.href)
+        assertEquals(emptySet(), linked.typingMarks)
+
+        val first = linked.acceptTextChange("link more", TextSelection(9))
+        val second = first.acceptTextChange("link more words", TextSelection(15))
+        assertEquals(listOf(Run("link", setOf(url)), Run(" more words")), second.blocks.single().runs)
+        assertEquals(listOf(RichTextBuffer.LinkSpan(0, 4, url.href)), second.linkSpans())
+    }
+
+    @Test
+    fun caretAtEitherLinkEdgeTypesOutsideItButInsideItStillEditsTheLink() {
+        val url = Mark.Link("https://example.com")
+        val original = editor(Block(id = "b", runs = listOf(
+            Run("li", setOf(Mark.Bold, url)), Run("nk", setOf(Mark.Italic, url)),
+        )))
+
+        val before = original.select(TextSelection(0)).acceptTextChange("xlink", TextSelection(1))
+        assertEquals(listOf(Run("x", setOf(Mark.Bold)), Run("li", setOf(Mark.Bold, url)),
+            Run("nk", setOf(Mark.Italic, url))), before.blocks.single().runs)
+
+        val after = original.select(TextSelection(4)).acceptTextChange("link x", TextSelection(6))
+        assertEquals(listOf(Run("li", setOf(Mark.Bold, url)), Run("nk", setOf(Mark.Italic, url)),
+            Run(" x", setOf(Mark.Italic))), after.blocks.single().runs)
+
+        val inside = original.select(TextSelection(2)).acceptTextChange("liXnk", TextSelection(3))
+        assertEquals(listOf(RichTextBuffer.LinkSpan(0, 5, url.href)), inside.linkSpans())
+    }
+
+    @Test
     fun aLinkSplitByOtherFormattingIsStillOneLink() {
         val url = Mark.Link("https://example.com")
         val buffer = editor(Block(id = "b", runs = listOf(

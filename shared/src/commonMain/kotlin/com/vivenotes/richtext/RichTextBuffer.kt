@@ -35,7 +35,7 @@ data class RichTextBuffer(
 
     fun select(range: TextSelection): RichTextBuffer {
         val next = range.clamped(text.length)
-        return copy(selection = next, typingMarks = if (next.collapsed) marksAt(next.start) else emptySet())
+        return copy(selection = next, typingMarks = if (next.collapsed) marksForCaret(next.start) else emptySet())
     }
 
     /** The marks common to every selected character, or the armed marks at the caret. */
@@ -371,6 +371,14 @@ data class RichTextBuffer(
             if (position.offset <= cursor) return run.marks
         }
         return runs.lastOrNull()?.marks.orEmpty()
+    }
+
+    /** A link ends at its edge; typing there keeps other formatting without growing the link. */
+    private fun marksForCaret(offset: Int): Set<Mark> {
+        val marks = marksAt(offset)
+        val link = marks.filterIsInstance<Mark.Link>().firstOrNull() ?: return marks
+        return if (linkSpans().any { it.href == link.href && (offset == it.start || offset == it.end) })
+            marks - link else marks
     }
 
     private data class Position(val index: Int, val offset: Int)
