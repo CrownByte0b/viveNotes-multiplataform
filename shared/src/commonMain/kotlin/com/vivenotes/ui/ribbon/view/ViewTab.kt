@@ -2,6 +2,7 @@ package com.vivenotes.ui.ribbon.view
 
 import androidx.compose.runtime.Composable
 import com.vivenotes.model.PageStyle
+import com.vivenotes.model.RuleLines
 import com.vivenotes.ui.shell.CanvasViewControl
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.WorkspaceState
@@ -55,6 +56,7 @@ internal fun ViewTab(
     settings: ViewSettings,
     canvasDark: Boolean,
     actions: ViewActions,
+    onDefaultRuleLines: (RuleLines) -> Unit = {},
 ) {
     val page = state.selectedPage?.takeIf { it.editable }
     ViewRibbon(
@@ -63,5 +65,7 @@ internal fun ViewTab(
         settings = settings,
         canvasDark = canvasDark,
         actions = actions,
+        defaultRuleLines = state.editorDefaults.ruleLines,
+        onDefaultRuleLines = onDefaultRuleLines,
     )
 }

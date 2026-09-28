@@ -27,6 +27,7 @@ import com.vivenotes.ui.icons.rememberDocumentRibbonIcons
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonDivider
 import com.vivenotes.ui.ribbon.RibbonIcon
+import com.vivenotes.workspace.EditorDefaults
 
 /** Android Document tab controls, in the same order and with the same icon artwork. */
 internal object DocumentRibbonTags {
@@ -78,6 +79,9 @@ internal fun DocumentRibbon(
     textToolArmed: Boolean,
     commands: DocumentCommands,
     colorSelection: DocumentColorSelection,
+    fontFamily: String,
+    fontSize: Int,
+    defaults: EditorDefaults,
     onLinkRequest: (LinkEditorRequest) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -104,21 +108,25 @@ internal fun DocumentRibbon(
         RibbonDivider()
         RibbonPicker(
             label = "Font family",
-            current = marks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.name ?: "sans-serif",
+            current = fontFamily,
+            default = defaults.fontFamily,
             choices = FontFamilies,
-            enabled = editable,
+            enabled = commands.canChooseFont,
             selection = richText?.selection,
             tag = DocumentRibbonTags.FontFamily,
-            onPick = { value, selection -> commands.setMark(Mark.FontFamily(value), selection) },
+            onPick = commands.chooseFontFamily,
+            onSetDefault = commands.setDefaultFontFamily,
         )
         RibbonPicker(
             label = "Font size",
-            current = marks.filterIsInstance<Mark.FontSize>().firstOrNull()?.sp?.toString() ?: "15",
+            current = fontSize.toString(),
+            default = defaults.fontSize.toString(),
             choices = FontSizes.map { it.toString() to it.toString() },
-            enabled = editable,
+            enabled = commands.canChooseFont,
             selection = richText?.selection,
             tag = DocumentRibbonTags.FontSize,
-            onPick = { value, selection -> commands.setMark(Mark.FontSize(value.toInt()), selection) },
+            onPick = { value, selection -> commands.chooseFontSize(value.toInt(), selection) },
+            onSetDefault = { commands.setDefaultFontSize(it.toInt()) },
         )
         RibbonDivider()
         MarkButton(DocumentSymbols.FormatBold, "Bold", Mark.Bold, marks, editable) { commands.toggleMark(Mark.Bold, takeSelection()) }

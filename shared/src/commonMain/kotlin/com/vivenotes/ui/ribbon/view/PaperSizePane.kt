@@ -28,6 +28,8 @@ internal fun PaperSizePane(
     enabled: Boolean,
     actions: ViewActions,
     onClose: () -> Unit,
+    defaultPaper: PaperSize = PaperSize.Auto,
+    onDefaultPaper: (PaperSize) -> Unit = {},
 ) {
     val custom = style.paper == PaperSize.Custom
     val inches = style.paperInches ?: PaperDimensions.DEFAULT
@@ -36,7 +38,8 @@ internal fun PaperSizePane(
     ToolPane(title = "Paper Size", onClose = onClose) {
         PaneGroup("Paper size") {
             PaneRow("Size", first = true) {
-                PaneChoice("Size", style.paper, PaperSize.entries, ::paperSizeLabel, actions.setPaperSize, enabled)
+                PaneChoice("Size", style.paper, PaperSize.entries, ::paperSizeLabel, actions.setPaperSize,
+                    enabled, defaultPaper, onDefaultPaper)
             }
             PaneRow("Orientation") {
                 PaneChoice("Orientation", style.orientation, Orientation.entries, { it.name },

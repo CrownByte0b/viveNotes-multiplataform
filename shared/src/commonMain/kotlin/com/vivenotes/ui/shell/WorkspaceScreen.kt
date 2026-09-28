@@ -167,6 +167,7 @@ import com.vivenotes.ui.canvas.documentExtent
 import com.vivenotes.ui.navigation.SectionTabsBar
 import com.vivenotes.workspace.TabsLayout
 import com.vivenotes.workspace.ViewSettings
+import com.vivenotes.workspace.EditorDefaults
 import com.vivenotes.workspace.titleFloor
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.DpSize
@@ -266,6 +267,7 @@ fun WorkspaceScreen(
     /** This device's View settings — zoom, tabs layout, canvas brightness — and where changes go. */
     viewSettings: ViewSettings = ViewSettings(),
     onViewSettingsChange: (ViewSettings) -> Unit = {},
+    onEditorDefaultsChange: (EditorDefaults) -> Unit = {},
     /** The keyboard shortcuts in force, and where Settings → Hardware sends changes to them. */
     keyBindings: KeyBindings = KeyBindings.Default,
     onKeyBindingsChange: (KeyBindings) -> Unit = {},
@@ -303,7 +305,8 @@ fun WorkspaceScreen(
                 }, bindings = bindings, onBindingsChange = { next ->
                     bindings = next
                     onKeyBindingsChange(next)
-                }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions)
+                }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions,
+                onEditorDefaultsChange = onEditorDefaultsChange)
         }
         previewSettings?.let { draft ->
             InterfaceDialog(
@@ -336,6 +339,7 @@ private fun WorkspaceContent(
     /** The workspace's own focus, which holds the keyboard when no control does. */
     canvasFocusRequester: FocusRequester,
     fileActions: FileActions?,
+    onEditorDefaultsChange: (EditorDefaults) -> Unit,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
@@ -417,8 +421,14 @@ private fun WorkspaceContent(
                 onDeleteNotebook = { notebookConfirmation = "delete" })
             RibbonTab.Draw -> DrawRibbon(state, onStateChange)
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
-                { canvasOrigin.read() }, documentColorSelection, onLinkRequest = { linkEditor = it })
-            RibbonTab.View -> ViewTab(state, view, canvasDark, viewActions)
+                { canvasOrigin.read() }, documentColorSelection, onLinkRequest = { linkEditor = it },
+                onEditorDefaultsChange = onEditorDefaultsChange)
+            RibbonTab.View -> ViewTab(state, view, canvasDark, viewActions,
+                onDefaultRuleLines = { rule ->
+                    val next = state.editorDefaults.copy(ruleLines = rule)
+                    onStateChange { it.setEditorDefaults(next) }
+                    onEditorDefaultsChange(next)
+                })
             RibbonTab.Settings -> SettingsRibbon(onInterface, hardwareOpen = openPane == DockedPane.Hardware,
                 onHardware = { togglePane(DockedPane.Hardware) }, linkPreviews = view.linkPreviews,
                 onLinkPreviewsChange = { enabled -> onViewChange(view.copy(linkPreviews = enabled)) })
@@ -572,6 +582,14 @@ private fun WorkspaceContent(
                                 enabled = page != null,
                                 actions = viewActions,
                                 onClose = { openPane = null },
+                                defaultPaper = state.editorDefaults.paper,
+                                onDefaultPaper = { paper ->
+                                    val next = state.editorDefaults.copy(paper = paper,
+                                        customPaper = if (paper == com.vivenotes.model.PaperSize.Custom)
+                                            state.selectedPage?.document?.style?.customPaper else state.editorDefaults.customPaper)
+                                    onStateChange { it.setEditorDefaults(next) }
+                                    onEditorDefaultsChange(next)
+                                },
                             )
                         }
                         DockedPane.Hardware -> HardwarePane(

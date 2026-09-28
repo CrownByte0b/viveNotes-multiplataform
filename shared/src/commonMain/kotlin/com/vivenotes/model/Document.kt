@@ -74,7 +74,7 @@ private fun Outline.shiftedDown(dy: Float): Outline = when (this) {
  *
  * These belong to the document rather than to preferences, because they are properties of the page
  * itself — squared or dotted paper stays that way when it reaches another device, and an exporter
- * needs the setting to reproduce the page. Contrast `data/EditorDefaults.kt`, which describes how
+ * needs the setting to reproduce the page. Contrast `workspace/EditorDefaults.kt`, which describes how
  * the user likes to write and so must *not* travel with any one document.
  *
  * Every field has a default, so a page written before the View tab existed decodes to the same

@@ -41,6 +41,7 @@ import com.vivenotes.model.PaperSize
 import com.vivenotes.model.PrintMargins
 import com.vivenotes.model.RuleLines
 import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.components.DefaultChoiceItem
 import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ViewSymbols
@@ -127,6 +128,8 @@ internal fun ViewRibbon(
     /** What the canvas currently is: what Switch Background flips. */
     canvasDark: Boolean,
     actions: ViewActions,
+    defaultRuleLines: RuleLines = RuleLines.GridMedium,
+    onDefaultRuleLines: (RuleLines) -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     val lightChrome = colors.surface.luminance() >= 0.5f
@@ -148,7 +151,8 @@ internal fun ViewRibbon(
         RibbonCommand("Page Width", onClick = actions.zoomToPageWidth, enabled = pageOpen,
             modifier = Modifier.testTag(ViewRibbonTags.PageWidth)) { TwoToneIcon(idle.pageWidth) }
         RibbonDivider()
-        RuleLinesMenu(style.ruleLines, pageOpen, idle.ruleLines, active.ruleLines, actions.setRuleLines)
+        RuleLinesMenu(style.ruleLines, defaultRuleLines, pageOpen, idle.ruleLines, active.ruleLines,
+            actions.setRuleLines, onDefaultRuleLines)
         PageColorMenu(style.backgroundArgb, pageOpen, canvasDark, actions.setPageColor)
         // A pane rather than a menu: six fields in two groups, which has to stay open while the
         // page changes shape beside it.
@@ -233,10 +237,12 @@ private fun TabsLayoutMenu(current: TabsLayout, icon: ImageVector, onPick: (Tabs
 @Composable
 private fun RuleLinesMenu(
     current: RuleLines,
+    default: RuleLines,
     pageOpen: Boolean,
     idle: ImageVector,
     active: ImageVector,
     onPick: (RuleLines) -> Unit,
+    onSetDefault: (RuleLines) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
@@ -247,10 +253,9 @@ private fun RuleLinesMenu(
         ScaledDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             RuleLineChoices.forEach { (rule, label) ->
                 if (rule == RuleLines.Dotted) HorizontalDivider()
-                CheckableItem(label, rule == current, ViewRibbonTags.ruleLines(rule)) {
-                    open = false
-                    onPick(rule)
-                }
+                DefaultChoiceItem(label, rule == current, rule == default, ViewRibbonTags.ruleLines(rule),
+                    onChoose = { open = false; onPick(rule) },
+                    onSetDefault = { open = false; onSetDefault(rule) })
             }
         }
     }

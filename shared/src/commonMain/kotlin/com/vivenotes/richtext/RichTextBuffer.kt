@@ -35,7 +35,9 @@ data class RichTextBuffer(
 
     fun select(range: TextSelection): RichTextBuffer {
         val next = range.clamped(text.length)
-        return copy(selection = next, typingMarks = if (next.collapsed) marksForCaret(next.start) else emptySet())
+        return copy(selection = next, typingMarks = if (next.collapsed) {
+            if (text.isEmpty()) typingMarks else marksForCaret(next.start)
+        } else emptySet())
     }
 
     /** The marks common to every selected character, or the armed marks at the caret. */

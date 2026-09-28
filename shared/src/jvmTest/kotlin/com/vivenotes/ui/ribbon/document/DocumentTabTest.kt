@@ -66,6 +66,32 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class DocumentTabTest {
 
+    @Test
+    fun fontAndSizeChosenBeforeOpeningATextBoxFormatTheNextTypedText() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var observed = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
+            setWorkspace(observed) { observed = it }
+            onNodeWithTag(DocumentRibbonTags.FontFamily).assertIsEnabled().performClick()
+            onNodeWithTag("document-font-family-lora").performClick()
+            onNodeWithTag(DocumentRibbonTags.FontSize).assertIsEnabled().performClick()
+            onNodeWithTag("document-font-size-24").performClick()
+            runOnIdle {
+                assertEquals("lora", observed.fontFamilyChoice)
+                assertEquals(24, observed.fontSizeChoice)
+            }
+
+            onNodeWithTag(DocumentRibbonTags.Text).performClick()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(780f, 450f)) }
+            val id = observed.focusedTextOutlineId!!
+            onNodeWithTag(WorkspaceTestTags.textBox(id) + "-editor").assertIsFocused()
+                .performTextReplacement("Chosen before placing")
+            runOnIdle {
+                val marks = observed.focusedTextOutline!!.blocks.first().runs.first().marks
+                assertTrue(Mark.FontFamily("lora") in marks)
+                assertTrue(Mark.FontSize(24) in marks)
+            }
+        }
+
     private val document = WorkspaceState.demo().copy(activeTab = RibbonTab.Document).focusBody()
     private val accent = Color(0xFF4CAF50)
 

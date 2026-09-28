@@ -9,6 +9,7 @@ import com.vivenotes.workspace.formatUpdated
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ViewSettings
+import com.vivenotes.workspace.EditorDefaults
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -41,12 +42,22 @@ internal class DesktopNotes(
     private val maintenanceInterval: Duration = 24.hours,
     private val interfaceStore: InterfaceSettingsFile? = null,
     private val viewStore: ViewSettingsFile? = null,
+    private val editorStore: EditorDefaultsFile? = null,
     private val keyStore: KeyBindingsFile? = null,
     val thumbnails: DesktopVideoThumbnails? = null,
 ) {
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
+    var editorDefaults by mutableStateOf(editorStore?.load() ?: EditorDefaults())
+        private set
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated,
-        updatedLabel = { formatUpdated(it) })
+        updatedLabel = { formatUpdated(it) }, editorDefaults = editorDefaults)
+
+    fun updateEditorDefaults(defaults: EditorDefaults) {
+        val value = defaults.normalized()
+        if (value == editorDefaults) return
+        editorStore?.save(value)
+        editorDefaults = value
+    }
     var interfaceSettings by mutableStateOf(interfaceStore?.load() ?: InterfaceSettings())
         private set
 
@@ -141,6 +152,7 @@ internal class DesktopNotes(
             return DesktopNotes(NotesLibrary.open(directories.data, directories.cache), MainScope(),
                 interfaceStore = InterfaceSettingsFile(File(directories.config, "interface.properties")),
                 viewStore = ViewSettingsFile(File(directories.config, "view.properties")),
+                editorStore = EditorDefaultsFile(File(directories.config, "editor.properties")),
                 keyStore = KeyBindingsFile(File(directories.config, "keyboard.properties")),
                 thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")))
         }

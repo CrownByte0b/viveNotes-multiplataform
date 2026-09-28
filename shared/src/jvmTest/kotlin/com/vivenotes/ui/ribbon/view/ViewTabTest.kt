@@ -21,6 +21,8 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.model.Orientation
 import com.vivenotes.model.PageStyle
@@ -49,6 +51,24 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalTestApi::class)
 class ViewTabTest {
+
+    @Test
+    fun holdingAPaperTypeMakesItTheDefaultWithoutChangingTheOpenPage() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var observed = WorkspaceState.demo().copy(activeTab = RibbonTab.View)
+            setWorkspace(initial = observed) { observed = it }
+            val oldRule = observed.selectedPage!!.document.style.ruleLines
+            onNodeWithTag(ViewRibbonTags.Paper).performClick()
+            onNodeWithTag(ViewRibbonTags.ruleLines(RuleLines.Wide)).performTouchInput { longClick() }
+            runOnIdle {
+                assertEquals(oldRule, observed.selectedPage!!.document.style.ruleLines)
+                assertEquals(RuleLines.Wide, observed.editorDefaults.ruleLines)
+                assertEquals(RuleLines.Wide, observed.addPage().selectedPage!!.document.style.ruleLines)
+            }
+            onNodeWithTag(ViewRibbonTags.Paper).performClick()
+            onNodeWithTag(ViewRibbonTags.ruleLines(RuleLines.Wide)).assert(
+                SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Default"))
+        }
 
     private var ruleLines: RuleLines? = null
     private var pageColor: Int? = null

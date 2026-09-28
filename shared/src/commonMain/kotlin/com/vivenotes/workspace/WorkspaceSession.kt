@@ -52,6 +52,7 @@ class WorkspaceSession(
     /** A page's `updatedAt` as the page list shows it, worked out when its row arrives. */
     private val updatedLabel: (Long) -> String = { "" },
     private val inkSource: InkSource? = store as? InkSource,
+    private val editorDefaults: EditorDefaults = EditorDefaults(),
 ) : NavigationActions {
     private val current = MutableStateFlow<WorkspaceState?>(null)
 
@@ -120,7 +121,12 @@ class WorkspaceSession(
         saveOpenPage()
         enqueue {
             val page = attempt("A new page could not be created") {
-                store.pageById(store.createPage(sectionId))
+                val id = store.createPage(sectionId)
+                val defaults = current.value?.editorDefaults ?: editorDefaults
+                if (defaults.pageStyle() != com.vivenotes.model.PageStyle()) {
+                    store.saveDoc(id, PageDoc.empty().copy(style = defaults.pageStyle()))
+                }
+                store.pageById(id)
             } ?: return@enqueue
             update { state -> state.withPageAdded(sectionId, page).selectPage(page.id) }
         }
@@ -199,7 +205,13 @@ class WorkspaceSession(
         val named = sectionName(name)
         enqueue {
             val sectionId = attempt("$named could not be created") {
-                store.createSection(notebookId, named).also { store.createPage(it) }
+                store.createSection(notebookId, named).also { section ->
+                    val id = store.createPage(section)
+                    val defaults = current.value?.editorDefaults ?: editorDefaults
+                    if (defaults.pageStyle() != com.vivenotes.model.PageStyle()) {
+                        store.saveDoc(id, PageDoc.empty().copy(style = defaults.pageStyle()))
+                    }
+                }
             } ?: return@enqueue
             openWhenListed(sectionId)
         }
@@ -628,7 +640,8 @@ class WorkspaceSession(
             // page opens once its pages arrive.
             val notebook = notebooks.firstOrNull()
             val section = notebook?.sections?.firstOrNull()
-            current.value = WorkspaceState(notebooks, notebook?.id.orEmpty(), section?.id.orEmpty(), "")
+            current.value = WorkspaceState(notebooks, notebook?.id.orEmpty(), section?.id.orEmpty(), "",
+                editorDefaults = editorDefaults)
             openSection.value = section?.id
             return
         }
@@ -733,7 +746,8 @@ class WorkspaceSession(
 
     private fun fail(failure: String, error: Throwable) {
         val message = "$failure. ${error.message ?: error::class.simpleName.orEmpty()}".trim()
-        current.value = (current.value ?: WorkspaceState(emptyList(), "", "", "")).copy(storageError = message)
+        current.value = (current.value ?: WorkspaceState(emptyList(), "", "", "",
+            editorDefaults = editorDefaults)).copy(storageError = message)
     }
 
     companion object {

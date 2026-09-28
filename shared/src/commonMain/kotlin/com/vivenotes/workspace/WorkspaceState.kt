@@ -111,6 +111,9 @@ data class WorkspaceState(
     val navigationVisible: Boolean = true,
     val editorSelection: TextSelection = TextSelection(0),
     val typingMarks: Set<Mark> = emptySet(),
+    val editorDefaults: EditorDefaults = EditorDefaults(),
+    val nextFontFamily: String? = null,
+    val nextFontSize: Int? = null,
     val editorComposition: TextSelection? = null,
     val textToolArmed: Boolean = false,
     val objectLassoArmed: Boolean = false,
@@ -160,6 +163,27 @@ data class WorkspaceState(
     val richText: RichTextBuffer?
         get() = focusedTextOutline?.let { RichTextBuffer(it.blocks, editorSelection, typingMarks) }
 
+    val fontFamilyChoice: String get() = if (richText != null)
+        richText!!.activeMarks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.name ?: "sans-serif"
+    else nextFontFamily ?: editorDefaults.fontFamily
+    val fontSizeChoice: Int get() = if (richText != null)
+        richText!!.activeMarks.filterIsInstance<Mark.FontSize>().firstOrNull()?.sp ?: 15
+    else nextFontSize ?: editorDefaults.fontSize
+
+    /** With no editor open, a font choice arms only the next newly placed text box. */
+    fun chooseFontFamily(family: String): WorkspaceState =
+        if (selectedPage?.editable != true || family !in EditorDefaults.SUPPORTED_FONTS) this
+        else if (richText != null) setSelectedMark(Mark.FontFamily(family))
+        else copy(nextFontFamily = family)
+
+    fun chooseFontSize(size: Int): WorkspaceState =
+        if (selectedPage?.editable != true || size !in EditorDefaults.SUPPORTED_SIZES) this
+        else if (richText != null) setSelectedMark(Mark.FontSize(size))
+        else copy(nextFontSize = size)
+
+    fun setEditorDefaults(defaults: EditorDefaults): WorkspaceState =
+        copy(editorDefaults = defaults.normalized())
+
     fun richTextFor(id: String): RichTextBuffer? =
         selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()
             ?.firstOrNull { it.id == id }?.let {
@@ -194,9 +218,14 @@ data class WorkspaceState(
     fun focusTextBox(id: String): WorkspaceState {
         if (selectedPage?.document?.outlines?.none { it is Outline.Text && it.id == id } != false) return this
         val next = if (id == focusedTextOutlineId) this else discardEmptyFocusedTextBox()
+        val outline = next.selectedPage?.document?.outlines?.firstOrNull { it.id == id } as? Outline.Text
+        val marks = if (outline?.blocks?.all { it.runs.isEmpty() } == true)
+            editorDefaults.textMarks(nextFontFamily ?: editorDefaults.fontFamily,
+                nextFontSize ?: editorDefaults.fontSize) else emptySet()
         return next.copy(focusedTextOutlineId = id, selectedTextOutlineIds = emptySet(),
             selectedObjectIds = emptySet(),
-            editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null)
+            editorSelection = TextSelection(0), typingMarks = marks, editorComposition = null,
+            nextFontFamily = null, nextFontSize = null)
     }
 
     fun clearCanvasFocus(): WorkspaceState = discardEmptyFocusedTextBox().copy(
@@ -229,7 +258,10 @@ data class WorkspaceState(
         return editOutlines { outlines ->
             outlines.filterNot { it is Outline.Text && it.isUnwritten() } + outline
         }.copy(focusedTextOutlineId = outline.id, selectedTextOutlineIds = emptySet(),
-            editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null)
+            editorSelection = TextSelection(0),
+            typingMarks = editorDefaults.textMarks(nextFontFamily ?: editorDefaults.fontFamily,
+                nextFontSize ?: editorDefaults.fontSize), editorComposition = null,
+            nextFontFamily = null, nextFontSize = null)
             .discardEmptyTextHistory(removedIds)
     }
 
@@ -613,7 +645,7 @@ data class WorkspaceState(
             title = "Untitled page",
             preview = "Start writing…",
             createdLabel = "Just now",
-            document = textDocument(""),
+            document = textDocument("").copy(style = editorDefaults.pageStyle()),
             updatedLabel = "Just now",
         )
         return updateSection(section.id) { it.copy(pages = it.pages + page) }

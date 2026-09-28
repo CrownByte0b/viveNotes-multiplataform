@@ -130,6 +130,8 @@ internal fun <T> PaneChoice(
     label: (T) -> String,
     onPick: (T) -> Unit,
     enabled: Boolean = true,
+    default: T? = null,
+    onSetDefault: ((T) -> Unit)? = null,
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
@@ -152,12 +154,21 @@ internal fun <T> PaneChoice(
         }
         ScaledDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(label(option)) },
-                    onClick = {
+                if (onSetDefault != null) DefaultChoiceItem(
+                    label = label(option), selected = option == current, isDefault = option == default,
+                    tag = ToolPaneTags.option(field, label(option)),
+                    onChoose = {
                         open = false
                         onPick(option)
                     },
+                    onSetDefault = {
+                        open = false
+                        onSetDefault(option)
+                    },
+                )
+                else DropdownMenuItem(
+                    text = { Text(label(option)) },
+                    onClick = { open = false; onPick(option) },
                     modifier = Modifier.testTag(ToolPaneTags.option(field, label(option))),
                 )
             }

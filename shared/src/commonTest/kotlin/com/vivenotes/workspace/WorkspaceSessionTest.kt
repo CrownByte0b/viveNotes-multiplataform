@@ -5,6 +5,8 @@ import com.vivenotes.data.InkSource
 import com.vivenotes.model.Block
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
+import com.vivenotes.model.PaperSize
+import com.vivenotes.model.RuleLines
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.model.ink.InkSample
 import com.vivenotes.model.ink.VisibleInkStroke
@@ -23,6 +25,24 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WorkspaceSessionTest {
+
+    @Test
+    fun newStoredPagesUseTheCurrentPaperDefault() = runTest {
+        val session = WorkspaceSession(store, backgroundScope, { "created $it" },
+            editorDefaults = EditorDefaults(paper = PaperSize.B5, ruleLines = RuleLines.Wide))
+        session.start()
+        runCurrent()
+        session.addPage()
+        runCurrent()
+        assertEquals(PaperSize.B5, session.state.value!!.selectedPage!!.document.style.paper)
+        assertEquals(PaperSize.B5, store.saves.last().second.style.paper)
+        assertEquals(RuleLines.Wide, store.saves.last().second.style.ruleLines)
+
+        session.update { it.setEditorDefaults(EditorDefaults(paper = PaperSize.A4)) }
+        session.addPage()
+        runCurrent()
+        assertEquals(PaperSize.A4, session.state.value!!.selectedPage!!.document.style.paper)
+    }
 
     private val store = FakeNotesStore()
     private val sections = store.notebook(

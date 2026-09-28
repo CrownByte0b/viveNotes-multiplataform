@@ -11,6 +11,7 @@ import com.vivenotes.model.Mark
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.EditorDefaults
 import kotlinx.coroutines.launch
 
 /**
@@ -19,8 +20,13 @@ import kotlinx.coroutines.launch
  */
 internal class DocumentCommands(
     val toggleTextTool: () -> Unit,
+    val canChooseFont: Boolean,
     val toggleMark: (Mark, TextSelection?) -> Unit,
     val setMark: (Mark, TextSelection?) -> Unit,
+    val chooseFontFamily: (String, TextSelection?) -> Unit,
+    val chooseFontSize: (Int, TextSelection?) -> Unit,
+    val setDefaultFontFamily: (String) -> Unit,
+    val setDefaultFontSize: (Int) -> Unit,
     val clearMark: (Mark, TextSelection?) -> Unit,
     val clearFormatting: (TextSelection?) -> Unit,
     val setBlockType: (BlockType, TextSelection?) -> Unit,
@@ -49,6 +55,7 @@ internal fun DocumentTab(
     visibleOrigin: () -> Offset,
     colorSelection: DocumentColorSelection,
     onLinkRequest: (LinkEditorRequest) -> Unit,
+    onEditorDefaultsChange: (EditorDefaults) -> Unit = {},
 ) {
     val clipboard = TextClipboardActions(LocalClipboardManager.current, onEditorCommand)
     val scope = rememberCoroutineScope()
@@ -76,8 +83,27 @@ internal fun DocumentTab(
         textToolArmed = state.textToolArmed,
         commands = DocumentCommands(
             toggleTextTool = { onStateChange { it.toggleTextTool() } },
+            canChooseFont = state.selectedPage?.editable == true,
             toggleMark = { mark, selection -> edit(selection) { toggleSelectedMark(mark) } },
             setMark = { mark, selection -> edit(selection) { setSelectedMark(mark) } },
+            chooseFontFamily = { family, selection ->
+                if (state.richText != null) edit(selection) { chooseFontFamily(family) }
+                else onStateChange { it.chooseFontFamily(family) }
+            },
+            chooseFontSize = { size, selection ->
+                if (state.richText != null) edit(selection) { chooseFontSize(size) }
+                else onStateChange { it.chooseFontSize(size) }
+            },
+            setDefaultFontFamily = { family ->
+                val next = state.editorDefaults.copy(fontFamily = family).normalized()
+                onStateChange { it.setEditorDefaults(next) }
+                onEditorDefaultsChange(next)
+            },
+            setDefaultFontSize = { size ->
+                val next = state.editorDefaults.copy(fontSize = size).normalized()
+                onStateChange { it.setEditorDefaults(next) }
+                onEditorDefaultsChange(next)
+            },
             clearMark = { mark, selection -> edit(selection) { clearSelectedMark(mark) } },
             clearFormatting = { selection -> edit(selection) { clearSelectedFormatting() } },
             setBlockType = { type, selection -> edit(selection) { setSelectedBlockType(type) } },
@@ -92,6 +118,9 @@ internal fun DocumentTab(
             insertPicture = insertPicture,
         ),
         colorSelection = colorSelection,
+        fontFamily = state.fontFamilyChoice,
+        fontSize = state.fontSizeChoice,
+        defaults = state.editorDefaults,
         onLinkRequest = onLinkRequest,
     )
 }

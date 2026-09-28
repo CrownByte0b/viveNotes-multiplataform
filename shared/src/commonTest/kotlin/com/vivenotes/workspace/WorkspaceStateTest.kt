@@ -4,6 +4,7 @@ import com.vivenotes.data.ImportedPicture
 import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.PageStyle
+import com.vivenotes.model.PaperSize
 import com.vivenotes.model.Run
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
@@ -17,6 +18,35 @@ import kotlin.test.assertTrue
 import kotlin.test.assertFalse
 
 class WorkspaceStateTest {
+
+    @Test
+    fun fontChoicesWithoutAnEditorApplyToTheNextTextBoxOnly() {
+        val ready = WorkspaceState.demo().chooseFontFamily("lora").chooseFontSize(24)
+        assertEquals("lora", ready.fontFamilyChoice)
+        assertEquals(24, ready.fontSizeChoice)
+        val placed = ready.toggleTextTool().createTextBox(100f, 200f)
+        assertEquals(null, placed.nextFontFamily)
+        assertEquals(null, placed.nextFontSize)
+        val written = placed.editSelectedText("Hello", TextSelection(5))
+        val marks = written.focusedTextOutline!!.blocks.first().runs.first().marks
+        assertTrue(Mark.FontFamily("lora") in marks)
+        assertTrue(Mark.FontSize(24) in marks)
+        val next = written.createTextBox(200f, 300f).editSelectedText("Again", TextSelection(5))
+        val nextMarks = next.focusedTextOutline!!.blocks.first().runs.first().marks
+        assertTrue(Mark.FontFamily("sans-serif") in nextMarks)
+        assertTrue(Mark.FontSize(15) in nextMarks)
+    }
+
+    @Test
+    fun appDefaultsApplyToNewTextAndDraftPages() {
+        val defaults = EditorDefaults(fontFamily = "inter", fontSize = 20, paper = PaperSize.A4)
+        val state = WorkspaceState.demo().setEditorDefaults(defaults)
+        val page = state.addPage()
+        assertEquals(PaperSize.A4, page.selectedPage!!.document.style.paper)
+        val placed = page.toggleTextTool().createTextBox(100f, 200f).editSelectedText("New", TextSelection(3))
+        assertEquals(defaults.textMarks(), placed.focusedTextOutline!!.blocks.first().runs.first().marks)
+        assertEquals(PaperSize.Auto, state.selectedPage!!.document.style.paper)
+    }
 
     @Test
     fun pointerCommandClearsToolsAndCanvasSelection() {

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.vivenotes.model.BlockType
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.components.DefaultChoiceItem
 import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.TooltipIconButton
 import com.vivenotes.ui.components.onSecondaryPress
@@ -83,11 +84,13 @@ internal val DocumentStyles = listOf(
 internal fun RibbonPicker(
     label: String,
     current: String,
+    default: String,
     choices: List<Pair<String, String>>,
     enabled: Boolean,
     selection: TextSelection?,
     tag: String,
     onPick: (String, TextSelection?) -> Unit,
+    onSetDefault: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     var selectionAtOpen by remember { mutableStateOf<TextSelection?>(null) }
@@ -117,13 +120,17 @@ internal fun RibbonPicker(
             expanded = false; selectionAtOpen = null
         }) {
             choices.forEach { (value, shown) ->
-                DropdownMenuItem(
-                    text = { Text(shown) },
-                    onClick = {
+                DefaultChoiceItem(
+                    label = shown, selected = value == current, isDefault = value == default,
+                    tag = "$tag-$value",
+                    onChoose = {
                         expanded = false
                         onPick(value, selectionAtOpen)
                     },
-                    modifier = Modifier.testTag("$tag-$value"),
+                    onSetDefault = {
+                        expanded = false
+                        onSetDefault(value)
+                    },
                 )
             }
         }
