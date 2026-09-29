@@ -1,12 +1,13 @@
 package com.vivenotes.ui.ribbon.draw
 
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.vivenotes.ui.icons.DrawSymbols
 import com.vivenotes.ui.ribbon.PendingRibbonAction
-import com.vivenotes.ui.ribbon.PendingRibbonNote
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonToggle
 import com.vivenotes.workspace.WorkspaceState
@@ -22,24 +23,35 @@ internal fun DrawRibbon(
     state: WorkspaceState,
     onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
 ) {
-    RibbonBar(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), spacing = 8.dp) {
+    RibbonBar {
         RibbonToggle(
             label = "Select",
             selected = !state.textToolArmed && !state.objectLassoArmed,
             onClick = { onStateChange { it.selectPointer() } },
             modifier = Modifier.testTag(DrawRibbonTags.PointerTool),
+            icon = { Icon(DrawSymbols.Select, contentDescription = null, modifier = Modifier.size(18.dp)) },
         )
-        PendingRibbonAction("Pen")
-        PendingRibbonAction("Highlighter")
-        PendingRibbonAction("Eraser")
+        PendingRibbonAction("Pen") {
+            Icon(DrawSymbols.Pen, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        PendingRibbonAction("Highlighter") {
+            Icon(DrawSymbols.Highlighter, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        PendingRibbonAction("Eraser") {
+            Icon(DrawSymbols.Eraser, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
         RibbonToggle(
             label = "Lasso",
             selected = state.objectLassoArmed,
             onClick = { onStateChange { it.toggleObjectLasso() } },
             modifier = Modifier.testTag(DrawRibbonTags.ObjectLasso),
+            icon = { Icon(DrawSymbols.Lasso, contentDescription = null, modifier = Modifier.size(18.dp)) },
         )
-        PendingRibbonAction("Shape")
-        PendingRibbonAction("Ruler")
-        PendingRibbonNote()
+        PendingRibbonAction("Shape") {
+            Icon(DrawSymbols.Shape, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        PendingRibbonAction("Ruler") {
+            Icon(DrawSymbols.Ruler, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
     }
 }

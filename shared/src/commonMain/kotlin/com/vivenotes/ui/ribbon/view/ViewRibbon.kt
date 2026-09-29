@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -43,7 +43,6 @@ import com.vivenotes.model.RuleLines
 import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.components.DefaultChoiceItem
 import com.vivenotes.ui.components.ScaledDropdownMenu
-import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ViewSymbols
 import com.vivenotes.ui.icons.pageColorGlyph
 import com.vivenotes.ui.icons.rememberViewRibbonIcons
@@ -51,6 +50,7 @@ import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonCommand
 import com.vivenotes.ui.ribbon.RibbonDivider
 import com.vivenotes.ui.ribbon.RibbonIcon
+import com.vivenotes.ui.ribbon.RibbonStyle
 import com.vivenotes.workspace.TabsLayout
 import com.vivenotes.workspace.ViewSettings
 import kotlin.math.roundToInt
@@ -131,16 +131,11 @@ internal fun ViewRibbon(
     defaultRuleLines: RuleLines = RuleLines.GridMedium,
     onDefaultRuleLines: (RuleLines) -> Unit = {},
 ) {
-    val colors = MaterialTheme.colorScheme
-    val lightChrome = colors.surface.luminance() >= 0.5f
-    val accent = if (lightChrome) Color(0xFF1B6FA8) else Color(0xFF3B9ADC)
-    val warn = if (lightChrome) Color(0xFFC12F32) else Color(0xFFE94C4F)
-    val (idle, active) = rememberViewRibbonIcons(colors.onSurfaceVariant, colors.onSurface, accent, warn)
+    val (idle, active) = rememberViewRibbonIcons(RibbonStyle.normalText, RibbonStyle.activeText,
+        RibbonStyle.accent, Color(0xFFE94C4F))
     RibbonBar {
         TabsLayoutMenu(settings.tabsLayout, idle.tabsLayout, actions.setTabsLayout)
         RibbonDivider()
-        Text("Zoom:", style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 4.dp))
         ZoomPicker(settings.zoom, actions.setZoom)
         RibbonIcon(ViewSymbols.ZoomIn, "Zoom in", enabled = settings.zoom < ViewSettings.MAX_ZOOM,
             tag = ViewRibbonTags.ZoomIn, onClick = actions.zoomIn)
@@ -172,7 +167,7 @@ internal fun ViewRibbon(
 
 @Composable
 private fun MonoIcon(icon: ImageVector) {
-    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    Icon(icon, contentDescription = null, tint = LocalContentColor.current,
         modifier = Modifier.size(18.dp))
 }
 
@@ -186,20 +181,9 @@ private fun ZoomPicker(zoom: Float, onPick: (Float) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         HoverTooltip("Zoom level") {
-            Row(
-                modifier = Modifier
-                    .testTag(ViewRibbonTags.Zoom)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(role = Role.DropdownList) { open = true }
-                    .semantics { contentDescription = "Zoom level" }
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Rounded for display: Page Width and Ctrl+wheel land between presets.
-                Text("${(zoom * 100).roundToInt()}%", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(40.dp))
-                Icon(DocumentSymbols.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
-            }
+            RibbonCommand("${(zoom * 100).roundToInt()}%", onClick = { open = true },
+                dropdown = true, modifier = Modifier.testTag(ViewRibbonTags.Zoom)
+                    .semantics { contentDescription = "Zoom level" })
         }
         ScaledDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             ViewSettings.ZOOM_STEPS.forEach { step ->
@@ -264,7 +248,7 @@ private fun RuleLinesMenu(
 @Composable
 private fun PageColorMenu(current: Int?, pageOpen: Boolean, canvasDark: Boolean, onPick: (Int?) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    val neutral = MaterialTheme.colorScheme.onSurfaceVariant
+    val neutral = RibbonStyle.normalText
     // With no colour of its own, the page shows the canvas's; the bar says so.
     val swatch = current?.let(::Color) ?: if (canvasDark) Color(0xFF1F1F1F) else Color.White
     val icon = remember(neutral, swatch) { pageColorGlyph(neutral, swatch) }

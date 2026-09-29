@@ -1,14 +1,12 @@
 package com.vivenotes.ui.ribbon.file
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -23,6 +21,7 @@ import com.vivenotes.ui.ribbon.PendingRibbonAction
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonCommand
 import com.vivenotes.ui.ribbon.RibbonDivider
+import com.vivenotes.ui.ribbon.RibbonStyle
 import com.vivenotes.workspace.FileActions
 import com.vivenotes.workspace.FilePane
 
@@ -54,15 +53,14 @@ internal fun FileRibbon(
     onCloseNotebook: () -> Unit,
     onDeleteNotebook: () -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
-    val accent = if (colors.surface.luminance() >= 0.5f) Color(0xFF1B6FA8) else Color(0xFF3B9ADC)
-    val neutral = colors.onSurfaceVariant
+    val accent = RibbonStyle.accent
+    val neutral = RibbonStyle.normalText
     val exportIcon = remember(neutral, accent) { exportNotebookGlyph(neutral, accent) }
     val importIcon = remember(neutral, accent) { importNotebookGlyph(neutral, accent) }
     val historyIcon = remember(neutral, accent) { versionHistoryGlyph(neutral, accent) }
-    val recoveredIcon = remember(neutral) { deletedItemsGlyph(neutral, Color(0xFF2A9D62)) }
-    val deleteIcon = remember(neutral) { deleteNotebookGlyph(neutral, Color(0xFFD53B3B)) }
-    RibbonBar(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), spacing = 8.dp) {
+    val recoveredIcon = remember(neutral) { deletedItemsGlyph(neutral, Color(0xFF73DD83)) }
+    val deleteIcon = remember(neutral) { deleteNotebookGlyph(neutral, Color(0xFFE94C4F)) }
+    RibbonBar {
         PendingRibbonAction("Export PDF")
         RibbonDivider()
         FileCommand("Version History", historyIcon, FileRibbonTags.VersionHistory,
@@ -98,7 +96,7 @@ private fun FileCommand(label: String, icon: ImageVector, tag: String, enabled: 
     RibbonCommand(label = label, onClick = onClick, enabled = enabled,
         modifier = Modifier.testTag(tag)) {
         Icon(icon, contentDescription = null,
-            tint = if (twoTone) Color.Unspecified else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (twoTone) Color.Unspecified else LocalContentColor.current,
             modifier = Modifier.size(18.dp))
     }
 }

@@ -21,9 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -38,20 +35,12 @@ import com.vivenotes.ui.icons.aboutGlyph
 import com.vivenotes.ui.icons.hardwareGlyph
 import com.vivenotes.ui.icons.integratedGlyph
 import com.vivenotes.ui.icons.linkPreviewGlyph
+import com.vivenotes.ui.ribbon.RibbonStyle
+import com.vivenotes.ui.ribbon.ribbonActiveIndicator
+import com.vivenotes.ui.ribbon.ribbonBottomBorder
 import com.vivenotes.ui.shell.WorkspaceTestTags
 
 internal const val LINK_PREVIEWS_TAG = "settings-link-previews"
-
-private val Strip = Color(0xFF292A2F)
-private val Divider = Color(0xFF393B42)
-private val Hover = Color(0xFF32343A)
-private val NormalText = Color(0xFFE5E7ED)
-private val HoverText = Color.White
-private val ActiveText = Color.White
-private val DisabledText = Color(0xFFA8ABB4)
-private val IconAccent = Color(0xFF5DAFFF)
-private val DisabledIconAccent = Color(0xFF7B9AB8)
-private val Indicator = Color(0xFF007FFF)
 
 /** Settings commands share a compact tab strip; active preferences and panes get an underline. */
 @Composable
@@ -59,11 +48,8 @@ internal fun SettingsRibbon(onInterface: () -> Unit, hardwareOpen: Boolean, onHa
     linkPreviews: Boolean, onLinkPreviewsChange: (Boolean) -> Unit, onAbout: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxWidth().height(46.dp)
-            .background(Strip)
-            .drawBehind {
-                drawRect(Divider, topLeft = Offset(0f, size.height - 1.dp.toPx()),
-                    size = Size(size.width, 1.dp.toPx()))
-            }
+            .background(RibbonStyle.background)
+            .ribbonBottomBorder()
             .testTag(WorkspaceTestTags.RibbonBar),
     ) {
         Row(
@@ -92,22 +78,17 @@ private fun SettingsTab(label: String, icon: (Color, Color) -> ImageVector,
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val textColor = when {
-        active -> ActiveText
-        hovered && enabled -> HoverText
-        enabled -> NormalText
-        else -> DisabledText
+        active -> RibbonStyle.activeText
+        hovered && enabled -> RibbonStyle.hoverText
+        enabled -> RibbonStyle.normalText
+        else -> RibbonStyle.disabledText
     }
-    val accent = if (enabled) IconAccent else DisabledIconAccent
+    val accent = if (enabled) RibbonStyle.accent else RibbonStyle.disabledAccent
     val image = remember(icon, textColor, accent) { icon(textColor, accent) }
     Box(
         modifier = Modifier.height(46.dp)
-            .background(if (hovered && enabled) Hover else Color.Transparent)
-            .drawBehind {
-                if (active) {
-                    drawRect(Indicator, topLeft = Offset(12.dp.toPx(), size.height - 2.dp.toPx()),
-                        size = Size(size.width - 24.dp.toPx(), 2.dp.toPx()))
-                }
-            }
+            .background(if (hovered && enabled) RibbonStyle.hover else Color.Transparent)
+            .ribbonActiveIndicator(active)
             .hoverable(interaction, enabled = enabled)
             .clickable(interactionSource = interaction, indication = null, enabled = enabled,
                 role = Role.Button, onClick = onClick)

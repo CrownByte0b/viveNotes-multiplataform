@@ -1,13 +1,13 @@
 package com.vivenotes.ui.ribbon
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.semantics.Role
-import com.vivenotes.ui.icons.DocumentSymbols
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -18,48 +18,45 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.vivenotes.ui.components.TooltipIconButton
+import androidx.compose.ui.unit.sp
+import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.shell.WorkspaceTestTags
-import com.vivenotes.ui.theme.LocalDesktopColors
+import androidx.compose.material3.LocalContentColor
 
-/**
- * Pieces every ribbon tab is built from. Each tab lives in its own package beside this file —
- * `document`, `draw`, `file`, `view`, `settings` — with its buttons and the commands they run.
- */
+/** Pieces shared by the File, Draw, Document and View ribbon tabs. */
 
-/** The strip under the tab row that holds one tab's controls, scrolling sideways when narrow. */
 @Composable
 internal fun RibbonBar(
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-    spacing: Dp = 4.dp,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
+    spacing: Dp = 6.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Surface(modifier = Modifier.testTag(WorkspaceTestTags.RibbonBar),
-        color = LocalDesktopColors.current.toolbar) {
+    Box(Modifier.fillMaxWidth().height(46.dp)
+        .background(RibbonStyle.background).ribbonBottomBorder()
+        .testTag(WorkspaceTestTags.RibbonBar)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .horizontalScroll(rememberScrollState())
-                .then(modifier)
+            modifier = Modifier.horizontalScroll(rememberScrollState()).then(modifier)
                 .padding(contentPadding),
             horizontalArrangement = Arrangement.spacedBy(spacing),
             verticalAlignment = Alignment.CenterVertically,
@@ -68,7 +65,7 @@ internal fun RibbonBar(
     }
 }
 
-/** A ribbon icon command. Its [label] is both what a screen reader says and the hover tooltip. */
+/** Dense icon controls keep their tooltip while sharing the flat hover and underline treatment. */
 @Composable
 internal fun RibbonIcon(
     icon: ImageVector,
@@ -79,33 +76,33 @@ internal fun RibbonIcon(
     twoTone: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
-    TooltipIconButton(
-        label = label,
-        onClick = onClick,
-        enabled = enabled,
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = if (selected) LocalDesktopColors.current.selection else Color.Transparent,
-        ),
-        modifier = Modifier
-            .size(40.dp)
-            .clip(MaterialTheme.shapes.small)
-            .testTag(tag)
-            .semantics { this.selected = selected },
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (twoTone) Color.Unspecified else if (selected) colors.onSurface else colors.onSurfaceVariant,
-            modifier = Modifier.size(18.dp),
-        )
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val tint = when {
+        !enabled -> RibbonStyle.disabledText
+        selected -> RibbonStyle.activeText
+        hovered -> RibbonStyle.hoverText
+        else -> RibbonStyle.normalText
+    }
+    HoverTooltip(label) {
+        Box(
+            Modifier.size(width = 40.dp, height = 46.dp)
+                .background(if (hovered && enabled) RibbonStyle.hover else Color.Transparent)
+                .ribbonActiveIndicator(selected)
+                .hoverable(interaction, enabled = enabled)
+                .clickable(interactionSource = interaction, indication = null, enabled = enabled,
+                    role = Role.Button, onClick = onClick)
+                .testTag(tag)
+                .semantics { contentDescription = label; this.selected = selected },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = if (twoTone) Color.Unspecified else tint,
+                modifier = Modifier.size(18.dp).alpha(if (enabled || !twoTone) 1f else 0.72f))
+        }
     }
 }
 
-/**
- * A ribbon command that names itself: icon, label and, for a menu, a drop-down arrow. Its label is
- * on screen, so it needs no tooltip. [active] marks a setting that is on.
- */
+/** A labelled ribbon control, with an optional icon and active underline. */
 @Composable
 internal fun RibbonCommand(
     label: String,
@@ -114,26 +111,37 @@ internal fun RibbonCommand(
     active: Boolean = false,
     enabled: Boolean = true,
     dropdown: Boolean = false,
-    icon: @Composable () -> Unit,
+    icon: @Composable (() -> Unit)? = null,
 ) {
-    val colors = MaterialTheme.colorScheme
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val textColor = when {
+        !enabled -> RibbonStyle.disabledText
+        active -> RibbonStyle.activeText
+        hovered -> RibbonStyle.hoverText
+        else -> RibbonStyle.normalText
+    }
     Row(
-        modifier = modifier
-            .height(36.dp)
-            .clip(MaterialTheme.shapes.small)
-            .background(if (active) LocalDesktopColors.current.selection else Color.Transparent)
-            .clickable(enabled = enabled, role = if (dropdown) Role.DropdownList else Role.Button, onClick = onClick)
-            .semantics { this.selected = active }
-            .alpha(if (enabled) 1f else 0.42f)
-            .padding(horizontal = 8.dp),
+        modifier = modifier.height(46.dp)
+            .background(if (hovered && enabled) RibbonStyle.hover else Color.Transparent)
+            .ribbonActiveIndicator(active)
+            .hoverable(interaction, enabled = enabled)
+            .clickable(interactionSource = interaction, indication = null, enabled = enabled,
+                role = if (dropdown) Role.DropdownList else Role.Button, onClick = onClick)
+            .semantics { selected = active }
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        icon()
-        Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1,
-            color = colors.onSurface)
+        if (icon != null) {
+            Box(Modifier.alpha(if (enabled) 1f else 0.72f)) {
+                CompositionLocalProvider(LocalContentColor provides textColor) { icon() }
+            }
+            Spacer(Modifier.width(7.dp))
+        }
+        Text(label, style = TextStyle(fontSize = 13.sp), maxLines = 1, color = textColor)
         if (dropdown) {
-            Icon(DocumentSymbols.ArrowDropDown, contentDescription = null, tint = colors.onSurfaceVariant,
+            Spacer(Modifier.width(4.dp))
+            Icon(DocumentSymbols.ArrowDropDown, contentDescription = null, tint = textColor,
                 modifier = Modifier.size(16.dp))
         }
     }
@@ -141,42 +149,29 @@ internal fun RibbonCommand(
 
 @Composable
 internal fun RibbonDivider() {
-    Spacer(Modifier.padding(horizontal = 6.dp).width(1.dp).height(20.dp).background(MaterialTheme.colorScheme.outlineVariant))
+    Spacer(Modifier.padding(horizontal = 3.dp).width(1.dp).height(22.dp)
+        .background(RibbonStyle.divider))
 }
 
-/** A compact desktop toggle for toolbar modes such as Select and Lasso. */
 @Composable
 internal fun RibbonToggle(
     label: String,
     selected: Boolean,
     modifier: Modifier = Modifier,
+    icon: @Composable (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.semantics { this.selected = selected },
-        color = if (selected) LocalDesktopColors.current.selection else LocalDesktopColors.current.toolbar,
-        shape = MaterialTheme.shapes.small,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Text(label, style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
-    }
+    RibbonCommand(label = label, onClick = onClick, modifier = modifier, active = selected, icon = icon)
 }
 
-/** A command whose port has not landed yet: shown, labelled, and not clickable. */
+/** A command whose port has not landed yet: readable, but not clickable. */
 @Composable
-internal fun PendingRibbonAction(label: String) {
-    OutlinedButton(onClick = {}, enabled = false, shape = MaterialTheme.shapes.small) { Text(label) }
+internal fun PendingRibbonAction(label: String, icon: @Composable (() -> Unit)? = null) {
+    RibbonCommand(label = label, onClick = {}, enabled = false, icon = icon)
 }
 
-/** Says why a tab's commands are disabled. */
 @Composable
 internal fun PendingRibbonNote() {
-    Text(
-        text = "Tools unlock as each port phase lands",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 8.dp),
-    )
+    Text("Tools unlock as each port phase lands", style = TextStyle(fontSize = 12.sp),
+        color = RibbonStyle.disabledText, modifier = Modifier.padding(horizontal = 8.dp))
 }

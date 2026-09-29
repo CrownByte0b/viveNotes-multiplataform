@@ -35,6 +35,7 @@ import androidx.compose.ui.test.MouseButton
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
@@ -270,7 +271,7 @@ class WorkspaceScreenTest {
         }
 
     @Test
-    fun selectedRibbonButtonMatchesHoverFootprint() =
+    fun selectedRibbonButtonUsesUnderlineInsteadOfHoverFill() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             setWorkspace(initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
                 .focusBody().selectText(TextSelection(0, 6)))
@@ -279,18 +280,19 @@ class WorkspaceScreenTest {
             button.performMouseInput { moveTo(Offset(20f, 20f)) }
             mainClock.advanceTimeBy(300)
             val hover = button.captureToImage().toPixelMap()
+            assertTrue((0 until idle.width).all { hover[it, 4] == Color(0xFF32343A) },
+                "Hover should fill the whole button")
             button.performClick()
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
                 moveTo(Offset(780f, 500f))
             }
             mainClock.advanceTimeBy(300)
             val selected = button.captureToImage().toPixelMap()
-            for (y in listOf(4, 6, 8, 10)) {
-                val hoverRange = (0 until idle.width).filter { idle[it, y] != hover[it, y] }
-                val selectedRange = (0 until idle.width).filter { idle[it, y] != selected[it, y] }
-                assertTrue(hoverRange.isNotEmpty())
-                assertEquals(hoverRange, selectedRange, "Selected highlight width differs from hover at y=$y")
-            }
+            assertTrue((0 until idle.width).all { selected[it, 4] == idle[it, 4] },
+                "Selection should leave the upper background flat")
+            assertTrue((12 until idle.width - 12).all {
+                selected[it, selected.height - 2] == Color(0xFF007FFF)
+            }, "Selection should show the inset blue underline")
         }
 
     @Test

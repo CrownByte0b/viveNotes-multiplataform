@@ -3,15 +3,12 @@ package com.vivenotes.ui.ribbon.document
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -27,6 +24,7 @@ import com.vivenotes.ui.icons.rememberDocumentRibbonIcons
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonDivider
 import com.vivenotes.ui.ribbon.RibbonIcon
+import com.vivenotes.ui.ribbon.RibbonStyle
 import com.vivenotes.workspace.EditorDefaults
 
 /** Android Document tab controls, in the same order and with the same icon artwork. */
@@ -84,9 +82,8 @@ internal fun DocumentRibbon(
     defaults: EditorDefaults,
     onLinkRequest: (LinkEditorRequest) -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
-    val accent = if (colors.surface.luminance() < 0.5f) Color(0xFF3B9ADC) else Color(0xFF1B6FA8)
-    val (idle, active) = rememberDocumentRibbonIcons(colors.onSurfaceVariant, colors.onPrimaryContainer, accent)
+    val (idle, active) = rememberDocumentRibbonIcons(RibbonStyle.normalText,
+        RibbonStyle.activeText, RibbonStyle.accent)
     val marks = richText?.activeMarks.orEmpty()
     val block = richText?.currentBlock
     val editable = richText != null

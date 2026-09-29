@@ -3,13 +3,14 @@ package com.vivenotes.ui.ribbon.document
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -36,9 +37,10 @@ import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.components.DefaultChoiceItem
 import com.vivenotes.ui.components.ScaledDropdownMenu
-import com.vivenotes.ui.components.TooltipIconButton
 import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.DocumentSymbols
+import com.vivenotes.ui.ribbon.RibbonCommand
+import com.vivenotes.ui.ribbon.RibbonStyle
 
 /** The Document tab's drop-down controls: font family and size, the two colours, and Styles. */
 
@@ -96,25 +98,18 @@ internal fun RibbonPicker(
     var selectionAtOpen by remember { mutableStateOf<TextSelection?>(null) }
     Box {
         HoverTooltip(label) {
-            Row(
-                modifier = Modifier
-                    .testTag(tag)
-                    .clip(RoundedCornerShape(8.dp))
+            RibbonCommand(
+                label = choices.firstOrNull { it.first == current }?.second ?: current,
+                modifier = Modifier.testTag(tag)
                     .captureSelectionOnPress(selection) { selectionAtOpen = it }
-                    .clickable(enabled = enabled, role = Role.DropdownList) {
+                    .semantics { contentDescription = label },
+                enabled = enabled,
+                dropdown = true,
+                onClick = {
                         if (selectionAtOpen == null) selectionAtOpen = selection
                         expanded = true
-                    }
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = choices.firstOrNull { it.first == current }?.second ?: current,
-                    color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                Icon(DocumentSymbols.ArrowDropDown, contentDescription = label, modifier = Modifier.size(16.dp))
-            }
+                },
+            )
         }
         ScaledDropdownMenu(expanded = expanded, onDismissRequest = {
             expanded = false; selectionAtOpen = null
@@ -155,39 +150,53 @@ internal fun ColorPicker(
     var expanded by remember { mutableStateOf(false) }
     var selectionAtPress by remember { mutableStateOf<TextSelection?>(null) }
     val appliedColor = chosenColor ?: defaultColor
-    val neutral = MaterialTheme.colorScheme.onSurfaceVariant
+    val neutral = RibbonStyle.normalText
     val swatch = Color(appliedColor).copy(alpha = 1f)
     val image = remember(neutral, swatch) { icon(neutral, swatch) }
+    val mainInteraction = remember { MutableInteractionSource() }
+    val mainHovered by mainInteraction.collectIsHoveredAsState()
+    val menuInteraction = remember { MutableInteractionSource() }
+    val menuHovered by menuInteraction.collectIsHoveredAsState()
     Box {
         Row(
             modifier = Modifier.captureSelectionOnPress(selection) { selectionAtPress = it },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TooltipIconButton(
-                label = label,
-                onClick = {
-                    onPick(appliedColor, selectionAtPress ?: selection)
-                    selectionAtPress = null
-                },
-                enabled = enabled,
-                modifier = Modifier.size(40.dp).testTag(tag)
-                    .onSecondaryPress(enabled) { if (enabled) expanded = true },
-            ) {
-                Icon(
-                    imageVector = image,
-                    contentDescription = null,
-                    tint = if (rotateIcon) swatch else Color.Unspecified,
-                    modifier = Modifier.size(20.dp).then(if (rotateIcon) Modifier.rotate(180f) else Modifier),
-                )
+            HoverTooltip(label) {
+                Box(
+                    modifier = Modifier.size(width = 40.dp, height = 46.dp)
+                        .background(if (mainHovered && enabled) RibbonStyle.hover else Color.Transparent)
+                        .hoverable(mainInteraction, enabled = enabled)
+                        .clickable(interactionSource = mainInteraction, indication = null,
+                            enabled = enabled, role = Role.Button) {
+                            onPick(appliedColor, selectionAtPress ?: selection)
+                            selectionAtPress = null
+                        }
+                        .onSecondaryPress(enabled) { if (enabled) expanded = true }
+                        .testTag(tag)
+                        .semantics { contentDescription = label },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(imageVector = image, contentDescription = null,
+                        tint = if (rotateIcon) swatch else Color.Unspecified,
+                        modifier = Modifier.size(20.dp).then(if (rotateIcon) Modifier.rotate(180f) else Modifier))
+                }
             }
-            TooltipIconButton(
-                label = "Choose $label",
-                onClick = { expanded = true },
-                enabled = enabled,
-                modifier = Modifier.size(width = 24.dp, height = 40.dp)
-                    .testTag(DocumentRibbonTags.colorMenu(tag)),
-            ) {
-                Icon(DocumentSymbols.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+            HoverTooltip("Choose $label") {
+                Box(
+                    modifier = Modifier.size(width = 24.dp, height = 46.dp)
+                        .background(if (menuHovered && enabled) RibbonStyle.hover else Color.Transparent)
+                        .hoverable(menuInteraction, enabled = enabled)
+                        .clickable(interactionSource = menuInteraction, indication = null,
+                            enabled = enabled, role = Role.Button) { expanded = true }
+                        .testTag(DocumentRibbonTags.colorMenu(tag))
+                        .semantics { contentDescription = "Choose $label" },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(DocumentSymbols.ArrowDropDown, contentDescription = null,
+                        tint = if (enabled) RibbonStyle.normalText else RibbonStyle.disabledText,
+                        modifier = Modifier.size(16.dp))
+                }
             }
         }
         ScaledDropdownMenu(expanded = expanded, onDismissRequest = {
@@ -239,24 +248,21 @@ internal fun StylesPicker(
     var selectionAtOpen by remember { mutableStateOf<TextSelection?>(null) }
     Box {
         HoverTooltip("Styles") {
-            Row(
-                modifier = Modifier.testTag(DocumentRibbonTags.Styles)
-                    .clip(RoundedCornerShape(8.dp))
-                    .captureSelectionOnPress(selection) { selectionAtOpen = it }
-                    .clickable(enabled = enabled, role = Role.DropdownList) {
+            RibbonCommand(
+                label = if (current == BlockType.Paragraph) "Styles"
+                    else DocumentStyles.firstOrNull { it.first == current }?.second ?: "Styles",
+                onClick = {
                         if (selectionAtOpen == null) selectionAtOpen = selection
                         expanded = true
-                    }
-                    .semantics { contentDescription = "Styles" }
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                },
+                modifier = Modifier.testTag(DocumentRibbonTags.Styles)
+                    .captureSelectionOnPress(selection) { selectionAtOpen = it }
+                    .semantics { contentDescription = "Styles" },
+                active = current != BlockType.Paragraph,
+                enabled = enabled,
+                dropdown = true,
             ) {
-                Icon(icon, contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(if (current == BlockType.Paragraph) "Styles"
-                    else DocumentStyles.firstOrNull { it.first == current }?.second ?: "Styles",
-                    style = MaterialTheme.typography.labelMedium)
-                Icon(DocumentSymbols.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(icon, contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(18.dp))
             }
         }
         ScaledDropdownMenu(expanded = expanded, onDismissRequest = {
