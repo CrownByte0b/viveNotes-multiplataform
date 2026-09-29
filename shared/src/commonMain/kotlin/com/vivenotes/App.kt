@@ -23,6 +23,7 @@ import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.ui.shell.WorkspaceScreen
+import com.vivenotes.ui.account.AccountService
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.KeyBindings
@@ -56,6 +57,7 @@ fun App(
     /** The platform's `.vive` file dialogs; without them notebooks cannot be exported or imported. */
     notebookFiles: NotebookFiles? = null,
     thumbnails: VideoThumbnailSource? = null,
+    accountService: AccountService? = null,
 ) {
     val state by session.state.collectAsState()
     val fileActions = remember(session, notebookFiles) { notebookFiles?.let(session::fileActions) }
@@ -78,7 +80,8 @@ fun App(
                 systemDarkTheme = systemDarkTheme,
                 viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
                 onEditorDefaultsChange = onEditorDefaultsChange,
-                keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange, fileActions = fileActions)
+                keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange, fileActions = fileActions,
+                accountService = accountService)
         }
     }
 }

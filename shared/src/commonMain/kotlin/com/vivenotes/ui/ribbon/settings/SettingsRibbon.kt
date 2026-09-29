@@ -40,7 +40,6 @@ internal fun SettingsRibbon(onInterface: () -> Unit, hardwareOpen: Boolean, onHa
                 containerColor = LocalDesktopColors.current.selection) else ButtonDefaults.outlinedButtonColors(),
             modifier = Modifier.testTag(HardwareTags.Open).semantics { selected = hardwareOpen }) { Text("Hardware") }
         PendingRibbonAction("Models")
-        PendingRibbonAction("Account")
         PendingRibbonAction("About")
         PendingRibbonNote()
     }

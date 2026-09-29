@@ -129,6 +129,30 @@ class WorkspaceSessionTest {
     }
 
     @Test
+    fun remoteBodyRefreshesTheOpenPageWithoutSavingItBack() = runTest {
+        val session = started()
+        store.storeBody(limits, PageLoad.Loaded(typed("from another device")))
+
+        session.refreshOpenPageFromStorage()
+        runCurrent()
+
+        assertEquals("from another device", session.state.value!!.selectedPage!!.body)
+        assertTrue(store.saves.isEmpty())
+    }
+
+    @Test
+    fun remoteRefreshPreservesAnUnsavedEdit() = runTest {
+        val session = started()
+        session.type("editing here")
+        store.storeBody(limits, PageLoad.Loaded(typed("from another device")))
+
+        session.refreshOpenPageFromStorage()
+        runCurrent()
+
+        assertEquals("editing here", session.state.value!!.selectedPage!!.body)
+    }
+
+    @Test
     fun inkLoadsWithTheOpenPageAndNeverSchedulesDocumentAutosave() = runTest {
         val reads = mutableListOf<String>()
         val source = object : InkSource {

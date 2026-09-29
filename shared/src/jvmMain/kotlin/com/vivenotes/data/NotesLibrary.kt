@@ -2,6 +2,11 @@ package com.vivenotes.data
 
 import com.vivenotes.data.db.NotesDatabase
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.data.sync.AttachmentBlobSync
+import com.vivenotes.data.sync.DesktopAttachmentBytes
+import com.vivenotes.data.sync.HierarchySync
+import com.vivenotes.data.sync.SyncDebugLog
+import com.vivenotes.data.sync.SyncServerClient
 import kotlinx.coroutines.CancellationException
 import java.io.File
 
@@ -18,6 +23,7 @@ class NotesLibrary private constructor(
     val attachments: AttachmentStore,
     /** `.vive` export and import, Android's portable notebook file. */
     val transfers: NotebookTransferManager,
+    val synchronizer: HierarchySync,
     private val backups: DatabaseBackupManager,
     private val log: DebugLog,
 ) : AutoCloseable {
@@ -63,6 +69,10 @@ class NotesLibrary private constructor(
             val database = NotesDatabase.create(File(directory, NotesDatabase.FILE_NAME))
             log.event("storage") { "database opened" }
             val attachments = AttachmentStore(File(directory, AttachmentStore.DIRECTORY), database)
+            val syncClient = SyncServerClient()
+            val syncLog = SyncDebugLog(log)
+            val blobSync = AttachmentBlobSync(database, syncClient,
+                DesktopAttachmentBytes(File(directory, AttachmentStore.DIRECTORY)), syncLog)
             return NotesLibrary(
                 directory = directory,
                 database = database,
@@ -70,6 +80,7 @@ class NotesLibrary private constructor(
                 attachments = attachments,
                 transfers = NotebookTransferManager(database, attachments,
                     File(cacheDirectory, NotebookTransferManager.DIRECTORY)),
+                synchronizer = HierarchySync(database, syncClient, blobs = blobSync, log = syncLog),
                 backups = DatabaseBackupManager(database, File(directory, DatabaseBackupManager.DIRECTORY)),
                 log = log,
             )

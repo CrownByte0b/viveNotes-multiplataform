@@ -533,6 +533,29 @@ class WorkspaceSession(
         log.event("session") { "flush complete" }
     }
 
+    /** Reloads an open page after a remote sync commit, preserving edits made during the reload. */
+    fun refreshOpenPageFromStorage() {
+        val page = current.value?.selectedPage ?: return
+        if (!page.editable || openPageHasUnsavedChanges()) return
+        val pageId = page.id
+        val shown = page.document
+        enqueue {
+            val loaded = attempt("This page could not be refreshed") { store.loadDoc(pageId) }
+            val open = current.value?.selectedPage
+            if (loaded is PageLoad.Loaded && open?.id == pageId &&
+                open.document == shown && !openPageHasUnsavedChanges()) {
+                stored[pageId] = loaded.doc
+                current.value = current.value?.updatePage(pageId) {
+                    it.copy(document = loaded.doc, content = PageContent.Loaded)
+                }
+                if (inkSource != null) {
+                    attempt("This page's ink could not be read") { inkSource.loadInk(pageId) }
+                        ?.let { acceptInk(pageId, it) }
+                }
+            }
+        }
+    }
+
     private fun react(before: WorkspaceState, after: WorkspaceState) {
         if (after.selectedSectionId != before.selectedSectionId) {
             openSection.value = after.selectedSectionId.ifEmpty { null }

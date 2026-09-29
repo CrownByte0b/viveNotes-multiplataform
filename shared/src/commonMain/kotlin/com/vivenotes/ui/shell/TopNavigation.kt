@@ -21,6 +21,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.vivenotes.ui.components.TooltipIconButton
+import com.vivenotes.ui.account.AccountTags
 import com.vivenotes.ui.icons.ShellSymbols
 import com.vivenotes.ui.theme.LocalDesktopColors
 import com.vivenotes.workspace.RibbonTab
@@ -36,6 +37,8 @@ internal fun TopNavigation(
     canRedo: Boolean,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
+    accountConnected: Boolean,
+    onOpenAccount: () -> Unit,
 ) {
     Surface(modifier = Modifier.testTag(WorkspaceTestTags.HeaderBar),
         color = LocalDesktopColors.current.headerBar, shadowElevation = 1.dp) {
@@ -91,6 +94,10 @@ internal fun TopNavigation(
             TooltipIconButton("Redo canvas action", onClick = onRedo, enabled = canRedo,
                 modifier = Modifier.testTag(WorkspaceTestTags.StructuralRedo)) {
                 Icon(ShellSymbols.Redo, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+            TooltipIconButton(if (accountConnected) "Account, signed in" else "Account",
+                onClick = onOpenAccount, modifier = Modifier.testTag(AccountTags.Open)) {
+                Icon(ShellSymbols.AccountCircle, contentDescription = null, modifier = Modifier.size(20.dp))
             }
         }
     }

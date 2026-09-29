@@ -47,12 +47,17 @@ internal class DesktopNotes(
     private val keyStore: KeyBindingsFile? = null,
     val thumbnails: DesktopVideoThumbnails? = null,
     private val log: DebugLog = DebugLog(),
+    val accountService: DesktopAccountService = DesktopAccountService(log),
 ) {
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     var editorDefaults by mutableStateOf(editorStore?.load() ?: EditorDefaults())
         private set
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated,
         updatedLabel = { formatUpdated(it) }, editorDefaults = editorDefaults, log = log)
+    init {
+        accountService.flushBeforeSync = session::flush
+        accountService.afterSync = session::refreshOpenPageFromStorage
+    }
 
     fun updateEditorDefaults(defaults: EditorDefaults) {
         val value = defaults.normalized()
@@ -103,6 +108,9 @@ internal class DesktopNotes(
         }
     }
     private var maintenance: Job? = null
+    private val syncCoordinator = DesktopSyncCoordinator(scope, accountService, library.synchronizer,
+        log = log, beforeRemoteApply = session::flush,
+        afterRemoteApply = session::refreshOpenPageFromStorage)
 
     /** Pictures for a window: its file dialog opens over [owner]. */
     fun pictures(owner: Frame?): PictureLibrary =
@@ -120,6 +128,7 @@ internal class DesktopNotes(
     fun start() {
         log.event("app") { "session starting" }
         session.start()
+        syncCoordinator.start()
         // Off the UI thread: a backup copies the whole database.
         maintenance = scope.launch(Dispatchers.IO) {
             while (isActive) {
@@ -146,6 +155,7 @@ internal class DesktopNotes(
                 session.flush()
             } finally {
                 sessionJob.cancel()
+                syncCoordinator.stop()
                 maintenance?.cancelAndJoin()
                 library.close()
                 log.event("app") { "closed" }
@@ -159,12 +169,24 @@ internal class DesktopNotes(
 
         fun open(profile: DesktopProfile = DesktopProfile.fromProperty(), log: DebugLog = DebugLog()): DesktopNotes {
             val directories = profile.directories()
-            return DesktopNotes(NotesLibrary.open(directories.data, directories.cache, log), MainScope(),
+            val cloudBase = System.getProperty("vivenotes.cloudBaseUrl")
+                ?: if (profile == DesktopProfile.DEVELOPMENT) "http://localhost:5444"
+                   else "https://sync.vivenotes.net"
+            val desktopGoogleClientId = System.getProperty("vivenotes.googleDesktopClientId")
+                ?: System.getenv("VIVENOTES_GOOGLE_DESKTOP_CLIENT_ID")
+            val library = NotesLibrary.open(directories.data, directories.cache, log)
+            return DesktopNotes(library, MainScope(),
                 interfaceStore = InterfaceSettingsFile(File(directories.config, "interface.properties")),
                 viewStore = ViewSettingsFile(File(directories.config, "view.properties")),
                 editorStore = EditorDefaultsFile(File(directories.config, "editor.properties")),
                 keyStore = KeyBindingsFile(File(directories.config, "keyboard.properties")),
-                thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")), log = log)
+                thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")), log = log,
+                accountService = DesktopAccountService(log,
+                    installationId = accountInstallationId(File(directories.config, "account-installation-id")),
+                    managedServerUrl = cloudBase,
+                    googleIdentity = desktopGoogleClientId?.takeIf(String::isNotBlank)?.let(::DesktopGoogleIdentity),
+                    credentialStore = desktopCredentialStore(profile, directories.config),
+                    syncEngine = library.synchronizer))
         }
     }
 }

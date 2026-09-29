@@ -72,7 +72,7 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
         App(notes.session, pictures, notes.interfaceSettings, notes::updateInterfaceSettings,
             notes.viewSettings, notes::updateViewSettings, notes.keyBindings, notes::updateKeyBindings,
             notebookFiles = notebookFiles, thumbnails = notes.thumbnails,
-            onEditorDefaultsChange = notes::updateEditorDefaults)
+            onEditorDefaultsChange = notes::updateEditorDefaults, accountService = notes.accountService)
     }
     return host
 }

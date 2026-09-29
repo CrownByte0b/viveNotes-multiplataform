@@ -45,6 +45,14 @@ import com.vivenotes.ui.ribbon.document.DocumentRibbonTags
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
 import com.vivenotes.ui.canvas.TextMenuTags
 import com.vivenotes.ui.theme.ViveNotesTheme
+import com.vivenotes.ui.account.AccountService
+import com.vivenotes.ui.account.AccountSession
+import com.vivenotes.ui.account.AccountTags
+import com.vivenotes.ui.account.AccountSubscription
+import com.vivenotes.ui.account.AccountRequestException
+import com.vivenotes.ui.account.GoogleSignInOutcome
+import com.vivenotes.ui.account.AccountProvider
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
@@ -60,6 +68,93 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class WorkspaceScreenTest {
+
+    @Test
+    fun accountButtonIsRightmostAndOpensWorkingForm() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        val account = FakeAccountService()
+        setWorkspace(accountService = account)
+
+        val accountBounds = onNodeWithTag(AccountTags.Open).getUnclippedBoundsInRoot()
+        val redoBounds = onNodeWithTag(WorkspaceTestTags.StructuralRedo).getUnclippedBoundsInRoot()
+        assertTrue(accountBounds.left >= redoBounds.right)
+        onNodeWithTag(AccountTags.Open).performClick()
+        val screenBounds = onNodeWithTag(AccountTags.Screen).assertIsDisplayed().getUnclippedBoundsInRoot()
+        assertTrue(screenBounds.right - screenBounds.left > 1300.dp)
+        onNodeWithTag(AccountTags.Email).performTextReplacement("owner@example.com")
+        onNodeWithTag(AccountTags.Password).performTextReplacement("password123")
+        onNodeWithTag(AccountTags.SignIn).performClick()
+        waitForIdle()
+        assertEquals("https://notes.example.com", account.server)
+        assertEquals("owner@example.com", account.email)
+        onNodeWithTag(AccountTags.Disconnect).assertIsDisplayed().performClick()
+        waitForIdle()
+        onNodeWithTag(AccountTags.SignIn).assertIsDisplayed()
+        onNodeWithTag(AccountTags.Back).performClick()
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).assertIsDisplayed()
+    }
+
+    @Test
+    fun failedAccountDisconnectOffersLocalForget() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        val account = FakeAccountService(failDisconnect = true)
+        account.session.value = AccountSession("https://notes.example.com", "owner@example.com", "a", "d", "active",
+            managed = true)
+        setWorkspace(accountService = account)
+        onNodeWithTag(AccountTags.Open).performClick()
+        onNodeWithTag(AccountTags.Disconnect).performClick()
+        waitForIdle()
+        onNodeWithTag(AccountTags.Forget).assertIsDisplayed().performClick()
+        waitForIdle()
+        onNodeWithTag(AccountTags.SignIn).assertIsDisplayed()
+    }
+
+    @Test
+    fun googleSignInUsesMainWindowAndShowsManagedMembership() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val account = FakeAccountService(googleEnabled = true)
+            setWorkspace(accountService = account)
+            onNodeWithTag(AccountTags.Open).performClick()
+            onNodeWithTag(AccountTags.Google).assertIsEnabled().performClick()
+            waitForIdle()
+            onNodeWithTag(AccountTags.Subscription).assertIsDisplayed()
+            onNodeWithText("google@example.com").assertIsDisplayed()
+        }
+
+    @Test
+    fun twoRejectedManagedLoginsExposePasswordRecovery() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val account = FakeAccountService(rejectPassword = true)
+            setWorkspace(accountService = account)
+            onNodeWithTag(AccountTags.Open).performClick()
+            onNodeWithTag(AccountTags.Email).performTextReplacement("owner@example.com")
+            onNodeWithTag(AccountTags.Password).performTextReplacement("wrongpass")
+            repeat(2) {
+                onNodeWithTag(AccountTags.SignIn).performClick()
+                waitForIdle()
+            }
+            onNodeWithText("Forgot password?").performClick()
+            onNodeWithTag(AccountTags.ResetRequest).performClick()
+            waitForIdle()
+            assertEquals("owner@example.com", account.resetEmail)
+            onNodeWithTag(AccountTags.ResetComplete).assertIsDisplayed()
+        }
+
+    @Test
+    fun managedAccountCreationRequiresMatchingPasswordConfirmation() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val account = FakeAccountService()
+            setWorkspace(accountService = account)
+            onNodeWithTag(AccountTags.Open).performClick()
+            onNodeWithText("Create account").performClick()
+            onNodeWithTag(AccountTags.Email).performTextReplacement("owner@example.com")
+            onNodeWithTag(AccountTags.Password).performTextReplacement("password123")
+            onNodeWithTag(AccountTags.Create).assertIsNotEnabled()
+            onNodeWithTag(AccountTags.CreateConfirm).performTextReplacement("different")
+            onNodeWithTag(AccountTags.Create).assertIsNotEnabled()
+            onNodeWithTag(AccountTags.CreateConfirm).performTextReplacement("password123")
+            onNodeWithTag(AccountTags.Create).assertIsEnabled().performClick()
+            waitForIdle()
+            assertTrue(account.created)
+        }
 
     @Test
     fun latexPreviewOnAStoredTextBoxRevealsTheEditableSource() =
@@ -1318,20 +1413,56 @@ class WorkspaceScreenTest {
     private fun ComposeUiTest.setWorkspace(
         initial: WorkspaceState = WorkspaceState.demo(),
         clipboard: ClipboardManager? = null,
+        accountService: AccountService? = null,
         onStateChange: (WorkspaceState) -> Unit = {},
     ) {
         setContent {
             var state by remember { mutableStateOf(initial) }
             ViveNotesTheme(darkTheme = true) {
                 if (clipboard == null) {
-                    WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) })
+                    WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) },
+                        accountService = accountService)
                 } else {
                     CompositionLocalProvider(LocalClipboardManager provides clipboard) {
-                        WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) })
+                        WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) },
+                            accountService = accountService)
                     }
                 }
             }
         }
+    }
+
+    private class FakeAccountService(
+        private val failDisconnect: Boolean = false,
+        private val googleEnabled: Boolean = false,
+        private val rejectPassword: Boolean = false,
+    ) : AccountService {
+        override val session = MutableStateFlow<AccountSession?>(null)
+        override val managedServerUrl = "https://notes.example.com"
+        override val googleAvailable = googleEnabled
+        var server: String? = null
+        var email: String? = null
+        var resetEmail: String? = null
+        var created = false
+        override suspend fun connect(serverUrl: String, email: String, password: String, create: Boolean) {
+            if (rejectPassword) throw AccountRequestException(401, "invalid_credentials", "Wrong credentials")
+            server = serverUrl
+            this.email = email
+            created = create
+            session.value = AccountSession(serverUrl, email, "account", "device", "active", managed = true)
+        }
+        override suspend fun signInWithGoogle(): GoogleSignInOutcome {
+            session.value = AccountSession(managedServerUrl, "google@example.com", "a", "d", "active",
+                provider = AccountProvider.Google, managed = true)
+            return GoogleSignInOutcome.Connected
+        }
+        override suspend fun requestPasswordReset(email: String) { resetEmail = email }
+        override suspend fun refreshSubscription() = AccountSubscription("active")
+        override suspend fun disconnect() {
+            if (failDisconnect) error("Server unreachable")
+            session.value = null
+        }
+        override suspend fun forget() { session.value = null }
     }
 
     private class FakeClipboard : ClipboardManager {

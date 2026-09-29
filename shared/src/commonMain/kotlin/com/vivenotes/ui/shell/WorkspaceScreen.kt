@@ -157,6 +157,11 @@ import com.vivenotes.ui.ribbon.file.NotebookTransferDialog
 import com.vivenotes.workspace.FileActions
 import com.vivenotes.workspace.FilePane
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
+import com.vivenotes.ui.account.AccountScreen
+import com.vivenotes.ui.account.AccountScreenModel
+import com.vivenotes.ui.account.AccountService
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
@@ -279,11 +284,16 @@ fun WorkspaceScreen(
     onKeyBindingsChange: (KeyBindings) -> Unit = {},
     /** The File tab's `.vive` export and import; without it those commands are unavailable. */
     fileActions: FileActions? = null,
+    accountService: AccountService? = null,
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
     // Held here as well, so a caller that does not keep the settings still sees its changes.
     var view by remember(viewSettings) { mutableStateOf(viewSettings.normalized()) }
     var bindings by remember(keyBindings) { mutableStateOf(keyBindings) }
+    var accountOpen by remember { mutableStateOf(false) }
+    val accountScope = rememberCoroutineScope()
+    val accountModel = remember(accountService) { AccountScreenModel(accountService, accountScope) }
+    val accountSession = accountService?.session?.collectAsState()?.value
     val baseDensity = LocalDensity.current
     val effectiveSettings = previewSettings ?: interfaceSettings
     val pageDensity = effectiveSettings.documentDensity(baseDensity)
@@ -315,8 +325,10 @@ fun WorkspaceScreen(
                         bindings = next
                         onKeyBindingsChange(next)
                     }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions,
-                    onEditorDefaultsChange = onEditorDefaultsChange)
+                    onEditorDefaultsChange = onEditorDefaultsChange,
+                    accountConnected = accountSession != null, onOpenAccount = { accountOpen = true })
             }
+            if (accountOpen) AccountScreen(accountService, accountModel, onBack = { accountOpen = false })
             previewSettings?.let { draft ->
                 InterfaceDialog(
                     settings = draft,
@@ -357,6 +369,8 @@ private fun WorkspaceContent(
     canvasFocusRequester: FocusRequester,
     fileActions: FileActions?,
     onEditorDefaultsChange: (EditorDefaults) -> Unit,
+    accountConnected: Boolean,
+    onOpenAccount: () -> Unit,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
@@ -430,6 +444,8 @@ private fun WorkspaceContent(
             canRedo = state.structuralRedo.isNotEmpty(),
             onUndo = { onStateChange { it.undoStructure() } },
             onRedo = { onStateChange { it.redoStructure() } },
+            accountConnected = accountConnected,
+            onOpenAccount = onOpenAccount,
         )
         // Each tab's buttons, and what they do, live in that tab's package under `ui/ribbon`.
         when (state.activeTab) {
