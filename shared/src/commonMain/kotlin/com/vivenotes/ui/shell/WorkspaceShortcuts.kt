@@ -30,6 +30,10 @@ internal class WorkspaceShortcuts(
                 else onStateChange { it.undoStructure() }
             ShortcutAction.Redo -> if (current.structuralRedo.isEmpty()) return false
                 else onStateChange { it.redoStructure() }
+            ShortcutAction.DeleteSelection -> {
+                if (current.selectedObjectIds.isEmpty() && current.selectedTextOutlineIds.isEmpty()) return false
+                onStateChange { it.deleteSelectedObjects() }
+            }
             // With nothing selected these still use the key, as the text field's own would.
             ShortcutAction.Cut -> if (selected) clipboard.cut(current, null)
             ShortcutAction.Copy -> if (selected) clipboard.copy(current, null)

@@ -37,6 +37,7 @@ class KeyBindingsTest {
         assertEquals("Shift+Tab", shown[ShortcutAction.Outdent])
         assertEquals("Ctrl+Shift+V", shown[ShortcutAction.PastePlainText])
         assertEquals("Esc", shown[ShortcutAction.SelectTool])
+        assertEquals("Delete", shown[ShortcutAction.DeleteSelection])
         assertEquals(ShortcutAction.Redo, KeyBindings.Default.actionFor(ctrlShiftZ))
         assertEquals(ShortcutAction.ZoomIn,
             KeyBindings.Default.actionFor(KeyChord(ShortcutKey.NumPadAdd, ctrl = true)))
@@ -61,10 +62,10 @@ class KeyBindingsTest {
     }
 
     @Test
-    fun onlyFunctionKeysTabAndEscStandAlone() {
+    fun onlyFunctionKeysTabEscAndDeleteStandAlone() {
         assertFalse(KeyChord(ShortcutKey.K).usable)
         assertFalse(KeyChord(ShortcutKey.K, shift = true).usable, "Shift+K types a capital")
-        assertFalse(KeyChord(ShortcutKey.Delete).usable)
+        assertTrue(KeyChord(ShortcutKey.Delete).usable)
         assertTrue(KeyChord(ShortcutKey.K, alt = true).usable)
         assertTrue(KeyChord(ShortcutKey.K, meta = true).usable)
         assertTrue(KeyChord(ShortcutKey.F5).usable)
@@ -136,6 +137,10 @@ class KeyBindingsTest {
         assertEquals(ShortcutDecision.Run(ShortcutAction.SelectTool), bindings.decide(esc, ShortcutScope.Anywhere))
         assertEquals(ShortcutDecision.Pass, bindings.decide(esc, ShortcutScope.Workspace))
         assertEquals(ShortcutDecision.Run(ShortcutAction.Undo), bindings.decide(ctrlZ, ShortcutScope.Workspace))
+        assertEquals(ShortcutDecision.Run(ShortcutAction.DeleteSelection),
+            bindings.decide(KeyChord(ShortcutKey.Delete), ShortcutScope.Workspace))
+        assertEquals(ShortcutDecision.Pass,
+            bindings.decide(KeyChord(ShortcutKey.Delete), ShortcutScope.TextBox))
         assertEquals(ShortcutDecision.Pass, bindings.decide(ctrlZ, ShortcutScope.Anywhere))
         // In a text box Ctrl+Z is the text's own undo, not the canvas's.
         assertEquals(ShortcutDecision.Pass, bindings.decide(ctrlZ, ShortcutScope.TextBox))

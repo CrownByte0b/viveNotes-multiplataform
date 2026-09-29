@@ -176,6 +176,7 @@ import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.ui.canvas.TextContextMenu
 import com.vivenotes.ui.canvas.TextMenuRequest
 import com.vivenotes.ui.canvas.selectionForRightClick
+import com.vivenotes.ui.canvas.selectedCanvasBounds
 import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.navigation.NavigationDialogs
 import com.vivenotes.ui.navigation.NavigationRequests
@@ -226,12 +227,14 @@ object WorkspaceTestTags {
     const val ObjectDelete = "workspace-object-delete"
     const val ObjectLock = "workspace-object-lock"
     const val ObjectColor = "workspace-object-color"
+    const val GroupSelectionFrame = "workspace-group-selection-frame"
     const val StructuralUndo = "workspace-structural-undo"
     const val StructuralRedo = "workspace-structural-redo"
     const val StorageError = "workspace-storage-error"
     const val UnreadablePage = "workspace-unreadable-page"
     fun primeObject(id: String): String = "workspace-prime-object-$id"
     fun objectCorner(id: String, corner: Int): String = "workspace-object-corner-$id-$corner"
+    fun groupCorner(corner: Int): String = "workspace-group-corner-$corner"
     fun textBox(id: String): String = "workspace-text-box-$id"
     fun textBoxOutline(id: String): String = "workspace-text-box-outline-$id"
     fun textGrip(id: String): String = "workspace-text-grip-$id"
@@ -532,7 +535,7 @@ private fun WorkspaceContent(
                         if (focusMoves) editorFocusRequest++
                     },
                     onMoveTextBox = { id, dx, dy, history -> onStateChange { it.moveTextBox(id, dx, dy, history) } },
-                    onMoveSelectedTexts = { dx, dy, history -> onStateChange { it.moveSelectedObjects(dx, dy, history) } },
+                    onMoveSelection = { dx, dy, history -> onStateChange { it.moveSelectedObjects(dx, dy, history) } },
                     onResizeTextBox = { id, width, height, history ->
                         onStateChange { it.resizeTextBox(id, width, height, history) }
                     },
@@ -699,7 +702,7 @@ private fun PageCanvas(
     onClearCanvasFocus: () -> Unit,
     onCreateTextBox: (Float, Float) -> Unit,
     onMoveTextBox: (String, Float, Float, Boolean) -> Unit,
-    onMoveSelectedTexts: (Float, Float, Boolean) -> Unit,
+    onMoveSelection: (Float, Float, Boolean) -> Unit,
     onResizeTextBox: (String, Float?, Float?, Boolean) -> Unit,
     onDeleteTextBox: (String) -> Unit,
     onPasteCanvas: (Float, Float) -> Unit,
@@ -752,6 +755,7 @@ private fun PageCanvas(
     val currentClearCanvasFocus by rememberUpdatedState(onClearCanvasFocus)
     val currentPaste by rememberUpdatedState(onPasteCanvas)
     val currentSelectObjects by rememberUpdatedState(onSelectObjectsInRect)
+    val currentMoveSelection by rememberUpdatedState(onMoveSelection)
     val currentState by rememberUpdatedState(state)
     val measuredTextHeights = remember(page?.id) { mutableStateMapOf<String, Float>() }
     val textLayouts = remember(page?.id) { mutableStateMapOf<String, TextLayoutResult>() }
@@ -876,6 +880,15 @@ private fun PageCanvas(
 
     fun hitsSelectedTransform(point: Offset, snapshot: WorkspaceState): Boolean {
         val outlines = snapshot.selectedPage?.document?.outlines ?: return false
+        val group = selectedCanvasBounds(outlines,
+            snapshot.selectedObjectIds + snapshot.selectedTextOutlineIds, measuredTextHeights)
+        val groupBody = group != null && point.x in (group.left - 6f)..(group.right + 6f) &&
+            point.y in (group.top - 6f)..(group.bottom + 6f)
+        val groupCorner = group != null && snapshot.selectedTextOutlineIds.isEmpty() &&
+            !snapshot.selectedObjectsLocked && listOf(
+                Offset(group.left - 6f, group.top - 6f), Offset(group.right + 6f, group.top - 6f),
+                Offset(group.left - 6f, group.bottom + 6f), Offset(group.right + 6f, group.bottom + 6f),
+            ).any { (point - it).getDistance() <= 14f }
         val textGrip = outlines.filterIsInstance<Outline.Text>().any { text ->
             text.id in snapshot.selectedTextOutlineIds &&
                 point.x in text.x..(text.x + 48f) &&
@@ -886,7 +899,7 @@ private fun PageCanvas(
                 point.x in (outline.x - 10f)..(outline.x + outline.width + 10f) &&
                 point.y in (outline.y - 10f)..(outline.y + outline.primeHeight() + 10f)
         }
-        return textGrip || primeBounds
+        return groupBody || groupCorner || textGrip || primeBounds
     }
 
     Box(
@@ -1004,7 +1017,17 @@ private fun PageCanvas(
                         val point = toPage(last.position)
                         val x = point.x
                         val y = point.y
-                        if (!handled && !hitsContent(point, currentState) && y >= titleFloor) {
+                        val insideGroup = selectedCanvasBounds(
+                            currentState.selectedPage?.document?.outlines.orEmpty(),
+                            currentState.selectedObjectIds + currentState.selectedTextOutlineIds,
+                            measuredTextHeights)?.let { bounds ->
+                            x in (bounds.left - 6f)..(bounds.right + 6f) &&
+                                y in (bounds.top - 6f)..(bounds.bottom + 6f)
+                        } == true
+                        if (!handled && insideGroup) {
+                            focusManager.clearFocus()
+                            canvasFocusRequester.requestFocus()
+                        } else if (!handled && !hitsContent(point, currentState) && y >= titleFloor) {
                             focusManager.clearFocus()
                             canvasFocusRequester.requestFocus()
                             // Beside a sheet that bounds the page there is nowhere to put anything.
@@ -1055,6 +1078,8 @@ private fun PageCanvas(
             )
             ZoomedCanvas(zoom) {
             Box(Modifier.documentExtent(canvasSize).testTag(WorkspaceTestTags.CanvasExtent)) {
+                val groupBounds = selectedCanvasBounds(page.document.outlines,
+                    state.selectedObjectIds + state.selectedTextOutlineIds, measuredTextHeights)
                 CanvasPaper(page.document.style, palette, pageExtent, canvasSize, zoom, visibleWindow,
                     showMargins, lasso)
                 if (!page.document.style.hideTitle) {
@@ -1097,7 +1122,6 @@ private fun PageCanvas(
                         ?: maxOf(outline.minHeight, 150f)).dp
                     val showChrome = focused && outline.blocks.any { it.runs.any { run -> run.plainText.isNotEmpty() } }
                     val currentMove by rememberUpdatedState(onMoveTextBox)
-                    val currentMoveSelectedTexts by rememberUpdatedState(onMoveSelectedTexts)
                     val currentResize by rememberUpdatedState(onResizeTextBox)
                     if (lassoSelected && state.selectedObjectIds.isEmpty() &&
                         outline.id == state.selectedTextOutlineIds.firstOrNull()) {
@@ -1136,7 +1160,7 @@ private fun PageCanvas(
                                             change.consume()
                                             val dx = with(density) { drag.x.toDp().value }
                                             val dy = with(density) { drag.y.toDp().value }
-                                            if (lassoSelected) currentMoveSelectedTexts(dx, dy, firstChange)
+                                            if (lassoSelected) currentMoveSelection(dx, dy, firstChange)
                                             else currentMove(outline.id, dx, dy, firstChange)
                                             firstChange = false
                                         },
@@ -1331,13 +1355,13 @@ private fun PageCanvas(
                     Surface(
                         color = if (drawnPicture) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,
                         shape = MaterialTheme.shapes.small,
-                        tonalElevation = if (drawnPicture) 0.dp else if (selected) 3.dp else 1.dp,
+                        tonalElevation = if (drawnPicture) 0.dp else if (selected && groupBounds == null) 3.dp else 1.dp,
                         modifier = Modifier.offset(x, y).size(width, height)
                             .testTag(WorkspaceTestTags.primeObject(outline.id))
                             // A picture shows its own edges; only its selection is outlined.
-                            .then(if (outline is Outline.Image && !selected) Modifier else Modifier.border(
-                                if (selected) 2.dp else 1.dp,
-                                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            .then(if (outline is Outline.Image && (!selected || groupBounds != null)) Modifier else Modifier.border(
+                                if (selected && groupBounds == null) 2.dp else 1.dp,
+                                if (selected && groupBounds == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                                 MaterialTheme.shapes.small))
                             .pointerInput(outline.id) {
                                 var firstChange = true
@@ -1359,7 +1383,7 @@ private fun PageCanvas(
                             .clickable {
                                 focusManager.clearFocus()
                                 canvasFocusRequester.requestFocus()
-                                onSelectObject(outline.id)
+                                if (outline.id !in currentState.selectedObjectIds) onSelectObject(outline.id)
                             },
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -1371,7 +1395,7 @@ private fun PageCanvas(
                             }
                         }
                     }
-                    if (selected && state.selectedTextOutlineIds.isEmpty()) {
+                    if (selected && groupBounds == null && state.selectedTextOutlineIds.isEmpty()) {
                         val corners = listOf(
                             x to y, x + width to y, x to y + height, x + width to y + height,
                         )
@@ -1417,14 +1441,95 @@ private fun PageCanvas(
                     }
                 }
                 InkLayer(page.ink, canvasSize, palette.ink, visibleWindow)
+                if (groupBounds != null) {
+                    val padding = 6.dp
+                    val left = groupBounds.left.dp - padding
+                    val top = groupBounds.top.dp - padding
+                    val right = groupBounds.right.dp + padding
+                    val bottom = groupBounds.bottom.dp + padding
+                    val accent = MaterialTheme.colorScheme.primary
+                    Box(Modifier.offset(left, top).size(right - left, bottom - top)
+                        .drawBehind {
+                            val stroke = 1.5.dp.toPx()
+                            drawRect(accent, topLeft = Offset(stroke / 2f, stroke / 2f),
+                                size = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke),
+                                style = Stroke(width = stroke))
+                        }
+                        .testTag(WorkspaceTestTags.GroupSelectionFrame)
+                        .pointerInput(page.id, state.selectedObjectIds, state.selectedTextOutlineIds,
+                            state.selectedObjectsLocked) {
+                            var firstChange = true
+                            detectDragGestures(
+                                onDragStart = {
+                                    firstChange = true
+                                    focusManager.clearFocus()
+                                    canvasFocusRequester.requestFocus()
+                                },
+                                onDrag = { change, drag ->
+                                    change.consume()
+                                    if (!currentState.selectedObjectsLocked) {
+                                        currentMoveSelection(
+                                            with(density) { drag.x.toDp().value },
+                                            with(density) { drag.y.toDp().value }, firstChange)
+                                        firstChange = false
+                                    }
+                                },
+                            )
+                        })
+                    if (state.selectedTextOutlineIds.isEmpty() && !state.selectedObjectsLocked) {
+                        listOf(left to top, right to top, left to bottom, right to bottom)
+                            .forEachIndexed { index, (cx, cy) ->
+                                Box(Modifier.offset(cx - 7.dp, cy - 7.dp).size(14.dp)
+                                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                    .border(1.5.dp, accent, CircleShape)
+                                    .testTag(WorkspaceTestTags.groupCorner(index))
+                                    .semantics { contentDescription = "Resize selection" }
+                                    .pointerInput(index, state.selectedObjectIds, state.selectedObjectsLocked) {
+                                        var total = Offset.Zero
+                                        var previousScaleX = 1f
+                                        var previousScaleY = 1f
+                                        var firstChange = true
+                                        var startBounds = groupBounds
+                                        detectDragGestures(
+                                            onDragStart = {
+                                                total = Offset.Zero
+                                                previousScaleX = 1f
+                                                previousScaleY = 1f
+                                                firstChange = true
+                                                startBounds = selectedCanvasBounds(
+                                                    currentState.selectedPage?.document?.outlines.orEmpty(),
+                                                    currentState.selectedObjectIds, measuredTextHeights) ?: groupBounds
+                                            },
+                                            onDrag = { change, drag ->
+                                                change.consume()
+                                                total += drag
+                                                val dx = with(density) { total.x.toDp().value }
+                                                val dy = with(density) { total.y.toDp().value }
+                                                val sx = (1f + dx / startBounds.width.coerceAtLeast(1f) *
+                                                    (if (index % 2 == 0) -1 else 1)).coerceAtLeast(0.05f)
+                                                val sy = (1f + dy / startBounds.height.coerceAtLeast(1f) *
+                                                    (if (index < 2) -1 else 1)).coerceAtLeast(0.05f)
+                                                currentResizeObjects(
+                                                    if (index % 2 == 0) startBounds.right else startBounds.left,
+                                                    if (index < 2) startBounds.bottom else startBounds.top,
+                                                    sx / previousScaleX, sy / previousScaleY, firstChange)
+                                                previousScaleX = sx
+                                                previousScaleY = sy
+                                                firstChange = false
+                                            },
+                                        )
+                                    })
+                            }
+                    }
+                }
                 if (state.selectedObjectIds.isNotEmpty()) {
                     val selected = page.document.outlines.firstOrNull { it.id in state.selectedObjectIds }
                     if (selected != null) {
                         var colorMenu by remember(selected.id) { mutableStateOf(false) }
                         Surface(color = MaterialTheme.colorScheme.primaryContainer,
                             shape = MaterialTheme.shapes.medium, tonalElevation = 4.dp,
-                            modifier = Modifier.offset(selected.x.dp,
-                                (selected.y.dp - 52.dp).coerceAtLeast(0.dp))) {
+                            modifier = Modifier.offset((groupBounds?.left ?: selected.x).dp,
+                                ((groupBounds?.top ?: selected.y).dp - 52.dp).coerceAtLeast(0.dp))) {
                             Row(Modifier.padding(3.dp)) {
                                 if (selected !is Outline.Image && state.selectedTextOutlineIds.isEmpty()) {
                                     Box {

@@ -46,6 +46,7 @@ import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
 import com.vivenotes.ui.canvas.TextMenuTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.model.Mark
+import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Outline
 import com.vivenotes.richtext.TextSelection
@@ -611,6 +612,8 @@ class WorkspaceScreenTest {
                 release()
             }
             runOnIdle { assertEquals(setOf(firstId, secondId), observed.selectedTextOutlineIds) }
+            onNodeWithTag(WorkspaceTestTags.GroupSelectionFrame).assertIsDisplayed()
+            onNodeWithTag(WorkspaceTestTags.groupCorner(3)).assertDoesNotExist()
             onNodeWithTag(WorkspaceTestTags.textBoxOutline(firstId)).assertExists()
             onNodeWithTag(WorkspaceTestTags.textBoxOutline(secondId)).assertExists()
 
@@ -817,6 +820,227 @@ class WorkspaceScreenTest {
             }
             onNodeWithTag(WorkspaceTestTags.objectCorner(shape.id, 3)).performMouseInput { release() }
             runOnIdle { assertEquals(initial.structuralUndo.size + 2, observed.structuralUndo.size) }
+        }
+
+    @Test
+    fun multipleSelectedObjectsShareOneFrameAndResizeTogether() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo()
+            val first = Outline.Equation(id = "group-first", x = 300f, y = 350f,
+                width = 100f, height = 80f)
+            val second = Outline.Equation(id = "group-second", x = 520f, y = 460f,
+                width = 90f, height = 60f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id == base.selectedPageId) page.copy(document = page.document.copy(
+                            outlines = page.document.outlines + listOf(first, second))) else page
+                    })
+                })
+            }, selectedObjectIds = setOf(first.id, second.id))
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            val frame = onNodeWithTag(WorkspaceTestTags.GroupSelectionFrame)
+            frame.assertIsDisplayed()
+            val bounds = frame.getUnclippedBoundsInRoot()
+            val firstBounds = onNodeWithTag(WorkspaceTestTags.primeObject(first.id)).getUnclippedBoundsInRoot()
+            val secondBounds = onNodeWithTag(WorkspaceTestTags.primeObject(second.id)).getUnclippedBoundsInRoot()
+            assertTrue(bounds.left < firstBounds.left && bounds.top < firstBounds.top)
+            assertTrue(bounds.right > secondBounds.right && bounds.bottom > secondBounds.bottom)
+            onNodeWithTag(WorkspaceTestTags.objectCorner(first.id, 3)).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.objectCorner(second.id, 3)).assertDoesNotExist()
+
+            onNodeWithTag(WorkspaceTestTags.groupCorner(3)).performMouseInput {
+                moveTo(Offset(7f, 7f))
+                press()
+                moveTo(Offset(47f, 37f))
+            }
+            runOnIdle {
+                val resized = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Equation>()
+                assertTrue(resized.first { it.id == first.id }.width > first.width)
+                assertTrue(resized.first { it.id == second.id }.width > second.width)
+                assertTrue(resized.first { it.id == second.id }.x > second.x)
+            }
+            onNodeWithTag(WorkspaceTestTags.groupCorner(3)).performMouseInput { release() }
+            runOnIdle { assertEquals(initial.structuralUndo.size + 1, observed.structuralUndo.size) }
+        }
+
+    @Test
+    fun clickingAndDraggingEmptySpaceInsideGroupFrameKeepsAndMovesTheSelection() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo()
+            val first = Outline.Equation(id = "move-first", x = 300f, y = 350f,
+                width = 100f, height = 80f)
+            val second = Outline.Equation(id = "move-second", x = 520f, y = 460f,
+                width = 90f, height = 60f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id == base.selectedPageId) page.copy(document = page.document.copy(
+                            outlines = page.document.outlines + listOf(first, second))) else page
+                    })
+                })
+            }, selectedObjectIds = setOf(first.id, second.id))
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            // The point lies between the objects, inside their shared frame.
+            onNodeWithTag(WorkspaceTestTags.GroupSelectionFrame).performMouseInput {
+                moveTo(Offset(170f, 80f))
+                press()
+                release()
+            }
+            runOnIdle { assertEquals(setOf(first.id, second.id), observed.selectedObjectIds) }
+            onNodeWithTag(WorkspaceTestTags.primeObject(first.id)).performClick()
+            runOnIdle { assertEquals(setOf(first.id, second.id), observed.selectedObjectIds) }
+            onNodeWithTag(WorkspaceTestTags.GroupSelectionFrame).performMouseInput {
+                moveTo(Offset(170f, 80f))
+                press()
+                moveTo(Offset(215f, 110f))
+                release()
+            }
+            runOnIdle {
+                assertEquals(setOf(first.id, second.id), observed.selectedObjectIds)
+                val moved = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Equation>()
+                assertTrue(moved.first { it.id == first.id }.x > first.x)
+                assertTrue(moved.first { it.id == second.id }.x > second.x)
+                assertEquals(initial.structuralUndo.size + 1, observed.structuralUndo.size)
+            }
+
+            onRoot().performKeyInput { keyDown(Key.Delete); keyUp(Key.Delete) }
+            runOnIdle {
+                assertTrue(observed.selectedPage!!.document.outlines.none { it.id == first.id || it.id == second.id })
+                assertTrue(observed.selectedObjectIds.isEmpty())
+            }
+            onNodeWithTag(WorkspaceTestTags.GroupSelectionFrame).assertDoesNotExist()
+        }
+
+    @Test
+    fun deleteInFocusedTextEditorRemovesTextInsteadOfTheBox() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo().focusBody().selectText(TextSelection(0, 1))
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextInputSelection(TextRange(0, 1))
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performKeyInput {
+                keyDown(Key.Delete)
+                keyUp(Key.Delete)
+            }
+            runOnIdle {
+                assertEquals(initial.selectedPage!!.body.drop(1), observed.selectedPage!!.body)
+                assertEquals(initial.selectedPage!!.document.outlines.size,
+                    observed.selectedPage!!.document.outlines.size)
+            }
+        }
+
+    @Test
+    fun deleteAfterMarqueeSelectionNeedsNoExtraCanvasClick() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
+            val first = Outline.Equation(id = "marquee-first", x = 300f, y = 350f,
+                width = 100f, height = 80f)
+            val second = Outline.Equation(id = "marquee-second", x = 520f, y = 460f,
+                width = 90f, height = 60f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id == base.selectedPageId) page.copy(document = page.document.copy(
+                            outlines = page.document.outlines + listOf(first, second))) else page
+                    })
+                })
+            })
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                moveTo(Offset(250f, 320f))
+                press()
+                moveTo(Offset(700f, 600f))
+                release()
+            }
+            runOnIdle { assertEquals(setOf(first.id, second.id), observed.selectedObjectIds) }
+            onRoot().performKeyInput { keyDown(Key.Delete); keyUp(Key.Delete) }
+            runOnIdle {
+                assertTrue(observed.selectedPage!!.document.outlines.none { it.id == first.id || it.id == second.id })
+                assertTrue(observed.selectedObjectIds.isEmpty())
+            }
+        }
+
+    @Test
+    fun mixedTextAndObjectSelectionMovesAndDeletesFromTheFrame() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo()
+            val text = Outline.Text.empty().copy(id = "group-text", x = 300f, y = 350f,
+                width = 120f, blocks = listOf(Block.of("Selected text")))
+            val shape = Outline.Equation(id = "group-equation", x = 520f, y = 460f,
+                width = 90f, height = 60f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id == base.selectedPageId) page.copy(document = page.document.copy(
+                            outlines = page.document.outlines + listOf(text, shape))) else page
+                    })
+                })
+            }, selectedTextOutlineIds = setOf(text.id), selectedObjectIds = setOf(shape.id))
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.textBox(text.id)).performClick()
+            runOnIdle {
+                assertEquals(setOf(text.id), observed.selectedTextOutlineIds)
+                assertEquals(setOf(shape.id), observed.selectedObjectIds)
+            }
+            onNodeWithTag(WorkspaceTestTags.textBox(text.id)).performMouseInput {
+                moveTo(Offset(20f, 20f))
+                press()
+                moveTo(Offset(60f, 45f))
+                release()
+            }
+            runOnIdle {
+                assertTrue(observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
+                    .first { it.id == text.id }.x > text.x)
+            }
+            onNodeWithTag(WorkspaceTestTags.GroupSelectionFrame).performMouseInput {
+                moveTo(Offset(170f, 80f))
+                press()
+                moveTo(Offset(210f, 105f))
+                release()
+            }
+            runOnIdle {
+                val outlines = observed.selectedPage!!.document.outlines
+                assertTrue(outlines.filterIsInstance<Outline.Text>().first { it.id == text.id }.x > text.x)
+                assertTrue(outlines.filterIsInstance<Outline.Equation>().first { it.id == shape.id }.x > shape.x)
+                assertEquals(setOf(text.id), observed.selectedTextOutlineIds)
+                assertEquals(setOf(shape.id), observed.selectedObjectIds)
+            }
+            onRoot().performKeyInput { keyDown(Key.Delete); keyUp(Key.Delete) }
+            runOnIdle {
+                assertTrue(observed.selectedPage!!.document.outlines.none { it.id == text.id || it.id == shape.id })
+                assertEquals(base.selectedPage!!.body, observed.selectedPage!!.body)
+            }
+        }
+
+    @Test
+    fun lockedGroupKeepsItsFrameWithoutResizeHandles() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo()
+            val first = Outline.Equation(id = "locked-first", x = 300f, y = 350f)
+            val second = Outline.Equation(id = "locked-second", x = 520f, y = 460f)
+            val initial = base.copy(notebooks = base.notebooks.map { notebook ->
+                notebook.copy(sections = notebook.sections.map { section ->
+                    section.copy(pages = section.pages.map { page ->
+                        if (page.id == base.selectedPageId) page.copy(document = page.document.copy(
+                            outlines = page.document.outlines + listOf(first, second))) else page
+                    })
+                })
+            }, selectedObjectIds = setOf(first.id, second.id)).toggleObjectLock()
+            setWorkspace(initial = initial)
+
+            onNodeWithTag(WorkspaceTestTags.GroupSelectionFrame).assertIsDisplayed()
+            onNodeWithTag(WorkspaceTestTags.groupCorner(3)).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.objectCorner(first.id, 3)).assertDoesNotExist()
         }
 
     @Test

@@ -25,11 +25,11 @@ enum class ShortcutKey(label: String? = null) {
 
     /**
      * Whether this key needs Ctrl, Alt or Super to be a shortcut. Alone, most keys type a character
-     * or move the caret, and binding one would take that away from every text box. Function keys
-     * stand alone, and Tab is Indent's own default.
+     * or move the caret, and binding one would take that away from every text box. Function keys,
+     * Delete and Tab may stand alone; a focused text field handles Delete before the workspace.
      */
     val needsModifier: Boolean
-        get() = this != Tab && this != Escape && ordinal !in F1.ordinal..F12.ordinal
+        get() = this != Tab && this != Escape && this != Delete && ordinal !in F1.ordinal..F12.ordinal
 }
 
 /** A key with the modifiers held for it: exactly these, so Ctrl+Shift+Z is not also Ctrl+Z. */
@@ -109,6 +109,7 @@ enum class ShortcutAction(
     Undo("Undo", "Edit", ShortcutScope.Workspace, true, ctrl(ShortcutKey.Z)),
     // Ctrl+R is the desktop's own redo; Ctrl+Shift+Z is Android's, and works as well.
     Redo("Redo", "Edit", ShortcutScope.Workspace, true, ctrl(ShortcutKey.R), ctrlShift(ShortcutKey.Z)),
+    DeleteSelection("Delete selection", "Edit", ShortcutScope.Workspace, false, KeyChord(ShortcutKey.Delete)),
     Cut("Cut", "Edit", ShortcutScope.TextBox, false, ctrl(ShortcutKey.X)),
     Copy("Copy", "Edit", ShortcutScope.TextBox, false, ctrl(ShortcutKey.C)),
     Paste("Paste", "Edit", ShortcutScope.TextBox, true, ctrl(ShortcutKey.V)),
