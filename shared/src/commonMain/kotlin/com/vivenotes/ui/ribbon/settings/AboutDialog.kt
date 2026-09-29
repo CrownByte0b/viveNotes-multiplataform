@@ -55,7 +55,7 @@ internal object AboutLinks {
 internal fun AboutDialog(version: String, onDismiss: () -> Unit) {
     val uriHandler = LocalUriHandler.current
     DesktopDialogFrame(
-        title = "About Vive Notes",
+        title = "About Vive Notes [KMP]",
         onDismiss = onDismiss,
         modifier = Modifier.testTag(AboutTags.Dialog),
         maxWidth = 480.dp,
@@ -67,10 +67,10 @@ internal fun AboutDialog(version: String, onDismiss: () -> Unit) {
             ) {
                 Image(
                     painter = painterResource(Res.drawable.vivenotes_icon),
-                    contentDescription = "Vive Notes app icon",
+                    contentDescription = "Vive Notes [KMP] app icon",
                     modifier = Modifier.size(104.dp).testTag(AboutTags.Icon),
                 )
-                Text("Vive Notes", style = MaterialTheme.typography.headlineSmall)
+                Text("Vive Notes [KMP]", style = MaterialTheme.typography.headlineSmall)
                 Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape) {
                     Text("Version $version", modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                         style = MaterialTheme.typography.labelMedium,

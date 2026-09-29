@@ -39,7 +39,8 @@ class AboutDialogTest {
 
             onNodeWithTag(AboutTags.Open).performClick()
             onNodeWithTag(AboutTags.Dialog).assertIsDisplayed()
-            onNodeWithText("About Vive Notes").assertIsDisplayed()
+            onNodeWithText("About Vive Notes [KMP]").assertIsDisplayed()
+            onNodeWithText("Vive Notes [KMP]").assertIsDisplayed()
             onNodeWithText("Version 0.1.0").assertIsDisplayed()
             onNodeWithText("CROWNBYTE LLC · Source First License 1.1").assertIsDisplayed()
             onNodeWithTag(AboutTags.Icon, useUnmergedTree = true).assertIsDisplayed()
