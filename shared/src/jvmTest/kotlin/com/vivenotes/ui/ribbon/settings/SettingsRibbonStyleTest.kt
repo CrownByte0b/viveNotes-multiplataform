@@ -10,6 +10,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
@@ -44,8 +45,14 @@ class SettingsRibbonStyleTest {
             assertColor(pixels[pixels.width - 8, 8], Color(0xFF292A2F))
             assertColor(pixels[pixels.width - 8, pixels.height - 1], Color(0xFF393B42))
 
-            onNodeWithTag("settings-appearance").assertIsNotEnabled()
+            onNodeWithTag("settings-appearance").assertDoesNotExist()
             onNodeWithTag("settings-models").assertIsNotEnabled()
+            for (label in listOf("interface", "link-previews", "hardware", "models", "about")) {
+                onNodeWithTag("settings-icon-$label", useUnmergedTree = true).assertIsDisplayed()
+            }
+            assertIconContains("interface", Color(0xFFE5E7ED))
+            assertIconContains("hardware", Color(0xFF5DAFFF))
+            assertIconContains("models", Color(0xFFA8ABB4))
             onNodeWithTag(HardwareTags.Open).assertIsNotSelected().performClick().assertIsSelected()
             val active = onNodeWithTag(HardwareTags.Open).captureToImage().toPixelMap()
             assertColor(active[active.width / 2, active.height - 2], Color(0xFF007FFF))
@@ -77,5 +84,18 @@ class SettingsRibbonStyleTest {
             abs(actual.green - expected.green) < 0.03f &&
             abs(actual.blue - expected.blue) < 0.03f,
             "expected $expected, painted $actual")
+    }
+
+    private fun androidx.compose.ui.test.ComposeUiTest.assertIconContains(label: String, expected: Color) {
+        val pixels = onNodeWithTag("settings-icon-$label", useUnmergedTree = true)
+            .captureToImage().toPixelMap()
+        assertTrue((0 until pixels.width).any { x ->
+            (0 until pixels.height).any { y ->
+                val pixel = pixels[x, y]
+                abs(pixel.red - expected.red) < 0.03f &&
+                    abs(pixel.green - expected.green) < 0.03f &&
+                    abs(pixel.blue - expected.blue) < 0.03f
+            }
+        }, "$label icon should paint $expected")
     }
 }
