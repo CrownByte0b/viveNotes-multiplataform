@@ -7,6 +7,8 @@ data class InterfaceSettings(
     val displayScale: Float = 0.75f,
     val uiScale: Float = 1f,
     val fontScale: Float = 1f,
+    /** Null follows the desktop's current color scheme until the user chooses a theme. */
+    val darkTheme: Boolean? = null,
 ) {
     companion object {
         val DisplayScaleRange = 0.5f..2.5f

@@ -24,6 +24,7 @@ internal fun viewActions(
     onSettingsChange: (ViewSettings) -> Unit,
     canvas: CanvasViewControl,
     onTogglePaperSizePane: () -> Unit,
+    themePreference: () -> Boolean? = { null },
 ): ViewActions {
     fun setZoom(zoom: Float) = onSettingsChange(settings().copy(zoom = zoom).normalized())
     return ViewActions(
@@ -44,7 +45,8 @@ internal fun viewActions(
             }
         },
         setTabsLayout = { layout -> onSettingsChange(settings().copy(tabsLayout = layout)) },
-        setCanvasDark = { dark -> onSettingsChange(settings().copy(canvasDark = dark)) },
+        setCanvasDark = { dark -> onSettingsChange(settings().copy(
+            canvasDark = dark, canvasThemeDark = themePreference())) },
         togglePaperSizePane = onTogglePaperSizePane,
     )
 }

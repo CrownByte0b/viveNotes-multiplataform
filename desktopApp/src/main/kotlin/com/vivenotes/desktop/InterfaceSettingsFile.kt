@@ -12,6 +12,7 @@ internal class InterfaceSettingsFile(private val file: File) {
             displayScale = properties.getProperty("displayScale")?.toFloatOrNull() ?: InterfaceSettings().displayScale,
             uiScale = properties.getProperty("uiScale")?.toFloatOrNull() ?: 1f,
             fontScale = properties.getProperty("fontScale")?.toFloatOrNull() ?: 1f,
+            darkTheme = properties.getProperty("darkTheme")?.toBooleanStrictOrNull(),
         ).normalized()
     }
 
@@ -21,6 +22,7 @@ internal class InterfaceSettingsFile(private val file: File) {
             setProperty("displayScale", value.displayScale.toString())
             setProperty("uiScale", value.uiScale.toString())
             setProperty("fontScale", value.fontScale.toString())
+            value.darkTheme?.let { setProperty("darkTheme", it.toString()) }
         }, "ViveNotes interface preferences")
     }
 }

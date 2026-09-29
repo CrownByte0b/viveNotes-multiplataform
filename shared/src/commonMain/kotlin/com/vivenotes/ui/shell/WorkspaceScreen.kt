@@ -158,6 +158,7 @@ import com.vivenotes.workspace.FileActions
 import com.vivenotes.workspace.FilePane
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
+import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.ribbon.view.PaperSizePane
 import com.vivenotes.ui.ribbon.view.ViewTab
@@ -264,6 +265,8 @@ fun WorkspaceScreen(
     // Standalone workspace callers retain the unscaled layout; App supplies the user's default.
     interfaceSettings: InterfaceSettings = InterfaceSettings(displayScale = 1f),
     onInterfaceSettingsChange: (InterfaceSettings) -> Unit = {},
+    /** The host's system theme, used when Reset removes an explicit choice. */
+    systemDarkTheme: Boolean? = null,
     /** This device's View settings — zoom, tabs layout, canvas brightness — and where changes go. */
     viewSettings: ViewSettings = ViewSettings(),
     onViewSettingsChange: (ViewSettings) -> Unit = {},
@@ -291,33 +294,43 @@ fun WorkspaceScreen(
         withFrameNanos { }
         canvasFocusRequester.requestFocus()
     }
-    Box(modifier.fillMaxSize().onFocusChanged { workspaceHasFocus = it.hasFocus }.focusGroup()) {
-        CompositionLocalProvider(
-            LocalDensity provides effectiveSettings.density(baseDensity),
-            LocalPopupLayerDensity provides baseDensity,
-            LocalKeyBindings provides bindings,
-        ) {
-            WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
-                onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
-                view = view, onViewChange = { next ->
-                    view = next
-                    onViewSettingsChange(next)
-                }, bindings = bindings, onBindingsChange = { next ->
-                    bindings = next
-                    onKeyBindingsChange(next)
-                }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions,
-                onEditorDefaultsChange = onEditorDefaultsChange)
-        }
-        previewSettings?.let { draft ->
-            InterfaceDialog(
-                settings = draft,
-                onChange = { previewSettings = it.normalized() },
-                onApply = {
-                    onInterfaceSettingsChange(previewSettings ?: draft)
-                    previewSettings = null
-                },
-                onDismiss = { previewSettings = null },
-            )
+    val darkTheme = effectiveSettings.darkTheme ?: systemDarkTheme ?:
+        (MaterialTheme.colorScheme.background.luminance() < 0.45f)
+    ViveNotesTheme(darkTheme = darkTheme) {
+        Box(modifier.fillMaxSize().onFocusChanged { workspaceHasFocus = it.hasFocus }.focusGroup()) {
+            CompositionLocalProvider(
+                LocalDensity provides effectiveSettings.density(baseDensity),
+                LocalPopupLayerDensity provides baseDensity,
+                LocalKeyBindings provides bindings,
+            ) {
+                WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
+                    onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
+                    view = view, themePreference = effectiveSettings.darkTheme, onViewChange = { next ->
+                        view = next
+                        onViewSettingsChange(next)
+                    }, bindings = bindings, onBindingsChange = { next ->
+                        bindings = next
+                        onKeyBindingsChange(next)
+                    }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions,
+                    onEditorDefaultsChange = onEditorDefaultsChange)
+            }
+            previewSettings?.let { draft ->
+                InterfaceDialog(
+                    settings = draft,
+                    onChange = { previewSettings = it.normalized() },
+                    onApply = {
+                        val chosen = previewSettings ?: draft
+                        if (chosen.darkTheme != interfaceSettings.darkTheme && view.canvasDark != null) {
+                            val unpinned = view.copy(canvasDark = null, canvasThemeDark = null)
+                            view = unpinned
+                            onViewSettingsChange(unpinned)
+                        }
+                        onInterfaceSettingsChange(chosen)
+                        previewSettings = null
+                    },
+                    onDismiss = { previewSettings = null },
+                )
+            }
         }
     }
 }
@@ -333,6 +346,7 @@ private fun WorkspaceContent(
     onInterface: () -> Unit,
     pageDensity: Density,
     view: ViewSettings,
+    themePreference: Boolean?,
     onViewChange: (ViewSettings) -> Unit,
     bindings: KeyBindings,
     onBindingsChange: (KeyBindings) -> Unit,
@@ -353,13 +367,15 @@ private fun WorkspaceContent(
     var linkEditor by remember { mutableStateOf<LinkEditorRequest?>(null) }
     var confirmResetShortcuts by remember { mutableStateOf(false) }
     val currentView by rememberUpdatedState(view)
+    val currentThemePreference by rememberUpdatedState(themePreference)
     val currentOnViewChange by rememberUpdatedState(onViewChange)
     val viewActions = remember(onStateChange) {
         viewActions(onStateChange, { currentView }, { currentOnViewChange(it) }, canvasControl,
-            onTogglePaperSizePane = { togglePane(DockedPane.PaperSize) })
+            onTogglePaperSizePane = { togglePane(DockedPane.PaperSize) },
+            themePreference = { currentThemePreference })
     }
-    // Switch Background pins the canvas light or dark; until it is used it follows the theme.
-    val canvasDark = view.canvasDark ?: (MaterialTheme.colorScheme.background.luminance() < 0.45f)
+    val canvasDark = view.canvasDarkForTheme(themePreference,
+        MaterialTheme.colorScheme.background.luminance() < 0.45f)
     val horizontalTabs = view.tabsLayout == TabsLayout.Horizontal
     val documentColorSelection = remember { DocumentColorSelection() }
     val editorFocusRequester = remember { FocusRequester() }

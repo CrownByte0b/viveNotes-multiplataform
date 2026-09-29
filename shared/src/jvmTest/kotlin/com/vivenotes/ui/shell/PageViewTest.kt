@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -22,6 +23,7 @@ import com.vivenotes.model.PageStyle
 import com.vivenotes.model.PaperSize
 import com.vivenotes.model.RuleLines
 import com.vivenotes.ui.ribbon.view.ViewRibbonTags
+import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.ViewSettings
@@ -38,6 +40,30 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalTestApi::class)
 class PageViewTest {
+
+    @Test
+    fun lightAppThemeReversesALegacyDarkCanvasAndViewSwitchCanOverrideItAgain() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var reported: ViewSettings? = null
+            setContent {
+                var state by remember { mutableStateOf(WorkspaceState.demo().copy(activeTab = RibbonTab.View)) }
+                ViveNotesTheme(darkTheme = false) {
+                    WorkspaceScreen(state, { state = it(state) },
+                        interfaceSettings = InterfaceSettings(displayScale = 1f, darkTheme = false),
+                        viewSettings = ViewSettings(canvasDark = true),
+                        onViewSettingsChange = { reported = it })
+                }
+            }
+            fun paper() = onNodeWithTag(WorkspaceTestTags.PageCanvas).captureToImage().toPixelMap()[300, 5]
+            assertEquals(Color.White, paper())
+            assertEquals(Color(0xFF1B1B1B), canvasPalette(PageStyle(), canvasDark = false).ink)
+            onNodeWithTag(ViewRibbonTags.SwitchBackground).performClick()
+            assertEquals(Color(0xFF1F1F1F), paper())
+            runOnIdle {
+                assertEquals(true, reported?.canvasDark)
+                assertEquals(false, reported?.canvasThemeDark)
+            }
+        }
 
     private val a6Width = (PaperSize.A6.widthInches * PageStyle.DP_PER_INCH).roundToInt()
     private val a6Height = (PaperSize.A6.heightInches * PageStyle.DP_PER_INCH).roundToInt()

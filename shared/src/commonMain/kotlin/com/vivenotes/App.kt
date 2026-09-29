@@ -1,6 +1,7 @@
 package com.vivenotes
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -58,7 +59,8 @@ fun App(
 ) {
     val state by session.state.collectAsState()
     val fileActions = remember(session, notebookFiles) { notebookFiles?.let(session::fileActions) }
-    ViveNotesTheme {
+    val systemDarkTheme = isSystemInDarkTheme()
+    ViveNotesTheme(darkTheme = interfaceSettings.darkTheme ?: systemDarkTheme) {
         val workspace = state
         if (workspace == null) {
             Box(
@@ -73,6 +75,7 @@ fun App(
             WorkspaceScreen(state = workspace, onStateChange = session::update, navigation = session, pictures = pictures,
                 thumbnails = thumbnails,
                 interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange,
+                systemDarkTheme = systemDarkTheme,
                 viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
                 onEditorDefaultsChange = onEditorDefaultsChange,
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange, fileActions = fileActions)

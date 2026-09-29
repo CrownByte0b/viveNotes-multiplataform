@@ -6,6 +6,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -17,11 +20,14 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toPixelMap
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.navigation.NavigationTestTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.RibbonTab
+import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.WorkspaceState
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,6 +35,85 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class InterfaceDialogTest {
+    @Test
+    fun sunMoonSwitchPreviewsAndAppliesLightThemeThenResetFollowsSystem() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var saved = InterfaceSettings()
+            var viewSaved: ViewSettings? = null
+            setContent {
+                var workspace by remember { mutableStateOf(WorkspaceState.demo().copy(activeTab = RibbonTab.Settings)) }
+                var settings by remember { mutableStateOf(saved) }
+                ViveNotesTheme(darkTheme = true) {
+                    WorkspaceScreen(workspace, { workspace = it(workspace) }, interfaceSettings = settings,
+                        onInterfaceSettingsChange = { settings = it; saved = it },
+                        viewSettings = ViewSettings(canvasDark = true, canvasThemeDark = true),
+                        onViewSettingsChange = { viewSaved = it })
+                }
+            }
+            val original = onNodeWithTag(WorkspaceTestTags.HeaderBar).captureToImage().toPixelMap().let {
+                it[it.width - 8, 8].luminance()
+            }
+            onNodeWithTag(InterfaceTags.Open).performClick()
+            onNodeWithTag(InterfaceTags.ThemeSwitch).assertIsOn().performClick()
+            onNodeWithTag(InterfaceTags.ThemeSwitch).assertIsOff()
+            onNodeWithTag(InterfaceTags.Apply).performClick()
+            runOnIdle {
+                assertEquals(false, saved.darkTheme)
+                assertEquals(null, viewSaved?.canvasDark)
+            }
+            val light = onNodeWithTag(WorkspaceTestTags.HeaderBar).captureToImage().toPixelMap().let {
+                it[it.width - 8, 8].luminance()
+            }
+            assertTrue(light > original + 0.4f, "light theme should brighten the header: $original -> $light")
+
+            onNodeWithTag(InterfaceTags.Open).performClick()
+            onNodeWithTag(InterfaceTags.ThemeSwitch).assertIsOff()
+            onNodeWithTag(InterfaceTags.Reset).performClick()
+            onNodeWithTag(InterfaceTags.Apply).performClick()
+            runOnIdle { assertEquals(null, saved.darkTheme) }
+        }
+
+    @Test
+    fun cancelDiscardsThemeChoice() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var saved = InterfaceSettings()
+        setContent {
+            var workspace by remember { mutableStateOf(WorkspaceState.demo().copy(activeTab = RibbonTab.Settings)) }
+            ViveNotesTheme(darkTheme = true) {
+                WorkspaceScreen(workspace, { workspace = it(workspace) }, interfaceSettings = saved,
+                    onInterfaceSettingsChange = { saved = it })
+            }
+        }
+        fun headerBrightness(): Float = onNodeWithTag(WorkspaceTestTags.HeaderBar)
+            .captureToImage().toPixelMap().let { it[it.width - 8, 8].luminance() }
+        val dark = headerBrightness()
+        onNodeWithTag(InterfaceTags.Open).performClick()
+        onNodeWithTag(InterfaceTags.ThemeSwitch).performClick().assertIsOff()
+        val preview = headerBrightness()
+        assertTrue(preview > dark + 0.05f, "theme change should preview before Apply: $dark -> $preview")
+        onNodeWithTag(InterfaceTags.Cancel).performClick()
+        assertTrue(kotlin.math.abs(headerBrightness() - dark) < 0.05f, "Cancel should restore the theme")
+        onNodeWithTag(InterfaceTags.Open).performClick()
+        onNodeWithTag(InterfaceTags.ThemeSwitch).assertIsOn()
+        runOnIdle { assertEquals(null, saved.darkTheme) }
+    }
+
+    @Test
+    fun switchCanApplyDarkThemeFromLight() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var saved = InterfaceSettings(darkTheme = false)
+        setContent {
+            var workspace by remember { mutableStateOf(WorkspaceState.demo().copy(activeTab = RibbonTab.Settings)) }
+            var settings by remember { mutableStateOf(saved) }
+            ViveNotesTheme(darkTheme = false) {
+                WorkspaceScreen(workspace, { workspace = it(workspace) }, interfaceSettings = settings,
+                    onInterfaceSettingsChange = { settings = it; saved = it })
+            }
+        }
+        onNodeWithTag(InterfaceTags.Open).performClick()
+        onNodeWithTag(InterfaceTags.ThemeSwitch).assertIsOff().performClick().assertIsOn()
+        onNodeWithTag(InterfaceTags.Apply).performClick()
+        runOnIdle { assertEquals(true, saved.darkTheme) }
+    }
+
     @Test
     fun settingsTabOpensDialogAndApplyCommitsScale() = runDesktopComposeUiTest(width = 2200, height = 900) {
         var saved = InterfaceSettings()

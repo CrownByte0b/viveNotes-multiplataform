@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,22 +15,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.vivenotes.ui.components.DesktopDialogFrame
+import com.vivenotes.ui.icons.ViewSymbols
 import kotlin.math.roundToInt
 
 object InterfaceTags {
@@ -39,6 +45,7 @@ object InterfaceTags {
     const val DisplayScale = "settings-display-scale"
     const val UiScale = "settings-ui-scale"
     const val FontScale = "settings-font-scale"
+    const val ThemeSwitch = "settings-theme-switch"
     const val Apply = "settings-interface-apply"
     const val Cancel = "settings-interface-cancel"
     const val Reset = "settings-interface-reset"
@@ -51,6 +58,7 @@ internal fun InterfaceDialog(
     onApply: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val darkTheme = settings.darkTheme ?: (MaterialTheme.colorScheme.background.luminance() < 0.45f)
     DesktopDialogFrame(
         title = "Interface",
         onDismiss = onDismiss,
@@ -62,6 +70,22 @@ internal fun InterfaceDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(ViewSymbols.WbSunny, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+                    Switch(
+                        checked = darkTheme,
+                        onCheckedChange = { onChange(settings.copy(darkTheme = it)) },
+                        modifier = Modifier.padding(horizontal = 12.dp).testTag(InterfaceTags.ThemeSwitch)
+                            .semantics {
+                                contentDescription = "App theme"
+                                stateDescription = if (darkTheme) "Dark" else "Light"
+                            },
+                    )
+                    Icon(ViewSymbols.DarkMode, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+                }
                 Text("Adjust the workspace for your monitor. Changes appear while you move a slider.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)

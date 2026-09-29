@@ -68,6 +68,17 @@ class ViewSettingsTest {
     }
 
     @Test
+    fun anExplicitThemeSupersedesAnOlderCanvasOverrideButAChoiceInThatThemeStillWorks() {
+        val oldDarkCanvas = ViewSettings(canvasDark = true)
+        assertEquals(false, oldDarkCanvas.canvasDarkForTheme(themePreference = false, themeDark = false))
+        assertEquals(true, oldDarkCanvas.canvasDarkForTheme(themePreference = null, themeDark = false))
+        val chosenInLight = oldDarkCanvas.copy(canvasThemeDark = false)
+        assertEquals(true, chosenInLight.canvasDarkForTheme(themePreference = false, themeDark = false))
+        assertEquals(true, chosenInLight.copy(canvasDark = false)
+            .canvasDarkForTheme(themePreference = true, themeDark = true))
+    }
+
+    @Test
     fun normalizingKeepsZoomInsideTheRange() {
         assertEquals(ViewSettings.MAX_ZOOM, ViewSettings(zoom = 40f).normalized().zoom)
         assertEquals(ViewSettings.MIN_ZOOM, ViewSettings(zoom = 0f).normalized().zoom)

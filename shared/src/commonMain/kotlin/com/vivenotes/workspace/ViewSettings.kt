@@ -14,13 +14,19 @@ enum class TabsLayout { Vertical, Horizontal }
 data class ViewSettings(
     val zoom: Float = 1f,
     val tabsLayout: TabsLayout = TabsLayout.Vertical,
-    /** Switch Background's override. Null follows the app theme until the button is first used. */
+    /** Switch Background's override. Null follows the app theme. */
     val canvasDark: Boolean? = null,
     /** Whether this device fetches and shows YouTube thumbnail previews. */
     val linkPreviews: Boolean = true,
+    /** Theme in force when Switch Background was last used; null is the older, unscoped setting. */
+    val canvasThemeDark: Boolean? = null,
 ) {
     fun normalized(): ViewSettings =
         copy(zoom = zoom.takeIf { it.isFinite() }?.coerceIn(MIN_ZOOM, MAX_ZOOM) ?: 1f)
+
+    /** An explicit app theme supersedes a canvas preference saved under another theme. */
+    fun canvasDarkForTheme(themePreference: Boolean?, themeDark: Boolean): Boolean =
+        canvasDark.takeIf { themePreference == null || canvasThemeDark == themePreference } ?: themeDark
 
     companion object {
         /** The zoom levels the ribbon offers, and the ladder Zoom in and Zoom out climb. */

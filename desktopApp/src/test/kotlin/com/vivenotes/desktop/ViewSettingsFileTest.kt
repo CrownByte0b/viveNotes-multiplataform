@@ -17,11 +17,11 @@ class ViewSettingsFileTest {
             assertEquals(ViewSettings(), store.load())
 
             val saved = ViewSettings(zoom = 0.5f, tabsLayout = TabsLayout.Horizontal, canvasDark = false,
-                linkPreviews = false)
+                linkPreviews = false, canvasThemeDark = true)
             store.save(saved)
             assertEquals(saved, ViewSettingsFile(file).load())
 
-            file.writeText("zoom=900\ntabsLayout=Diagonal\ncanvasDark=maybe\n")
+            file.writeText("zoom=900\ntabsLayout=Diagonal\ncanvasDark=maybe\ncanvasThemeDark=maybe\n")
             assertEquals(ViewSettings(zoom = ViewSettings.MAX_ZOOM), store.load())
             file.writeText("not a properties file \u0000\\u12")
             assertEquals(ViewSettings(), store.load())

@@ -19,6 +19,7 @@ internal class ViewSettingsFile(private val file: File) {
                 ?.let { name -> TabsLayout.entries.firstOrNull { it.name == name } } ?: TabsLayout.Vertical,
             canvasDark = properties.getProperty("canvasDark")?.toBooleanStrictOrNull(),
             linkPreviews = properties.getProperty("linkPreviews")?.toBooleanStrictOrNull() ?: true,
+            canvasThemeDark = properties.getProperty("canvasThemeDark")?.toBooleanStrictOrNull(),
         ).normalized()
     }
 
@@ -29,6 +30,7 @@ internal class ViewSettingsFile(private val file: File) {
             setProperty("tabsLayout", value.tabsLayout.name)
             // Absent until Switch Background is first used, so the canvas follows the theme.
             value.canvasDark?.let { setProperty("canvasDark", it.toString()) }
+            value.canvasThemeDark?.let { setProperty("canvasThemeDark", it.toString()) }
             setProperty("linkPreviews", value.linkPreviews.toString())
         }, "ViveNotes view preferences")
     }

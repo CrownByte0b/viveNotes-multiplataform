@@ -14,11 +14,15 @@ class InterfaceSettingsFileTest {
             val file = File(directory, "config/interface.properties")
             val store = InterfaceSettingsFile(file)
             assertEquals(InterfaceSettings(), store.load())
-            val saved = InterfaceSettings(2f, 1.25f, 1.4f)
+            val saved = InterfaceSettings(2f, 1.25f, 1.4f, darkTheme = false)
             store.save(saved)
             assertEquals(saved, InterfaceSettingsFile(file).load())
-            file.writeText("displayScale=NaN\nuiScale=not-a-number\nfontScale=999\n")
+            file.writeText("displayScale=NaN\nuiScale=not-a-number\nfontScale=999\ndarkTheme=invalid\n")
             assertEquals(InterfaceSettings(0.75f, 1f, 1.8f), store.load())
+            store.save(InterfaceSettings(darkTheme = true))
+            assertEquals(true, InterfaceSettingsFile(file).load().darkTheme)
+            store.save(InterfaceSettings())
+            assertEquals(null, InterfaceSettingsFile(file).load().darkTheme)
         } finally {
             directory.deleteRecursively()
         }
