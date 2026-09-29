@@ -9,6 +9,10 @@ import com.vivenotes.model.Run
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.ShapeSegment
+import com.vivenotes.model.ink.ShapeKind
+import com.vivenotes.model.ink.LineType
+import com.vivenotes.model.ink.ends
+import com.vivenotes.model.ink.arms
 import com.vivenotes.model.JsonDocumentCodec
 import com.vivenotes.richtext.TextSelection
 import kotlin.test.Test
@@ -18,6 +22,65 @@ import kotlin.test.assertTrue
 import kotlin.test.assertFalse
 
 class WorkspaceStateTest {
+
+    @Test
+    fun everyAndroidShapeCanBePlacedStyledSerializedAndUndone() {
+        ShapeKind.entries.forEach { kind ->
+            val settings = ShapeToolSettings(kind = kind, lineType = LineType.Dashed,
+                borderWidth = 7, borderArgb = 0xFF3584E4.toInt(), fillArgb = 0xFFE01B24.toInt())
+            val initial = WorkspaceState.demo().setShapeSettings(settings).toggleShapeTool()
+            val placed = initial.createShape(200f, 300f, 400f, 430f)
+            val shape = placed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
+            assertEquals(kind, shape.kind)
+            assertTrue(shape.segments.isNotEmpty())
+            assertEquals(LineType.Dashed, shape.lineType)
+            assertEquals(7f, shape.borderWidth)
+            assertEquals(settings.borderArgb, shape.borderArgb)
+            assertEquals(if (kind in setOf(ShapeKind.Line, ShapeKind.Arrow, ShapeKind.L)) null
+                else settings.fillArgb, shape.fillArgb)
+            assertEquals(shape, JsonDocumentCodec.decode(
+                JsonDocumentCodec.encode(placed.selectedPage!!.document)).outlines.last())
+            assertEquals(initial.selectedPage!!.document, placed.undoStructure().selectedPage!!.document)
+        }
+    }
+
+    @Test
+    fun shapeToolSelectionAndSelectedStylesFollowPrimeObjectRules() {
+        val initial = WorkspaceState.demo().toggleShapeTool()
+        assertFalse(initial.textToolArmed)
+        assertFalse(initial.objectLassoArmed)
+        val placed = initial.createShape(200f, 300f)
+        val shape = placed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
+        assertEquals(setOf(shape.id), placed.selectedObjectIds)
+        val styled = placed.setSelectedShapeLineType(LineType.Dotted)
+            .setSelectedShapeBorderWidth(40).setSelectedShapeFill(0xFF2EC27E.toInt())
+        val changed = styled.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
+        assertEquals(LineType.Dotted, changed.lineType)
+        assertEquals(12f, changed.borderWidth)
+        assertEquals(0xFF2EC27E.toInt(), changed.fillArgb)
+        assertEquals(setOf(shape.id), styled.toggleObjectLock().selectedObjectIds)
+        assertFalse(styled.selectPointer().shapeToolArmed)
+        assertEquals(initial, initial.createShape(200f, 0f))
+    }
+
+    @Test
+    fun lineEndsAndLArmsRemainEditableAfterPlacement() {
+        val line = WorkspaceState.demo().setShapeSettings(ShapeToolSettings(kind = ShapeKind.Arrow))
+            .toggleShapeTool().createShape(200f, 300f, 350f, 350f)
+        val arrow = line.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
+        assertEquals(2, arrow.ends().size)
+        val moved = line.moveShapeEnd(arrow.id, true, 410f, 370f)
+        assertEquals(410f, moved.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>()
+            .last().ends().last().x)
+
+        val ell = WorkspaceState.demo().setShapeSettings(ShapeToolSettings(kind = ShapeKind.L))
+            .toggleShapeTool().createShape(200f, 300f, 350f, 400f)
+        val lShape = ell.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
+        val arm = lShape.arms().last()
+        val stretched = ell.moveShapeArm(lShape.id, arm, arm.along + arm.outward * 20f)
+        assertNotEquals(lShape.segments, stretched.selectedPage!!.document.outlines
+            .filterIsInstance<Outline.Shape>().last().segments)
+    }
 
     @Test
     fun fontChoicesWithoutAnEditorApplyToTheNextTextBoxOnly() {

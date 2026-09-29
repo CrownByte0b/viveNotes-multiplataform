@@ -29,6 +29,7 @@ import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.EditorDefaults
+import com.vivenotes.workspace.ShapeToolSettings
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.WorkspaceState
 
@@ -54,6 +55,7 @@ fun App(
     keyBindings: KeyBindings = KeyBindings.Default,
     onKeyBindingsChange: (KeyBindings) -> Unit = {},
     onEditorDefaultsChange: (EditorDefaults) -> Unit = {},
+    onShapeSettingsChange: (ShapeToolSettings) -> Unit = {},
     /** The platform's `.vive` file dialogs; without them notebooks cannot be exported or imported. */
     notebookFiles: NotebookFiles? = null,
     thumbnails: VideoThumbnailSource? = null,
@@ -81,6 +83,7 @@ fun App(
                 systemDarkTheme = systemDarkTheme,
                 viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
                 onEditorDefaultsChange = onEditorDefaultsChange,
+                onShapeSettingsChange = onShapeSettingsChange,
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange, fileActions = fileActions,
                 accountService = accountService, appVersion = appVersion)
         }

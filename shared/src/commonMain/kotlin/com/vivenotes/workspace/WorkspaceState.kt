@@ -10,6 +10,13 @@ import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
 import com.vivenotes.model.PageStyle
 import com.vivenotes.model.ink.InkPage
+import com.vivenotes.model.ink.LineType
+import com.vivenotes.model.ink.ShapeKind
+import com.vivenotes.model.ink.seedSegments
+import com.vivenotes.model.ink.ShapeArm
+import com.vivenotes.model.ink.ShapeEnd
+import com.vivenotes.model.ink.withArm
+import com.vivenotes.model.ink.withEnd
 import com.vivenotes.model.newId
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.TextSelection
@@ -21,6 +28,21 @@ enum class RibbonTab {
     Document,
     View,
     Settings,
+}
+
+/** The user's choices for the next shape; placed shapes keep their own copy in the document. */
+data class ShapeToolSettings(
+    val kind: ShapeKind = ShapeKind.DEFAULT,
+    val lineType: LineType = LineType.Solid,
+    val borderWidth: Int = 2,
+    val borderArgb: Int = 0xFF000000.toInt(),
+    val fillArgb: Int? = null,
+    val colorFollowsTheme: Boolean = true,
+) {
+    companion object {
+        const val MIN_BORDER_WIDTH = 1
+        const val MAX_BORDER_WIDTH = 12
+    }
 }
 
 /** Whether a page's [PageSummary.document] is its stored body or a stand-in for one. */
@@ -117,6 +139,8 @@ data class WorkspaceState(
     val editorComposition: TextSelection? = null,
     val textToolArmed: Boolean = false,
     val objectLassoArmed: Boolean = false,
+    val shapeToolArmed: Boolean = false,
+    val shapeSettings: ShapeToolSettings = ShapeToolSettings(),
     val focusedTextOutlineId: String? = null,
     val selectedTextOutlineIds: Set<String> = emptySet(),
     val selectedObjectIds: Set<String> = emptySet(),
@@ -194,6 +218,7 @@ data class WorkspaceState(
     fun toggleTextTool(): WorkspaceState = discardEmptyFocusedTextBox().copy(
         textToolArmed = !textToolArmed,
         objectLassoArmed = false,
+        shapeToolArmed = false,
         selectedTextOutlineIds = emptySet(),
         selectedObjectIds = emptySet(),
     )
@@ -201,6 +226,7 @@ data class WorkspaceState(
     fun toggleObjectLasso(): WorkspaceState = discardEmptyFocusedTextBox().copy(
         objectLassoArmed = !objectLassoArmed,
         textToolArmed = false,
+        shapeToolArmed = false,
         selectedTextOutlineIds = emptySet(),
         selectedObjectIds = emptySet(),
     )
@@ -209,11 +235,74 @@ data class WorkspaceState(
     fun selectPointer(): WorkspaceState = discardEmptyFocusedTextBox().copy(
         textToolArmed = false,
         objectLassoArmed = false,
+        shapeToolArmed = false,
         focusedTextOutlineId = null,
         selectedTextOutlineIds = emptySet(),
         selectedObjectIds = emptySet(),
         editorComposition = null,
     )
+
+    fun toggleShapeTool(): WorkspaceState = discardEmptyFocusedTextBox().copy(
+        shapeToolArmed = !shapeToolArmed,
+        textToolArmed = false,
+        objectLassoArmed = false,
+        focusedTextOutlineId = null,
+        selectedTextOutlineIds = emptySet(),
+        selectedObjectIds = emptySet(),
+    )
+
+    fun setShapeSettings(settings: ShapeToolSettings): WorkspaceState = copy(shapeSettings = settings.copy(
+        borderWidth = settings.borderWidth.coerceIn(ShapeToolSettings.MIN_BORDER_WIDTH,
+            ShapeToolSettings.MAX_BORDER_WIDTH),
+    ))
+
+    /** A tap uses the Android default box; a drag preserves its direction for lines and arrows. */
+    fun createShape(startX: Float, startY: Float, endX: Float = startX + Outline.Shape.DEFAULT_WIDTH,
+                    endY: Float = startY + Outline.Shape.DEFAULT_HEIGHT): WorkspaceState {
+        val page = editablePage ?: return this
+        if (!shapeToolArmed || startY < page.document.style.titleFloor) return this
+        val settings = shapeSettings
+        val shape = Outline.Shape(
+            id = newId(), kind = settings.kind,
+            segments = seedSegments(settings.kind, startX, startY, endX, endY, ::newId),
+            borderArgb = settings.borderArgb, borderFollowsTheme = settings.colorFollowsTheme,
+            borderWidth = settings.borderWidth.toFloat(), lineType = settings.lineType,
+            fillArgb = settings.fillArgb.takeUnless {
+                settings.kind == ShapeKind.Line || settings.kind == ShapeKind.Arrow || settings.kind == ShapeKind.L
+            },
+        ).withRecomputedBounds()
+        return editOutlines { it + shape }.copy(selectedObjectIds = setOf(shape.id),
+            selectedTextOutlineIds = emptySet(), focusedTextOutlineId = null)
+    }
+
+    fun setSelectedShapeLineType(type: LineType): WorkspaceState = editOutlines { outlines ->
+        outlines.map { if (it.id in selectedObjectIds && it is Outline.Shape) it.copy(lineType = type) else it }
+    }
+
+    fun setSelectedShapeBorderWidth(width: Int): WorkspaceState = editOutlines { outlines ->
+        outlines.map { if (it.id in selectedObjectIds && it is Outline.Shape)
+            it.copy(borderWidth = width.coerceIn(ShapeToolSettings.MIN_BORDER_WIDTH,
+                ShapeToolSettings.MAX_BORDER_WIDTH).toFloat()) else it }
+    }
+
+    fun setSelectedShapeFill(argb: Int?): WorkspaceState = editOutlines { outlines ->
+        outlines.map { if (it.id in selectedObjectIds && it is Outline.Shape &&
+            it.kind !in setOf(ShapeKind.Line, ShapeKind.Arrow, ShapeKind.L)) it.copy(fillArgb = argb) else it }
+    }
+
+    fun moveShapeEnd(id: String, atEnd: Boolean, x: Float, y: Float,
+                     recordHistory: Boolean = true): WorkspaceState =
+        editOutlines(recordHistory) { outlines -> outlines.map { outline ->
+            if (outline.id == id && outline is Outline.Shape && outline.lockGroup == null)
+                outline.withEnd(ShapeEnd(atEnd, x, y), x, y) else outline
+        } }
+
+    fun moveShapeArm(id: String, arm: ShapeArm, along: Float,
+                     recordHistory: Boolean = true): WorkspaceState =
+        editOutlines(recordHistory) { outlines -> outlines.map { outline ->
+            if (outline.id == id && outline is Outline.Shape && outline.lockGroup == null)
+                outline.withArm(arm, along) else outline
+        } }
 
     fun focusTextBox(id: String): WorkspaceState {
         if (selectedPage?.document?.outlines?.none { it is Outline.Text && it.id == id } != false) return this

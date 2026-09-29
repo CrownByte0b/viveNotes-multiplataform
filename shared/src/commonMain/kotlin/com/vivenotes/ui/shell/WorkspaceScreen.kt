@@ -10,6 +10,7 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -109,6 +110,15 @@ import com.vivenotes.richtext.LinkTarget
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Align
 import com.vivenotes.model.Outline
+import com.vivenotes.model.ink.seedSegments
+import com.vivenotes.model.ink.LineType
+import com.vivenotes.model.ink.ShapeArm
+import com.vivenotes.model.ink.ShapeAxis
+import com.vivenotes.model.ink.arms
+import com.vivenotes.model.ink.ends
+import com.vivenotes.ui.canvas.drawDocumentShape
+import com.vivenotes.ui.ribbon.draw.ShapeObjectTools
+import com.vivenotes.ui.ribbon.draw.CustomShapeColorField
 import com.vivenotes.model.PageStyle
 import com.vivenotes.workspace.primeHeight
 import com.vivenotes.workspace.isPrimeObject
@@ -175,6 +185,7 @@ import com.vivenotes.ui.navigation.SectionTabsBar
 import com.vivenotes.workspace.TabsLayout
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.EditorDefaults
+import com.vivenotes.workspace.ShapeToolSettings
 import com.vivenotes.workspace.titleFloor
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.DpSize
@@ -280,6 +291,7 @@ fun WorkspaceScreen(
     viewSettings: ViewSettings = ViewSettings(),
     onViewSettingsChange: (ViewSettings) -> Unit = {},
     onEditorDefaultsChange: (EditorDefaults) -> Unit = {},
+    onShapeSettingsChange: (ShapeToolSettings) -> Unit = {},
     /** The keyboard shortcuts in force, and where Settings → Hardware sends changes to them. */
     keyBindings: KeyBindings = KeyBindings.Default,
     onKeyBindingsChange: (KeyBindings) -> Unit = {},
@@ -329,6 +341,7 @@ fun WorkspaceScreen(
                         onKeyBindingsChange(next)
                     }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions,
                     onEditorDefaultsChange = onEditorDefaultsChange,
+                    onShapeSettingsChange = onShapeSettingsChange,
                     accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
                     onAbout = { aboutOpen = true })
             }
@@ -374,6 +387,7 @@ private fun WorkspaceContent(
     canvasFocusRequester: FocusRequester,
     fileActions: FileActions?,
     onEditorDefaultsChange: (EditorDefaults) -> Unit,
+    onShapeSettingsChange: (ShapeToolSettings) -> Unit,
     accountConnected: Boolean,
     onOpenAccount: () -> Unit,
     onAbout: () -> Unit,
@@ -460,7 +474,7 @@ private fun WorkspaceContent(
                 transferRunning = state.notebookTransfer.running, actions = fileActions,
                 onCloseNotebook = { notebookConfirmation = "close" },
                 onDeleteNotebook = { notebookConfirmation = "delete" })
-            RibbonTab.Draw -> DrawRibbon(state, onStateChange)
+            RibbonTab.Draw -> DrawRibbon(state, onStateChange, onShapeSettingsChange)
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
                 { canvasOrigin.read() }, documentColorSelection, onLinkRequest = { linkEditor = it },
                 onEditorDefaultsChange = onEditorDefaultsChange)
@@ -551,6 +565,7 @@ private fun WorkspaceContent(
                         editorFocusRequest++
                     },
                     onClearCanvasFocus = { onStateChange { it.clearCanvasFocus() } },
+                    onCreateShape = { sx, sy, ex, ey -> onStateChange { it.createShape(sx, sy, ex, ey) } },
                     onCreateTextBox = { x, y ->
                         // Decided on what is on screen: a box placed there is the one that types next.
                         val focusMoves = state.createTextBox(x, y).focusedTextOutlineId != state.focusedTextOutlineId
@@ -578,6 +593,15 @@ private fun WorkspaceContent(
                     onDeleteObjects = { onStateChange { it.deleteSelectedObjects() } },
                     onToggleObjectLock = { onStateChange { it.toggleObjectLock() } },
                     onColorObjects = { argb -> onStateChange { it.colorSelectedObjects(argb) } },
+                    onShapeLineType = { type -> onStateChange { it.setSelectedShapeLineType(type) } },
+                    onShapeWidth = { width -> onStateChange { it.setSelectedShapeBorderWidth(width) } },
+                    onShapeFill = { argb -> onStateChange { it.setSelectedShapeFill(argb) } },
+                    onMoveShapeEnd = { id, atEnd, x, y, history ->
+                        onStateChange { it.moveShapeEnd(id, atEnd, x, y, history) }
+                    },
+                    onMoveShapeArm = { id, arm, along, history ->
+                        onStateChange { it.moveShapeArm(id, arm, along, history) }
+                    },
                     onSelectObjectsInRect = { l, t, r, b ->
                         onStateChange { it.selectObjectsInRect(l, t, r, b) }
                     },
@@ -723,6 +747,7 @@ private fun PageCanvas(
     onTitleChange: (String) -> Unit,
     onFocusTextBox: (String) -> Unit,
     onClearCanvasFocus: () -> Unit,
+    onCreateShape: (Float, Float, Float, Float) -> Unit,
     onCreateTextBox: (Float, Float) -> Unit,
     onMoveTextBox: (String, Float, Float, Boolean) -> Unit,
     onMoveSelection: (Float, Float, Boolean) -> Unit,
@@ -736,6 +761,11 @@ private fun PageCanvas(
     onDeleteObjects: () -> Unit,
     onToggleObjectLock: () -> Unit,
     onColorObjects: (Int) -> Unit,
+    onShapeLineType: (LineType) -> Unit,
+    onShapeWidth: (Int) -> Unit,
+    onShapeFill: (Int?) -> Unit,
+    onMoveShapeEnd: (String, Boolean, Float, Float, Boolean) -> Unit,
+    onMoveShapeArm: (String, ShapeArm, Float, Boolean) -> Unit,
     onSelectObjectsInRect: (Float, Float, Float, Float) -> Unit,
     onToggleTodo: (outlineId: String, blockId: String) -> Unit,
     /** Applies a text command and gives the keyboard back to the text box. */
@@ -768,6 +798,7 @@ private fun PageCanvas(
     var pendingViewport by remember(page?.id) { mutableStateOf<CanvasViewport?>(null) }
     var pastePoint by remember(page?.id) { mutableStateOf<Offset?>(null) }
     var lasso by remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
+    var shapeDraft by remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
     var panActive by remember(page?.id) { mutableStateOf(false) }
     var panAnchor by remember(page?.id) { mutableStateOf(Offset.Zero) }
     var panPointer by remember(page?.id) { mutableStateOf(Offset.Zero) }
@@ -775,6 +806,7 @@ private fun PageCanvas(
     val panCursorDirection = panDirection(panOffset.x, panOffset.y)
     ApplyPanCursorWhilePressed(panActive, panCursorDirection)
     val currentCreate by rememberUpdatedState(onCreateTextBox)
+    val currentCreateShape by rememberUpdatedState(onCreateShape)
     val currentClearCanvasFocus by rememberUpdatedState(onClearCanvasFocus)
     val currentPaste by rememberUpdatedState(onPasteCanvas)
     val currentSelectObjects by rememberUpdatedState(onSelectObjectsInRect)
@@ -1006,15 +1038,29 @@ private fun PageCanvas(
                     }
                     val start = toPage(down.position)
                     val titleFloor = currentState.selectedPage?.document?.style?.titleFloor ?: PageStyle.TITLE_BAND_DP
+                    val selectedBounds = selectedCanvasBounds(
+                        currentState.selectedPage?.document?.outlines.orEmpty(),
+                        currentState.selectedObjectIds + currentState.selectedTextOutlineIds,
+                        measuredTextHeights)
+                    val onObjectToolbar = selectedBounds != null &&
+                        start.x in selectedBounds.left..(selectedBounds.left + 400f) &&
+                        start.y in (selectedBounds.top - 60f)..selectedBounds.top
+                    val shaping = currentState.shapeToolArmed && start.y >= titleFloor &&
+                        currentState.selectedPage?.editable == true && !onObjectToolbar &&
+                        !hitsSelectedTransform(start, currentState)
                     val marquee = !hitsSelectedTransform(start, currentState) &&
                         (currentState.objectLassoArmed ||
-                        (!currentState.textToolArmed && start.y >= titleFloor &&
+                        (!currentState.textToolArmed && !currentState.shapeToolArmed && start.y >= titleFloor &&
                             !hitsContent(start, currentState)))
                     var last = down
                     do {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         last = change
+                        if (shaping && (change.position - down.position).getDistance() >= 12.dp.toPx()) {
+                            change.consume()
+                            shapeDraft = start to toPage(change.position)
+                        }
                         if (marquee &&
                             (change.position - down.position).getDistance() >= 12.dp.toPx()) {
                             change.consume()
@@ -1022,7 +1068,16 @@ private fun PageCanvas(
                         }
                     } while (last.pressed)
                     val distance = (last.position - down.position).getDistance()
-                    if (marquee && distance >= 12.dp.toPx()) {
+                    if (shaping) {
+                        val end = if (distance >= 12.dp.toPx()) toPage(last.position) else
+                            Offset(start.x + Outline.Shape.DEFAULT_WIDTH,
+                                start.y + Outline.Shape.DEFAULT_HEIGHT)
+                        val style = currentState.selectedPage?.document?.style
+                        if (!down.isConsumed && style != null &&
+                            currentExtent?.canPlaceAt(style, start.x, start.y) == true)
+                            currentCreateShape(start.x, start.y, end.x, end.y)
+                        shapeDraft = null
+                    } else if (marquee && distance >= 12.dp.toPx()) {
                         val a = start
                         val b = toPage(last.position)
                         currentSelectObjects(
@@ -1093,6 +1148,7 @@ private fun PageCanvas(
             }
             val palette = canvasPalette(page.document.style, canvasDark)
             val darkPage = palette.background.luminance() < 0.45f
+            val shapeInk = if (darkPage) Color.White else Color.Black
             val richColors = RichTextColors(
                 // Android's `EditorStyle.accentColor`, for bullets, to-do boxes and quote stripes.
                 accent = Color(0xFF4CAF50),
@@ -1105,6 +1161,18 @@ private fun PageCanvas(
                     state.selectedObjectIds + state.selectedTextOutlineIds, measuredTextHeights)
                 CanvasPaper(page.document.style, palette, pageExtent, canvasSize, zoom, visibleWindow,
                     showMargins, lasso)
+                shapeDraft?.let { (start, end) ->
+                    val settings = state.shapeSettings
+                    val preview = Outline.Shape(id = "draft", kind = settings.kind,
+                        segments = seedSegments(settings.kind, start.x, start.y, end.x, end.y) { "draft" },
+                        borderArgb = settings.borderArgb, borderFollowsTheme = settings.colorFollowsTheme,
+                        borderWidth = settings.borderWidth.toFloat(),
+                        lineType = settings.lineType, fillArgb = settings.fillArgb).withRecomputedBounds()
+                    Canvas(Modifier.offset(preview.x.dp, preview.y.dp)
+                        .size(preview.width.coerceAtLeast(1f).dp, preview.height.coerceAtLeast(1f).dp)) {
+                        drawDocumentShape(preview, canvasInk = shapeInk)
+                    }
+                }
                 if (!page.document.style.hideTitle) {
                     Column(Modifier.offset(16.dp, 8.dp).width(720.dp)) {
                         BasicTextField(
@@ -1361,12 +1429,15 @@ private fun PageCanvas(
                 val currentResizeObjects by rememberUpdatedState(onResizeObjects)
                 page.document.outlines.filter { it.isPrimeObject() }.forEach { outline ->
                     val selected = outline.id in state.selectedObjectIds
-                    val x = outline.x.dp
-                    val y = outline.y.dp
-                    val width = outline.width.coerceAtLeast(24f).dp
-                    val height = outline.primeHeight().coerceAtLeast(24f).dp
+                    val drawnShape = outline is Outline.Shape && outline.segments.isNotEmpty()
+                    // Leave half the stroke and rounded surface clip outside the actual geometry.
+                    val visualPad = if (drawnShape) (outline as Outline.Shape).borderWidth / 2f + 2f else 0f
+                    val x = (outline.x - visualPad).dp
+                    val y = (outline.y - visualPad).dp
+                    val width = (outline.width + 2f * visualPad).coerceAtLeast(24f).dp
+                    val height = (outline.primeHeight() + 2f * visualPad).coerceAtLeast(24f).dp
                     val label = when (outline) {
-                        is Outline.Shape -> "Shape"
+                        is Outline.Shape -> outline.kind.label
                         is Outline.Table -> "Table"
                         is Outline.Equation -> "Equation: ${outline.latex}"
                         is Outline.Image -> "Picture"
@@ -1376,13 +1447,13 @@ private fun PageCanvas(
                     // only a picture that cannot be drawn gets a plate (see PictureContent).
                     val drawnPicture = outline is Outline.Image && pictures != null
                     Surface(
-                        color = if (drawnPicture) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,
+                        color = if (drawnPicture || drawnShape) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,
                         shape = MaterialTheme.shapes.small,
                         tonalElevation = if (drawnPicture) 0.dp else if (selected && groupBounds == null) 3.dp else 1.dp,
                         modifier = Modifier.offset(x, y).size(width, height)
                             .testTag(WorkspaceTestTags.primeObject(outline.id))
                             // A picture shows its own edges; only its selection is outlined.
-                            .then(if (outline is Outline.Image && (!selected || groupBounds != null)) Modifier else Modifier.border(
+                            .then(if ((drawnPicture || drawnShape) && (!selected || groupBounds != null)) Modifier else Modifier.border(
                                 if (selected && groupBounds == null) 2.dp else 1.dp,
                                 if (selected && groupBounds == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                                 MaterialTheme.shapes.small))
@@ -1412,13 +1483,42 @@ private fun PageCanvas(
                         Box(contentAlignment = Alignment.Center) {
                             if (outline is Outline.Image && pictures != null) {
                                 PictureContent(pictureAssets[outline.attachmentId])
+                            } else if (outline is Outline.Shape && drawnShape) {
+                                Canvas(Modifier.fillMaxSize()) {
+                                    drawDocumentShape(outline, outline.x - visualPad,
+                                        outline.y - visualPad, shapeInk)
+                                }
                             } else {
                                 Text(label, style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
-                    if (selected && groupBounds == null && state.selectedTextOutlineIds.isEmpty()) {
+                    if (selected && groupBounds == null && state.selectedTextOutlineIds.isEmpty() &&
+                        outline is Outline.Shape && outline.kind.hasEnds) {
+                        outline.ends().forEach { end ->
+                            Box(Modifier.offset((end.x - 7f).dp, (end.y - 7f).dp).size(14.dp)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                .testTag("workspace-shape-end-${outline.id}-${end.atEnd}")
+                                .pointerInput(outline.id, end.atEnd, state.selectedObjectsLocked) {
+                                    if (!state.selectedObjectsLocked) {
+                                        var total = Offset.Zero
+                                        var first = true
+                                        detectDragGestures(onDragStart = { total = Offset.Zero; first = true },
+                                            onDrag = { change, drag ->
+                                                change.consume()
+                                                total += drag
+                                                onMoveShapeEnd(outline.id, end.atEnd,
+                                                    end.x + with(density) { total.x.toDp().value },
+                                                    end.y + with(density) { total.y.toDp().value }, first)
+                                                first = false
+                                            })
+                                    }
+                                })
+                        }
+                    }
+                    if (selected && groupBounds == null && state.selectedTextOutlineIds.isEmpty() &&
+                        (outline !is Outline.Shape || !outline.kind.hasEnds)) {
                         val corners = listOf(
                             x to y, x + width to y, x to y + height, x + width to y + height,
                         )
@@ -1459,6 +1559,27 @@ private fun PageCanvas(
                                             },
                                         )
                                     }
+                                })
+                        }
+                    }
+                    if (selected && groupBounds == null && state.selectedTextOutlineIds.isEmpty() &&
+                        outline is Outline.Shape && !state.selectedObjectsLocked) {
+                        outline.arms().forEach { arm ->
+                            Box(Modifier.offset((arm.x - 5f).dp, (arm.y - 5f).dp).size(10.dp)
+                                .background(MaterialTheme.colorScheme.secondary, CircleShape)
+                                .testTag("workspace-shape-arm-${outline.id}-${arm.segmentId}-${arm.atEnd}")
+                                .pointerInput(outline.id, arm.segmentId, arm.atEnd) {
+                                    var total = Offset.Zero
+                                    var first = true
+                                    detectDragGestures(onDragStart = { total = Offset.Zero; first = true },
+                                        onDrag = { change, drag ->
+                                            change.consume()
+                                            total += drag
+                                            val delta = if (arm.axis == ShapeAxis.Horizontal) total.x else total.y
+                                            onMoveShapeArm(outline.id, arm,
+                                                arm.along + with(density) { delta.toDp().value }, first)
+                                            first = false
+                                        })
                                 })
                         }
                     }
@@ -1557,7 +1678,10 @@ private fun PageCanvas(
                                 if (selected !is Outline.Image && state.selectedTextOutlineIds.isEmpty()) {
                                     Box {
                                         val swatch = when (selected) {
-                                            is Outline.Shape -> Color(selected.borderArgb)
+                                            is Outline.Shape -> if (selected.borderFollowsTheme == true ||
+                                                (selected.borderFollowsTheme == null &&
+                                                    selected.borderArgb in setOf(0xFF000000.toInt(), 0xFFFFFFFF.toInt())))
+                                                shapeInk else Color(selected.borderArgb)
                                             is Outline.Table -> Color(selected.borderArgb)
                                             is Outline.Equation -> Color(selected.colorArgb ?: 0xFF000000.toInt())
                                             else -> Color.Black
@@ -1585,8 +1709,18 @@ private fun PageCanvas(
                                                     }
                                                 }
                                             }
+                                            if (selected is Outline.Shape) {
+                                                CustomShapeColorField("Border", "object-shape-custom-border") {
+                                                    colorMenu = false
+                                                    onColorObjects(it)
+                                                }
+                                            }
                                         }
                                     }
+                                }
+                                if (selected is Outline.Shape && state.selectedObjectIds.size == 1 &&
+                                    state.selectedTextOutlineIds.isEmpty()) {
+                                    ShapeObjectTools(selected, onShapeLineType, onShapeWidth, onShapeFill)
                                 }
                                 TooltipIconButton("Copy selection", onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectCopy)) {

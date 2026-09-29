@@ -86,7 +86,8 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile) {
                 notes::updateInterfaceSettings, notes.viewSettings, notes::updateViewSettings,
                 notes.keyBindings, notes::updateKeyBindings,
                 notebookFiles = remember(window) { notes.notebookFiles(window) }, thumbnails = notes.thumbnails,
-                onEditorDefaultsChange = notes::updateEditorDefaults, accountService = notes.accountService,
+                onEditorDefaultsChange = notes::updateEditorDefaults,
+                onShapeSettingsChange = notes::updateShapeSettings, accountService = notes.accountService,
                 appVersion = DesktopBuildInfo.version)
         }
     }

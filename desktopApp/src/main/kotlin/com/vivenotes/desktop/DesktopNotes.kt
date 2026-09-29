@@ -11,6 +11,7 @@ import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.EditorDefaults
+import com.vivenotes.workspace.ShapeToolSettings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -44,6 +45,7 @@ internal class DesktopNotes(
     private val interfaceStore: InterfaceSettingsFile? = null,
     private val viewStore: ViewSettingsFile? = null,
     private val editorStore: EditorDefaultsFile? = null,
+    private val shapeStore: ShapeSettingsFile? = null,
     private val keyStore: KeyBindingsFile? = null,
     val thumbnails: DesktopVideoThumbnails? = null,
     private val log: DebugLog = DebugLog(),
@@ -52,8 +54,11 @@ internal class DesktopNotes(
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     var editorDefaults by mutableStateOf(editorStore?.load() ?: EditorDefaults())
         private set
+    var shapeSettings by mutableStateOf(shapeStore?.load() ?: ShapeToolSettings())
+        private set
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated,
-        updatedLabel = { formatUpdated(it) }, editorDefaults = editorDefaults, log = log)
+        updatedLabel = { formatUpdated(it) }, editorDefaults = editorDefaults,
+        shapeSettings = shapeSettings, log = log)
     init {
         accountService.flushBeforeSync = session::flush
         accountService.afterSync = session::refreshOpenPageFromStorage
@@ -65,6 +70,12 @@ internal class DesktopNotes(
         editorStore?.save(value)
         editorDefaults = value
         log.event("settings") { "editor defaults saved" }
+    }
+    fun updateShapeSettings(settings: ShapeToolSettings) {
+        if (settings == shapeSettings) return
+        shapeStore?.save(settings)
+        shapeSettings = settings
+        log.event("settings") { "shape preferences saved" }
     }
     var interfaceSettings by mutableStateOf(interfaceStore?.load() ?: InterfaceSettings())
         private set
@@ -179,6 +190,7 @@ internal class DesktopNotes(
                 interfaceStore = InterfaceSettingsFile(File(directories.config, "interface.properties")),
                 viewStore = ViewSettingsFile(File(directories.config, "view.properties")),
                 editorStore = EditorDefaultsFile(File(directories.config, "editor.properties")),
+                shapeStore = ShapeSettingsFile(File(directories.config, "shape.properties")),
                 keyStore = KeyBindingsFile(File(directories.config, "keyboard.properties")),
                 thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")), log = log,
                 accountService = DesktopAccountService(log,

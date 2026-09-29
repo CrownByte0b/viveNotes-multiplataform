@@ -12,6 +12,9 @@ import com.vivenotes.workspace.ShortcutKey
 import com.vivenotes.workspace.TabsLayout
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.ShapeToolSettings
+import com.vivenotes.model.ink.ShapeKind
+import com.vivenotes.model.ink.LineType
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +34,29 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /** The process's notes as the windows use them: opened at launch, written and closed at exit. */
 class DesktopNotesTest {
+
+    @Test
+    fun shapeChoicesSurviveRestartAndSeedTheNextWorkspace() = runBlocking<Unit> {
+        val file = File(directory, "config/shape.properties")
+        val ui = CoroutineScope(coroutineContext + SupervisorJob())
+        val notes = DesktopNotes(NotesLibrary.open(directory), ui, shapeStore = ShapeSettingsFile(file))
+        notes.start()
+        openPage(notes)
+        val chosen = ShapeToolSettings(ShapeKind.Cone, LineType.Dashed, 6,
+            0xFF3584E4.toInt(), 0xFFE01B24.toInt(), colorFollowsTheme = false)
+        notes.updateShapeSettings(chosen)
+        assertEquals(chosen, ShapeSettingsFile(file).load())
+        close(notes)
+        ui.cancel()
+
+        val restartedUi = CoroutineScope(coroutineContext + SupervisorJob())
+        val restarted = DesktopNotes(NotesLibrary.open(directory), restartedUi,
+            shapeStore = ShapeSettingsFile(file))
+        restarted.start()
+        assertEquals(chosen, openPage(restarted).shapeSettings)
+        close(restarted)
+        restartedUi.cancel()
+    }
 
     private val directory: File = Files.createTempDirectory("desktop-notes").toFile()
 

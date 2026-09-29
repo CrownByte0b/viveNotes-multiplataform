@@ -54,6 +54,7 @@ class WorkspaceSession(
     private val updatedLabel: (Long) -> String = { "" },
     private val inkSource: InkSource? = store as? InkSource,
     private val editorDefaults: EditorDefaults = EditorDefaults(),
+    private val shapeSettings: ShapeToolSettings = ShapeToolSettings(),
     private val log: DebugLog = DebugLog(),
 ) : NavigationActions {
     private val current = MutableStateFlow<WorkspaceState?>(null)
@@ -115,6 +116,14 @@ class WorkspaceSession(
         val after = transform(before)
         if (after == before) return
         current.value = after
+        if (before.selectedPageId == after.selectedPageId) {
+            val oldShapes = before.selectedPage?.document?.outlines.orEmpty()
+                .filterIsInstance<com.vivenotes.model.Outline.Shape>().map { it.id }.toSet()
+            after.selectedPage?.document?.outlines.orEmpty()
+                .filterIsInstance<com.vivenotes.model.Outline.Shape>()
+                .filter { it.id !in oldShapes }
+                .forEach { shape -> log.event("shape") { "added ${shape.kind.name}" } }
+        }
         react(before, after)
     }
 
@@ -689,7 +698,7 @@ class WorkspaceSession(
             val notebook = notebooks.firstOrNull()
             val section = notebook?.sections?.firstOrNull()
             current.value = WorkspaceState(notebooks, notebook?.id.orEmpty(), section?.id.orEmpty(), "",
-                editorDefaults = editorDefaults)
+                editorDefaults = editorDefaults, shapeSettings = shapeSettings)
             openSection.value = section?.id
             return
         }
@@ -796,7 +805,7 @@ class WorkspaceSession(
         log.failure("storage", "store operation", error)
         val message = "$failure. ${error.message ?: error::class.simpleName.orEmpty()}".trim()
         current.value = (current.value ?: WorkspaceState(emptyList(), "", "", "",
-            editorDefaults = editorDefaults)).copy(storageError = message)
+            editorDefaults = editorDefaults, shapeSettings = shapeSettings)).copy(storageError = message)
     }
 
     companion object {

@@ -44,6 +44,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ui.ribbon.document.DocumentRibbonTags
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
+import com.vivenotes.ui.ribbon.draw.ShapeMenuTags
+import com.vivenotes.ui.ribbon.draw.ShapeObjectTags
 import com.vivenotes.ui.canvas.TextMenuTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.ui.account.AccountService
@@ -58,6 +60,9 @@ import com.vivenotes.model.Mark
 import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Outline
+import com.vivenotes.model.ink.ShapeKind
+import com.vivenotes.model.ink.LineType
+import com.vivenotes.model.ink.ends
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
@@ -69,6 +74,80 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class WorkspaceScreenTest {
+
+    @Test
+    fun shapePickerCreatesStyledSolidAndExposesPrimeObjectControls() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var observed = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
+            setWorkspace(initial = observed) { observed = it }
+            onNodeWithTag(ShapeMenuTags.ShapeTool).performClick()
+            onNodeWithTag(ShapeMenuTags.ShapeTool).assertIsSelected().performClick()
+            onNodeWithTag("draw-shape-page-1").performClick()
+            onNodeWithTag(ShapeMenuTags.kind(ShapeKind.Cube)).performClick()
+            onNodeWithTag(ShapeMenuTags.lineType(LineType.Dashed)).performClick()
+            onNodeWithTag(ShapeMenuTags.fill(0xFFE01B24.toInt())).performClick()
+            onNodeWithTag("draw-shape-custom-fill").performScrollTo().performTextReplacement("#123456")
+            onNodeWithTag("draw-shape-custom-fill-apply").performClick()
+            onNodeWithTag(ShapeMenuTags.ShapeTool).performClick()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                moveTo(Offset(450f, 400f))
+                press()
+                moveTo(Offset(560f, 500f))
+                release()
+            }
+            runOnIdle {
+                val shape = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
+                assertEquals(ShapeKind.Cube, shape.kind)
+                assertEquals(LineType.Dashed, shape.lineType)
+                assertEquals(0xFF123456.toInt(), shape.fillArgb)
+                assertTrue(shape.segments.any { it.hidden })
+                assertEquals(setOf(shape.id), observed.selectedObjectIds)
+            }
+            onNodeWithTag(ShapeObjectTags.LineType).assertIsDisplayed()
+            onNodeWithTag(ShapeObjectTags.Width).assertIsDisplayed()
+            onNodeWithTag(ShapeObjectTags.Fill).assertIsDisplayed()
+            onNodeWithTag(ShapeObjectTags.LineType).performClick()
+            onNodeWithText("Dotted").performClick()
+            onNodeWithTag(ShapeObjectTags.Width).performClick()
+            onNodeWithText("9 pt").performClick()
+            onNodeWithTag(ShapeObjectTags.Fill).performClick()
+            onNodeWithText("No fill").performClick()
+            onNodeWithTag(WorkspaceTestTags.ObjectColor).performClick()
+            onNodeWithTag("object-shape-custom-border").performTextReplacement("#345678")
+            onNodeWithTag("object-shape-custom-border-apply").performClick()
+            runOnIdle {
+                val shape = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
+                assertEquals(LineType.Dotted, shape.lineType)
+                assertEquals(9f, shape.borderWidth)
+                assertEquals(null, shape.fillArgb)
+                assertEquals(0xFF345678.toInt(), shape.borderArgb)
+            }
+            onNodeWithTag(WorkspaceTestTags.ObjectCopy).performClick()
+            runOnIdle { assertEquals(1, observed.canvasClipboard.objects.size) }
+        }
+
+    @Test
+    fun selectedLineEndCanBeDraggedInBothAxes() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            var observed = WorkspaceState.demo().setShapeSettings(
+                com.vivenotes.workspace.ShapeToolSettings(kind = ShapeKind.Line))
+                .toggleShapeTool().createShape(300f, 350f, 450f, 400f)
+                .copy(activeTab = RibbonTab.Draw)
+            val shape = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
+            setWorkspace(initial = observed) { observed = it }
+            onNodeWithTag("workspace-shape-end-${shape.id}-true").assertIsDisplayed()
+                .performMouseInput {
+                    moveTo(center)
+                    press()
+                    moveTo(center + Offset(40f, 30f))
+                    release()
+                }
+            runOnIdle {
+                val moved = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
+                assertTrue(moved.ends().last().x > shape.ends().last().x)
+                assertTrue(moved.ends().last().y > shape.ends().last().y)
+            }
+        }
 
     @Test
     fun accountButtonIsRightmostAndOpensWorkingForm() = runDesktopComposeUiTest(width = 1400, height = 900) {
