@@ -163,6 +163,7 @@ import com.vivenotes.ui.account.AccountService
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
+import com.vivenotes.ui.ribbon.settings.AboutDialog
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.ribbon.view.PaperSizePane
@@ -285,12 +286,14 @@ fun WorkspaceScreen(
     /** The File tab's `.vive` export and import; without it those commands are unavailable. */
     fileActions: FileActions? = null,
     accountService: AccountService? = null,
+    appVersion: String = "Development",
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
     // Held here as well, so a caller that does not keep the settings still sees its changes.
     var view by remember(viewSettings) { mutableStateOf(viewSettings.normalized()) }
     var bindings by remember(keyBindings) { mutableStateOf(keyBindings) }
     var accountOpen by remember { mutableStateOf(false) }
+    var aboutOpen by remember { mutableStateOf(false) }
     val accountScope = rememberCoroutineScope()
     val accountModel = remember(accountService) { AccountScreenModel(accountService, accountScope) }
     val accountSession = accountService?.session?.collectAsState()?.value
@@ -326,9 +329,11 @@ fun WorkspaceScreen(
                         onKeyBindingsChange(next)
                     }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions,
                     onEditorDefaultsChange = onEditorDefaultsChange,
-                    accountConnected = accountSession != null, onOpenAccount = { accountOpen = true })
+                    accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
+                    onAbout = { aboutOpen = true })
             }
             if (accountOpen) AccountScreen(accountService, accountModel, onBack = { accountOpen = false })
+            if (aboutOpen) AboutDialog(appVersion, onDismiss = { aboutOpen = false })
             previewSettings?.let { draft ->
                 InterfaceDialog(
                     settings = draft,
@@ -371,6 +376,7 @@ private fun WorkspaceContent(
     onEditorDefaultsChange: (EditorDefaults) -> Unit,
     accountConnected: Boolean,
     onOpenAccount: () -> Unit,
+    onAbout: () -> Unit,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
@@ -466,7 +472,8 @@ private fun WorkspaceContent(
                 })
             RibbonTab.Settings -> SettingsRibbon(onInterface, hardwareOpen = openPane == DockedPane.Hardware,
                 onHardware = { togglePane(DockedPane.Hardware) }, linkPreviews = view.linkPreviews,
-                onLinkPreviewsChange = { enabled -> onViewChange(view.copy(linkPreviews = enabled)) })
+                onLinkPreviewsChange = { enabled -> onViewChange(view.copy(linkPreviews = enabled)) },
+                onAbout = onAbout)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         // Horizontal Tabs Layout: the notebook pane's selection as a strip of section tabs.

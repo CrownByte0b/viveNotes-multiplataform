@@ -58,6 +58,7 @@ fun App(
     notebookFiles: NotebookFiles? = null,
     thumbnails: VideoThumbnailSource? = null,
     accountService: AccountService? = null,
+    appVersion: String = "Development",
 ) {
     val state by session.state.collectAsState()
     val fileActions = remember(session, notebookFiles) { notebookFiles?.let(session::fileActions) }
@@ -81,7 +82,7 @@ fun App(
                 viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
                 onEditorDefaultsChange = onEditorDefaultsChange,
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange, fileActions = fileActions,
-                accountService = accountService)
+                accountService = accountService, appVersion = appVersion)
         }
     }
 }

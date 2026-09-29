@@ -20,7 +20,7 @@ class LinkPreviewsSettingTest {
             var enabled by remember { mutableStateOf(true) }
             ViveNotesTheme {
                 SettingsRibbon(onInterface = {}, hardwareOpen = false, onHardware = {},
-                    linkPreviews = enabled, onLinkPreviewsChange = { enabled = it })
+                    linkPreviews = enabled, onLinkPreviewsChange = { enabled = it }, onAbout = {})
             }
         }
         onNodeWithTag(LINK_PREVIEWS_TAG).assertIsSelected().performClick()

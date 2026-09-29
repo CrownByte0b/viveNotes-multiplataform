@@ -39,11 +39,20 @@ val launchJvmArgs = listOf(nativeAccessJvmArg) +
     if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true))
         listOf("--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED") else emptyList()
 
+val appVersion = project.version.toString()
+
 compose.desktop {
     application {
         mainClass = "com.vivenotes.desktop.MainKt"
         jvmArgs += launchJvmArgs
+        nativeDistributions {
+            packageVersion = appVersion
+        }
     }
+}
+
+tasks.processResources {
+    expand("appVersion" to appVersion)
 }
 
 tasks.withType<Test>().configureEach {

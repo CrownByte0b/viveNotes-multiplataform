@@ -24,7 +24,7 @@ internal const val LINK_PREVIEWS_TAG = "settings-link-previews"
  */
 @Composable
 internal fun SettingsRibbon(onInterface: () -> Unit, hardwareOpen: Boolean, onHardware: () -> Unit,
-    linkPreviews: Boolean, onLinkPreviewsChange: (Boolean) -> Unit) {
+    linkPreviews: Boolean, onLinkPreviewsChange: (Boolean) -> Unit, onAbout: () -> Unit) {
     RibbonBar(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), spacing = 8.dp) {
         OutlinedButton(onClick = onInterface, shape = MaterialTheme.shapes.small,
             modifier = Modifier.testTag(InterfaceTags.Open)) { Text("Interface") }
@@ -40,7 +40,8 @@ internal fun SettingsRibbon(onInterface: () -> Unit, hardwareOpen: Boolean, onHa
                 containerColor = LocalDesktopColors.current.selection) else ButtonDefaults.outlinedButtonColors(),
             modifier = Modifier.testTag(HardwareTags.Open).semantics { selected = hardwareOpen }) { Text("Hardware") }
         PendingRibbonAction("Models")
-        PendingRibbonAction("About")
+        OutlinedButton(onClick = onAbout, shape = MaterialTheme.shapes.small,
+            modifier = Modifier.testTag(AboutTags.Open)) { Text("About") }
         PendingRibbonNote()
     }
 }
