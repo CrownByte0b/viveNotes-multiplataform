@@ -11,6 +11,7 @@ import com.vivenotes.data.viveFileName
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.data.db.NotebookWithSections
 import com.vivenotes.data.db.PageEntity
+import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.model.PageDoc
 import com.vivenotes.model.ink.InkPage
 import kotlinx.coroutines.CancellationException
@@ -53,6 +54,7 @@ class WorkspaceSession(
     private val updatedLabel: (Long) -> String = { "" },
     private val inkSource: InkSource? = store as? InkSource,
     private val editorDefaults: EditorDefaults = EditorDefaults(),
+    private val log: DebugLog = DebugLog(),
 ) : NavigationActions {
     private val current = MutableStateFlow<WorkspaceState?>(null)
 
@@ -84,6 +86,7 @@ class WorkspaceSession(
     fun start() {
         check(!started) { "A session starts once" }
         started = true
+        log.event("session") { "opening workspace" }
         scope.launch { for (task in work) task() }
         scope.launch {
             // Nothing observes the tree until seeding is done: a seeded page's row is written before
@@ -128,6 +131,7 @@ class WorkspaceSession(
                 }
                 store.pageById(id)
             } ?: return@enqueue
+            log.event("storage") { "page created" }
             update { state -> state.withPageAdded(sectionId, page).selectPage(page.id) }
         }
     }
@@ -164,13 +168,14 @@ class WorkspaceSession(
         deleting += item.id
         update { it.delete(item) }
         enqueue {
-            attempt("${name.ifBlank { "Untitled page" }} could not be deleted") {
+            val deleted = attempt("${name.ifBlank { "Untitled page" }} could not be deleted") {
                 when (item) {
                     is NavigationItem.Notebook -> store.deleteNotebook(item.id)
                     is NavigationItem.Section -> store.deleteSection(item.id)
                     is NavigationItem.Page -> store.deletePage(item.id)
                 }
             }
+            if (deleted != null) log.event("storage") { "${item::class.simpleName} deleted" }
             deleting -= item.id
             if (current.value?.filePane?.pane == FilePane.DeletedItems) refreshFilePane(FilePane.DeletedItems)
         }
@@ -196,6 +201,7 @@ class WorkspaceSession(
             val sectionId = attempt("$named could not be created") {
                 store.createSection(store.createNotebook(named), NEW_SECTION_NAME)
             } ?: return@enqueue
+            log.event("storage") { "notebook created" }
             openWhenListed(sectionId)
         }
     }
@@ -213,6 +219,7 @@ class WorkspaceSession(
                     }
                 }
             } ?: return@enqueue
+            log.event("storage") { "section created" }
             openWhenListed(sectionId)
         }
     }
@@ -309,6 +316,7 @@ class WorkspaceSession(
             error = null, message = null)) }
         enqueue {
             val result = attempt("This version could not be read") { store.loadRevision(pageId, id) }
+            if (result is PageRevisionLoad.Unreadable) log.failure("storage", "version decode", result.cause)
             update { state -> if (state.filePane.pane != FilePane.VersionHistory ||
                 state.filePane.selectedRevisionId != id || state.selectedPageId != pageId) state else
                 state.copy(filePane = state.filePane.copy(loading = false,
@@ -334,6 +342,7 @@ class WorkspaceSession(
             }
             val result = attempt("This version could not be restored") { store.restoreRevision(pageId, id) }
             if (result is PageRevisionLoad.Loaded) {
+                log.event("storage") { "page version restored" }
                 restores++
                 autosave?.cancel()
                 stored.remove(pageId)
@@ -362,6 +371,7 @@ class WorkspaceSession(
         update { it.copy(filePane = it.filePane.copy(busy = true, error = null, message = null)) }
         enqueue {
             val restored = attempt("${item.name} could not be restored") { store.restoreDeletedItem(item.key) }
+            if (restored == true) log.event("storage") { "deleted item restored" }
             val rows = attempt("Deleted items could not be read") { store.observeDeletedItems().first() }
             update { state -> if (state.filePane.pane == FilePane.DeletedItems)
                 state.copy(filePane = state.filePane.copy(busy = false, deletedItems = rows.orEmpty(),
@@ -379,6 +389,7 @@ class WorkspaceSession(
         enqueue {
             val reopened = attempt("This notebook could not be reopened") { store.reopenNotebook(id) }
             if (reopened != null) {
+                log.event("storage") { "notebook reopened" }
                 store.observeTree().first().firstOrNull { it.notebook.id == id }?.liveSections?.firstOrNull()?.let {
                     openWhenListed(it.id)
                 }
@@ -405,14 +416,17 @@ class WorkspaceSession(
         scope.launch {
             val destination = files.chooseExportDestination(viveFileName(notebook.name)) ?: return@launch
             if (!beginTransfer()) return@launch
+            log.event("transfer") { "export started" }
             saveOpenPage()
             enqueue {
                 val outcome = try {
                     val result = files.export(notebook.id, destination)
+                    log.event("transfer") { "export complete" }
                     NotebookTransferState(message = "${result.notebookName} was exported as a .vive notebook.")
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
+                    log.failure("transfer", "export", failure)
                     NotebookTransferState(error = failure.message ?: "The notebook could not be exported.")
                 }
                 update { it.copy(notebookTransfer = outcome) }
@@ -429,6 +443,7 @@ class WorkspaceSession(
         scope.launch {
             val source = files.chooseImportSource() ?: return@launch
             if (!beginTransfer()) return@launch
+            log.event("transfer") { "import started" }
             saveOpenPage()
             enqueue {
                 val result = try {
@@ -436,6 +451,7 @@ class WorkspaceSession(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
+                    log.failure("transfer", "import", failure)
                     update {
                         it.copy(notebookTransfer = NotebookTransferState(
                             error = failure.message ?: "The notebook could not be imported.",
@@ -444,6 +460,7 @@ class WorkspaceSession(
                     return@enqueue
                 }
                 openImported(result)
+                log.event("transfer") { "import complete" }
                 val message = when {
                     result.created -> "${result.notebookName} was imported."
                     result.restored -> "${result.notebookName} was restored from the .vive notebook."
@@ -508,10 +525,12 @@ class WorkspaceSession(
     /** Writes whatever is still waiting to be saved, and returns once storage has it. */
     suspend fun flush() {
         if (!started) return
+        log.event("session") { "flushing pending changes" }
         saveOpenPage()
         val drained = CompletableDeferred<Unit>()
         enqueue { drained.complete(Unit) }
         drained.await()
+        log.event("session") { "flush complete" }
     }
 
     private fun react(before: WorkspaceState, after: WorkspaceState) {
@@ -520,6 +539,7 @@ class WorkspaceSession(
         }
         val left = before.selectedPageId
         if (left.isNotEmpty() && left != after.selectedPageId) {
+            log.event("session") { "page changed" }
             // The departing page as it now stands: leaving it may have just discarded an empty box.
             autosave?.cancel()
             (after.page(left) ?: before.page(left))?.let(::save)
@@ -565,9 +585,11 @@ class WorkspaceSession(
             // An import finished since this was asked for: the archive replaced the page, and this
             // edit — made while the import ran — must not be written over it.
             if (generation != restores) return@enqueue
+            log.event("storage") { "saving page" }
             val saved = attempt("Changes to ${page.title.ifBlank { "Untitled page" }} could not be saved") {
                 store.saveDoc(page.id, doc)
             }
+            if (saved != null) log.event("storage") { "page saved" }
             // Still unsaved, so the next edit or flush tries again — unless a newer save took over.
             if (saved == null && stored[page.id] === doc) {
                 if (previous == null) stored.remove(page.id) else stored[page.id] = previous
@@ -581,6 +603,8 @@ class WorkspaceSession(
             val load = attempt("This page could not be opened") { store.loadDoc(pageId) }
             loading.remove(pageId)
             if (load != null) {
+                log.event("storage") { "page loaded (${if (load is PageLoad.Loaded) "editable" else "unreadable"})" }
+                if (load is PageLoad.Unreadable) log.failure("storage", "page decode", load.cause)
                 accept(pageId, load)
                 if (load is PageLoad.Loaded && inkSource != null) {
                     attempt("This page's ink could not be read") { inkSource.loadInk(pageId) }
@@ -636,6 +660,7 @@ class WorkspaceSession(
             )
         }
         if (current.value == null) {
+            log.event("session") { "workspace ready: ${notebooks.size} notebooks" }
             // Where Android lands on a first launch: the first notebook's first section, whose first
             // page opens once its pages arrive.
             val notebook = notebooks.firstOrNull()
@@ -745,6 +770,7 @@ class WorkspaceSession(
     }
 
     private fun fail(failure: String, error: Throwable) {
+        log.failure("storage", "store operation", error)
         val message = "$failure. ${error.message ?: error::class.simpleName.orEmpty()}".trim()
         current.value = (current.value ?: WorkspaceState(emptyList(), "", "", "",
             editorDefaults = editorDefaults)).copy(storageError = message)

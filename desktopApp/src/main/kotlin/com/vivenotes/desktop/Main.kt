@@ -8,9 +8,19 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.vivenotes.App
+import com.vivenotes.diagnostics.DebugLog
 import java.awt.Dimension
 
 internal enum class WindowBackend { NATIVE_WAYLAND, STANDARD }
+
+internal data class LaunchOptions(val x11: Boolean, val debug: Boolean)
+
+internal fun parseLaunchOptions(args: Array<String>): LaunchOptions {
+    require(args.all { it == "--x11" || it == "--debug" }) {
+        "Unknown option. Supported options: --x11, --debug"
+    }
+    return LaunchOptions(x11 = "--x11" in args, debug = "--debug" in args)
+}
 
 internal fun selectWindowBackend(
     args: Array<String>,
@@ -18,9 +28,9 @@ internal fun selectWindowBackend(
     sessionType: String?,
     waylandDisplay: String?,
 ): WindowBackend {
-    require(args.all { it == "--x11" }) { "Unknown option. Supported option: --x11" }
+    val options = parseLaunchOptions(args)
     return if (
-        args.none { it == "--x11" } &&
+        !options.x11 &&
         osName.startsWith("Linux", ignoreCase = true) &&
         (sessionType.equals("wayland", ignoreCase = true) || !waylandDisplay.isNullOrBlank())
     ) {
@@ -31,26 +41,28 @@ internal fun selectWindowBackend(
 }
 
 fun main(args: Array<String>) {
+    val options = parseLaunchOptions(args)
+    val log = DebugLog(options.debug)
     val profile = DesktopProfile.fromProperty()
-    when (
-        selectWindowBackend(
-            args = args,
-            osName = System.getProperty("os.name"),
-            sessionType = System.getenv("XDG_SESSION_TYPE"),
-            waylandDisplay = System.getenv("WAYLAND_DISPLAY"),
-        )
-    ) {
+    val backend = selectWindowBackend(
+        args = args,
+        osName = System.getProperty("os.name"),
+        sessionType = System.getenv("XDG_SESSION_TYPE"),
+        waylandDisplay = System.getenv("WAYLAND_DISPLAY"),
+    )
+    log.event("startup") { "profile=${profile.windowTitle}, backend=$backend" }
+    when (backend) {
         WindowBackend.NATIVE_WAYLAND -> {
             System.setProperty("awt.toolkit.name", "WLToolkit")
             useWaylandWindowClass(profile)
-            launchWayland(DesktopNotes.open(profile), profile)
+            launchWayland(DesktopNotes.open(profile, log), profile)
         }
         WindowBackend.STANDARD -> {
             if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true)) {
                 System.setProperty("awt.toolkit.name", "XToolkit")
                 useX11WindowClass(profile)
             }
-            launchStandardWindow(DesktopNotes.open(profile), profile)
+            launchStandardWindow(DesktopNotes.open(profile, log), profile)
         }
     }
 }

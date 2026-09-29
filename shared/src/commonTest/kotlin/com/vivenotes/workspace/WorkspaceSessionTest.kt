@@ -2,6 +2,7 @@ package com.vivenotes.workspace
 
 import com.vivenotes.data.PageLoad
 import com.vivenotes.data.InkSource
+import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.model.Block
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
@@ -25,6 +26,42 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WorkspaceSessionTest {
+
+    @Test
+    fun debugLogTracksPageLoadSaveAndStorageFailureWithoutDocumentText() = runTest {
+        val lines = mutableListOf<String>()
+        val session = WorkspaceSession(store, backgroundScope, { "created $it" },
+            log = DebugLog(enabled = true, output = lines::add))
+        session.start()
+        runCurrent()
+        assertTrue(lines.any { it.contains("workspace ready: 1 notebooks") })
+        assertTrue(lines.any { it.contains("page loaded (editable)") })
+
+        store.saveFailure = IllegalStateException("disk unavailable")
+        session.type("private document text")
+        advanceTimeBy(WorkspaceSession.AUTOSAVE_DELAY_MILLIS)
+        runCurrent()
+        assertTrue(lines.any { it.contains("failed: IllegalStateException: disk unavailable") })
+        assertTrue(lines.none { it.contains("private document text") })
+
+        store.saveFailure = null
+        session.flush()
+        assertTrue(lines.any { it.contains("page saved") })
+    }
+
+    @Test
+    fun debugLogReportsUnreadablePageCauseWithoutLoggingItsRawDocument() = runTest {
+        val lines = mutableListOf<String>()
+        store.storeBody(limits, PageLoad.Unreadable("private raw document", IllegalStateException("bad json")))
+        val session = WorkspaceSession(store, backgroundScope, { "created $it" },
+            log = DebugLog(enabled = true, output = lines::add))
+
+        session.start()
+        runCurrent()
+
+        assertTrue(lines.any { it.contains("page decode failed: IllegalStateException: bad json") })
+        assertTrue(lines.none { it.contains("private raw document") })
+    }
 
     @Test
     fun newStoredPagesUseTheCurrentPaperDefault() = runTest {

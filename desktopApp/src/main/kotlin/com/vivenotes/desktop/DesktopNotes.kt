@@ -3,6 +3,7 @@ package com.vivenotes.desktop
 import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.PictureLibrary
+import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
 import com.vivenotes.workspace.formatUpdated
@@ -45,18 +46,20 @@ internal class DesktopNotes(
     private val editorStore: EditorDefaultsFile? = null,
     private val keyStore: KeyBindingsFile? = null,
     val thumbnails: DesktopVideoThumbnails? = null,
+    private val log: DebugLog = DebugLog(),
 ) {
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     var editorDefaults by mutableStateOf(editorStore?.load() ?: EditorDefaults())
         private set
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated,
-        updatedLabel = { formatUpdated(it) }, editorDefaults = editorDefaults)
+        updatedLabel = { formatUpdated(it) }, editorDefaults = editorDefaults, log = log)
 
     fun updateEditorDefaults(defaults: EditorDefaults) {
         val value = defaults.normalized()
         if (value == editorDefaults) return
         editorStore?.save(value)
         editorDefaults = value
+        log.event("settings") { "editor defaults saved" }
     }
     var interfaceSettings by mutableStateOf(interfaceStore?.load() ?: InterfaceSettings())
         private set
@@ -65,6 +68,7 @@ internal class DesktopNotes(
         val value = settings.normalized()
         interfaceStore?.save(value)
         interfaceSettings = value
+        log.event("settings") { "interface preferences saved" }
     }
 
     var keyBindings by mutableStateOf(keyStore?.load() ?: KeyBindings.Default)
@@ -75,6 +79,7 @@ internal class DesktopNotes(
         if (bindings == keyBindings) return
         keyStore?.save(bindings)
         keyBindings = bindings
+        log.event("settings") { "keyboard shortcuts saved" }
     }
 
     var viewSettings by mutableStateOf(viewStore?.load() ?: ViewSettings())
@@ -94,6 +99,7 @@ internal class DesktopNotes(
         viewSave = scope.launch {
             delay(VIEW_SAVE_DELAY)
             store.save(value)
+            log.event("settings") { "view preferences saved" }
         }
     }
     private var maintenance: Job? = null
@@ -112,6 +118,7 @@ internal class DesktopNotes(
 
     /** Starts reading the notes, and the upkeep. Only once AWT's toolkit has been chosen. */
     fun start() {
+        log.event("app") { "session starting" }
         session.start()
         // Off the UI thread: a backup copies the whole database.
         maintenance = scope.launch(Dispatchers.IO) {
@@ -128,17 +135,20 @@ internal class DesktopNotes(
      */
     fun close(done: () -> Unit) {
         if (closing != null) return
+        log.event("app") { "closing" }
         closing = scope.launch {
             try {
                 if (viewSave?.isActive == true) {
                     viewSave?.cancel()
                     viewStore?.save(viewSettings)
+                    log.event("settings") { "view preferences saved" }
                 }
                 session.flush()
             } finally {
                 sessionJob.cancel()
                 maintenance?.cancelAndJoin()
                 library.close()
+                log.event("app") { "closed" }
                 done()
             }
         }
@@ -147,14 +157,14 @@ internal class DesktopNotes(
     companion object {
         val VIEW_SAVE_DELAY = 500.milliseconds
 
-        fun open(profile: DesktopProfile = DesktopProfile.fromProperty()): DesktopNotes {
+        fun open(profile: DesktopProfile = DesktopProfile.fromProperty(), log: DebugLog = DebugLog()): DesktopNotes {
             val directories = profile.directories()
-            return DesktopNotes(NotesLibrary.open(directories.data, directories.cache), MainScope(),
+            return DesktopNotes(NotesLibrary.open(directories.data, directories.cache, log), MainScope(),
                 interfaceStore = InterfaceSettingsFile(File(directories.config, "interface.properties")),
                 viewStore = ViewSettingsFile(File(directories.config, "view.properties")),
                 editorStore = EditorDefaultsFile(File(directories.config, "editor.properties")),
                 keyStore = KeyBindingsFile(File(directories.config, "keyboard.properties")),
-                thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")))
+                thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")), log = log)
         }
     }
 }

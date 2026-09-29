@@ -26,6 +26,17 @@ class WaylandMainTest {
     }
 
     @Test
+    fun debugFlagWorksWithEitherWindowBackend() {
+        assertEquals(LaunchOptions(x11 = false, debug = true), parseLaunchOptions(arrayOf("--debug")))
+        assertEquals(LaunchOptions(x11 = true, debug = true), parseLaunchOptions(arrayOf("--x11", "--debug")))
+        assertEquals(LaunchOptions(x11 = false, debug = false), parseLaunchOptions(emptyArray()))
+        assertEquals(WindowBackend.NATIVE_WAYLAND,
+            selectWindowBackend(arrayOf("--debug"), "Linux", "wayland", "wayland-1"))
+        assertEquals(WindowBackend.STANDARD,
+            selectWindowBackend(arrayOf("--debug", "--x11"), "Linux", "wayland", "wayland-1"))
+    }
+
+    @Test
     fun usesStandardWindowOutsideLinuxWayland() {
         assertEquals(WindowBackend.STANDARD, selectWindowBackend(emptyArray(), "Linux", "x11", null))
         assertEquals(WindowBackend.STANDARD, selectWindowBackend(emptyArray(), "Windows 11", null, null))
