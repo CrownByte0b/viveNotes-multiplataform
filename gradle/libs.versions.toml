@@ -8,7 +8,7 @@ junit = "4.13.2"
 kotlin = "2.4.20"
 # KSP2 versions independently of Kotlin; 2.3.10 is the first release that handles Kotlin 2.4.
 ksp = "2.3.12"
-kotlin-wrappers = "2026.9.2"
+kotlin-wrappers = "2026.9.3"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 material3 = "1.12.0-alpha03"
