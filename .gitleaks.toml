@@ -1,0 +1,15 @@
+# gitleaks reads this from the repository root. It keeps every built-in rule and only excuses
+# the fake credentials the sync client tests send to their local test server.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fake device token (base64 of some-example-device-token) and fixed idempotency keys"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^shared/src/jvmTest/kotlin/com/vivenotes/data/sync/SyncServerClientTest\.kt$''']
+regexes = [
+  '''^vive_c29tZS1leGFtcGxlLWRldmljZS10b2tlbg$''',
+  '''^4f2a1c88-0e3d-4c1b-8b4a-77c9f0e5d612$''',
+  '''^5a3b2d99-1f4e-4d2c-9c5b-88daf1e6c723$''',
+]

@@ -1,6 +1,8 @@
 name: desktop tests
+# Paused: shared/jvmMain needs ByteInk (and its native libink.so), which is unfinished and
+# unpublished, so runners can't resolve it. Restore `push:` once ByteInk is available to CI.
 on:
-  push:
+  workflow_dispatch:
 jobs:
   test:
     name: JVM desktop tests
