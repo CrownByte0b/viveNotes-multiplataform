@@ -11,6 +11,8 @@ data class VisibleInkStroke(
     val colorArgb: Int,
     val colorFollowsTheme: Boolean?,
     val samples: List<InkSample>,
+    val stabilization: Int = 0,
+    val epsilon: Float = 0.25f,
 )
 
 sealed interface InkPageOperation {
@@ -37,11 +39,22 @@ sealed interface InkPageOperation {
         val scaleY: Float,
         val anchorX: Float,
         val anchorY: Float,
+        val path: List<InkSample> = emptyList(),
     ) : InkPageOperation
 }
+
+/** Platform-owned modeled geometry. The common canvas only needs the painted extent. */
+interface InkPageGeometry {
+    val rightDp: Float
+    val bottomDp: Float
+}
+
+/** Optional platform snapshot carried with a new stored stroke. */
+interface InkStrokeGeometry
 
 data class InkPage(
     val pageId: String,
     val strokes: List<VisibleInkStroke>,
     val operations: List<InkPageOperation> = emptyList(),
+    val geometry: InkPageGeometry? = null,
 )

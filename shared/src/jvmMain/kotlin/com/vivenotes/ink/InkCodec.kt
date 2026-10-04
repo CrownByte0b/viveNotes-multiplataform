@@ -1,5 +1,4 @@
-// The storage half of the Android app's `ink/InkCodec.kt`: its encoding ids and the two readers the
-// `.vive` importer calls. Drawing, brushes and encoding wait for the desktop ink design.
+// Android-compatible transfer validation. Runtime geometry and fresh stroke encoding use ByteInk.
 package com.vivenotes.ink
 
 import com.vivenotes.data.db.InkMoveEntity
@@ -12,9 +11,9 @@ data class InkPoint(val x: Float, val y: Float)
 /**
  * How ink rows are stored, and the checks an imported row has to pass.
  *
- * Android writes the point blobs with AndroidX Ink, which has no build for every desktop, so the
- * blob is read by [StrokeInputBatchCodec] under the same rules instead. A row the desktop accepts is
- * therefore one Android accepts, which is what lets a notebook travel back.
+ * Transfer validation retains the pinned alpha06 decoder and its Android verdict fixtures.
+ * ByteInk separately rebuilds real stroke geometry and encodes newly authored desktop rows;
+ * neither path rewrites existing stored input bytes.
  */
 object InkCodec {
 

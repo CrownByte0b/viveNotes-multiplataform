@@ -1,6 +1,7 @@
 package com.vivenotes.desktop
 
 import com.vivenotes.data.NotebookFiles
+import com.vivenotes.data.InkSource
 import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.diagnostics.DebugLog
@@ -50,6 +51,7 @@ internal class DesktopNotes(
     val thumbnails: DesktopVideoThumbnails? = null,
     private val log: DebugLog = DebugLog(),
     val accountService: DesktopAccountService = DesktopAccountService(log),
+    private val inkSource: InkSource = library.repository,
 ) {
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     var editorDefaults by mutableStateOf(editorStore?.load() ?: EditorDefaults())
@@ -58,7 +60,7 @@ internal class DesktopNotes(
         private set
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated,
         updatedLabel = { formatUpdated(it) }, editorDefaults = editorDefaults,
-        shapeSettings = shapeSettings, log = log)
+        shapeSettings = shapeSettings, log = log, inkSource = inkSource)
     init {
         accountService.flushBeforeSync = session::flush
         accountService.afterSync = session::refreshOpenPageFromStorage
@@ -165,12 +167,20 @@ internal class DesktopNotes(
                 }
                 session.flush()
             } finally {
-                sessionJob.cancel()
-                syncCoordinator.stop()
-                maintenance?.cancelAndJoin()
-                library.close()
-                log.event("app") { "closed" }
-                done()
+                // Also check when an earlier preferences write or flush threw before returning.
+                if (!session.state.value?.pendingInkEdits.isNullOrEmpty()) {
+                    log.event("app") { "close deferred: ink changes could not be saved" }
+                    // Keep the visible error and pending rows available for another edit or close
+                    // request to retry. The database and its observer scope must remain alive.
+                    closing = null
+                } else {
+                    sessionJob.cancel()
+                    syncCoordinator.stop()
+                    maintenance?.cancelAndJoin()
+                    library.close()
+                    log.event("app") { "closed" }
+                    done()
+                }
             }
         }
     }

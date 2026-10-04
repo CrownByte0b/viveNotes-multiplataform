@@ -69,6 +69,9 @@ kotlin {
             implementation(libs.compose.uiTest)
         }
         jvmMain.dependencies {
+            val byteinkVersion = providers.gradleProperty("byteinkVersion").orElse("0.1.0-SNAPSHOT").get()
+            implementation("com.vivenotes.byteink:byteink-compose:$byteinkVersion")
+            implementation("com.vivenotes.byteink:byteink-kit:$byteinkVersion")
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
             runtimeOnly("io.github.darriousliu:ratex-native-linux-x86-64:0.1.14")
@@ -86,4 +89,22 @@ kotlin {
 
 dependencies {
     add("kspJvm", libs.androidx.room.compiler)
+}
+
+// The synthetic 40k-page interaction workload is opt-in and runs separately from normal tests.
+tasks.register<Test>("inkPhase2Scenario") {
+    group = "verification"
+    description = "Records finished-page wet/finish/erase rendering at Fit and sparse zoom."
+    val regular = tasks.named<Test>("jvmTest").get()
+    testClassesDirs = regular.testClassesDirs
+    classpath = regular.classpath
+    dependsOn("jvmTestClasses")
+    maxHeapSize = "4g"
+    filter.includeTestsMatching("com.vivenotes.ui.canvas.InkLayerPerformanceScenario")
+    systemProperty("vivenotes.ink.phase2Scenario", "true")
+    systemProperty("vivenotes.ink.phase2Report", providers.gradleProperty("byteinkInkScenarioOutput")
+        .orElse(layout.buildDirectory.file("reports/ink-phase2-scenario.json").map { it.asFile.absolutePath }).get())
+    systemProperty("vivenotes.ink.phase2Optimized", providers.gradleProperty("byteinkInkScenarioRequireReuse")
+        .orElse("false").get())
+    outputs.upToDateWhen { false }
 }

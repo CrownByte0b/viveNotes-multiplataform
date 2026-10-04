@@ -66,8 +66,10 @@ data class PageSummary(
     val preview: String,
     val createdLabel: String,
     val document: PageDoc,
-    /** Read-only ink display data, loaded beside the document body for the open page. */
+    /** Ink snapshot loaded beside the document; platform geometry remains outside common code. */
     val ink: InkPage? = null,
+    /** Storage-backed pages cannot author until their initial ink snapshot arrives. */
+    val inkReady: Boolean = true,
     val content: PageContent = PageContent.Loaded,
     /** When the page last changed in storage — what the page list's "By date modified" sorts on. */
     val updatedAt: Long = 0L,
@@ -140,6 +142,8 @@ data class WorkspaceState(
     val textToolArmed: Boolean = false,
     val objectLassoArmed: Boolean = false,
     val shapeToolArmed: Boolean = false,
+    val inkTool: InkTool? = null,
+    val pendingInkEdits: List<com.vivenotes.data.PendingInkEdit> = emptyList(),
     val shapeSettings: ShapeToolSettings = ShapeToolSettings(),
     val focusedTextOutlineId: String? = null,
     val selectedTextOutlineIds: Set<String> = emptySet(),
@@ -216,6 +220,7 @@ data class WorkspaceState(
             }
 
     fun toggleTextTool(): WorkspaceState = discardEmptyFocusedTextBox().copy(
+        inkTool = null,
         textToolArmed = !textToolArmed,
         objectLassoArmed = false,
         shapeToolArmed = false,
@@ -224,6 +229,7 @@ data class WorkspaceState(
     )
 
     fun toggleObjectLasso(): WorkspaceState = discardEmptyFocusedTextBox().copy(
+        inkTool = null,
         objectLassoArmed = !objectLassoArmed,
         textToolArmed = false,
         shapeToolArmed = false,
@@ -233,6 +239,7 @@ data class WorkspaceState(
 
     /** Escape and the Select command return to the ordinary mouse pointer. */
     fun selectPointer(): WorkspaceState = discardEmptyFocusedTextBox().copy(
+        inkTool = null,
         textToolArmed = false,
         objectLassoArmed = false,
         shapeToolArmed = false,
@@ -243,6 +250,7 @@ data class WorkspaceState(
     )
 
     fun toggleShapeTool(): WorkspaceState = discardEmptyFocusedTextBox().copy(
+        inkTool = null,
         shapeToolArmed = !shapeToolArmed,
         textToolArmed = false,
         objectLassoArmed = false,
@@ -250,6 +258,22 @@ data class WorkspaceState(
         selectedTextOutlineIds = emptySet(),
         selectedObjectIds = emptySet(),
     )
+
+    fun toggleInkTool(tool: InkTool): WorkspaceState {
+        if (editablePage?.inkReady != true || notebookTransfer.running || filePane.busy) return this
+        return selectPointer().copy(inkTool = tool.takeUnless { inkTool == tool })
+    }
+
+    /** The renderer supplies the same immutable snapshot it just displayed. */
+    fun applyInkEdit(edit: com.vivenotes.data.InkEdit, rendered: InkPage): WorkspaceState {
+        val page = editablePage ?: return this
+        if (page.id != rendered.pageId || inkTool == null || !page.inkReady || notebookTransfer.running || filePane.busy) return this
+        if (edit is com.vivenotes.data.InkEdit.AddStroke && edit.row.pageId != page.id) return this
+        if (edit is com.vivenotes.data.InkEdit.EraseStrokes && edit.ids.isEmpty()) return this
+        return updatePage(page.id) { it.copy(ink = rendered) }.copy(
+            pendingInkEdits = pendingInkEdits + com.vivenotes.data.PendingInkEdit(newId(), page.id, edit),
+        )
+    }
 
     fun setShapeSettings(settings: ShapeToolSettings): WorkspaceState = copy(shapeSettings = settings.copy(
         borderWidth = settings.borderWidth.coerceIn(ShapeToolSettings.MIN_BORDER_WIDTH,

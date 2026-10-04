@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.vivenotes.data.db.StrokeColor
+import com.vivenotes.ink.withDesktopEdits
 import com.vivenotes.data.db.InkEraseEntity
 import com.vivenotes.data.db.InkEraseTargetEntity
 import com.vivenotes.data.db.InkEraseWithTargets
@@ -69,7 +70,7 @@ class NotesRepository(
     private val codec: TextDocumentCodec = DocumentCodecs.default,
     /** Injectable so checkpoint-window behavior has deterministic tests. */
     private val clock: () -> Long = System::currentTimeMillis,
-) : NotesStore, InkSource {
+) : NotesStore, InkWriter {
 
     private val notebooks = db.notebookDao()
     private val sections = db.sectionDao()
@@ -742,6 +743,24 @@ class NotesRepository(
      * page.
      */
     suspend fun inkFor(pageId: String): List<InkStrokeEntity> = ink.byPage(pageId)
+
+    override fun overlayPendingInk(page: InkPage, edits: List<InkEdit>): InkPage =
+        page.withDesktopEdits(edits)
+
+    override suspend fun applyInkEdit(pageId: String, edit: InkEdit) {
+        when (edit) {
+            is InkEdit.AddStroke -> {
+                require(edit.row.pageId == pageId) { "Stroke belongs to another page" }
+                addStroke(edit.row)
+            }
+            is InkEdit.EraseStrokes -> db.withTransaction {
+                val rows = edit.ids.toList().chunked(SQLITE_BIND_CHUNK).flatMap { ink.byIds(it) }
+                require(rows.all { it.pageId == pageId }) { "Erase targets must belong to this page" }
+                // Sync may already have tombstoned or purged a target. Keep that an idempotent no-op.
+                eraseStrokes(rows.filter { it.deletedAt == null }.map { it.id })
+            }
+        }
+    }
 
     override suspend fun loadInk(pageId: String): InkPage {
         val strokes = inkFor(pageId)

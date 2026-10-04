@@ -15,11 +15,15 @@ import com.vivenotes.ui.icons.DrawSymbols
 import com.vivenotes.ui.ribbon.PendingRibbonAction
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonToggle
+import com.vivenotes.workspace.InkTool
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.ShapeToolSettings
 
 object DrawRibbonTags {
     const val PointerTool = "workspace-pointer-tool"
+    const val PenTool = "workspace-pen-tool"
+    const val HighlighterTool = "workspace-highlighter-tool"
+    const val EraserTool = "workspace-eraser-tool"
     const val ObjectLasso = "workspace-object-lasso"
 }
 
@@ -34,20 +38,35 @@ internal fun DrawRibbon(
     RibbonBar {
         RibbonToggle(
             label = "Select",
-            selected = !state.textToolArmed && !state.objectLassoArmed && !state.shapeToolArmed,
+            selected = state.inkTool == null && !state.textToolArmed && !state.objectLassoArmed && !state.shapeToolArmed,
             onClick = { onStateChange { it.selectPointer() } },
             modifier = Modifier.testTag(DrawRibbonTags.PointerTool),
             icon = { Icon(DrawSymbols.Select, contentDescription = null, modifier = Modifier.size(18.dp)) },
         )
-        PendingRibbonAction("Pen") {
-            Icon(DrawSymbols.Pen, contentDescription = null, modifier = Modifier.size(18.dp))
-        }
-        PendingRibbonAction("Highlighter") {
-            Icon(DrawSymbols.Highlighter, contentDescription = null, modifier = Modifier.size(18.dp))
-        }
-        PendingRibbonAction("Eraser") {
-            Icon(DrawSymbols.Eraser, contentDescription = null, modifier = Modifier.size(18.dp))
-        }
+        RibbonToggle(
+            label = "Pen", selected = state.inkTool == InkTool.Pen,
+            enabled = state.selectedPage?.let { it.editable && it.inkReady } == true &&
+                !state.notebookTransfer.running && !state.filePane.busy,
+            onClick = { onStateChange { it.toggleInkTool(InkTool.Pen) } },
+            modifier = Modifier.testTag(DrawRibbonTags.PenTool),
+            icon = { Icon(DrawSymbols.Pen, contentDescription = null, modifier = Modifier.size(18.dp)) },
+        )
+        RibbonToggle(
+            label = "Highlighter", selected = state.inkTool == InkTool.Highlighter,
+            enabled = state.selectedPage?.let { it.editable && it.inkReady } == true &&
+                !state.notebookTransfer.running && !state.filePane.busy,
+            onClick = { onStateChange { it.toggleInkTool(InkTool.Highlighter) } },
+            modifier = Modifier.testTag(DrawRibbonTags.HighlighterTool),
+            icon = { Icon(DrawSymbols.Highlighter, contentDescription = null, modifier = Modifier.size(18.dp)) },
+        )
+        RibbonToggle(
+            label = "Eraser", selected = state.inkTool == InkTool.Eraser,
+            enabled = state.selectedPage?.let { it.editable && it.inkReady } == true &&
+                !state.notebookTransfer.running && !state.filePane.busy,
+            onClick = { onStateChange { it.toggleInkTool(InkTool.Eraser) } },
+            modifier = Modifier.testTag(DrawRibbonTags.EraserTool),
+            icon = { Icon(DrawSymbols.Eraser, contentDescription = null, modifier = Modifier.size(18.dp)) },
+        )
         RibbonToggle(
             label = "Lasso",
             selected = state.objectLassoArmed,

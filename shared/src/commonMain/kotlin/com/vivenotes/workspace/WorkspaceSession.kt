@@ -73,6 +73,7 @@ class WorkspaceSession(
     private val deleting = mutableSetOf<String>()
     private var autosave: Job? = null
     private var started = false
+    private var inkSaveQueued = false
 
     /** A section just created, to open once the tree lists it: storage's flows trail its writes. */
     private var opening: String? = null
@@ -124,6 +125,7 @@ class WorkspaceSession(
                 .filter { it.id !in oldShapes }
                 .forEach { shape -> log.event("shape") { "added ${shape.kind.name}" } }
         }
+        if (before.inkTool != after.inkTool) log.event("ink") { "tool ${after.inkTool?.name ?: "Select"}" }
         react(before, after)
     }
 
@@ -353,6 +355,8 @@ class WorkspaceSession(
             if (result is PageRevisionLoad.Loaded) {
                 log.event("storage") { "page version restored" }
                 restores++
+                current.value = current.value?.let { state -> state.copy(
+                    pendingInkEdits = state.pendingInkEdits.filterNot { it.pageId == pageId }) }
                 autosave?.cancel()
                 stored.remove(pageId)
                 current.value = current.value?.updatePage(pageId) { page ->
@@ -371,9 +375,10 @@ class WorkspaceSession(
     }
 
     /** A failed queued save restores [stored] to its old value; destructive File actions stop here. */
-    private fun openPageHasUnsavedChanges(): Boolean = current.value?.selectedPage?.let { page ->
-        page.editable && page.document != stored[page.id]
-    } ?: false
+    private fun openPageHasUnsavedChanges(): Boolean =
+        !current.value?.pendingInkEdits.isNullOrEmpty() || (current.value?.selectedPage?.let { page ->
+            page.editable && page.document != stored[page.id]
+        } ?: false)
 
     private fun restoreDeleted(item: DeletedItem) {
         if (current.value?.filePane?.pane != FilePane.DeletedItems || current.value?.filePane?.busy == true) return
@@ -428,6 +433,10 @@ class WorkspaceSession(
             log.event("transfer") { "export started" }
             saveOpenPage()
             enqueue {
+                if (!current.value?.pendingInkEdits.isNullOrEmpty()) {
+                    update { it.copy(notebookTransfer = NotebookTransferState(error = "Ink changes could not be saved; export was stopped.")) }
+                    return@enqueue
+                }
                 val outcome = try {
                     val result = files.export(notebook.id, destination)
                     log.event("transfer") { "export complete" }
@@ -455,6 +464,10 @@ class WorkspaceSession(
             log.event("transfer") { "import started" }
             saveOpenPage()
             enqueue {
+                if (!current.value?.pendingInkEdits.isNullOrEmpty()) {
+                    update { it.copy(notebookTransfer = NotebookTransferState(error = "Ink changes could not be saved; import was stopped.")) }
+                    return@enqueue
+                }
                 val result = try {
                     files.import(source)
                 } catch (cancelled: CancellationException) {
@@ -506,6 +519,7 @@ class WorkspaceSession(
                 it.copy(document = UNREAD_DOCUMENT, ink = null, content = PageContent.Unloaded)
             }
             forgotten.copy(
+                pendingInkEdits = emptyList(),
                 selectedPageId = "",
                 editorSelection = TextSelection(0),
                 typingMarks = emptySet(),
@@ -536,6 +550,7 @@ class WorkspaceSession(
         if (!started) return
         log.event("session") { "flushing pending changes" }
         saveOpenPage()
+        saveInk()
         val drained = CompletableDeferred<Unit>()
         enqueue { drained.complete(Unit) }
         drained.await()
@@ -545,7 +560,8 @@ class WorkspaceSession(
     /** Reloads an open page after a remote sync commit, preserving edits made during the reload. */
     fun refreshOpenPageFromStorage() {
         val page = current.value?.selectedPage ?: return
-        if (!page.editable || openPageHasUnsavedChanges()) return
+        if (!page.editable || openPageHasUnsavedChanges() ||
+            current.value?.pendingInkEdits?.any { it.pageId == page.id } == true) return
         val pageId = page.id
         val shown = page.document
         enqueue {
@@ -566,6 +582,7 @@ class WorkspaceSession(
     }
 
     private fun react(before: WorkspaceState, after: WorkspaceState) {
+        if (after.pendingInkEdits != before.pendingInkEdits || after.selectedPageId != before.selectedPageId) saveInk()
         if (after.selectedSectionId != before.selectedSectionId) {
             openSection.value = after.selectedSectionId.ifEmpty { null }
         }
@@ -593,6 +610,31 @@ class WorkspaceSession(
         if (open.document !== previous.document) scheduleAutosave()
     }
 
+    private fun saveInk() {
+        if (inkSaveQueued || current.value?.pendingInkEdits.isNullOrEmpty()) return
+        val writer = inkSource as? com.vivenotes.data.InkWriter ?: return
+        inkSaveQueued = true
+        val generation = restores
+        enqueue {
+            try {
+                while (generation == restores) {
+                    val pending = current.value?.pendingInkEdits?.firstOrNull() ?: break
+                    val saved = attempt("This page's ink changes could not be saved") {
+                        writer.applyInkEdit(pending.pageId, pending.edit)
+                    }
+                    if (saved == null) break
+                    current.value = current.value?.let { it.copy(
+                        pendingInkEdits = it.pendingInkEdits.filterNot { edit -> edit.id == pending.id },
+                    ) }
+                    log.event("ink") { when (pending.edit) {
+                        is com.vivenotes.data.InkEdit.AddStroke -> "stroke saved"
+                        is com.vivenotes.data.InkEdit.EraseStrokes -> "whole-stroke erase saved"
+                    } }
+                }
+            } finally { inkSaveQueued = false }
+        }
+    }
+
     private fun scheduleAutosave() {
         autosave?.cancel()
         autosave = scope.launch {
@@ -602,6 +644,7 @@ class WorkspaceSession(
     }
 
     private fun saveOpenPage() {
+        saveInk()
         autosave?.cancel()
         current.value?.selectedPage?.let(::save)
     }
@@ -649,7 +692,10 @@ class WorkspaceSession(
     private fun acceptInk(pageId: String, ink: InkPage) {
         val state = current.value ?: return
         if (ink.pageId != pageId || state.selectedPageId != pageId || state.selectedPage?.editable != true) return
-        current.value = state.updatePage(pageId) { it.copy(ink = ink) }
+        val pending = state.pendingInkEdits.filter { it.pageId == pageId }.map { it.edit }
+        val snapshot = if (pending.isEmpty()) ink else (inkSource as? com.vivenotes.data.InkWriter)
+            ?.overlayPendingInk(ink, pending) ?: ink
+        current.value = state.updatePage(pageId) { it.copy(ink = snapshot, inkReady = true) }
     }
 
     /** Puts a body just read into its page, if that page is still open and still waiting for it. */
@@ -661,7 +707,7 @@ class WorkspaceSession(
             when (load) {
                 is PageLoad.Loaded -> {
                     stored[pageId] = load.doc
-                    it.copy(document = load.doc, content = PageContent.Loaded)
+                    it.copy(document = load.doc, content = PageContent.Loaded, inkReady = inkSource == null)
                 }
                 is PageLoad.Unreadable -> it.copy(content = PageContent.Unreadable)
             }
@@ -771,6 +817,7 @@ class WorkspaceSession(
         createdLabel = createdLabel(row.createdAt),
         document = cached?.document ?: UNREAD_DOCUMENT,
         ink = cached?.ink,
+        inkReady = cached?.inkReady ?: (inkSource == null),
         content = cached?.content ?: PageContent.Unloaded,
         updatedAt = row.updatedAt,
         updatedLabel = updatedLabel(row.updatedAt),

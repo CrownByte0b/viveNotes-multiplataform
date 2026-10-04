@@ -565,6 +565,7 @@ private fun WorkspaceContent(
                         editorFocusRequest++
                     },
                     onClearCanvasFocus = { onStateChange { it.clearCanvasFocus() } },
+                    onInkEdit = { edit, rendered -> onStateChange { it.applyInkEdit(edit, rendered) } },
                     onCreateShape = { sx, sy, ex, ey -> onStateChange { it.createShape(sx, sy, ex, ey) } },
                     onCreateTextBox = { x, y ->
                         // Decided on what is on screen: a box placed there is the one that types next.
@@ -747,6 +748,7 @@ private fun PageCanvas(
     onTitleChange: (String) -> Unit,
     onFocusTextBox: (String) -> Unit,
     onClearCanvasFocus: () -> Unit,
+    onInkEdit: (com.vivenotes.data.InkEdit, com.vivenotes.model.ink.InkPage) -> Unit,
     onCreateShape: (Float, Float, Float, Float) -> Unit,
     onCreateTextBox: (Float, Float) -> Unit,
     onMoveTextBox: (String, Float, Float, Boolean) -> Unit,
@@ -1032,7 +1034,7 @@ private fun PageCanvas(
                 var previousTapPoint = Offset.Zero
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                    if (down.isConsumed) {
+                    if (down.isConsumed || currentState.inkTool != null) {
                         waitForUpOrCancellation(pass = PointerEventPass.Initial)
                         return@awaitEachGesture
                     }
@@ -1584,7 +1586,9 @@ private fun PageCanvas(
                         }
                     }
                 }
-                InkLayer(page.ink, canvasSize, palette.ink, visibleWindow)
+                InkLayer(page.ink, canvasSize, palette.ink, visibleWindow, page.id,
+                    state.inkTool.takeIf { page.editable && page.inkReady &&
+                        !state.notebookTransfer.running && !state.filePane.busy }, page.document.style.titleFloor, onInkEdit, zoom)
                 if (groupBounds != null) {
                     val padding = 6.dp
                     val left = groupBounds.left.dp - padding

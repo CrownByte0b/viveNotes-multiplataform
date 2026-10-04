@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.model.ink.InkPageOperation
 import com.vivenotes.model.ink.InkSample
@@ -25,6 +26,9 @@ import kotlin.test.assertTrue
 class InkLayerTest {
     @Test
     fun storedStrokeIsVisibleInItsSavedColor() = runDesktopComposeUiTest(width = 100, height = 100) {
+        val native = page().desktopGeometry()
+        assertEquals(1, native.projections.size)
+        assertTrue(native.projections.single().pageBounds?.contains(com.vivenotes.byteink.kit.InkPoint(20f, 30f)) == true, native.projections.toString())
         show(page())
         val pixels = onNodeWithTag("ink-test-frame").captureToImage().toPixelMap()
         assertEquals(Color.Red, pixels[20, 30])

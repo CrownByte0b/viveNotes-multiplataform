@@ -159,9 +159,10 @@ internal fun RibbonToggle(
     selected: Boolean,
     modifier: Modifier = Modifier,
     icon: @Composable (() -> Unit)? = null,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    RibbonCommand(label = label, onClick = onClick, modifier = modifier, active = selected, icon = icon)
+    RibbonCommand(label = label, onClick = onClick, modifier = modifier, active = selected, icon = icon, enabled = enabled)
 }
 
 /** A command whose port has not landed yet: readable, but not clickable. */
