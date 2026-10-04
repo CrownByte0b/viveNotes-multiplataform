@@ -132,7 +132,10 @@ data class WorkspaceState(
     val selectedPageId: String,
     /** Document first: the app opens ready for writing. */
     val activeTab: RibbonTab = RibbonTab.Document,
+    /** The notebook pane: the top bar's navigation button and a swipe left across it. */
     val navigationVisible: Boolean = true,
+    /** The page list, which only a swipe puts away; the navigation button brings it back. */
+    val pageListVisible: Boolean = true,
     val editorSelection: TextSelection = TextSelection(0),
     val typingMarks: Set<Mark> = emptySet(),
     val editorDefaults: EditorDefaults = EditorDefaults(),

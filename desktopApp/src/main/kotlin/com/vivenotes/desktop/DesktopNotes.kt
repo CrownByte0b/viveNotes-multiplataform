@@ -9,6 +9,7 @@ import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
 import com.vivenotes.workspace.formatUpdated
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
+import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.EditorDefaults
@@ -48,6 +49,7 @@ internal class DesktopNotes(
     private val editorStore: EditorDefaultsFile? = null,
     private val shapeStore: ShapeSettingsFile? = null,
     private val keyStore: KeyBindingsFile? = null,
+    private val inputStore: InputSettingsFile? = null,
     val thumbnails: DesktopVideoThumbnails? = null,
     private val log: DebugLog = DebugLog(),
     val accountService: DesktopAccountService = DesktopAccountService(log),
@@ -98,6 +100,17 @@ internal class DesktopNotes(
         keyStore?.save(bindings)
         keyBindings = bindings
         log.event("settings") { "keyboard shortcuts saved" }
+    }
+
+    var inputSettings by mutableStateOf(inputStore?.load() ?: InputSettings())
+        private set
+
+    /** Written at once, like a shortcut: a toggle changes one click at a time. */
+    fun updateInputSettings(settings: InputSettings) {
+        if (settings == inputSettings) return
+        inputStore?.save(settings)
+        inputSettings = settings
+        log.event("settings") { "input preferences saved: drawWithFinger=${settings.drawWithFinger}" }
     }
 
     var viewSettings by mutableStateOf(viewStore?.load() ?: ViewSettings())
@@ -202,6 +215,7 @@ internal class DesktopNotes(
                 editorStore = EditorDefaultsFile(File(directories.config, "editor.properties")),
                 shapeStore = ShapeSettingsFile(File(directories.config, "shape.properties")),
                 keyStore = KeyBindingsFile(File(directories.config, "keyboard.properties")),
+                inputStore = InputSettingsFile(File(directories.config, "input.properties")),
                 thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")), log = log,
                 accountService = DesktopAccountService(log,
                     installationId = accountInstallationId(File(directories.config, "account-installation-id")),

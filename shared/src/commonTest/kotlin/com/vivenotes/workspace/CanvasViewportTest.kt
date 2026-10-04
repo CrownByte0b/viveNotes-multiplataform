@@ -44,6 +44,44 @@ class CanvasViewportTest {
         assertEquals(viewport, viewport.wheel(Float.NaN, 20f, 20f))
     }
 
+    /** Android's `PinchZoomTest`: the page point between the fingers stays between them. */
+    @Test
+    fun pinchKeepsThePagePointBetweenTheFingersUnderThem() {
+        val before = CanvasViewport(1f, 120f, 80f)
+        val after = before.pinch(focusX = 300f, focusY = 200f, panX = 0f, panY = 0f, zoomChange = 1.5f)
+
+        assertEquals(1.5f, after.zoom)
+        assertEquals((before.scrollX + 300f) / before.zoom, (after.scrollX + 300f) / after.zoom, 0.001f)
+        assertEquals((before.scrollY + 200f) / before.zoom, (after.scrollY + 200f) / after.zoom, 0.001f)
+    }
+
+    @Test
+    fun pinchFollowsTheFingersAsTheyMoveTogether() {
+        val before = CanvasViewport(2f, 400f, 300f)
+        val after = before.pinch(focusX = 300f, focusY = 200f, panX = 40f, panY = -25f, zoomChange = 1.25f)
+        // The point under the old centre now sits under the moved centre.
+        assertEquals((before.scrollX + 300f) / before.zoom, (after.scrollX + 340f) / after.zoom, 0.001f)
+        assertEquals((before.scrollY + 200f) / before.zoom, (after.scrollY + 175f) / after.zoom, 0.001f)
+    }
+
+    @Test
+    fun pinchPastTheViewRangeStopsScalingButStillPans() {
+        val atMax = CanvasViewport(ViewSettings.MAX_ZOOM, 500f, 500f)
+        val after = atMax.pinch(focusX = 100f, focusY = 100f, panX = 30f, panY = 20f, zoomChange = 2f)
+        assertEquals(ViewSettings.MAX_ZOOM, after.zoom)
+        assertEquals(CanvasViewport(ViewSettings.MAX_ZOOM, 470f, 480f), after)
+        assertEquals(atMax, atMax.pinch(0f, 0f, 0f, 0f, Float.NaN))
+        assertEquals(atMax, atMax.pinch(0f, 0f, 0f, 0f, 0f))
+    }
+
+    @Test
+    fun fingerPanMovesTheContentWithTheFingerAndStopsAtTheOrigin() {
+        val start = CanvasViewport(1f, 100f, 60f)
+        assertEquals(CanvasViewport(1f, 70f, 100f), start.panBy(30f, -40f))
+        assertEquals(CanvasViewport(1f, 0f, 0f), start.panBy(500f, 500f))
+        assertEquals(start, start.panBy(Float.NaN, 0f))
+    }
+
     @Test
     fun ribbonZoomKeepsTheAnchoredPagePointStill() {
         val before = CanvasViewport(1f, 300f, 200f)

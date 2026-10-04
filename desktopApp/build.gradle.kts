@@ -33,11 +33,16 @@ dependencies {
 
 // Skiko loads a native library; JDK 24+ warns about that, and a future release will block it.
 val nativeAccessJvmArg = "--enable-native-access=ALL-UNNAMED"
-// X11 has no property for the window class, so WindowClass.kt sets XToolkit's field. The package
-// exists only in Linux runtimes; elsewhere the JVM would warn about opening it.
+// X11 has no property for the window class, so WindowClass.kt sets XToolkit's field; touch also
+// reaches XToolkit and the AWT peer accessor (desktop/touch). The X11 package exists only in Linux
+// runtimes; elsewhere the JVM would warn about opening it.
 val launchJvmArgs = listOf(nativeAccessJvmArg) +
     if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true))
-        listOf("--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED") else emptyList()
+        listOf("--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED", "--add-exports=java.desktop/sun.awt=ALL-UNNAMED")
+    else emptyList()
+// Native Wayland touch reads JetBrains Runtime's display and surfaces. Only JBR has the package, and
+// other runtimes warn about opening one they lack, so it is added only where JBR runs the app.
+val jbrJvmArgs = listOf("--add-opens=java.desktop/sun.awt.wl=ALL-UNNAMED")
 
 val appVersion = project.version.toString()
 
@@ -111,7 +116,10 @@ afterEvaluate {
         tasks.named<JavaExec>(taskName) {
             val waylandSession = isLinuxWaylandSession
             val jbrHome = if (waylandSession) findJetBrainsRuntime() else null
-            if (jbrHome != null) setExecutable(File(jbrHome, "bin/java").absolutePath)
+            if (jbrHome != null) {
+                setExecutable(File(jbrHome, "bin/java").absolutePath)
+                jvmArgs(jbrJvmArgs)
+            }
             val missingJbr = waylandSession && jbrHome == null
             doFirst {
                 check(!missingJbr || "--x11" in (this as JavaExec).args) {

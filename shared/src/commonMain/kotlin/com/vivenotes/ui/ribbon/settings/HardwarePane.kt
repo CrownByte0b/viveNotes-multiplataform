@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -17,27 +18,32 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.components.PaneGroup
 import com.vivenotes.ui.components.ToolPane
 import com.vivenotes.ui.components.TooltipIconButton
 import com.vivenotes.ui.icons.SettingsSymbols
 import com.vivenotes.ui.theme.LocalDesktopColors
+import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.KeyChord
 import com.vivenotes.workspace.ShortcutAction
@@ -47,66 +53,108 @@ object HardwareTags {
     const val Open = "settings-hardware-open"
     const val Shortcuts = "hardware-shortcuts"
     const val ResetAll = "hardware-shortcuts-reset-all"
+    const val FingerDraws = "hardware-stylus-finger-draws"
     fun kind(kind: HardwareKind): String = "hardware-${kind.name.lowercase()}"
     fun shortcut(action: ShortcutAction): String = "hardware-shortcut-${action.name}"
     fun reset(action: ShortcutAction): String = "hardware-shortcut-reset-${action.name}"
 }
 
-/**
- * The devices the Hardware pane has settings for, as Android's picker names them. Stylus is shown
- * and disabled until the desktop has ink: its settings are all about drawing.
- */
+/** The devices the Hardware pane has settings for, as Android's picker names them. */
 enum class HardwareKind(val label: String) {
     Stylus("Stylus"),
     Keyboard("Keyboard"),
 }
 
 /**
- * Settings → Hardware, docked beside the canvas as Android's pane is: the device picker, then the
- * keyboard shortcuts in their groups. A row opens the shortcut's key capture; a changed shortcut
- * has its own reset, and Reset All asks first.
+ * Settings → Hardware, docked beside the canvas as Android's pane is: the device picker, then that
+ * device's settings. Stylus holds whether a finger draws. Keyboard lists the shortcuts in their
+ * groups; a row opens the shortcut's key capture, a changed shortcut has its own reset, and Reset
+ * All asks first. It opens on Keyboard, the device every desktop has.
  */
 @Composable
 internal fun HardwarePane(
+    input: InputSettings,
+    onInputChange: (InputSettings) -> Unit,
     bindings: KeyBindings,
     onEdit: (ShortcutAction) -> Unit,
     onReset: (ShortcutAction) -> Unit,
     onResetAll: () -> Unit,
     onClose: () -> Unit,
 ) {
+    var kind by remember { mutableStateOf(HardwareKind.Keyboard) }
     ToolPane(title = "Hardware", onClose = onClose) {
-        HardwareKindPicker(selected = HardwareKind.Keyboard)
-        Text("Click a shortcut to change it.", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp, top = 12.dp))
-        Column(Modifier.fillMaxWidth().testTag(HardwareTags.Shortcuts)) {
-            ShortcutAction.groups.forEach { (group, actions) ->
-                PaneGroup(group) {
-                    actions.forEachIndexed { index, action ->
-                        ShortcutRow(
-                            action = action,
-                            chord = bindings.primary(action),
-                            customized = bindings.isCustomized(action),
-                            first = index == 0,
-                            onEdit = { onEdit(action) },
-                            onReset = { onReset(action) },
-                        )
-                    }
+        HardwareKindPicker(selected = kind, onSelect = { kind = it })
+        when (kind) {
+            HardwareKind.Stylus -> StylusSettings(input, onInputChange)
+            HardwareKind.Keyboard -> KeyboardSettings(bindings, onEdit, onReset, onResetAll)
+        }
+    }
+}
+
+/**
+ * Android's *Let a finger draw*. Off, a finger moves the page and two zoom it, and only a stylus or
+ * mouse uses the drawing tools; on, a finger draws, erases and lassos too.
+ */
+@Composable
+private fun ColumnScope.StylusSettings(input: InputSettings, onInputChange: (InputSettings) -> Unit) {
+    PaneGroup("Touch") {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                .toggleable(value = input.drawWithFinger, role = Role.Switch,
+                    onValueChange = { onInputChange(input.copy(drawWithFinger = it)) })
+                .testTag(HardwareTags.FingerDraws)
+                .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Let a finger draw", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface)
+                Text("Otherwise a finger moves the page", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // The row is the control; the switch only shows its state.
+            Switch(checked = input.drawWithFinger, onCheckedChange = null)
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.KeyboardSettings(
+    bindings: KeyBindings,
+    onEdit: (ShortcutAction) -> Unit,
+    onReset: (ShortcutAction) -> Unit,
+    onResetAll: () -> Unit,
+) {
+    Text("Click a shortcut to change it.", style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp, top = 12.dp))
+    Column(Modifier.fillMaxWidth().testTag(HardwareTags.Shortcuts)) {
+        ShortcutAction.groups.forEach { (group, actions) ->
+            PaneGroup(group) {
+                actions.forEachIndexed { index, action ->
+                    ShortcutRow(
+                        action = action,
+                        chord = bindings.primary(action),
+                        customized = bindings.isCustomized(action),
+                        first = index == 0,
+                        onEdit = { onEdit(action) },
+                        onReset = { onReset(action) },
+                    )
                 }
             }
         }
-        OutlinedButton(
-            onClick = onResetAll,
-            enabled = bindings.isCustomized,
-            shape = MaterialTheme.shapes.small,
-            modifier = Modifier.align(Alignment.End).padding(top = 16.dp).testTag(HardwareTags.ResetAll),
-        ) { Text("Reset All…") }
     }
+    OutlinedButton(
+        onClick = onResetAll,
+        enabled = bindings.isCustomized,
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.align(Alignment.End).padding(top = 16.dp).testTag(HardwareTags.ResetAll),
+    ) { Text("Reset All…") }
 }
 
 /** Stylus and Keyboard as one linked pair of buttons, the way GTK groups a view switcher. */
 @Composable
-private fun HardwareKindPicker(selected: HardwareKind) {
+private fun HardwareKindPicker(selected: HardwareKind, onSelect: (HardwareKind) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 4.dp).height(34.dp)
             .clip(MaterialTheme.shapes.small)
@@ -114,13 +162,11 @@ private fun HardwareKindPicker(selected: HardwareKind) {
     ) {
         HardwareKind.entries.forEachIndexed { index, kind ->
             if (index > 0) VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            val enabled = kind == HardwareKind.Keyboard
-            val segment = @Composable {
+            Box(Modifier.weight(1f).fillMaxHeight()) {
                 Row(
                     modifier = Modifier.fillMaxSize()
                         .background(if (kind == selected) LocalDesktopColors.current.selection else Color.Transparent)
-                        .selectable(selected = kind == selected, enabled = enabled, role = Role.Tab, onClick = {})
-                        .alpha(if (enabled) 1f else 0.42f)
+                        .selectable(selected = kind == selected, role = Role.Tab, onClick = { onSelect(kind) })
                         .testTag(HardwareTags.kind(kind)),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
@@ -131,9 +177,6 @@ private fun HardwareKindPicker(selected: HardwareKind) {
                     Spacer(Modifier.width(6.dp))
                     Text(kind.label, style = MaterialTheme.typography.labelLarge)
                 }
-            }
-            Box(Modifier.weight(1f).fillMaxHeight()) {
-                if (enabled) segment() else HoverTooltip("Stylus settings arrive with ink") { segment() }
             }
         }
     }

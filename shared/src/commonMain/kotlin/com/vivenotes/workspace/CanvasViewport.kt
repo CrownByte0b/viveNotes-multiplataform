@@ -44,4 +44,21 @@ data class CanvasViewport(val zoom: Float = 1f, val scrollX: Float = 0f, val scr
             scrollY = ((scrollY + anchorY) * ratio - anchorY).coerceAtLeast(0f),
         )
     }
+
+    /**
+     * One step of a two-finger pinch, Android's `pinchStep`: scale by [zoomChange] about [focusX],
+     * [focusY] — where the fingers' centre was — and then follow the centre's move by [panX],
+     * [panY], so the page point that was between the fingers stays between them. Past the View
+     * range the scale stops and the pan goes on.
+     */
+    fun pinch(focusX: Float, focusY: Float, panX: Float, panY: Float, zoomChange: Float): CanvasViewport {
+        if (!zoomChange.isFinite() || zoomChange <= 0f) return this
+        return zoomTo(zoom * zoomChange, focusX, focusY).panBy(panX, panY)
+    }
+
+    /** Content follows a finger moved by [dx], [dy]: right and down scroll back toward the origin. */
+    fun panBy(dx: Float, dy: Float): CanvasViewport {
+        if (!dx.isFinite() || !dy.isFinite()) return this
+        return copy(scrollX = (scrollX - dx).coerceAtLeast(0f), scrollY = (scrollY - dy).coerceAtLeast(0f))
+    }
 }

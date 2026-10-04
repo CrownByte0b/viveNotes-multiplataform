@@ -1,5 +1,10 @@
 package com.vivenotes.ui.ribbon.settings
 
+import com.vivenotes.workspace.InputSettings
+import com.vivenotes.workspace.InkTool
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,7 +73,7 @@ class HardwarePaneTest {
         onNodeWithTag(HardwareTags.Open).assertIsSelected()
         onNodeWithTag(ToolPaneTags.Pane).assertExists()
         onNodeWithTag(HardwareTags.kind(HardwareKind.Keyboard)).assertIsSelected()
-        onNodeWithTag(HardwareTags.kind(HardwareKind.Stylus)).assertIsNotSelected().assertIsNotEnabled()
+        onNodeWithTag(HardwareTags.kind(HardwareKind.Stylus)).assertIsNotSelected().assertIsEnabled()
         ShortcutAction.entries.forEach { action ->
             onNodeWithTag(HardwareTags.shortcut(action)).performScrollTo()
                 .assertTextContains(action.label)
@@ -79,6 +84,43 @@ class HardwarePaneTest {
 
         onNodeWithTag(HardwareTags.Open).performClick()
         onNodeWithTag(ToolPaneTags.Pane).assertDoesNotExist()
+    }
+
+    /**
+     * Android's Stylus page: *Let a finger draw*, off until chosen. The choice reaches the host at
+     * once, and with it on a finger writes with the pen instead of moving the page.
+     */
+    @Test
+    fun stylusLetsAFingerDrawOnceChosen() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        var observed = WorkspaceState.demo().copy(activeTab = RibbonTab.Settings).toggleInkTool(InkTool.Pen)
+        var saved: InputSettings? = null
+        setContent {
+            var state by remember { mutableStateOf(observed) }
+            var input by remember { mutableStateOf(InputSettings()) }
+            ViveNotesTheme(darkTheme = true) {
+                WorkspaceScreen(state = state, onStateChange = { state = it(state); observed = state },
+                    inputSettings = input, onInputSettingsChange = { input = it; saved = it })
+            }
+        }
+        onNodeWithTag(HardwareTags.Open).performClick()
+        onNodeWithTag(HardwareTags.kind(HardwareKind.Stylus)).performClick().assertIsSelected()
+        onNodeWithTag(HardwareTags.Shortcuts).assertDoesNotExist()
+        onNodeWithTag(HardwareTags.FingerDraws).assertIsOff()
+
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+            down(Offset(300f, 500f)); repeat(6) { moveBy(Offset(15f, 0f), delayMillis = 20) }; up()
+        }
+        runOnIdle { assertTrue(observed.pendingInkEdits.isEmpty()) }
+
+        onNodeWithTag(HardwareTags.FingerDraws).performClick().assertIsOn()
+        runOnIdle { assertEquals(InputSettings(drawWithFinger = true), saved) }
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+            down(Offset(300f, 500f)); repeat(6) { moveBy(Offset(15f, 0f), delayMillis = 20) }; up()
+        }
+        runOnIdle { assertEquals(1, observed.pendingInkEdits.size) }
+
+        onNodeWithTag(HardwareTags.kind(HardwareKind.Keyboard)).performClick()
+        onNodeWithTag(HardwareTags.Shortcuts).assertExists()
     }
 
     /** One pane at a time, as on Android: Paper Size and Hardware replace each other. */

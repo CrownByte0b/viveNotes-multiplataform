@@ -9,6 +9,7 @@ import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.model.plainText
 import com.vivenotes.richtext.TextSelection
+import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.KeyChord
 import com.vivenotes.workspace.InkTool
@@ -267,6 +268,29 @@ class DesktopNotesTest {
         val reopenedUi = CoroutineScope(coroutineContext + SupervisorJob())
         val reopened = DesktopNotes(NotesLibrary.open(directory), reopenedUi, keyStore = KeyBindingsFile(file))
         assertEquals(changed, reopened.keyBindings)
+        reopened.start()
+        close(reopened)
+        reopenedUi.cancel()
+    }
+
+    /** Settings → Hardware's finger choice is written at once and is in force at the next launch. */
+    @Test
+    fun fingerDrawingChoiceIsWrittenAndComesBackAtTheNextLaunch() = runBlocking<Unit> {
+        val ui = CoroutineScope(coroutineContext + SupervisorJob())
+        val file = File(directory, "config/input.properties")
+        val notes = DesktopNotes(NotesLibrary.open(directory), ui, inputStore = InputSettingsFile(file))
+        notes.start()
+        assertEquals(InputSettings(drawWithFinger = false), notes.inputSettings)
+
+        notes.updateInputSettings(InputSettings(drawWithFinger = true))
+        assertEquals(InputSettings(drawWithFinger = true), notes.inputSettings)
+        assertEquals(InputSettings(drawWithFinger = true), InputSettingsFile(file).load())
+        close(notes)
+        ui.cancel()
+
+        val reopenedUi = CoroutineScope(coroutineContext + SupervisorJob())
+        val reopened = DesktopNotes(NotesLibrary.open(directory), reopenedUi, inputStore = InputSettingsFile(file))
+        assertEquals(InputSettings(drawWithFinger = true), reopened.inputSettings)
         reopened.start()
         close(reopened)
         reopenedUi.cancel()

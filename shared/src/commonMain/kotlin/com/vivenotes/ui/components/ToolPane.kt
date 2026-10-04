@@ -71,7 +71,8 @@ internal fun ToolPane(
 ) {
     Surface(
         color = LocalDesktopColors.current.sidebar,
-        modifier = modifier.width(PaneWidth).fillMaxHeight().testTag(ToolPaneTags.Pane),
+        // Android's tool panel leaves to the right under a finger, the way it came in.
+        modifier = modifier.width(PaneWidth).fillMaxHeight().testTag(ToolPaneTags.Pane).swipeRight(onClose),
     ) {
         Column {
             Row(

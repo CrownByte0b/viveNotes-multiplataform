@@ -1,6 +1,8 @@
 package com.vivenotes.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -35,7 +38,8 @@ import androidx.compose.ui.unit.round
 
 /**
  * Calls [onPress] with the pointer's position in this element when the secondary (right) mouse
- * button goes down anywhere in it.
+ * button goes down anywhere in it, or when a finger is held still on it — the touch screen's
+ * right-click, as Android's long-press opens the same menus.
  *
  * The press is taken in the initial pass, before anything inside sees it, so a text field's own
  * menu, a row's click and a selection gesture all stay out of it. Other buttons pass untouched.
@@ -49,6 +53,32 @@ fun Modifier.onSecondaryPress(key: Any?, onPress: (Offset) -> Unit): Modifier = 
             event.changes.forEach { it.consume() }
             onPress(change.position)
         }
+    }
+}.onTouchLongPress(key, onPress)
+
+/**
+ * A single finger held within the touch slop for the long-press time. Nothing is taken until then,
+ * so a tap still clicks and a drag still scrolls; once it fires, the rest of the touch is the menu's,
+ * so lifting the finger does not also click what is under it.
+ */
+private fun Modifier.onTouchLongPress(key: Any?, onPress: (Offset) -> Unit): Modifier = pointerInput(key, onPress) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        if (down.type != PointerType.Touch) return@awaitEachGesture
+        val ended = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                val moved = (change.position - down.position).getDistance() > viewConfiguration.touchSlop
+                if (!change.pressed || change.isConsumed || moved || event.changes.count { it.pressed } > 1) break
+            }
+        }
+        if (ended != null) return@awaitEachGesture
+        onPress(down.position)
+        do {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            event.changes.forEach { it.consume() }
+        } while (event.changes.any { it.pressed })
     }
 }
 

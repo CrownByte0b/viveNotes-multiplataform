@@ -8,6 +8,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.vivenotes.App
+import com.vivenotes.desktop.touch.DesktopTouch
 import com.vivenotes.diagnostics.DebugLog
 import java.awt.Dimension
 
@@ -55,19 +56,20 @@ fun main(args: Array<String>) {
         WindowBackend.NATIVE_WAYLAND -> {
             System.setProperty("awt.toolkit.name", "WLToolkit")
             useWaylandWindowClass(profile)
-            launchWayland(DesktopNotes.open(profile, log), profile)
+            launchWayland(DesktopNotes.open(profile, log), profile, log)
         }
         WindowBackend.STANDARD -> {
             if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true)) {
                 System.setProperty("awt.toolkit.name", "XToolkit")
                 useX11WindowClass(profile)
+                DesktopTouch.prepareX11(log)
             }
-            launchStandardWindow(DesktopNotes.open(profile, log), profile)
+            launchStandardWindow(DesktopNotes.open(profile, log), profile, log)
         }
     }
 }
 
-private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile) {
+private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, log: DebugLog) {
     notes.start()
     val monitor = primaryMonitorArea()
     val initialSize = initialWindowSize(monitor)
@@ -81,10 +83,12 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile) {
             LaunchedEffect(window) {
                 window.minimumSize = Dimension(720.coerceAtMost(monitor.workArea.width),
                     540.coerceAtMost(monitor.workArea.height))
+                DesktopTouch.attachX11(window, log)
             }
             App(notes.session, remember(window) { notes.pictures(window) }, notes.interfaceSettings,
                 notes::updateInterfaceSettings, notes.viewSettings, notes::updateViewSettings,
                 notes.keyBindings, notes::updateKeyBindings,
+                inputSettings = notes.inputSettings, onInputSettingsChange = notes::updateInputSettings,
                 notebookFiles = remember(window) { notes.notebookFiles(window) }, thumbnails = notes.thumbnails,
                 onEditorDefaultsChange = notes::updateEditorDefaults,
                 onShapeSettingsChange = notes::updateShapeSettings, accountService = notes.accountService,

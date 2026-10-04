@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.TooltipIconButton
+import com.vivenotes.ui.components.swipeLeft
 import com.vivenotes.ui.icons.NavigationSymbols
 import com.vivenotes.ui.icons.ViewSymbols
 import com.vivenotes.ui.shell.WorkspaceTestTags
@@ -81,6 +82,8 @@ internal fun PageListPane(
     requests: NavigationRequests,
     navigation: NavigationActions,
     onSelectPage: (String) -> Unit,
+    /** A finger swiped the pane away to the left, taking the notebook pane with it. */
+    onSwipeAway: () -> Unit = {},
 ) {
     var sort by remember { mutableStateOf(PageSort.Manual) }
     val pages = section?.pages.orEmpty()
@@ -123,7 +126,8 @@ internal fun PageListPane(
         modifier = Modifier
             .width(PagePaneWidth)
             .fillMaxHeight()
-            .testTag(WorkspaceTestTags.PagePane),
+            .testTag(WorkspaceTestTags.PagePane)
+            .swipeLeft(onSwipeAway),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Column(Modifier.fillMaxSize()) {

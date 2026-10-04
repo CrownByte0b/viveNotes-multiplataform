@@ -1,6 +1,7 @@
 package com.vivenotes.ui.shell
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
@@ -79,6 +80,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isTertiaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -143,6 +145,9 @@ import com.vivenotes.ui.canvas.PictureContent
 import com.vivenotes.ui.canvas.TextBoxPreviews
 import com.vivenotes.ui.canvas.storedEquationPreviews
 import com.vivenotes.ui.canvas.InkLayer
+import com.vivenotes.ui.canvas.CanvasTouchActions
+import com.vivenotes.ui.canvas.FingerRole
+import com.vivenotes.ui.canvas.canvasTouchGestures
 import com.vivenotes.ui.canvas.contentEdge
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.ribbon.document.LinkEditorDialog
@@ -208,6 +213,10 @@ import com.vivenotes.ui.keyboard.ShortcutKeys
 import com.vivenotes.ui.ribbon.settings.HardwarePane
 import com.vivenotes.ui.ribbon.settings.ResetAllShortcutsDialog
 import com.vivenotes.ui.ribbon.settings.ShortcutCaptureDialog
+import com.vivenotes.workspace.InputSettings
+import com.vivenotes.workspace.hideNavigation
+import com.vivenotes.workspace.hideNotebookPane
+import com.vivenotes.workspace.toggleNavigation
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.workspace.ShortcutScope
@@ -295,6 +304,9 @@ fun WorkspaceScreen(
     /** The keyboard shortcuts in force, and where Settings → Hardware sends changes to them. */
     keyBindings: KeyBindings = KeyBindings.Default,
     onKeyBindingsChange: (KeyBindings) -> Unit = {},
+    /** This device's input choices — whether a finger draws — and where Settings → Hardware sends changes. */
+    inputSettings: InputSettings = InputSettings(),
+    onInputSettingsChange: (InputSettings) -> Unit = {},
     /** The File tab's `.vive` export and import; without it those commands are unavailable. */
     fileActions: FileActions? = null,
     accountService: AccountService? = null,
@@ -304,6 +316,7 @@ fun WorkspaceScreen(
     // Held here as well, so a caller that does not keep the settings still sees its changes.
     var view by remember(viewSettings) { mutableStateOf(viewSettings.normalized()) }
     var bindings by remember(keyBindings) { mutableStateOf(keyBindings) }
+    var input by remember(inputSettings) { mutableStateOf(inputSettings) }
     var accountOpen by remember { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
     val accountScope = rememberCoroutineScope()
@@ -339,6 +352,9 @@ fun WorkspaceScreen(
                     }, bindings = bindings, onBindingsChange = { next ->
                         bindings = next
                         onKeyBindingsChange(next)
+                    }, input = input, onInputChange = { next ->
+                        input = next
+                        onInputSettingsChange(next)
                     }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions,
                     onEditorDefaultsChange = onEditorDefaultsChange,
                     onShapeSettingsChange = onShapeSettingsChange,
@@ -383,6 +399,8 @@ private fun WorkspaceContent(
     onViewChange: (ViewSettings) -> Unit,
     bindings: KeyBindings,
     onBindingsChange: (KeyBindings) -> Unit,
+    input: InputSettings,
+    onInputChange: (InputSettings) -> Unit,
     /** The workspace's own focus, which holds the keyboard when no control does. */
     canvasFocusRequester: FocusRequester,
     fileActions: FileActions?,
@@ -456,9 +474,7 @@ private fun WorkspaceContent(
         TopNavigation(
             activeTab = state.activeTab,
             navigationVisible = state.navigationVisible,
-            onToggleNavigation = {
-                onStateChange { it.copy(navigationVisible = !it.navigationVisible) }
-            },
+            onToggleNavigation = { onStateChange { it.toggleNavigation() } },
             onSelectTab = { tab -> onStateChange { it.selectPointer().copy(activeTab = tab) } },
             canUndo = state.structuralUndo.isNotEmpty(),
             canRedo = state.structuralRedo.isNotEmpty(),
@@ -503,7 +519,7 @@ private fun WorkspaceContent(
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val showNotebookPane = maxWidth >= 1040.dp && state.navigationVisible && !horizontalTabs
-            val showPagePane = maxWidth >= 760.dp
+            val showPagePane = maxWidth >= 760.dp && state.pageListVisible
             val paneMotion = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
 
             Row(
@@ -521,6 +537,7 @@ private fun WorkspaceContent(
                         requests = navigationRequests,
                         navigation = navigation,
                         onSelectSection = { id -> onStateChange { it.selectSection(id) } },
+                        onSwipeAway = { onStateChange { it.hideNotebookPane() } },
                     )
                 }
                 if (showNotebookPane) {
@@ -529,18 +546,25 @@ private fun WorkspaceContent(
                         color = MaterialTheme.colorScheme.outlineVariant,
                     )
                 }
-                if (showPagePane) {
-                    PageListPane(
-                        section = state.selectedSection,
-                        selectedPageId = state.selectedPageId,
-                        requests = navigationRequests,
-                        navigation = navigation,
-                        onSelectPage = { id -> onStateChange { it.selectPage(id) } },
-                    )
-                    VerticalDivider(
-                        modifier = Modifier.fillMaxHeight(),
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                    )
+                AnimatedVisibility(
+                    visible = showPagePane,
+                    enter = expandHorizontally(animationSpec = paneMotion),
+                    exit = shrinkHorizontally(animationSpec = paneMotion),
+                ) {
+                    Row {
+                        PageListPane(
+                            section = state.selectedSection,
+                            selectedPageId = state.selectedPageId,
+                            requests = navigationRequests,
+                            navigation = navigation,
+                            onSelectPage = { id -> onStateChange { it.selectPage(id) } },
+                            onSwipeAway = { onStateChange { it.hideNavigation() } },
+                        )
+                        VerticalDivider(
+                            modifier = Modifier.fillMaxHeight(),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
                 }
                 CompositionLocalProvider(LocalDensity provides pageDensity) {
                 PageCanvas(
@@ -550,6 +574,7 @@ private fun WorkspaceContent(
                     canvasOrigin = canvasOrigin,
                     canvasControl = canvasControl,
                     zoom = view.zoom,
+                    drawWithFinger = input.drawWithFinger,
                     onZoomChange = { zoom -> currentOnViewChange(currentView.copy(zoom = zoom).normalized()) },
                     canvasDark = canvasDark,
                     showMargins = openPane == DockedPane.PaperSize,
@@ -660,6 +685,8 @@ private fun WorkspaceContent(
                             )
                         }
                         DockedPane.Hardware -> HardwarePane(
+                            input = input,
+                            onInputChange = onInputChange,
                             bindings = bindings,
                             onEdit = { editingShortcut = it },
                             onReset = { onBindingsChange(bindings.reset(it)) },
@@ -738,6 +765,8 @@ private fun PageCanvas(
     canvasOrigin: CanvasOrigin,
     canvasControl: CanvasViewControl,
     zoom: Float,
+    /** Settings → Hardware: a finger uses the armed drawing tool rather than moving the page. */
+    drawWithFinger: Boolean,
     onZoomChange: (Float) -> Unit,
     canvasDark: Boolean,
     showMargins: Boolean,
@@ -813,6 +842,19 @@ private fun PageCanvas(
     val currentPaste by rememberUpdatedState(onPasteCanvas)
     val currentSelectObjects by rememberUpdatedState(onSelectObjectsInRect)
     val currentMoveSelection by rememberUpdatedState(onMoveSelection)
+    val currentDrawWithFinger by rememberUpdatedState(drawWithFinger)
+    val flingDecay = rememberSplineBasedDecay<Float>()
+    val touchScope = rememberCoroutineScope()
+    val touchViewport = remember(page?.id, flingDecay) {
+        CanvasTouchViewport(horizontalScroll, verticalScroll, zoom = { zoomTracking.applied },
+            onZoom = { next ->
+                // The pinch scrolls for its own zoom: recorded as applied, the ribbon's anchoring
+                // below stands down when it arrives.
+                zoomTracking.applied = next
+                pendingViewport = null
+                currentZoomChange(next)
+            }, scope = touchScope, decay = flingDecay)
+    }
     val currentState by rememberUpdatedState(state)
     val measuredTextHeights = remember(page?.id) { mutableStateMapOf<String, Float>() }
     val textLayouts = remember(page?.id) { mutableStateMapOf<String, TextLayoutResult>() }
@@ -834,10 +876,10 @@ private fun PageCanvas(
     LaunchedEffect(zoom) {
         val previous = zoomTracking.applied
         zoomTracking.applied = zoom
-        // The wheel asks for its own cursor-anchored scroll. A change from the ribbon keeps the
-        // middle of the window still, except on an axis scrolled to its start, whose page edge
-        // stays in view — zooming at the top of a page must not scroll its title away. Page Width
-        // also brings the page's left edge to the window's.
+        // The wheel asks for its own cursor-anchored scroll, and a pinch has scrolled already. A
+        // change from the ribbon keeps the middle of the window still, except on an axis scrolled
+        // to its start, whose page edge stays in view — zooming at the top of a page must not
+        // scroll its title away. Page Width also brings the page's left edge to the window's.
         val requested = pendingViewport?.takeIf { it.zoom == zoom } ?: if (previous == zoom) null else {
             val alignLeft = canvasControl.alignLeftOnNextZoom
             val scrollX = horizontalScroll.value.toFloat()
@@ -959,6 +1001,45 @@ private fun PageCanvas(
         return groupBody || groupCorner || textGrip || primeBounds
     }
 
+    /** The selected objects' toolbar, which sits just above their frame. */
+    fun hitsSelectionToolbar(point: Offset, snapshot: WorkspaceState, reach: Float): Boolean {
+        val bounds = selectedCanvasBounds(snapshot.selectedPage?.document?.outlines.orEmpty(),
+            snapshot.selectedObjectIds + snapshot.selectedTextOutlineIds, measuredTextHeights) ?: return false
+        return point.x in bounds.left..(bounds.left + 400f) && point.y in (bounds.top - reach)..bounds.top
+    }
+
+    // Android's split: a drawing tool has a finger only when fingers may draw; otherwise the finger
+    // moves the page, except on the controls of what is selected.
+    fun fingerRole(position: Offset): FingerRole {
+        val snapshot = currentState
+        val point = toPage(position)
+        val toolArmed = snapshot.inkTool != null || snapshot.shapeToolArmed || snapshot.objectLassoArmed
+        return when {
+            toolArmed && currentDrawWithFinger -> FingerRole.Tool
+            hitsSelectedTransform(point, snapshot) || hitsSelectionToolbar(point, snapshot, reach = 80f) ->
+                FingerRole.Content
+            toolArmed -> FingerRole.Pan
+            hitsContent(point, snapshot) -> FingerRole.Content
+            else -> FingerRole.PanAfterSlop
+        }
+    }
+    val touchActions = rememberUpdatedState(object : CanvasTouchActions {
+        override fun roleAt(position: Offset) = fingerRole(position)
+        override fun pan(dx: Float, dy: Float) = touchViewport.pan(dx, dy)
+        override fun fling(vx: Float, vy: Float) = touchViewport.fling(vx, vy)
+        override fun stopFling() = touchViewport.stopFling()
+        override fun pinch(focus: Offset, pan: Offset, zoomChange: Float) =
+            touchViewport.pinch(focus, pan, zoomChange)
+        override fun doubleTap(position: Offset) {
+            val snapshot = currentState
+            val point = toPage(position)
+            val style = snapshot.selectedPage?.document?.style ?: return
+            if (!snapshot.canvasClipboard.isEmpty && currentExtent?.canPlaceAt(style, point.x, point.y) == true) {
+                pastePoint = point
+            }
+        }
+    })
+
     Box(
         modifier
             .testTag(WorkspaceTestTags.PageCanvas)
@@ -989,6 +1070,8 @@ private fun PageCanvas(
             }
             .pointerHoverIcon(if (panActive) panPointerIcon(panCursorDirection) else PointerIcon.Default,
                 overrideDescendants = panActive)
+            // Ahead of the page's own handlers: on the initial pass, the first modifier is asked first.
+            .canvasTouchGestures(touchActions)
             .pointerInput(page?.id) {
                 awaitPointerEventScope {
                     while (true) {
@@ -1040,24 +1123,26 @@ private fun PageCanvas(
                     }
                     val start = toPage(down.position)
                     val titleFloor = currentState.selectedPage?.document?.style?.titleFloor ?: PageStyle.TITLE_BAND_DP
-                    val selectedBounds = selectedCanvasBounds(
-                        currentState.selectedPage?.document?.outlines.orEmpty(),
-                        currentState.selectedObjectIds + currentState.selectedTextOutlineIds,
-                        measuredTextHeights)
-                    val onObjectToolbar = selectedBounds != null &&
-                        start.x in selectedBounds.left..(selectedBounds.left + 400f) &&
-                        start.y in (selectedBounds.top - 60f)..selectedBounds.top
-                    val shaping = currentState.shapeToolArmed && start.y >= titleFloor &&
+                    val onObjectToolbar = hitsSelectionToolbar(start, currentState, reach = 60f)
+                    // A finger drags these tools only when fingers may draw; otherwise its drag moves
+                    // the page (`canvasTouchGestures`), and on an empty page it never draws a marquee.
+                    val finger = down.type == PointerType.Touch
+                    val fingerTool = !finger || currentDrawWithFinger
+                    val shaping = fingerTool && currentState.shapeToolArmed && start.y >= titleFloor &&
                         currentState.selectedPage?.editable == true && !onObjectToolbar &&
                         !hitsSelectedTransform(start, currentState)
-                    val marquee = !hitsSelectedTransform(start, currentState) &&
+                    val marquee = (!finger || (currentDrawWithFinger && currentState.objectLassoArmed)) &&
+                        !hitsSelectedTransform(start, currentState) &&
                         (currentState.objectLassoArmed ||
                         (!currentState.textToolArmed && !currentState.shapeToolArmed && start.y >= titleFloor &&
                             !hitsContent(start, currentState)))
                     var last = down
+                    // Taken by a pinch: a second finger made this gesture the page's, not a tap or a drag.
+                    var pinched = false
                     do {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (finger && event.changes.count { it.pressed } > 1 && change.isConsumed) pinched = true
                         last = change
                         if (shaping && (change.position - down.position).getDistance() >= 12.dp.toPx()) {
                             change.consume()
@@ -1070,7 +1155,10 @@ private fun PageCanvas(
                         }
                     } while (last.pressed)
                     val distance = (last.position - down.position).getDistance()
-                    if (shaping) {
+                    if (pinched) {
+                        shapeDraft = null
+                        lasso = null
+                    } else if (shaping) {
                         val end = if (distance >= 12.dp.toPx()) toPage(last.position) else
                             Offset(start.x + Outline.Shape.DEFAULT_WIDTH,
                                 start.y + Outline.Shape.DEFAULT_HEIGHT)

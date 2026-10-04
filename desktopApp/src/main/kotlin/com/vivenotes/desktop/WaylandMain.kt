@@ -5,6 +5,8 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
 import com.vivenotes.App
+import com.vivenotes.desktop.touch.DesktopTouch
+import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.workspace.WorkspaceState
@@ -20,9 +22,10 @@ import javax.swing.SwingUtilities
 import javax.swing.WindowConstants
 
 /** Native Wayland host for JetBrains Runtime's WLToolkit. */
-internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile) {
+internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: DebugLog) {
     System.setProperty("compose.layers.type", "COMPONENT")
     requireNativeWaylandToolkit(Toolkit.getDefaultToolkit().javaClass.name)
+    DesktopTouch.startWayland(log)
     notes.start()
     val monitor = primaryMonitorArea()
     val initialSize = initialWindowSize(monitor)
@@ -71,6 +74,7 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
         }
         App(notes.session, pictures, notes.interfaceSettings, notes::updateInterfaceSettings,
             notes.viewSettings, notes::updateViewSettings, notes.keyBindings, notes::updateKeyBindings,
+            inputSettings = notes.inputSettings, onInputSettingsChange = notes::updateInputSettings,
             notebookFiles = notebookFiles, thumbnails = notes.thumbnails,
             onEditorDefaultsChange = notes::updateEditorDefaults,
             onShapeSettingsChange = notes::updateShapeSettings, accountService = notes.accountService,

@@ -27,6 +27,7 @@ import com.vivenotes.ui.account.AccountService
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.KeyBindings
+import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.EditorDefaults
 import com.vivenotes.workspace.ShapeToolSettings
@@ -54,6 +55,9 @@ fun App(
     onViewSettingsChange: (ViewSettings) -> Unit = {},
     keyBindings: KeyBindings = KeyBindings.Default,
     onKeyBindingsChange: (KeyBindings) -> Unit = {},
+    /** This device's Settings → Hardware input choices, and where changes to them go. */
+    inputSettings: InputSettings = InputSettings(),
+    onInputSettingsChange: (InputSettings) -> Unit = {},
     onEditorDefaultsChange: (EditorDefaults) -> Unit = {},
     onShapeSettingsChange: (ShapeToolSettings) -> Unit = {},
     /** The platform's `.vive` file dialogs; without them notebooks cannot be exported or imported. */
@@ -84,7 +88,8 @@ fun App(
                 viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
                 onEditorDefaultsChange = onEditorDefaultsChange,
                 onShapeSettingsChange = onShapeSettingsChange,
-                keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange, fileActions = fileActions,
+                keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange,
+                inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange, fileActions = fileActions,
                 accountService = accountService, appVersion = appVersion)
         }
     }

@@ -22,12 +22,10 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.click
-import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.geometry.Offset
@@ -755,8 +753,12 @@ class WorkspaceScreenTest {
             setWorkspace(initial = initial) { observed = it }
 
             onNodeWithTag(DrawRibbonTags.ObjectLasso).performClick()
-            onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
-                swipe(start = Offset(250f, 320f), end = Offset(450f, 450f))
+            // A mouse: a finger lassos only when fingers may draw (`CanvasTouchTest`).
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                moveTo(Offset(250f, 320f))
+                press()
+                moveTo(Offset(450f, 450f))
+                release()
             }
             runOnIdle { assertEquals(setOf(shape.id), observed.selectedObjectIds) }
             onNodeWithTag(WorkspaceTestTags.primeObject(shape.id)).performMouseInput {

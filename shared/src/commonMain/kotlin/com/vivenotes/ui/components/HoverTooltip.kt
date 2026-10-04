@@ -25,6 +25,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.delay
 
 internal const val HoverTooltipDelayMillis = 250L
@@ -38,12 +42,34 @@ private class ImmediateTooltipMotionScheme(private val delegate: MotionScheme) :
     override fun <T> fastEffectsSpec(): FiniteAnimationSpec<T> = snap()
 }
 
-/** Cancels a pending tooltip when the pointer leaves before the hover delay expires. */
+/**
+ * Cancels a pending tooltip when the pointer leaves before the hover delay expires, and keeps a tap
+ * from showing one.
+ *
+ * A press focuses the control it lands on — Compose does so for every click on the desktop — and
+ * Material shows a focused control's tooltip for the keyboard. Under a mouse that is the tooltip the
+ * hover shows anyway; under a finger it is a label flashing up after every tap, which Android, where
+ * a tooltip needs a long press, never does. So the tooltip for a focus that arrives while a finger is
+ * pressing the control is not shown. Material's own long-press tooltip has no focus change before it,
+ * and still is.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 internal class DelayedTooltipState(private val delegate: TooltipState) : TooltipState by delegate {
     private var request = 0
 
+    /** A finger is down on the control. */
+    var touching = false
+    private var focusedByTap = false
+
+    fun onFocusChanged(focused: Boolean) {
+        focusedByTap = focused && touching
+    }
+
     override suspend fun show(mutatePriority: MutatePriority) {
+        if (mutatePriority == MutatePriority.PreventUserInput && focusedByTap) {
+            focusedByTap = false
+            return
+        }
         val current = ++request
         if (mutatePriority == MutatePriority.UserInput || mutatePriority == MutatePriority.PreventUserInput) {
             delay(HoverTooltipDelayMillis)
@@ -88,6 +114,7 @@ fun HoverTooltip(
     val positionProvider = rememberHoverTooltipPositionProvider(position)
     val motionScheme = MaterialTheme.motionScheme
     val tooltipMotion = remember(motionScheme) { ImmediateTooltipMotionScheme(motionScheme) }
+    val state = remember(materialState) { DelayedTooltipState(materialState) }
     CompositionLocalProvider(LocalDensity provides layerDensity) {
         MaterialTheme(motionScheme = tooltipMotion) {
             TooltipBox(
@@ -97,8 +124,15 @@ fun HoverTooltip(
                         PlainTooltip { Text(label) }
                     }
                 },
-                state = remember(materialState) { DelayedTooltipState(materialState) },
-                modifier = modifier,
+                state = state,
+                modifier = modifier.pointerInput(state) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            state.touching = event.changes.any { it.type == PointerType.Touch && it.pressed }
+                        }
+                    }
+                }.onFocusChanged { state.onFocusChanged(it.isFocused) },
                 content = {
                     CompositionLocalProvider(LocalDensity provides contentDensity) {
                         MaterialTheme(motionScheme = motionScheme, content = content)
