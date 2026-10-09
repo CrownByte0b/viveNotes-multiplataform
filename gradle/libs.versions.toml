@@ -11,7 +11,7 @@ ksp = "2.3.12"
 kotlin-wrappers = "2026.9.2"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
-material3 = "1.12.0-alpha03"
+material3 = "1.13.0-alpha02"
 ratex = "0.1.14"
 # The Android app's Room line (2.8.1 there), so both builds compile the same schema. Room 2.8 is
 # tested against androidx.sqlite 2.6.
