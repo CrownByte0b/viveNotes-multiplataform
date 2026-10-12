@@ -1,0 +1,3 @@
+# uv creates these when the project is run by hand; the app keeps its environment elsewhere.
+.venv/
+__pycache__/

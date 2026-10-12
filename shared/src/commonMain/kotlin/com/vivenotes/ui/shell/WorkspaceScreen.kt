@@ -172,6 +172,9 @@ import com.vivenotes.ui.ribbon.file.NotebookTransferDialog
 import com.vivenotes.workspace.FileActions
 import com.vivenotes.workspace.FilePane
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
+import com.vivenotes.ui.ribbon.settings.ModelsPane
+import com.vivenotes.ai.AiModels
+import com.vivenotes.math.MathRuntime
 import com.vivenotes.ui.account.AccountScreen
 import com.vivenotes.ui.account.AccountScreenModel
 import com.vivenotes.ui.account.AccountService
@@ -310,6 +313,10 @@ fun WorkspaceScreen(
     /** The File tab's `.vive` export and import; without it those commands are unavailable. */
     fileActions: FileActions? = null,
     accountService: AccountService? = null,
+    /** This device's recognition models, for Settings → Models; without them and [mathRuntime] it is unavailable. */
+    aiModels: AiModels? = null,
+    /** The math engine's Python and SymPy, installed and removed from Settings → Models. */
+    mathRuntime: MathRuntime? = null,
     appVersion: String = "Development",
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
@@ -359,7 +366,7 @@ fun WorkspaceScreen(
                     onEditorDefaultsChange = onEditorDefaultsChange,
                     onShapeSettingsChange = onShapeSettingsChange,
                     accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
-                    onAbout = { aboutOpen = true })
+                    onAbout = { aboutOpen = true }, aiModels = aiModels, mathRuntime = mathRuntime)
             }
             if (accountOpen) AccountScreen(accountService, accountModel, onBack = { accountOpen = false })
             if (aboutOpen) AboutDialog(appVersion, onDismiss = { aboutOpen = false })
@@ -409,6 +416,8 @@ private fun WorkspaceContent(
     accountConnected: Boolean,
     onOpenAccount: () -> Unit,
     onAbout: () -> Unit,
+    aiModels: AiModels?,
+    mathRuntime: MathRuntime?,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
@@ -503,7 +512,8 @@ private fun WorkspaceContent(
             RibbonTab.Settings -> SettingsRibbon(onInterface, hardwareOpen = openPane == DockedPane.Hardware,
                 onHardware = { togglePane(DockedPane.Hardware) }, linkPreviews = view.linkPreviews,
                 onLinkPreviewsChange = { enabled -> onViewChange(view.copy(linkPreviews = enabled)) },
-                onAbout = onAbout)
+                onAbout = onAbout, modelsAvailable = aiModels != null || mathRuntime != null,
+                modelsOpen = openPane == DockedPane.Models, onModels = { togglePane(DockedPane.Models) })
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         // Horizontal Tabs Layout: the notebook pane's selection as a strip of section tabs.
@@ -693,6 +703,7 @@ private fun WorkspaceContent(
                             onResetAll = { confirmResetShortcuts = true },
                             onClose = { openPane = null },
                         )
+                        DockedPane.Models -> ModelsPane(aiModels, mathRuntime, onClose = { openPane = null })
                     }
                 }
             }
@@ -755,7 +766,7 @@ private fun WorkspaceContent(
 }
 
 /** The settings pane docked right of the canvas: one at a time, as on Android. */
-internal enum class DockedPane { PaperSize, Hardware }
+internal enum class DockedPane { PaperSize, Hardware, Models }
 
 @Composable
 private fun PageCanvas(

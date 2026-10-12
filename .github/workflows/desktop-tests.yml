@@ -19,6 +19,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         with:
           cache-provider: basic
+      # The math engine's tests have uv install the pinned CPython and SymPy; without uv they skip.
+      - uses: astral-sh/setup-uv@v7
       - name: Run desktop tests
         run: ./gradlew :shared:jvmTest :desktopApp:test --continue
       - name: Upload test reports

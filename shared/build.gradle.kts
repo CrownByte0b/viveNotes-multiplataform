@@ -20,6 +20,16 @@ tasks.withType<Test>().configureEach {
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
+// The SymPy engine is a uv project (`src/jvmMain/python`). The app carries its sources and lock as
+// resources under `math-engine/` and has uv install the environment they describe on first use;
+// a `.venv` or `__pycache__` left there by running the project by hand never reaches the jar.
+val mathEngineResources = tasks.register<Sync>("mathEngineResources") {
+    from("src/jvmMain/python") {
+        include("*.py", "pyproject.toml", "uv.lock", ".python-version")
+    }
+    into(layout.buildDirectory.dir("generated/mathEngineResources/math-engine"))
+}
+
 // Committed like the Android app's `app/schemas/`: every schema change needs a reviewed export and
 // an explicit migration. `SchemaCompatibilityTest` holds this export to the Android baseline.
 room {
@@ -74,9 +84,14 @@ kotlin {
             implementation("com.vivenotes.byteink:byteink-kit:$byteinkVersion")
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
+            implementation(libs.onnxruntime)
             runtimeOnly("io.github.darriousliu:ratex-native-linux-x86-64:0.1.14")
             runtimeOnly("io.github.darriousliu:ratex-native-linux-aarch64:0.1.14")
             runtimeOnly("io.github.darriousliu:ratex-native-windows-x86-64:0.1.14")
+        }
+        jvmMain {
+            resources.srcDir(files(layout.buildDirectory.dir("generated/mathEngineResources"))
+                .builtBy(mathEngineResources))
         }
         jvmTest.dependencies {
             implementation(compose.desktop.currentOs)
@@ -89,6 +104,17 @@ kotlin {
 
 dependencies {
     add("kspJvm", libs.androidx.room.compiler)
+}
+
+tasks.named<Test>("jvmTest") {
+    // The math engine's tests have uv install CPython and SymPy once and reuse them on every later
+    // run. Under the root build directory, which `clean` leaves alone: the interpreter alone is a
+    // 33 MB download.
+    systemProperty("vivenotes.test.mathRuntime",
+        rootProject.layout.buildDirectory.dir("math-engine-test").get().asFile.absolutePath)
+    // The development profile's installed formula models. Tests that need a real formula graph read
+    // it from there and skip when it has not been downloaded.
+    systemProperty("vivenotes.test.formulaModels", rootProject.file("devdb/ai_models").absolutePath)
 }
 
 // The synthetic 40k-page interaction workload is opt-in and runs separately from normal tests.

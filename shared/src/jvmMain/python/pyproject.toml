@@ -1,0 +1,12 @@
+[project]
+name = "vivenotes-math"
+version = "1.0.0"
+description = "The SymPy engine behind viveNotes math actions, run by the desktop app in a uv-managed CPython."
+# Chaquopy's line on Android. `.python-version` pins the exact interpreter uv installs.
+requires-python = "==3.13.*"
+# The Android app's Chaquopy `pip { install(...) }` pins, unchanged.
+dependencies = [
+    # SymPy 1.14's generated LaTeX parser requires this ANTLR generation line.
+    "antlr4-python3-runtime==4.11.1",
+    "sympy==1.14.0",
+]

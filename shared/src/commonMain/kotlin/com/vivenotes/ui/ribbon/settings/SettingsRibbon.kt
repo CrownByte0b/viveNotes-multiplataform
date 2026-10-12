@@ -42,10 +42,14 @@ import com.vivenotes.ui.shell.WorkspaceTestTags
 
 internal const val LINK_PREVIEWS_TAG = "settings-link-previews"
 
-/** Settings commands share a compact tab strip; active preferences and panes get an underline. */
+/**
+ * Settings commands share a compact tab strip; active preferences and panes get an underline.
+ * Models stays disabled where the platform has no models to manage.
+ */
 @Composable
 internal fun SettingsRibbon(onInterface: () -> Unit, hardwareOpen: Boolean, onHardware: () -> Unit,
-    linkPreviews: Boolean, onLinkPreviewsChange: (Boolean) -> Unit, onAbout: () -> Unit) {
+    linkPreviews: Boolean, onLinkPreviewsChange: (Boolean) -> Unit, onAbout: () -> Unit,
+    modelsAvailable: Boolean = false, modelsOpen: Boolean = false, onModels: () -> Unit = {}) {
     Box(
         modifier = Modifier.fillMaxWidth().height(46.dp)
             .background(RibbonStyle.background)
@@ -65,7 +69,8 @@ internal fun SettingsRibbon(onInterface: () -> Unit, hardwareOpen: Boolean, onHa
                 onClick = { onLinkPreviewsChange(!linkPreviews) })
             SettingsTab("Hardware", icon = ::hardwareGlyph,
                 tag = HardwareTags.Open, active = hardwareOpen, onClick = onHardware)
-            SettingsTab("Models", icon = ::integratedGlyph, enabled = false)
+            SettingsTab("Models", icon = ::integratedGlyph, tag = ModelsTags.Open, active = modelsOpen,
+                enabled = modelsAvailable, onClick = onModels)
             SettingsTab("About", icon = ::aboutGlyph, tag = AboutTags.Open, onClick = onAbout)
         }
     }

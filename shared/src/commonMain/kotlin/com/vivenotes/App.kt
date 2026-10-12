@@ -19,7 +19,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import com.vivenotes.ai.AiModels
 import com.vivenotes.data.NotebookFiles
+import com.vivenotes.math.MathRuntime
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.ui.shell.WorkspaceScreen
@@ -64,6 +66,9 @@ fun App(
     notebookFiles: NotebookFiles? = null,
     thumbnails: VideoThumbnailSource? = null,
     accountService: AccountService? = null,
+    /** The platform's recognition models and math engine, for Settings → Models. */
+    aiModels: AiModels? = null,
+    mathRuntime: MathRuntime? = null,
     appVersion: String = "Development",
 ) {
     val state by session.state.collectAsState()
@@ -90,7 +95,8 @@ fun App(
                 onShapeSettingsChange = onShapeSettingsChange,
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange,
                 inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange, fileActions = fileActions,
-                accountService = accountService, appVersion = appVersion)
+                accountService = accountService, aiModels = aiModels, mathRuntime = mathRuntime,
+                appVersion = appVersion)
         }
     }
 }

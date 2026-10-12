@@ -1,6 +1,8 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.ai.AiModelStore
 import com.vivenotes.data.NotebookFiles
+import com.vivenotes.math.UvMathRuntime
 import com.vivenotes.data.InkSource
 import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.PictureLibrary
@@ -54,6 +56,10 @@ internal class DesktopNotes(
     private val log: DebugLog = DebugLog(),
     val accountService: DesktopAccountService = DesktopAccountService(log),
     private val inkSource: InkSource = library.repository,
+    /** The recognition models in the data directory, managed from Settings → Models. */
+    val aiModels: AiModelStore? = null,
+    /** The math engine's uv-installed Python and SymPy, managed from Settings → Models. */
+    val mathRuntime: UvMathRuntime? = null,
 ) {
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     var editorDefaults by mutableStateOf(editorStore?.load() ?: EditorDefaults())
@@ -190,6 +196,10 @@ internal class DesktopNotes(
                     sessionJob.cancel()
                     syncCoordinator.stop()
                     maintenance?.cancelAndJoin()
+                    // A model download or an install under way stops here; neither leaves a half
+                    // package that later reads as installed.
+                    aiModels?.close()
+                    mathRuntime?.close()
                     library.close()
                     log.event("app") { "closed" }
                     done()
@@ -222,7 +232,10 @@ internal class DesktopNotes(
                     managedServerUrl = cloudBase,
                     googleIdentity = desktopGoogleClientId?.takeIf(String::isNotBlank)?.let(::DesktopGoogleIdentity),
                     credentialStore = desktopCredentialStore(profile, directories.config),
-                    syncEngine = library.synchronizer))
+                    syncEngine = library.synchronizer),
+                aiModels = AiModelStore(File(directories.data, AiModelStore.DIRECTORY),
+                    AiSettingsFile(File(directories.config, "ai.properties")), log = log),
+                mathRuntime = UvMathRuntime(File(directories.data, UvMathRuntime.DIRECTORY), log))
         }
     }
 }
