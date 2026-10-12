@@ -146,6 +146,7 @@ data class WorkspaceState(
     val objectLassoArmed: Boolean = false,
     val shapeToolArmed: Boolean = false,
     val inkTool: InkTool? = null,
+    val eraserMode: com.vivenotes.data.EraserMode = com.vivenotes.data.EraserMode.Normal,
     val pendingInkEdits: List<com.vivenotes.data.PendingInkEdit> = emptyList(),
     val shapeSettings: ShapeToolSettings = ShapeToolSettings(),
     val focusedTextOutlineId: String? = null,
@@ -267,14 +268,31 @@ data class WorkspaceState(
         return selectPointer().copy(inkTool = tool.takeUnless { inkTool == tool })
     }
 
+    fun setEraserMode(mode: com.vivenotes.data.EraserMode): WorkspaceState = copy(eraserMode = mode)
+
     /** The renderer supplies the same immutable snapshot it just displayed. */
     fun applyInkEdit(edit: com.vivenotes.data.InkEdit, rendered: InkPage): WorkspaceState {
         val page = editablePage ?: return this
         if (page.id != rendered.pageId || inkTool == null || !page.inkReady || notebookTransfer.running || filePane.busy) return this
         if (edit is com.vivenotes.data.InkEdit.AddStroke && edit.row.pageId != page.id) return this
         if (edit is com.vivenotes.data.InkEdit.EraseStrokes && edit.ids.isEmpty()) return this
+        if (edit is com.vivenotes.data.InkEdit.RestoreStrokes) return this
+        if (edit is com.vivenotes.data.InkEdit.PartialErase &&
+            (edit.row.pageId != page.id || edit.targetIds.isEmpty() || !edit.active)) return this
+        val before = page.ink ?: InkPage(page.id, emptyList())
+        val inverse = when (edit) {
+            is com.vivenotes.data.InkEdit.AddStroke -> com.vivenotes.data.InkEdit.EraseStrokes(setOf(edit.row.id))
+            is com.vivenotes.data.InkEdit.EraseStrokes -> com.vivenotes.data.InkEdit.RestoreStrokes(edit.ids, before)
+            is com.vivenotes.data.InkEdit.PartialErase -> edit.copy(active = false)
+            is com.vivenotes.data.InkEdit.RestoreStrokes -> return this
+        }
+        val redo = if (edit is com.vivenotes.data.InkEdit.AddStroke)
+            com.vivenotes.data.InkEdit.RestoreStrokes(setOf(edit.row.id), rendered) else edit
         return updatePage(page.id) { it.copy(ink = rendered) }.copy(
             pendingInkEdits = pendingInkEdits + com.vivenotes.data.PendingInkEdit(newId(), page.id, edit),
+            structuralUndo = (structuralUndo + StructuralSnapshot(page.id, page.document,
+                InkHistoryChange(before, rendered, inverse, redo))).takeLast(100),
+            structuralRedo = emptyList(),
         )
     }
 
@@ -391,7 +409,7 @@ data class WorkspaceState(
                     .filterNot { it.id in ids }))
         }
         var undo = structuralUndo.withoutIds()
-        while (undo.lastOrNull()?.let { it.pageId == page.id && it.document == page.document } == true) {
+        while (undo.lastOrNull()?.let { it.ink == null && it.pageId == page.id && it.document == page.document } == true) {
             undo = undo.dropLast(1)
         }
         return copy(structuralUndo = undo, structuralRedo = structuralRedo.withoutIds())
@@ -456,6 +474,14 @@ data class WorkspaceState(
         val prior = structuralUndo.lastOrNull() ?: return this
         val page = editablePage ?: return this
         if (prior.pageId != page.id) return this
+        prior.ink?.let { change ->
+            if (!page.inkReady || notebookTransfer.running || filePane.busy) return this
+            return updatePage(page.id) { it.copy(ink = change.before.copy(
+                latestOperationAt = maxOf(change.before.latestOperationAt, page.ink?.latestOperationAt ?: 0L))) }.copy(
+                pendingInkEdits = pendingInkEdits + com.vivenotes.data.PendingInkEdit(newId(), page.id, change.undo),
+                structuralUndo = structuralUndo.dropLast(1), structuralRedo = structuralRedo + prior,
+            )
+        }
         val restored = prior.document.withCurrentTextFrom(page.document)
         return updatePage(page.id) { it.withDocument(restored) }.copy(
             structuralUndo = structuralUndo.dropLast(1),
@@ -469,6 +495,14 @@ data class WorkspaceState(
         val next = structuralRedo.lastOrNull() ?: return this
         val page = editablePage ?: return this
         if (next.pageId != page.id) return this
+        next.ink?.let { change ->
+            if (!page.inkReady || notebookTransfer.running || filePane.busy) return this
+            return updatePage(page.id) { it.copy(ink = change.after.copy(
+                latestOperationAt = maxOf(change.after.latestOperationAt, page.ink?.latestOperationAt ?: 0L))) }.copy(
+                pendingInkEdits = pendingInkEdits + com.vivenotes.data.PendingInkEdit(newId(), page.id, change.redo),
+                structuralRedo = structuralRedo.dropLast(1), structuralUndo = structuralUndo + next,
+            )
+        }
         val restored = next.document.withCurrentTextFrom(page.document)
         return updatePage(page.id) { it.withDocument(restored) }.copy(
             structuralRedo = structuralRedo.dropLast(1),

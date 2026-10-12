@@ -126,6 +126,7 @@ class WorkspaceSession(
                 .forEach { shape -> log.event("shape") { "added ${shape.kind.name}" } }
         }
         if (before.inkTool != after.inkTool) log.event("ink") { "tool ${after.inkTool?.name ?: "Select"}" }
+        if (before.eraserMode != after.eraserMode) log.event("ink") { "eraser mode ${after.eraserMode.name}" }
         react(before, after)
     }
 
@@ -629,6 +630,9 @@ class WorkspaceSession(
                     log.event("ink") { when (pending.edit) {
                         is com.vivenotes.data.InkEdit.AddStroke -> "stroke saved"
                         is com.vivenotes.data.InkEdit.EraseStrokes -> "whole-stroke erase saved"
+                        is com.vivenotes.data.InkEdit.RestoreStrokes -> "stroke restore saved"
+                        is com.vivenotes.data.InkEdit.PartialErase ->
+                            if (pending.edit.active) "partial erase saved" else "partial erase undone"
                     } }
                 }
             } finally { inkSaveQueued = false }

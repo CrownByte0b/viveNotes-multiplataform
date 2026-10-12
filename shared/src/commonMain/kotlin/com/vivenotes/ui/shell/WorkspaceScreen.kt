@@ -1676,7 +1676,8 @@ private fun PageCanvas(
                 }
                 InkLayer(page.ink, canvasSize, palette.ink, visibleWindow, page.id,
                     state.inkTool.takeIf { page.editable && page.inkReady &&
-                        !state.notebookTransfer.running && !state.filePane.busy }, page.document.style.titleFloor, onInkEdit, zoom)
+                        !state.notebookTransfer.running && !state.filePane.busy }, page.document.style.titleFloor, onInkEdit, zoom,
+                    state.eraserMode)
                 if (groupBounds != null) {
                     val padding = 6.dp
                     val left = groupBounds.left.dp - padding

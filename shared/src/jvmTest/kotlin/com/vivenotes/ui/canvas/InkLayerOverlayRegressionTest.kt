@@ -80,7 +80,7 @@ class InkLayerOverlayRegressionTest {
         val edits = mutableListOf<InkEdit>()
         setContent {
             Box(Modifier.size(128.dp).background(Color.White).testTag("overlay-frame")) {
-                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = tool.value,
+                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = tool.value, eraserMode = com.vivenotes.data.EraserMode.Object,
                     onEdit = { edit, updated -> edits += edit; page.value = updated })
             }
         }

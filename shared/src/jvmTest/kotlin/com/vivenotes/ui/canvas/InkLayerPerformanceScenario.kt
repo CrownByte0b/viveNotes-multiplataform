@@ -112,7 +112,7 @@ class InkLayerPerformanceScenario {
                         InkLayer(page.value, DpSize(PAGE_DP.dp, PAGE_DP.dp), Color.Black,
                             visibleWindow = { Rect(SCROLL_X / zoom, SCROLL_Y / zoom,
                                 (SCROLL_X + VIEWPORT_PX) / zoom, (SCROLL_Y + VIEWPORT_PX) / zoom) },
-                            tool = tool.value, zoom = zoom, onEdit = { edit, updated ->
+                            tool = tool.value, eraserMode = com.vivenotes.data.EraserMode.Object, zoom = zoom, onEdit = { edit, updated ->
                                 if (updated.geometry !== page.value.geometry) pageSnapshots++
                                 edits += edit
                                 page.value = updated

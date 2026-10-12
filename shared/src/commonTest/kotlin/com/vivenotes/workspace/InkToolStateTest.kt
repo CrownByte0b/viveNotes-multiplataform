@@ -15,6 +15,61 @@ import kotlin.test.*
 @OptIn(ExperimentalCoroutinesApi::class)
 class InkToolStateTest {
     @Test
+    fun eachPartialGestureIsOneHistoryStepAndUndoRedoPreservesTheDocumentAndClock() {
+        val initial = WorkspaceState.demo().toggleInkTool(InkTool.Eraser)
+        val pageId = initial.selectedPageId
+        val before = InkPage(pageId, listOf(visible("old")))
+        val loaded = initial.updatePage(pageId) { it.copy(ink = before) }
+        val edit = InkEdit.PartialErase(com.vivenotes.data.db.InkEraseEntity("mask", pageId,
+            sizeDp = 24f, points = byteArrayOf(42), enc = "ink/androidx1", createdAt = 9000L), setOf("old"))
+        val after = before.copy(latestOperationAt = 9000L)
+        val changed = loaded.applyInkEdit(edit, after)
+        assertEquals(loaded.structuralUndo.size + 1, changed.structuralUndo.size)
+        val undone = changed.undoStructure()
+        assertSame(loaded.selectedPage!!.document, undone.selectedPage!!.document)
+        assertEquals(before.strokes, undone.selectedPage!!.ink!!.strokes)
+        assertEquals(9000L, undone.selectedPage!!.ink!!.latestOperationAt)
+        assertEquals(edit.copy(active = false), undone.pendingInkEdits.last().edit)
+        val redone = undone.redoStructure()
+        assertEquals(edit, redone.pendingInkEdits.last().edit)
+        assertEquals(after, redone.selectedPage!!.ink)
+        assertTrue(redone.structuralRedo.isEmpty())
+        assertEquals(loaded, loaded.applyInkEdit(edit.copy(targetIds = emptySet()), after))
+        assertEquals(loaded, loaded.applyInkEdit(edit.copy(row = edit.row.copy(pageId = "foreign")), after))
+    }
+
+    @Test
+    fun failedPartialEraseKeepsItsQueuedUndoAndRetriesThemInOrderWithoutLeakingMaskData() = runTest {
+        val store = FakeNotesStore()
+        store.notebook("Notebook", "Section" to listOf("Page" to PageDoc.empty()))
+        val writer = RecordingInkWriter().apply { fail = true }
+        val logs = mutableListOf<String>()
+        val session = WorkspaceSession(store, backgroundScope, { "" }, inkSource = writer, log = DebugLog(true, logs::add))
+        session.start(); runCurrent()
+        val pageId = session.state.value!!.selectedPageId
+        val edit = InkEdit.PartialErase(com.vivenotes.data.db.InkEraseEntity("private-mask-id", pageId,
+            sizeDp = 24f, points = byteArrayOf(123, 42), enc = "ink/androidx1", createdAt = 42L), setOf("private-stroke-id"))
+        session.update { it.toggleInkTool(InkTool.Eraser).setEraserMode(com.vivenotes.data.EraserMode.Object) }
+        session.update { it.setEraserMode(com.vivenotes.data.EraserMode.Normal)
+            .applyInkEdit(edit, InkPage(pageId, emptyList(), latestOperationAt = 42L)) }
+        session.update { it.undoStructure() }
+        runCurrent()
+        assertEquals(listOf(edit, edit.copy(active = false)), session.state.value!!.pendingInkEdits.map { it.edit })
+        assertTrue(writer.saved.isEmpty())
+        writer.fail = false
+        session.flush()
+        assertEquals(listOf("partial", "undo-partial"), writer.saved)
+        assertTrue(session.state.value!!.pendingInkEdits.isEmpty())
+        session.update { it.redoStructure() }; session.flush()
+        assertEquals(listOf("partial", "undo-partial", "partial"), writer.saved)
+        assertTrue(store.saves.isEmpty())
+        assertTrue(logs.any { it.contains("partial erase saved") })
+        assertTrue(logs.any { it.contains("partial erase undone") })
+        assertTrue(logs.any { it.contains("eraser mode Normal") })
+        assertTrue(logs.none { it.contains("private-mask-id") || it.contains("private-stroke-id") })
+    }
+
+    @Test
     fun inkToolsAreExclusiveAndEscapeAndOtherToolsClearThem() {
         val armed = WorkspaceState.demo().toggleTextTool().toggleInkTool(InkTool.Pen)
         assertEquals(InkTool.Pen, armed.inkTool)
@@ -252,12 +307,19 @@ class InkToolStateTest {
                         row.sizeDp, row.colorArgb, row.colorFollowsTheme, emptyList())
                 })
                 is InkEdit.EraseStrokes -> snapshot.copy(strokes = snapshot.strokes.filterNot { it.id in edit.ids })
+                is InkEdit.RestoreStrokes -> snapshot.copy(strokes = snapshot.strokes + edit.source.strokes.filter { it.id in edit.ids })
+                is InkEdit.PartialErase -> snapshot
             }
         }
         override suspend fun applyInkEdit(pageId: String, edit: InkEdit) {
             attempts++
             if (fail) error("disk unavailable")
-            saved += when (edit) { is InkEdit.AddStroke -> "add"; is InkEdit.EraseStrokes -> "erase" }
+            saved += when (edit) {
+                is InkEdit.AddStroke -> "add"
+                is InkEdit.EraseStrokes -> "erase"
+                is InkEdit.RestoreStrokes -> "restore"
+                is InkEdit.PartialErase -> if (edit.active) "partial" else "undo-partial"
+            }
         }
     }
 

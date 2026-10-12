@@ -12,7 +12,15 @@ data class CanvasClipboard(
     val isEmpty: Boolean get() = texts.isEmpty() && objects.isEmpty()
 }
 
-data class StructuralSnapshot(val pageId: String, val document: com.vivenotes.model.PageDoc)
+data class InkHistoryChange(
+    val before: com.vivenotes.model.ink.InkPage,
+    val after: com.vivenotes.model.ink.InkPage,
+    val undo: com.vivenotes.data.InkEdit,
+    val redo: com.vivenotes.data.InkEdit,
+)
+
+data class StructuralSnapshot(val pageId: String, val document: com.vivenotes.model.PageDoc,
+    val ink: InkHistoryChange? = null)
 
 fun Outline.isPrimeObject(): Boolean = when (this) {
     is Outline.Shape, is Outline.Table, is Outline.Equation, is Outline.Image -> true

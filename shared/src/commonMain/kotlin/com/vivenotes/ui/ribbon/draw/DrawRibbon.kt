@@ -3,6 +3,8 @@ package com.vivenotes.ui.ribbon.draw
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +17,9 @@ import com.vivenotes.ui.icons.DrawSymbols
 import com.vivenotes.ui.ribbon.PendingRibbonAction
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonToggle
+import com.vivenotes.ui.ribbon.RibbonCommand
+import com.vivenotes.ui.components.ScaledDropdownMenu
+import com.vivenotes.data.EraserMode
 import com.vivenotes.workspace.InkTool
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.ShapeToolSettings
@@ -24,6 +29,8 @@ object DrawRibbonTags {
     const val PenTool = "workspace-pen-tool"
     const val HighlighterTool = "workspace-highlighter-tool"
     const val EraserTool = "workspace-eraser-tool"
+    const val EraserModePicker = "workspace-eraser-mode"
+    fun eraserMode(mode: EraserMode) = "workspace-eraser-mode-${mode.name}"
     const val ObjectLasso = "workspace-object-lasso"
 }
 
@@ -35,6 +42,7 @@ internal fun DrawRibbon(
     onShapeSettingsChange: (ShapeToolSettings) -> Unit = {},
 ) {
     var shapeMenuOpen by remember { mutableStateOf(false) }
+    var eraserMenuOpen by remember { mutableStateOf(false) }
     RibbonBar {
         RibbonToggle(
             label = "Select",
@@ -74,6 +82,17 @@ internal fun DrawRibbon(
             modifier = Modifier.testTag(DrawRibbonTags.ObjectLasso),
             icon = { Icon(DrawSymbols.Lasso, contentDescription = null, modifier = Modifier.size(18.dp)) },
         )
+        if (state.inkTool == InkTool.Eraser) Box {
+            RibbonCommand("${state.eraserMode.label} eraser", onClick = { eraserMenuOpen = true }, dropdown = true,
+                modifier = Modifier.testTag(DrawRibbonTags.EraserModePicker))
+            ScaledDropdownMenu(eraserMenuOpen, { eraserMenuOpen = false }) {
+                EraserMode.entries.forEach { mode ->
+                    DropdownMenuItem(text = { Text(if (mode == EraserMode.Normal) "Normal — cut through ink" else "Object — whole stroke") },
+                        onClick = { eraserMenuOpen = false; onStateChange { it.setEraserMode(mode) } },
+                        modifier = Modifier.testTag(DrawRibbonTags.eraserMode(mode)))
+                }
+            }
+        }
         Box {
             RibbonToggle(
                 label = "Shape",

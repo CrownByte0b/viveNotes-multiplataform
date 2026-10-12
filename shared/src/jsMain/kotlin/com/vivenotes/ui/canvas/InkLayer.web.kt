@@ -13,4 +13,5 @@ internal actual fun PlatformInkLayer(
     page: InkPage?, canvasSize: DpSize, canvasInk: Color, visibleWindow: (() -> Rect)?,
     pageId: String, tool: InkTool?, titleFloorDp: Float, onEdit: (InkEdit, InkPage) -> Unit,
     zoom: Float,
+    eraserMode: com.vivenotes.data.EraserMode,
 ) { /* Ink authoring and rendering are desktop services. */ }

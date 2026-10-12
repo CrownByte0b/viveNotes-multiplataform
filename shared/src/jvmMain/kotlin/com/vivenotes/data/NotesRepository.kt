@@ -759,6 +759,38 @@ class NotesRepository(
                 // Sync may already have tombstoned or purged a target. Keep that an idempotent no-op.
                 eraseStrokes(rows.filter { it.deletedAt == null }.map { it.id })
             }
+            is InkEdit.RestoreStrokes -> db.withTransaction {
+                require(edit.source.pageId == pageId) { "Stroke restore belongs to another page" }
+                val rows = edit.ids.toList().chunked(SQLITE_BIND_CHUNK).flatMap { ink.byIds(it) }
+                require(rows.all { it.pageId == pageId }) { "Restore targets must belong to this page" }
+                restoreStrokes(rows.filter { it.deletedAt != null }.map { it.id })
+            }
+            is InkEdit.PartialErase -> db.withTransaction {
+                val row = edit.row
+                require(row.pageId == pageId) { "Erase belongs to another page" }
+                require(row.mode == EraserMode.Normal && row.deletedAt == null && row.sizeDp.isFinite() && row.sizeDp > 0f) {
+                    "Expected a live Normal erase mask"
+                }
+                require(edit.targetIds.isNotEmpty()) { "Erase needs explicit targets" }
+                val targets = edit.targetIds.toList().chunked(SQLITE_BIND_CHUNK).flatMap { ink.byIds(it) }
+                require(targets.all { it.pageId == pageId }) { "Erase targets must belong to this page" }
+                val existing = inkErases.byIds(listOf(row.id)).singleOrNull()
+                if (existing == null) {
+                    if (edit.active) {
+                        val mask = com.vivenotes.byteink.kit.StoredInkErase(row.id, row.pageId, row.mode.name,
+                            row.sizeDp, row.points, row.enc, row.createdAt, targetIds = edit.targetIds.toList())
+                        requireNotNull(com.vivenotes.byteink.kit.ViveInkCodec.decodeErase(mask)) { "Unreadable erase mask" }
+                        addPartialErase(row, edit.targetIds.toList())
+                    }
+                } else {
+                    require(existing.pageId == pageId && existing.mode == row.mode && existing.sizeDp == row.sizeDp &&
+                        existing.enc == row.enc && existing.createdAt == row.createdAt && existing.points.contentEquals(row.points) &&
+                        inkErases.targetsForErases(listOf(row.id)).map { it.strokeId }.toSet() == edit.targetIds) {
+                        "Erase operation payload is immutable"
+                    }
+                    if ((existing.deletedAt == null) != edit.active) setPartialEraseActive(row.id, edit.active)
+                }
+            }
         }
     }
 
@@ -766,7 +798,9 @@ class NotesRepository(
         val strokes = inkFor(pageId)
         val erases = partialErasesFor(pageId)
         val moves = inkMovesFor(pageId)
-        return withContext(Dispatchers.Default) { InkPageReader.read(pageId, strokes, erases, moves) }
+        val operationClock = latestInkOperationAt(pageId)
+        return withContext(Dispatchers.Default) { InkPageReader.read(pageId, strokes, erases, moves)
+            .copy(latestOperationAt = operationClock) }
     }
 
     /** Appends one stroke. Strokes are immutable, so this is the only way ink is ever written. */

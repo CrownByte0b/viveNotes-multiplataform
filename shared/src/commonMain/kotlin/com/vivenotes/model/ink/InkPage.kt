@@ -57,4 +57,6 @@ data class InkPage(
     val strokes: List<VisibleInkStroke>,
     val operations: List<InkPageOperation> = emptyList(),
     val geometry: InkPageGeometry? = null,
+    /** Includes inactive operations so undo never resets the ordering clock. */
+    val latestOperationAt: Long = operations.maxOfOrNull { it.createdAt } ?: 0L,
 )

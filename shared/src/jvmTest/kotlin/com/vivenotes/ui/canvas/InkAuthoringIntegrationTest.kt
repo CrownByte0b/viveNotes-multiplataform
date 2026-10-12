@@ -45,7 +45,7 @@ class InkAuthoringIntegrationTest {
         val edits = mutableListOf<InkEdit>()
         setContent {
             Box(Modifier.size(128.dp).background(Color.White).testTag("frame")) {
-                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = tool.value,
+                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = tool.value, eraserMode = com.vivenotes.data.EraserMode.Object,
                     onEdit = { edit, rendered -> edits += edit; page.value = rendered })
             }
         }
@@ -140,7 +140,7 @@ class InkAuthoringIntegrationTest {
         setContent {
             Box(Modifier.size(128.dp).testTag("cancel-frame")) {
                 InkLayer(InkPage("page", emptyList()), DpSize(128.dp, 128.dp), Color.Black,
-                    tool = tool.value, onEdit = { edit, _ -> edits += edit })
+                    tool = tool.value, eraserMode = com.vivenotes.data.EraserMode.Object, onEdit = { edit, _ -> edits += edit })
             }
         }
         onNodeWithTag(INK_LAYER_TAG).performMouseInput {

@@ -18,13 +18,15 @@ internal fun InkLayer(
     pageId: String = page?.pageId.orEmpty(), tool: InkTool? = null,
     titleFloorDp: Float = 0f, onEdit: (InkEdit, InkPage) -> Unit = { _, _ -> },
     zoom: Float = 1f,
-) = PlatformInkLayer(page, canvasSize, canvasInk, visibleWindow, pageId, tool, titleFloorDp, onEdit, zoom)
+    eraserMode: com.vivenotes.data.EraserMode = com.vivenotes.data.EraserMode.Normal,
+) = PlatformInkLayer(page, canvasSize, canvasInk, visibleWindow, pageId, tool, titleFloorDp, onEdit, zoom, eraserMode)
 
 @Composable
 internal expect fun PlatformInkLayer(
     page: InkPage?, canvasSize: DpSize, canvasInk: Color, visibleWindow: (() -> Rect)?,
     pageId: String, tool: InkTool?, titleFloorDp: Float, onEdit: (InkEdit, InkPage) -> Unit,
     zoom: Float,
+    eraserMode: com.vivenotes.data.EraserMode,
 )
 
 internal fun InkPage.contentEdge(): Offset = geometry?.let { Offset(it.rightDp, it.bottomDp) }

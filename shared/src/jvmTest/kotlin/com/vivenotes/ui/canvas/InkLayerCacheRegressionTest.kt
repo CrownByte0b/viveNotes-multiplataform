@@ -131,7 +131,7 @@ class InkLayerCacheRegressionTest {
         setContent {
             CompositionLocalProvider(LocalInkLayerDiagnostics provides diagnostics) {
                 Box(Modifier.size(128.dp).background(Color.White).testTag(FRAME)) {
-                    InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser,
+                    InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser, eraserMode = com.vivenotes.data.EraserMode.Object,
                         onEdit = { edit, updated -> edits += edit; page.value = updated })
                 }
             }

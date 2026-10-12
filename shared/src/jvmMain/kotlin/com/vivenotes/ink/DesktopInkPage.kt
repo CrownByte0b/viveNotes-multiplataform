@@ -26,9 +26,13 @@ internal class DesktopInkPage private constructor(
     val additions: DesktopInkSegment,
     val excludedRows: Set<String>,
     private val bounds: InkBounds?,
+    val sourceStrokes: List<PageStroke>,
+    val operations: List<DecodedInkOperation>,
 ) : InkPageGeometry {
-    constructor(projections: List<PageStroke>, sourceIds: Collection<String> = projections.map { it.id }) :
-        this(DesktopInkSegment(projections, sourceIds), EMPTY_SEGMENT, emptySet(), projections.mapNotNull { it.pageBounds }.unionBounds())
+    constructor(projections: List<PageStroke>, sourceIds: Collection<String> = projections.map { it.id },
+        sourceStrokes: List<PageStroke> = projections, operations: List<DecodedInkOperation> = emptyList()) :
+        this(DesktopInkSegment(projections, sourceIds), EMPTY_SEGMENT, emptySet(), projections.mapNotNull { it.pageBounds }.unionBounds(),
+            Collections.unmodifiableList(ArrayList(sourceStrokes)), Collections.unmodifiableList(ArrayList(operations)))
 
     override val rightDp: Float get() = bounds?.right ?: 0f
     override val bottomDp: Float get() = bounds?.bottom ?: 0f
@@ -52,12 +56,13 @@ internal class DesktopInkPage private constructor(
             if (removed.isEmpty()) bounds else base.projections.filterNot { it.id in excluded }.mapNotNull { it.pageBounds }.unionBounds()
         } else base.projections.filterNot { it.id in excluded }.mapNotNull { it.pageBounds }.unionBounds()
         val extent = listOfNotNull(baseBounds, tail.bounds).unionBounds()
+        val sources = appendInk(if (removed.isEmpty()) sourceStrokes else sourceStrokes.filterNot { it.id in removed }, added)
         if (tail.projections.size >= ADDITION_LIMIT || excluded.size >= TOMBSTONE_LIMIT) {
             val live = base.projections.filterNot { it.id in excluded } + tail.projections
-            val sources = base.sourceIds.filterNot { it in excluded } + tail.sourceIds
-            return DesktopInkPage(live, sources)
+            val sourceIds = base.sourceIds.filterNot { it in excluded } + tail.sourceIds
+            return DesktopInkPage(live, sourceIds, sources, operations)
         }
-        return DesktopInkPage(base, tail, excluded, extent)
+        return DesktopInkPage(base, tail, excluded, extent, sources, operations)
     }
 
     companion object {
@@ -68,6 +73,8 @@ internal class DesktopInkPage private constructor(
 }
 
 internal class DesktopInkQueries(private val page: DesktopInkPage) {
+    fun touching(mask: Stroke): List<PageStroke> =
+        page.base.index.touching(mask).filterNot { it.id in page.excludedRows } + page.additions.index.touching(mask)
     fun at(point: InkPoint, reach: Float): List<PageStroke> =
         page.base.index.at(point, reach).filterNot { it.id in page.excludedRows } + page.additions.index.at(point, reach)
     fun crossing(from: InkPoint, to: InkPoint, width: Float): List<PageStroke> =
@@ -113,7 +120,8 @@ internal fun InkPage.desktopGeometry(): DesktopInkPage = geometry as? DesktopInk
                 row.targetIds, emptySet(), row.dxDp, row.dyDp), row.id, pageId, row.createdAt).points, ViveInkCodec.MOVE_ENCODING,
             row.createdAt, targetIds = row.targetIds.toList())
     }
-    DesktopInkPage(ViveInkPage.load(rows, erases, moves).strokes, strokes.map { it.id })
+    val loaded = ViveInkPage.load(rows, erases, moves)
+    DesktopInkPage(loaded.strokes, strokes.map { it.id }, loaded.sourceStrokes, loaded.operations)
 }
 
 internal fun List<InkSample>.inputs(): MutableStrokeInputBatch = MutableStrokeInputBatch().apply {
@@ -125,6 +133,20 @@ internal fun InkPage.withDesktopEdit(edit: InkEdit): InkPage = withDesktopEdits(
 
 internal fun InkPage.withDesktopEdits(edits: List<InkEdit>): InkPage {
     if (edits.isEmpty()) return this
+    if (edits.any { it is InkEdit.PartialErase || it is InkEdit.RestoreStrokes }) {
+        var page = this
+        val rows = ArrayList<InkEdit>()
+        fun flushRows() {
+            if (rows.isNotEmpty()) { page = page.withDesktopEdits(rows.toList()); rows.clear() }
+        }
+        for (edit in edits) when (edit) {
+            is InkEdit.PartialErase -> { flushRows(); page = page.withPartialErase(edit) }
+            is InkEdit.RestoreStrokes -> { flushRows(); page = page.withRestoredStrokes(edit) }
+            else -> rows.add(edit)
+        }
+        flushRows()
+        return page
+    }
     val original = desktopGeometry()
     val added = LinkedHashMap<String, Pair<VisibleInkStroke, PageStroke>>()
     val removed = HashSet<String>()
@@ -142,6 +164,7 @@ internal fun InkPage.withDesktopEdits(edits: List<InkEdit>): InkPage {
             removed.addAll(edit.ids)
             edit.ids.forEach(added::remove)
         }
+        is InkEdit.PartialErase, is InkEdit.RestoreStrokes -> error("Operation edits must be replayed in order")
     }
     if (added.isEmpty() && removed.isEmpty()) return this
     val geometry = original.withChanges(added.values.map { it.second }, removed)
@@ -150,16 +173,52 @@ internal fun InkPage.withDesktopEdits(edits: List<InkEdit>): InkPage {
     return copy(strokes = visible, geometry = geometry)
 }
 
-private class AppendedInkList(val base: List<VisibleInkStroke>, val tail: List<VisibleInkStroke>) : AbstractList<VisibleInkStroke>() {
+private fun InkPage.withPartialErase(edit: InkEdit.PartialErase): InkPage {
+    require(edit.row.pageId == pageId) { "Erase belongs to another page" }
+    val native = desktopGeometry()
+    if (edit.active == native.operations.any { it.id == edit.row.id }) return this
+    val operations = native.operations.filterNot { it.id == edit.row.id }.toMutableList()
+    if (edit.active) {
+        val row = edit.row
+        val stored = StoredInkErase(row.id, pageId, row.mode.name, row.sizeDp, row.points, row.enc,
+            row.createdAt, targetIds = edit.targetIds.toList())
+        val decoded = ViveInkPage.load(emptyList(), listOf(stored), emptyList()).operations.single()
+        operations.add(decoded)
+    }
+    return replaySources(native.sourceStrokes, operations).copy(
+        latestOperationAt = maxOf(latestOperationAt, edit.row.createdAt))
+}
+
+private fun InkPage.withRestoredStrokes(edit: InkEdit.RestoreStrokes): InkPage {
+    require(edit.source.pageId == pageId) { "Stroke restore belongs to another page" }
+    val native = desktopGeometry()
+    val restored = edit.source.desktopGeometry().sourceStrokes
+    val current = native.sourceStrokes.associateBy { it.id }
+    val originalIds = restored.mapTo(HashSet()) { it.id }
+    val sources = restored.mapNotNull { current[it.id] ?: it.takeIf { it.id in edit.ids } } +
+        native.sourceStrokes.filterNot { it.id in originalIds }
+    val visible = strokes.associateBy { it.id }
+    val portable = (edit.source.strokes.mapNotNull { source -> visible[source.id]
+        ?: source.takeIf { it.id in edit.ids } } + strokes.filterNot { it.id in originalIds })
+    return copy(strokes = portable).replaySources(sources, native.operations)
+}
+
+private fun InkPage.replaySources(sources: List<PageStroke>, operations: List<DecodedInkOperation>): InkPage =
+    copy(geometry = DesktopInkPage(ViveInkPage.replay(sources, operations), sources.map { it.id }, sources, operations),
+        operations = operations.sortedWith(compareBy(DecodedInkOperation::createdAt, DecodedInkOperation::id)).mapNotNull { it.portableOperation() })
+
+private class AppendedInkList<T>(val base: List<T>, val tail: List<T>) : AbstractList<T>() {
     override val size: Int get() = base.size + tail.size
-    override fun get(index: Int): VisibleInkStroke {
+    override fun get(index: Int): T {
         checkElementIndex(index, size)
         return if (index < base.size) base[index] else tail[index - base.size]
     }
     private fun checkElementIndex(index: Int, size: Int) { if (index !in 0 until size) throw IndexOutOfBoundsException("index: $index, size: $size") }
 }
 
-private fun appendPortable(base: List<VisibleInkStroke>, tail: List<VisibleInkStroke>): List<VisibleInkStroke> {
+private fun appendPortable(base: List<VisibleInkStroke>, tail: List<VisibleInkStroke>): List<VisibleInkStroke> = appendInk(base, tail)
+
+private fun <T> appendInk(base: List<T>, tail: List<T>): List<T> {
     if (tail.isEmpty()) return base
     val result = if (base is AppendedInkList) AppendedInkList(base.base, base.tail + tail) else AppendedInkList(base, tail)
     return if (result.tail.size >= DesktopInkPage.ADDITION_LIMIT) result.toList() else result
