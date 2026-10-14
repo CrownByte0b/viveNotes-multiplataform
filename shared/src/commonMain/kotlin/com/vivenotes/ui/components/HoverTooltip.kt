@@ -18,6 +18,7 @@ import androidx.compose.material3.TooltipState
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -56,6 +57,8 @@ private class ImmediateTooltipMotionScheme(private val delegate: MotionScheme) :
 @OptIn(ExperimentalMaterial3Api::class)
 internal class DelayedTooltipState(private val delegate: TooltipState) : TooltipState by delegate {
     private var request = 0
+    private var openRequest: Int? = null
+    internal val hasOpenRequest: Boolean get() = openRequest != null || isVisible
 
     /** A finger is down on the control. */
     var touching = false
@@ -71,19 +74,26 @@ internal class DelayedTooltipState(private val delegate: TooltipState) : Tooltip
             return
         }
         val current = ++request
-        if (mutatePriority == MutatePriority.UserInput || mutatePriority == MutatePriority.PreventUserInput) {
-            delay(HoverTooltipDelayMillis)
+        openRequest = current
+        try {
+            if (mutatePriority == MutatePriority.UserInput || mutatePriority == MutatePriority.PreventUserInput) {
+                delay(HoverTooltipDelayMillis)
+            }
+            if (current == request) delegate.show(mutatePriority)
+        } finally {
+            if (openRequest == current) openRequest = null
         }
-        if (current == request) delegate.show(mutatePriority)
     }
 
     override fun dismiss() {
         request++
+        openRequest = null
         delegate.dismiss()
     }
 
     override fun onDispose() {
         request++
+        openRequest = null
         delegate.onDispose()
     }
 }
@@ -115,6 +125,11 @@ fun HoverTooltip(
     val motionScheme = MaterialTheme.motionScheme
     val tooltipMotion = remember(motionScheme) { ImmediateTooltipMotionScheme(motionScheme) }
     val state = remember(materialState) { DelayedTooltipState(materialState) }
+    val dismissals = LocalTooltipDismissals.current
+    DisposableEffect(dismissals, state) {
+        dismissals?.register(state)
+        onDispose { dismissals?.unregister(state) }
+    }
     CompositionLocalProvider(LocalDensity provides layerDensity) {
         MaterialTheme(motionScheme = tooltipMotion) {
             TooltipBox(

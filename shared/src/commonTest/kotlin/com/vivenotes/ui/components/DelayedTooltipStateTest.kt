@@ -42,6 +42,46 @@ class DelayedTooltipStateTest {
         assertFalse(delegate.isVisible)
     }
 
+    @Test
+    fun escapeCancelsAllPendingTooltipsWithoutUsingUpPanelDismissal() = runTest {
+        val registry = TooltipDismissals()
+        val states = List(2) { DelayedTooltipState(FakeTooltipState()).also(registry::register) }
+        states.forEach { launch { it.show(MutatePriority.UserInput) } }
+        runCurrent()
+        assertTrue(states.all { it.hasOpenRequest })
+        assertFalse(registry.dismiss())
+        advanceTimeBy(HoverTooltipDelayMillis + 1)
+        runCurrent()
+        assertTrue(states.none { it.isVisible || it.hasOpenRequest })
+    }
+
+    @Test
+    fun escapeDismissesEveryVisibleTooltipAndDisposedOnesAreUnregistered() = runTest {
+        val registry = TooltipDismissals()
+        val states = List(2) { DelayedTooltipState(FakeTooltipState()).also(registry::register) }
+        states.forEach { launch { it.show(MutatePriority.Default) } }
+        runCurrent()
+        assertTrue(states.all { it.isVisible })
+        assertTrue(registry.dismiss())
+        assertTrue(states.none { it.isVisible })
+        assertFalse(registry.dismiss())
+
+        registry.unregister(states.first())
+        states.first().show(MutatePriority.Default)
+        assertFalse(registry.dismiss())
+        assertTrue(states.first().isVisible)
+    }
+
+    @Test
+    fun aCancelledHoverDoesNotLeaveAPendingRequest() = runTest {
+        val state = DelayedTooltipState(FakeTooltipState())
+        val job = launch { state.show(MutatePriority.UserInput) }
+        runCurrent()
+        job.cancel()
+        runCurrent()
+        assertFalse(state.hasOpenRequest)
+    }
+
     private class FakeTooltipState : TooltipState {
         override val transition = MutableTransitionState(false)
         override val isVisible: Boolean get() = transition.targetState

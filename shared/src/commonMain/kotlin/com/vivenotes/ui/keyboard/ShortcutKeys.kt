@@ -47,6 +47,7 @@ internal class ShortcutKeys(private val time: TimeSource = TimeSource.Monotonic)
     private val held = mutableMapOf<Key, TimeMark>()
     private var repeat = false
     private var swallowTyped = false
+    private val dismissedKeys = mutableSetOf<Key>()
 
     /** True when [event] is to be used up here: the typed character of a chord already handled. */
     fun observe(event: KeyEvent): Boolean {
@@ -54,15 +55,30 @@ internal class ShortcutKeys(private val time: TimeSource = TimeSource.Monotonic)
             KeyEventType.KeyDown -> {
                 repeat = held[event.key]?.let { it.elapsedNow() < RepeatGap } == true
                 held[event.key] = time.markNow()
+                if (!repeat) dismissedKeys.remove(event.key)
                 swallowTyped = false
             }
-            KeyEventType.KeyUp -> held.remove(event.key)
+            KeyEventType.KeyUp -> {
+                held.remove(event.key)
+                dismissedKeys.remove(event.key)
+            }
             else -> if (swallowTyped) {
                 swallowTyped = false
                 return true
             }
         }
         return false
+    }
+
+    /** Bare Escape dismisses transient UI before configurable commands, once per physical press. */
+    fun dismiss(event: KeyEvent, dismiss: () -> Boolean): Boolean {
+        if (event.type != KeyEventType.KeyDown || event.key != Key.Escape ||
+            event.isCtrlPressed || event.isAltPressed || event.isMetaPressed || event.isShiftPressed) return false
+        if (repeat) return event.key in dismissedKeys
+        if (!dismiss()) return false
+        dismissedKeys += event.key
+        swallowTyped = true
+        return true
     }
 
     /**

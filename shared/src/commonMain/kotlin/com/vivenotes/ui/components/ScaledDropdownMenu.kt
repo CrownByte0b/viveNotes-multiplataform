@@ -18,7 +18,8 @@ internal fun ScaledDropdownMenu(
     val contentDensity = LocalDensity.current
     val layerDensity = LocalPopupLayerDensity.current ?: contentDensity
     CompositionLocalProvider(LocalDensity provides layerDensity) {
-        DropdownMenu(expanded = expanded, onDismissRequest = onDismissRequest, modifier = modifier) {
+        DropdownMenu(expanded = expanded, onDismissRequest = onDismissRequest,
+            modifier = modifier.dismissPopupOnEscape(onDismissRequest)) {
             CompositionLocalProvider(LocalDensity provides contentDensity) { content() }
         }
     }

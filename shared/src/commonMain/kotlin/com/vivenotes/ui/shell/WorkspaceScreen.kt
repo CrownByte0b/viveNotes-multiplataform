@@ -158,6 +158,8 @@ import com.vivenotes.ui.canvas.linkAtPoint
 import com.vivenotes.ui.canvas.rememberPictureAssets
 import com.vivenotes.ui.canvas.todoAt
 import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.components.LocalTooltipDismissals
+import com.vivenotes.ui.components.TooltipDismissals
 import com.vivenotes.ui.components.LocalPopupLayerDensity
 import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.TooltipIconButton
@@ -344,6 +346,8 @@ fun WorkspaceScreen(
     // without one: at launch, and whenever the focused element goes (a discarded text box, a
     // closed dialog), the canvas takes the focus and the keyboard shortcuts keep working.
     val canvasFocusRequester = remember { FocusRequester() }
+    val tooltipDismissals = remember { TooltipDismissals() }
+    val shortcutKeys = remember { ShortcutKeys() }
     var workspaceHasFocus by remember { mutableStateOf(false) }
     LaunchedEffect(workspaceHasFocus) {
         if (workspaceHasFocus) return@LaunchedEffect
@@ -353,48 +357,53 @@ fun WorkspaceScreen(
     val darkTheme = effectiveSettings.darkTheme ?: systemDarkTheme ?:
         (MaterialTheme.colorScheme.background.luminance() < 0.45f)
     ViveNotesTheme(darkTheme = darkTheme) {
-        Box(modifier.fillMaxSize().onFocusChanged { workspaceHasFocus = it.hasFocus }.focusGroup()) {
-            CompositionLocalProvider(
-                LocalDensity provides effectiveSettings.density(baseDensity),
-                LocalPopupLayerDensity provides baseDensity,
-                LocalKeyBindings provides bindings,
-            ) {
-                WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
-                    onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
-                    view = view, themePreference = effectiveSettings.darkTheme, onViewChange = { next ->
-                        view = next
-                        onViewSettingsChange(next)
-                    }, bindings = bindings, onBindingsChange = { next ->
-                        bindings = next
-                        onKeyBindingsChange(next)
-                    }, input = input, onInputChange = { next ->
-                        input = next
-                        onInputSettingsChange(next)
-                    }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions,
-                    onEditorDefaultsChange = onEditorDefaultsChange,
-                    onShapeSettingsChange = onShapeSettingsChange,
-                    accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
-                    onAbout = { aboutOpen = true }, aiModels = aiModels, mathRuntime = mathRuntime,
-                    search = search, onOpenSearchPage = onOpenSearchPage)
-            }
-            if (accountOpen) AccountScreen(accountService, accountModel, onBack = { accountOpen = false })
-            if (aboutOpen) AboutDialog(appVersion, onDismiss = { aboutOpen = false })
-            previewSettings?.let { draft ->
-                InterfaceDialog(
-                    settings = draft,
-                    onChange = { previewSettings = it.normalized() },
-                    onApply = {
-                        val chosen = previewSettings ?: draft
-                        if (chosen.darkTheme != interfaceSettings.darkTheme && view.canvasDark != null) {
-                            val unpinned = view.copy(canvasDark = null, canvasThemeDark = null)
-                            view = unpinned
-                            onViewSettingsChange(unpinned)
-                        }
-                        onInterfaceSettingsChange(chosen)
-                        previewSettings = null
-                    },
-                    onDismiss = { previewSettings = null },
-                )
+        CompositionLocalProvider(LocalTooltipDismissals provides tooltipDismissals) {
+            Box(modifier.fillMaxSize().onFocusChanged { workspaceHasFocus = it.hasFocus }.focusGroup()
+                .onPreviewKeyEvent { event ->
+                    shortcutKeys.observe(event) || shortcutKeys.dismiss(event, tooltipDismissals::dismiss)
+                }) {
+                CompositionLocalProvider(
+                    LocalDensity provides effectiveSettings.density(baseDensity),
+                    LocalPopupLayerDensity provides baseDensity,
+                    LocalKeyBindings provides bindings,
+                ) {
+                    WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
+                        onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
+                        view = view, themePreference = effectiveSettings.darkTheme, onViewChange = { next ->
+                            view = next
+                            onViewSettingsChange(next)
+                        }, bindings = bindings, onBindingsChange = { next ->
+                            bindings = next
+                            onKeyBindingsChange(next)
+                        }, input = input, onInputChange = { next ->
+                            input = next
+                            onInputSettingsChange(next)
+                        }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions,
+                        onEditorDefaultsChange = onEditorDefaultsChange,
+                        onShapeSettingsChange = onShapeSettingsChange,
+                        accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
+                        onAbout = { aboutOpen = true }, aiModels = aiModels, mathRuntime = mathRuntime,
+                        search = search, onOpenSearchPage = onOpenSearchPage, shortcutKeys = shortcutKeys)
+                }
+                if (accountOpen) AccountScreen(accountService, accountModel, onBack = { accountOpen = false })
+                if (aboutOpen) AboutDialog(appVersion, onDismiss = { aboutOpen = false })
+                previewSettings?.let { draft ->
+                    InterfaceDialog(
+                        settings = draft,
+                        onChange = { previewSettings = it.normalized() },
+                        onApply = {
+                            val chosen = previewSettings ?: draft
+                            if (chosen.darkTheme != interfaceSettings.darkTheme && view.canvasDark != null) {
+                                val unpinned = view.copy(canvasDark = null, canvasThemeDark = null)
+                                view = unpinned
+                                onViewSettingsChange(unpinned)
+                            }
+                            onInterfaceSettingsChange(chosen)
+                            previewSettings = null
+                        },
+                        onDismiss = { previewSettings = null },
+                    )
+                }
             }
         }
     }
@@ -429,6 +438,7 @@ private fun WorkspaceContent(
     mathRuntime: MathRuntime?,
     search: ContentSearchService?,
     onOpenSearchPage: ((String, String) -> Unit)?,
+    shortcutKeys: ShortcutKeys,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
@@ -484,7 +494,6 @@ private fun WorkspaceContent(
         }
     }
     val currentBindings by rememberUpdatedState(bindings)
-    val shortcutKeys = remember { ShortcutKeys() }
     val shortcuts = WorkspaceShortcuts({ currentState }, onStateChange, ::applyEditorCommand, navigation,
         viewActions, TextClipboardActions(LocalClipboardManager.current, ::applyEditorCommand),
         onSearch = if (search == null) null else { {
@@ -500,7 +509,17 @@ private fun WorkspaceContent(
             // Shortcuts are dispatched from one table (Settings → Hardware lists and rebinds it):
             // here ahead of the focused control, after it below, and in the text box being edited.
             .onPreviewKeyEvent { event ->
-                shortcutKeys.observe(event) ||
+                shortcutKeys.dismiss(event) {
+                    if (state.filePane.pane != null && fileActions != null) {
+                        fileActions.closePane()
+                        // A File pane may be covering a previously selected settings/search pane.
+                        openPane = null
+                        true
+                    } else if (openPane != null) {
+                        openPane = null
+                        true
+                    } else false
+                } ||
                     shortcutKeys.dispatch(event, currentBindings, ShortcutScope.Anywhere, shortcuts::run)
             }
             .onKeyEvent { event ->

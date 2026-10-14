@@ -115,7 +115,7 @@ fun ContextMenu(
                     // against the dark theme, so the edge carries the separation.
                     DropdownMenuGroup(
                         shapes = MenuDefaults.groupShapes(shape = shape, inactiveShape = shape),
-                        modifier = modifier,
+                        modifier = modifier.dismissPopupOnEscape(onDismiss),
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         contentPadding = PaddingValues(vertical = 4.dp),

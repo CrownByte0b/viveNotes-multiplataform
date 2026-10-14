@@ -114,4 +114,35 @@ class ShortcutKeysTest {
         assertTrue(Key.CtrlLeft.isModifier() && Key.ShiftRight.isModifier() && Key.MetaLeft.isModifier())
         assertFalse(Key.A.isModifier())
     }
+
+    @Test
+    fun escapeDismissalConsumesRepeatsUntilReleaseAndLeavesOtherChordsAlone() {
+        val keys = ShortcutKeys()
+        var dismissals = 0
+        var selection = 0
+        fun press(event: KeyEvent): Boolean {
+            keys.observe(event)
+            return keys.dismiss(event) { dismissals++; true } ||
+                keys.dispatch(event, KeyBindings.Default, ShortcutScope.Anywhere) { selection++; true }
+        }
+        assertTrue(press(down(Key.Escape)))
+        assertTrue(press(down(Key.Escape)))
+        assertEquals(1, dismissals)
+        assertEquals(0, selection, "holding Escape must not dismiss the next UI layer")
+        keys.observe(up(Key.Escape))
+        assertTrue(press(down(Key.Escape)))
+        assertEquals(2, dismissals)
+        keys.observe(up(Key.Escape))
+        assertFalse(press(down(Key.Escape, ctrl = true)))
+        assertEquals(2, dismissals)
+    }
+
+    @Test
+    fun escapeWithoutTransientUiStillRunsTheConfiguredToolCommand() {
+        val event = down(Key.Escape)
+        keys.observe(event)
+        assertFalse(keys.dismiss(event) { false })
+        assertTrue(keys.dispatch(event, KeyBindings.Default, ShortcutScope.Anywhere) { ran += it; true })
+        assertEquals(listOf(ShortcutAction.SelectTool), ran)
+    }
 }
