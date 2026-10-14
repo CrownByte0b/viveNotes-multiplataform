@@ -14,7 +14,8 @@ import com.vivenotes.model.newId
 
 /** Observations stay on the input thread; immutable requests are modeled on a worker. */
 internal class DesktopPartialEraseGesture(val page: InkPage, private val density: Float,
-    private val sizeDp: Float = 24f, now: Long = System.currentTimeMillis()) {
+    private val sizeDp: Float = 24f, now: Long = System.currentTimeMillis(),
+    private val mode: EraserMode = EraserMode.Normal) {
     private val id = newId()
     private val createdAt = maxOf(now, Math.addExact(page.latestOperationAt, 1L))
     private val inputs = MutableStrokeInputBatch()
@@ -33,21 +34,21 @@ internal class DesktopPartialEraseGesture(val page: InkPage, private val density
         return true
     }
 
-    fun request(): PartialEraseRequest = PartialEraseRequest(page, id, createdAt, sizeDp, inputs.toImmutable())
+    fun request(): PartialEraseRequest = PartialEraseRequest(page, id, createdAt, sizeDp, inputs.toImmutable(), mode)
 }
 
 internal class PartialEraseRequest(val page: InkPage, val id: String, private val createdAt: Long,
-    private val sizeDp: Float, private val inputs: StrokeInputBatch) {
+    private val sizeDp: Float, private val inputs: StrokeInputBatch, private val mode: EraserMode = EraserMode.Normal) {
     fun onPage(page: InkPage): PartialEraseRequest = if (this.page === page) this else
-        PartialEraseRequest(page, id, maxOf(createdAt, Math.addExact(page.latestOperationAt, 1L)), sizeDp, inputs)
+        PartialEraseRequest(page, id, maxOf(createdAt, Math.addExact(page.latestOperationAt, 1L)), sizeDp, inputs, mode)
 
     fun prepare(): Pair<InkEdit.PartialErase, InkPage>? {
         val stored = ViveInkCodec.encodeErase(ViveBrushes.eraseMask(inputs, sizeDp), id, page.pageId,
-            InkEraseMode.Normal, createdAt, emptyList())
+            if (mode == EraserMode.Normal) InkEraseMode.Normal else InkEraseMode.Object, createdAt, emptyList())
         val mask = requireNotNull(ViveInkCodec.decodeErase(stored))
         val targets = page.desktopGeometry().index.touching(mask).mapTo(LinkedHashSet()) { it.id }
         if (targets.isEmpty()) return null
-        val edit = InkEdit.PartialErase(InkEraseEntity(id, page.pageId, EraserMode.Normal, sizeDp,
+        val edit = InkEdit.PartialErase(InkEraseEntity(id, page.pageId, mode, sizeDp,
             stored.points, stored.enc, createdAt), targets)
         return edit to page.withDesktopEdit(edit)
     }

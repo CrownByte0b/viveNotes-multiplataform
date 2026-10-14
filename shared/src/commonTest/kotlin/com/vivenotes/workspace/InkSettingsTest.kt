@@ -14,15 +14,15 @@ class InkSettingsTest {
     fun widthsAreFiniteAndBoundedAndHighlightersRemainTranslucent() {
         assertEquals(InkSettings(), InkSettings().normalized())
         for (invalid in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
-            assertEquals(3f, InkPenSettings(sizeDp = invalid).normalized().sizeDp)
+            assertEquals(1.5f, InkPenSettings(sizeDp = invalid).normalized().sizeDp)
             assertEquals(18f, InkHighlighterSettings(sizeDp = invalid).normalized().sizeDp)
         }
-        assertEquals(0.5f, InkPenSettings(sizeDp = -1f).normalized().sizeDp)
-        assertEquals(48f, InkPenSettings(sizeDp = 1000f).normalized().sizeDp)
-        assertEquals(2f, InkHighlighterSettings(sizeDp = -1f).normalized().sizeDp)
-        assertEquals(96f, InkHighlighterSettings(sizeDp = 1000f).normalized().sizeDp)
+        assertEquals(1f, InkPenSettings(sizeDp = -1f).normalized().sizeDp)
+        assertEquals(8f, InkPenSettings(sizeDp = 1000f).normalized().sizeDp)
+        assertEquals(6f, InkHighlighterSettings(sizeDp = -1f).normalized().sizeDp)
+        assertEquals(40f, InkHighlighterSettings(sizeDp = 1000f).normalized().sizeDp)
         assertEquals(0xff123456.toInt(), InkPenSettings(colorArgb = 0x00123456).normalized().colorArgb)
-        assertEquals(0x80123456.toInt(), InkHighlighterSettings(colorArgb = 0xff123456.toInt()).normalized().colorArgb)
+        assertEquals(0x66123456, InkHighlighterSettings(colorArgb = 0xff123456.toInt()).normalized().colorArgb)
     }
 
     @Test
@@ -36,7 +36,7 @@ class InkSettingsTest {
     fun preferencesStayIndependentAndDoNotChangeSavedContentOrHistory() {
         val initial = WorkspaceState.demo().toggleInkTool(InkTool.Pen)
         val settings = InkSettings(InkPenSettings(InkBrush.Calligraphy, 7.5f, 0xff3584e4.toInt(), false),
-            InkHighlighterSettings(32f, 0x80e01b24.toInt()))
+            InkHighlighterSettings(32f, 0x66e01b24))
         val changed = initial.setInkSettings(settings)
         assertSame(initial.selectedPage!!.document, changed.selectedPage!!.document)
         assertEquals(initial.structuralUndo, changed.structuralUndo)
@@ -44,7 +44,7 @@ class InkSettingsTest {
         assertEquals(settings, changed.toggleInkTool(InkTool.Highlighter).inkSettings)
         assertEquals(settings, changed.selectPointer().inkSettings)
         assertEquals(settings, changed.selectPage(changed.selectedSection!!.pages.last().id).inkSettings)
-        assertEquals(48f, initial.setInkSettings(settings.copy(pen = settings.pen.copy(sizeDp = 100f))).inkSettings.pen.sizeDp)
+        assertEquals(8f, initial.setInkSettings(settings.copy(pen = settings.pen.copy(sizeDp = 100f))).inkSettings.pen.sizeDp)
     }
 
     @Test

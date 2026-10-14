@@ -63,6 +63,10 @@ internal class DesktopNotes(
     val mathRuntime: UvMathRuntime? = null,
     private val inkStore: InkSettingsFile? = null,
 ) {
+    private val drawMathDelegate = lazy {
+        if (aiModels != null && mathRuntime != null) com.vivenotes.ai.DesktopDrawMath(aiModels, mathRuntime.engine, log) else null
+    }
+    val drawMath: com.vivenotes.ui.ribbon.draw.DrawMath? get() = drawMathDelegate.value
     val search = com.vivenotes.search.DesktopContentSearch(library.repository, library.attachments,
         com.vivenotes.search.SearchProcessPool(log = log), log)
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
@@ -216,6 +220,7 @@ internal class DesktopNotes(
                     maintenance?.cancelAndJoin()
                     // A model download or an install under way stops here; neither leaves a half
                     // package that later reads as installed.
+                    if (drawMathDelegate.isInitialized()) drawMathDelegate.value?.close()
                     aiModels?.close()
                     mathRuntime?.close()
                     search.close()

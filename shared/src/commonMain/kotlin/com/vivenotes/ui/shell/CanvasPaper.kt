@@ -74,6 +74,7 @@ internal fun CanvasPaper(
     window: () -> Rect,
     showMargins: Boolean,
     selectionRect: Pair<Offset, Offset>?,
+    lassoPath: List<Offset> = emptyList(),
 ) {
     Box {
         Spacer(
@@ -110,6 +111,15 @@ internal fun CanvasPaper(
                     },
             )
         }
+        if (lassoPath.isNotEmpty()) Spacer(Modifier.drawBehind {
+            val path = Path().apply {
+                lassoPath.forEachIndexed { index, p ->
+                    if (index == 0) moveTo(p.x.dp.toPx(), p.y.dp.toPx()) else lineTo(p.x.dp.toPx(), p.y.dp.toPx())
+                }
+            }
+            drawPath(path, Color(0xff1b6fa8), style = Stroke(width = 1.5.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))))
+        }.documentExtent(canvasSize))
         selectionRect?.let { (a, b) ->
             Spacer(
                 Modifier

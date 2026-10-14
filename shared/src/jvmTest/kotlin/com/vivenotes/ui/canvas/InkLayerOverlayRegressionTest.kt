@@ -23,11 +23,14 @@ import com.vivenotes.data.InkEdit
 import com.vivenotes.ink.InkPageReader
 import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.ink.toEntity
+import com.vivenotes.workspace.InkSettings
+import com.vivenotes.workspace.InkPenSettings
 import com.vivenotes.workspace.InkTool
 import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class InkLayerOverlayRegressionTest {
+    private val legacyPenSettings = InkSettings(pen = InkPenSettings(sizeDp = 3f, stabilization = 0, holdForStraightLine = false))
     @Test
     fun finishedAppendsKeepBaseSceneIndexAndRasterAndDisposeBothLayers() = runDesktopComposeUiTest(width = 128, height = 128) {
         val tool = ViveInkTool(ViveBrushes.MARKER, colorArgb = 0xffff0000.toInt(), sizeDp = 6f)
@@ -43,7 +46,7 @@ class InkLayerOverlayRegressionTest {
         setContent {
             if (show.value) CompositionLocalProvider(LocalInkLayerDiagnostics provides diagnostics) {
                 Box(Modifier.size(128.dp).background(Color.White).testTag("overlay-frame")) {
-                    InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Pen,
+                    InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, settings = legacyPenSettings, tool = InkTool.Pen,
                         onEdit = { _, updated -> page.value = updated })
                 }
             }
@@ -97,6 +100,7 @@ class InkLayerOverlayRegressionTest {
         }
         runOnIdle { tool.value = InkTool.Eraser }
         frame.performMouseInput { updatePointerTo(Offset(60f, 50f)); press(); release() }
+        waitUntil(timeoutMillis = 5000) { page.value.desktopGeometry().projections.isEmpty() }
         assertEquals(Color.White, frame.captureToImage().toPixelMap()[90, 50])
         runOnIdle { assertTrue(page.value.desktopGeometry().projections.isEmpty()) }
     }

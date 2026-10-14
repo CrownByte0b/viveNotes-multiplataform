@@ -1,126 +1,135 @@
 package com.vivenotes.ui.ribbon.draw
 
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Icon
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.key
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import com.vivenotes.ui.icons.DrawSymbols
-import com.vivenotes.ui.ribbon.PendingRibbonAction
-import com.vivenotes.ui.ribbon.RibbonBar
-import com.vivenotes.ui.ribbon.RibbonToggle
-import com.vivenotes.ui.ribbon.RibbonCommand
-import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.data.EraserMode
-import com.vivenotes.workspace.InkTool
-import com.vivenotes.workspace.WorkspaceState
-import com.vivenotes.workspace.ShapeToolSettings
-import com.vivenotes.workspace.InkSettings
+import com.vivenotes.ui.components.ScaledDropdownMenu
+import com.vivenotes.ui.icons.DocumentSymbols
+import com.vivenotes.ui.icons.DrawSymbols
+import com.vivenotes.ui.ribbon.*
+import com.vivenotes.workspace.*
 
 object DrawRibbonTags {
     const val PointerTool = "workspace-pointer-tool"
     const val PenTool = "workspace-pen-tool"
+    fun pen(index: Int) = if (index == 0) PenTool else "$PenTool-$index"
+    fun penKit(index: Int) = "draw-pen-kit-$index"
     const val HighlighterTool = "workspace-highlighter-tool"
+    const val HighlighterKit = "draw-highlighter-kit"
     const val EraserTool = "workspace-eraser-tool"
     const val EraserModePicker = "workspace-eraser-mode"
     fun eraserMode(mode: EraserMode) = "workspace-eraser-mode-${mode.name}"
     const val ObjectLasso = "workspace-object-lasso"
+    const val ShapeKit = "draw-shape-kit"
+    const val RulerTool = "draw-ruler-tool"
+    const val RulerKit = "draw-ruler-kit"
 }
 
-/** The Draw tab's shape tool shares the canvas selection and clipboard with other Prime Objects. */
 @Composable
 internal fun DrawRibbon(
     state: WorkspaceState,
     onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
     onShapeSettingsChange: (ShapeToolSettings) -> Unit = {},
     onInkSettingsChange: (InkSettings) -> Unit = {},
+    canvasInk: Color = Color.Black,
+    calculatorAvailable: Boolean = false,
+    calculatorOpen: Boolean = false,
+    onToggleCalculator: () -> Unit = {},
 ) {
-    var shapeMenuOpen by remember { mutableStateOf(false) }
-    var eraserMenuOpen by remember { mutableStateOf(false) }
-    RibbonBar {
-        RibbonToggle(
-            label = "Select",
-            selected = state.inkTool == null && !state.textToolArmed && !state.objectLassoArmed && !state.shapeToolArmed,
-            onClick = { onStateChange { it.selectPointer() } },
-            modifier = Modifier.testTag(DrawRibbonTags.PointerTool),
-            icon = { Icon(DrawSymbols.Select, contentDescription = null, modifier = Modifier.size(18.dp)) },
-        )
-        RibbonToggle(
-            label = "Pen", selected = state.inkTool == InkTool.Pen,
-            enabled = state.selectedPage?.let { it.editable && it.inkReady } == true &&
-                !state.notebookTransfer.running && !state.filePane.busy,
-            onClick = { onStateChange { it.toggleInkTool(InkTool.Pen) } },
-            modifier = Modifier.testTag(DrawRibbonTags.PenTool),
-            icon = { Icon(DrawSymbols.Pen, contentDescription = null, modifier = Modifier.size(18.dp)) },
-        )
-        RibbonToggle(
-            label = "Highlighter", selected = state.inkTool == InkTool.Highlighter,
-            enabled = state.selectedPage?.let { it.editable && it.inkReady } == true &&
-                !state.notebookTransfer.running && !state.filePane.busy,
-            onClick = { onStateChange { it.toggleInkTool(InkTool.Highlighter) } },
-            modifier = Modifier.testTag(DrawRibbonTags.HighlighterTool),
-            icon = { Icon(DrawSymbols.Highlighter, contentDescription = null, modifier = Modifier.size(18.dp)) },
-        )
-        RibbonToggle(
-            label = "Eraser", selected = state.inkTool == InkTool.Eraser,
-            enabled = state.selectedPage?.let { it.editable && it.inkReady } == true &&
-                !state.notebookTransfer.running && !state.filePane.busy,
-            onClick = { onStateChange { it.toggleInkTool(InkTool.Eraser) } },
-            modifier = Modifier.testTag(DrawRibbonTags.EraserTool),
-            icon = { Icon(DrawSymbols.Eraser, contentDescription = null, modifier = Modifier.size(18.dp)) },
-        )
-        RibbonToggle(
-            label = "Lasso",
-            selected = state.objectLassoArmed,
-            onClick = { onStateChange { it.toggleObjectLasso() } },
-            modifier = Modifier.testTag(DrawRibbonTags.ObjectLasso),
-            icon = { Icon(DrawSymbols.Lasso, contentDescription = null, modifier = Modifier.size(18.dp)) },
-        )
-        if (state.inkTool == InkTool.Pen || state.inkTool == InkTool.Highlighter) key(state.inkTool) {
-            InkControls(state.inkTool, state.inkSettings) { settings ->
-                onStateChange { it.setInkSettings(settings) }
-                onInkSettingsChange(settings.normalized())
+    var kit by remember(state.selectedPageId) { mutableStateOf<String?>(null) }
+    val enabled = state.selectedPage?.let { it.editable && it.inkReady } == true &&
+        !state.notebookTransfer.running && !state.filePane.busy
+    fun settings(value: InkSettings) {
+        val normalized = value.normalized()
+        onStateChange { it.setInkSettings(normalized) }
+        onInkSettingsChange(normalized)
+    }
+    fun ink(tool: InkTool, index: Int = state.activePenIndex, pane: String) {
+        if (state.inkTool == tool && (tool != InkTool.Pen || state.activePenIndex == index)) kit = pane
+        else { kit = null; onStateChange { it.selectInkTool(tool, index) } }
+    }
+    RibbonBar(spacing = 2.dp) {
+        RibbonToggle("Select", state.inkTool == null && !state.textToolArmed && !state.objectLassoArmed && !state.shapeToolArmed && state.drawPlacement == null,
+            onClick = { kit = null; onStateChange { it.selectPointer() } }, modifier = Modifier.testTag(DrawRibbonTags.PointerTool),
+            icon = { Icon(DrawSymbols.Select, null, Modifier.size(18.dp)) })
+        repeat(3) { index ->
+            val pane = DrawRibbonTags.penKit(index)
+            SplitTool("Pen ${index + 1}", DrawSymbols.Pen, state.inkTool == InkTool.Pen && state.activePenIndex == index,
+                enabled, DrawRibbonTags.pen(index), pane,
+                onClick = { ink(InkTool.Pen, index, pane) },
+                onKit = { onStateChange { it.selectInkTool(InkTool.Pen, index) }; kit = pane },
+                swatch = if (state.inkSettings.pen(index).colorFollowsTheme) canvasInk else Color(state.inkSettings.pen(index).colorArgb)) {
+                ScaledDropdownMenu(kit == pane, { kit = null }) { PenKit(index, state.inkSettings, canvasInk, ::settings) }
             }
         }
-        if (state.inkTool == InkTool.Eraser) Box {
-            RibbonCommand("${state.eraserMode.label} eraser", onClick = { eraserMenuOpen = true }, dropdown = true,
-                modifier = Modifier.testTag(DrawRibbonTags.EraserModePicker))
-            ScaledDropdownMenu(eraserMenuOpen, { eraserMenuOpen = false }) {
-                EraserMode.entries.forEach { mode ->
-                    DropdownMenuItem(text = { Text(if (mode == EraserMode.Normal) "Normal — cut through ink" else "Object — whole stroke") },
-                        onClick = { eraserMenuOpen = false; onStateChange { it.setEraserMode(mode) } },
-                        modifier = Modifier.testTag(DrawRibbonTags.eraserMode(mode)))
-                }
+        SplitTool("Highlighter", DrawSymbols.Highlighter, state.inkTool == InkTool.Highlighter,
+            enabled, DrawRibbonTags.HighlighterTool, DrawRibbonTags.HighlighterKit,
+            onClick = { ink(InkTool.Highlighter, pane = DrawRibbonTags.HighlighterKit) },
+            onKit = { onStateChange { it.selectInkTool(InkTool.Highlighter) }; kit = DrawRibbonTags.HighlighterKit },
+            swatch = Color(state.inkSettings.highlighter.colorArgb).copy(alpha = 1f)) {
+            ScaledDropdownMenu(kit == DrawRibbonTags.HighlighterKit, { kit = null }) { HighlighterKit(state.inkSettings, ::settings) }
+        }
+        SplitTool("Eraser", DrawSymbols.Eraser, state.inkTool == InkTool.Eraser,
+            enabled, DrawRibbonTags.EraserTool, DrawRibbonTags.EraserModePicker,
+            onClick = { ink(InkTool.Eraser, pane = DrawRibbonTags.EraserModePicker) },
+            onKit = { onStateChange { it.selectInkTool(InkTool.Eraser) }; kit = DrawRibbonTags.EraserModePicker }) {
+            ScaledDropdownMenu(kit == DrawRibbonTags.EraserModePicker, { kit = null }) { EraserKit(state.inkSettings, ::settings) }
+        }
+        RibbonToggle("Lasso", state.objectLassoArmed, enabled = enabled,
+            onClick = { kit = null; onStateChange { it.toggleObjectLasso() } }, modifier = Modifier.testTag(DrawRibbonTags.ObjectLasso),
+            icon = { Icon(DrawSymbols.Lasso, null, Modifier.size(18.dp)) })
+        RibbonIcon(DrawSymbols.InsertSpace, "Insert Space", state.drawPlacement == DrawPlacementTool.InsertSpace,
+            enabled, "draw-insert-space") { kit = null; onStateChange { it.selectDrawPlacement(DrawPlacementTool.InsertSpace) } }
+        SplitTool("Shape", DrawSymbols.Shape, state.shapeToolArmed, enabled, ShapeMenuTags.ShapeTool, DrawRibbonTags.ShapeKit,
+            onClick = { if (state.shapeToolArmed) kit = DrawRibbonTags.ShapeKit else { kit = null; onStateChange { it.toggleShapeTool() } } },
+            onKit = { if (!state.shapeToolArmed) onStateChange { it.toggleShapeTool() }; kit = DrawRibbonTags.ShapeKit }) {
+            ShapeMenu(kit == DrawRibbonTags.ShapeKit, state.shapeSettings, { kit = null }) {
+                onStateChange { state -> state.setShapeSettings(it) }; onShapeSettingsChange(it)
             }
         }
-        Box {
-            RibbonToggle(
-                label = "Shape",
-                selected = state.shapeToolArmed,
-                onClick = {
-                    if (state.shapeToolArmed) shapeMenuOpen = !shapeMenuOpen
-                    else onStateChange { it.toggleShapeTool() }
-                },
-                modifier = Modifier.testTag(ShapeMenuTags.ShapeTool),
-                icon = { Icon(DrawSymbols.Shape, contentDescription = null, modifier = Modifier.size(18.dp)) },
-            )
-            ShapeMenu(shapeMenuOpen, state.shapeSettings, onDismiss = { shapeMenuOpen = false },
-                onChange = { settings ->
-                    onStateChange { it.setShapeSettings(settings) }
-                    onShapeSettingsChange(settings)
-                })
+        SplitTool("Table", DrawSymbols.Table, state.drawPlacement == DrawPlacementTool.Table, enabled, TableTags.Tool, TableTags.Kit,
+            onClick = { if (state.drawPlacement == DrawPlacementTool.Table) kit = TableTags.Kit else {
+                kit = null; onStateChange { it.selectDrawPlacement(DrawPlacementTool.Table) }
+            } }, onKit = { onStateChange { it.selectDrawPlacement(DrawPlacementTool.Table) }; kit = TableTags.Kit }) {
+            ScaledDropdownMenu(kit == TableTags.Kit, { kit = null }) { TableKit(state.inkSettings, ::settings) }
         }
-        PendingRibbonAction("Ruler") {
-            Icon(DrawSymbols.Ruler, contentDescription = null, modifier = Modifier.size(18.dp))
+        SplitTool("Equation", DocumentSymbols.Function, state.drawPlacement == DrawPlacementTool.Equation,
+            enabled, EquationTags.Tool, EquationTags.Kit, onClick = { kit = EquationTags.Kit }, onKit = { kit = EquationTags.Kit }) {
+            ScaledDropdownMenu(kit == EquationTags.Kit, { kit = null }) {
+                EquationKit { equation -> kit = null; onStateChange { it.armEquation(equation) } }
+            }
         }
+        SplitTool("Ruler", DrawSymbols.Ruler, state.rulerVisible, enabled, DrawRibbonTags.RulerTool, DrawRibbonTags.RulerKit,
+            onClick = { kit = null; onStateChange { it.toggleRuler() } },
+            onKit = { onStateChange { it.copy(rulerVisible = true) }; kit = DrawRibbonTags.RulerKit }) {
+            ScaledDropdownMenu(kit == DrawRibbonTags.RulerKit, { kit = null }) { RulerKit(state.inkSettings, ::settings) }
+        }
+        if (calculatorAvailable) RibbonIcon(DrawSymbols.Calculator, "Calculator", calculatorOpen,
+            enabled, "draw-calculator", onClick = { kit = null; onToggleCalculator() })
+    }
+}
+
+@Composable
+private fun SplitTool(label: String, icon: ImageVector, selected: Boolean, enabled: Boolean, tag: String, kitTag: String,
+                      onClick: () -> Unit, onKit: () -> Unit, swatch: Color? = null, popup: @Composable () -> Unit) {
+    Box {
+        Row {
+            Box {
+                RibbonIcon(icon, label, selected, enabled, tag, onClick = onClick)
+                if (swatch != null) Box(Modifier.align(Alignment.BottomEnd).padding(end = 5.dp, bottom = 5.dp)
+                    .size(7.dp).background(swatch).border(1.dp, Color(0xffdddddd)).testTag("$tag-color"))
+            }
+            RibbonIcon(DocumentSymbols.ArrowDropDown, "$label settings", selected, enabled, kitTag, onClick = onKit)
+        }
+        popup()
     }
 }

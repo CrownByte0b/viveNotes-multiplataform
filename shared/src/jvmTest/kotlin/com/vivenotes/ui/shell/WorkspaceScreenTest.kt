@@ -297,7 +297,9 @@ class WorkspaceScreenTest {
         onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Draw)).performClick()
 
         onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Draw)).assertIsSelected()
-        onNodeWithText("Pen").assertIsDisplayed()
+        onNodeWithTag(DrawRibbonTags.pen(0)).assertIsDisplayed()
+        onNodeWithTag(DrawRibbonTags.pen(1)).assertIsDisplayed()
+        onNodeWithTag(DrawRibbonTags.pen(2)).assertIsDisplayed()
         runOnIdle { assertEquals(RibbonTab.Draw, observed.activeTab) }
     }
 
@@ -740,7 +742,7 @@ class WorkspaceScreenTest {
         }
 
     @Test
-    fun drawLassoSelectsPrimeObjectInCanvasRectangle() =
+    fun drawClosedLassoSelectsAnEnclosedPrimeObject() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
             val id = base.selectedPageId
@@ -761,7 +763,10 @@ class WorkspaceScreenTest {
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
                 moveTo(Offset(250f, 320f))
                 press()
+                moveTo(Offset(450f, 320f))
                 moveTo(Offset(450f, 450f))
+                moveTo(Offset(250f, 450f))
+                moveTo(Offset(250f, 320f))
                 release()
             }
             runOnIdle { assertEquals(setOf(shape.id), observed.selectedObjectIds) }
@@ -784,13 +789,20 @@ class WorkspaceScreenTest {
             val second = first.createTextBox(500f, 420f)
                 .editSelectedText("second", TextSelection(6))
             val secondId = second.focusedTextOutlineId!!
-            var observed = second.copy(activeTab = RibbonTab.Draw).toggleObjectLasso()
+            var observed = second.updatePage(second.selectedPageId) { page ->
+                page.copy(document = page.document.copy(outlines = page.document.outlines.map { outline ->
+                    if (outline is Outline.Text && outline.id in setOf(firstId, secondId)) outline.copy(width = 160f) else outline
+                }))
+            }.copy(activeTab = RibbonTab.Draw).toggleObjectLasso()
             setWorkspace(initial = observed) { observed = it }
 
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
                 moveTo(Offset(250f, 320f))
                 press()
+                moveTo(Offset(700f, 320f))
                 moveTo(Offset(700f, 600f))
+                moveTo(Offset(250f, 600f))
+                moveTo(Offset(250f, 320f))
                 release()
             }
             runOnIdle { assertEquals(setOf(firstId, secondId), observed.selectedTextOutlineIds) }
@@ -802,9 +814,12 @@ class WorkspaceScreenTest {
             onNodeWithTag(DrawRibbonTags.PointerTool).performClick()
             onNodeWithTag(DrawRibbonTags.ObjectLasso).performClick()
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
-                moveTo(Offset(350f, 390f))
+                moveTo(Offset(250f, 320f))
                 press()
+                moveTo(Offset(700f, 320f))
                 moveTo(Offset(700f, 600f))
+                moveTo(Offset(250f, 600f))
+                moveTo(Offset(250f, 320f))
                 release()
             }
             runOnIdle { assertEquals(setOf(firstId, secondId), observed.selectedTextOutlineIds) }

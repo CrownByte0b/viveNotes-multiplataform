@@ -128,6 +128,9 @@ class WorkspaceSession(
         }
         if (before.inkTool != after.inkTool) log.event("ink") { "tool ${after.inkTool?.name ?: "Select"}" }
         if (before.eraserMode != after.eraserMode) log.event("ink") { "eraser mode ${after.eraserMode.name}" }
+        if (before.drawPlacement != after.drawPlacement) log.event("draw") { "tool ${after.drawPlacement?.name ?: "Select"}" }
+        if (before.activePenIndex != after.activePenIndex) log.event("ink") { "pen preset ${after.activePenIndex + 1}" }
+        if (before.rulerVisible != after.rulerVisible) log.event("ink") { "ruler ${if (after.rulerVisible) "shown" else "hidden"}" }
         if (before.inkSettings != after.inkSettings) log.event("ink") { "drawing preferences changed" }
         if (before.selectedInk !== after.selectedInk) log.event("ink") {
             if (after.selectedInk == null) "selection cleared" else "ink selected"
@@ -763,7 +766,7 @@ class WorkspaceSession(
             val notebook = notebooks.firstOrNull()
             val section = notebook?.sections?.firstOrNull()
             current.value = WorkspaceState(notebooks, notebook?.id.orEmpty(), section?.id.orEmpty(), "",
-                editorDefaults = editorDefaults, shapeSettings = shapeSettings, inkSettings = inkSettings.normalized())
+                editorDefaults = editorDefaults, shapeSettings = shapeSettings, inkSettings = inkSettings.normalized(), eraserMode = inkSettings.eraser.mode)
             openSection.value = section?.id
             return
         }
@@ -871,7 +874,7 @@ class WorkspaceSession(
         log.failure("storage", "store operation", error)
         val message = "$failure. ${error.message ?: error::class.simpleName.orEmpty()}".trim()
         current.value = (current.value ?: WorkspaceState(emptyList(), "", "", "",
-            editorDefaults = editorDefaults, shapeSettings = shapeSettings, inkSettings = inkSettings.normalized())).copy(storageError = message)
+            editorDefaults = editorDefaults, shapeSettings = shapeSettings, inkSettings = inkSettings.normalized(), eraserMode = inkSettings.eraser.mode)).copy(storageError = message)
     }
 
     companion object {

@@ -30,6 +30,8 @@ import com.vivenotes.model.ink.InkPage
 import com.vivenotes.model.ink.InkPageOperation
 import com.vivenotes.model.ink.InkSample
 import com.vivenotes.model.ink.VisibleInkStroke
+import com.vivenotes.workspace.InkSettings
+import com.vivenotes.workspace.InkPenSettings
 import com.vivenotes.workspace.InkTool
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -37,13 +39,14 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class InkLayerCacheRegressionTest {
+    private val legacyPenSettings = InkSettings(pen = InkPenSettings(sizeDp = 3f, stabilization = 0, holdForStraightLine = false))
     @Test
     fun heldFinishedBackgroundIsReusedThroughoutWetFrames() = runDesktopComposeUiTest(width = 128, height = 128) {
         val diagnostics = InkLayerDiagnostics()
         setContent {
             CompositionLocalProvider(LocalInkLayerDiagnostics provides diagnostics) {
                 Box(Modifier.size(128.dp).background(Color.White).testTag(FRAME)) {
-                    InkLayer(page(), DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Pen)
+                    InkLayer(page(), DpSize(128.dp, 128.dp), Color.Black, settings = legacyPenSettings, tool = InkTool.Pen)
                 }
             }
         }
@@ -80,7 +83,7 @@ class InkLayerCacheRegressionTest {
         setContent {
             CompositionLocalProvider(LocalInkLayerDiagnostics provides diagnostics) {
                 Box(Modifier.size(128.dp).background(Color.White).testTag(FRAME)) {
-                    InkLayer(page(), DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Pen,
+                    InkLayer(page(), DpSize(128.dp, 128.dp), Color.Black, settings = legacyPenSettings, tool = InkTool.Pen,
                         onEdit = { edit, _ -> edits += edit })
                 }
             }
@@ -119,13 +122,14 @@ class InkLayerCacheRegressionTest {
     }
 
     @Test
-    fun eraserPreviewKeepsSceneIndexAndHidesEveryDisconnectedProjectionOfEachRow() = runDesktopComposeUiTest(width = 128, height = 128) {
+    fun objectEraserPreviewKeepsSceneIndexAndPreservesUntouchedFragments() = runDesktopComposeUiTest(width = 128, height = 128) {
         val partial = InkPageOperation.Erase("cut", 1, setOf("split"), false, 18f,
             listOf(InkSample(50f, 35f), InkSample(50f, 65f)))
         val initial = InkPage("page", listOf(
             line("split", 50f, 0xffff0000.toInt()), line("other", 90f, 0xff008800.toInt())), listOf(partial))
         assertEquals(2, initial.desktopGeometry().projections.count { it.id == "split" })
-        val page = mutableStateOf(initial)
+        val native = initial.desktopGeometry()
+        val page = mutableStateOf(initial.copy(geometry = native))
         val edits = mutableListOf<InkEdit>()
         val diagnostics = InkLayerDiagnostics()
         setContent {
@@ -140,18 +144,22 @@ class InkLayerCacheRegressionTest {
         assertEquals(Color.Red, frame.captureToImage().toPixelMap()[80, 50])
         val sceneBuilds = diagnostics.counts().scenes
         frame.performMouseInput { updatePointerTo(Offset(20f, 50f)); press() }
-        assertEquals(Color.White, frame.captureToImage().toPixelMap()[80, 50], "the remote fragment disappears before release")
+        waitUntil(timeoutMillis = 5000) { frame.captureToImage().toPixelMap()[20, 50] == Color.White }
+        assertEquals(Color.Red, frame.captureToImage().toPixelMap()[80, 50], "the untouched fragment survives the held erase")
         assertEquals(sceneBuilds, diagnostics.counts().scenes)
         frame.performMouseInput { moveTo(Offset(20f, 90f), delayMillis = 32) }
-        assertEquals(Color.White, frame.captureToImage().toPixelMap()[80, 90])
+        waitUntil(timeoutMillis = 5000) { frame.captureToImage().toPixelMap()[80, 90] == Color.White }
         runOnIdle {
             assertEquals(sceneBuilds, diagnostics.counts().scenes)
             assertTrue(edits.isEmpty(), "preview does not commit while held")
         }
         frame.performMouseInput { release() }
+        waitUntil(timeoutMillis = 5000) { edits.size == 1 }
         runOnIdle {
-            assertEquals(setOf("split", "other"), (edits.single() as InkEdit.EraseStrokes).ids)
-            assertTrue(page.value.desktopGeometry().projections.isEmpty())
+            assertEquals(setOf("split", "other"), (edits.single() as InkEdit.PartialErase).targetIds)
+            assertEquals(com.vivenotes.data.EraserMode.Object, (edits.single() as InkEdit.PartialErase).row.mode)
+            assertEquals(1, page.value.desktopGeometry().projections.size)
+            assertSame(native.base.index, page.value.desktopGeometry().base.index)
             assertEquals(sceneBuilds, diagnostics.counts().scenes, "committed tombstones reuse the base scene too")
         }
     }
@@ -224,7 +232,7 @@ class InkLayerCacheRegressionTest {
         val edits = mutableListOf<InkEdit>()
         setContent {
             Box(Modifier.size(128.dp).background(Color.White).testTag(FRAME)) {
-                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Pen,
+                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, settings = legacyPenSettings, tool = InkTool.Pen,
                     onEdit = { edit, _ -> edits += edit })
             }
         }
@@ -243,7 +251,7 @@ class InkLayerCacheRegressionTest {
         val edits = mutableListOf<InkEdit>()
         setContent {
             Viewport(1f, zoom.value, Offset.Zero, Color.White) {
-                InkLayer(page(), DpSize(256.dp, 256.dp), Color.Black, tool = InkTool.Pen,
+                InkLayer(page(), DpSize(256.dp, 256.dp), Color.Black, settings = legacyPenSettings, tool = InkTool.Pen,
                     visibleWindow = { Rect(0f, 0f, 256f / zoom.value, 256f / zoom.value) },
                     zoom = zoom.value, onEdit = { edit, _ -> edits += edit })
             }

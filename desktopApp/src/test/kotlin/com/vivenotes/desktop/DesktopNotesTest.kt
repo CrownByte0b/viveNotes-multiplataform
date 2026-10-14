@@ -62,7 +62,7 @@ class DesktopNotesTest {
             log = DebugLog(true, logs::add))
         notes.start()
         openPage(notes)
-        val chosen = InkSettings(pen = InkPenSettings(sizeDp = 12f))
+        val chosen = InkSettings(pen = InkPenSettings(sizeDp = 8f))
         notes.updateInkSettings(chosen)
         assertEquals(InkSettings(), notes.inkSettings)
         assertTrue(logs.any { it.contains("save ink preferences failed") })
@@ -86,7 +86,7 @@ class DesktopNotesTest {
         openPage(notes)
         val chosen = InkSettings(
             InkPenSettings(InkBrush.PressurePen, 6f, 0xff3584e4.toInt(), false),
-            InkHighlighterSettings(32f, 0x80e01b24.toInt()))
+            InkHighlighterSettings(32f, 0x66e01b24))
         notes.session.update { it.setInkSettings(chosen) }
         notes.updateInkSettings(chosen)
         notes.updateInkSettings(chosen)

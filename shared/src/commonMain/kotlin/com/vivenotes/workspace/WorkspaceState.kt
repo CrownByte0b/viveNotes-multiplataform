@@ -1,5 +1,17 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.model.SpaceCut
+import com.vivenotes.model.newTable
+import com.vivenotes.model.withRowInserted
+import com.vivenotes.model.withRowRemoved
+import com.vivenotes.model.withColumnInserted
+import com.vivenotes.model.withCellBlocks
+import com.vivenotes.model.withColumnRemoved
+import com.vivenotes.model.ink.encloses
+import com.vivenotes.model.ink.inkLassoCloses
+import com.vivenotes.model.ink.InkSample
+import com.vivenotes.model.ink.InkSelectionBounds
+
 import com.vivenotes.data.ImportedPicture
 import com.vivenotes.data.pagePreview
 import com.vivenotes.model.Block
@@ -92,10 +104,24 @@ private fun PageSummary.withDocument(next: PageDoc): PageSummary =
  */
 private fun PageDoc.withCurrentTextFrom(current: PageDoc): PageDoc {
     val liveBlocks = current.outlines.filterIsInstance<Outline.Text>().associate { it.id to it.blocks }
+    val liveCells = current.outlines.filterIsInstance<Outline.Table>().flatMap { it.rows }.flatMap { it.cells }.associate { it.id to it.blocks }
     return copy(style = current.style, outlines = outlines.map { outline ->
         if (outline is Outline.Text) outline.copy(blocks = liveBlocks[outline.id] ?: outline.blocks)
-        else outline
+        else if (outline is Outline.Table) outline.withCellBlocks(liveCells) else outline
     })
+}
+
+private fun PageDoc.textContainer(id: String): Outline.Text? {
+    outlines.filterIsInstance<Outline.Text>().firstOrNull { it.id == id }?.let { return it }
+    for (table in outlines.filterIsInstance<Outline.Table>().filterNot { it.inkOnly }) {
+        val location = table.locate(id) ?: continue
+        val row = table.rows[location.first]
+        val cell = row.cells[location.second]
+        return Outline.Text(id = cell.id, x = table.x + table.columns.take(location.second).sum(),
+            y = table.y + table.rows.take(location.first).sumOf { it.minHeight.toDouble() }.toFloat(),
+            width = table.columns[location.second], minHeight = row.minHeight, blocks = cell.blocks)
+    }
+    return null
 }
 
 private fun textDocument(body: String): PageDoc {
@@ -147,6 +173,10 @@ data class WorkspaceState(
     val shapeToolArmed: Boolean = false,
     val inkTool: InkTool? = null,
     val inkSettings: InkSettings = InkSettings(),
+    val activePenIndex: Int = 0,
+    val drawPlacement: DrawPlacementTool? = null,
+    val pendingEquation: PendingDrawEquation? = null,
+    val rulerVisible: Boolean = false,
     val eraserMode: com.vivenotes.data.EraserMode = com.vivenotes.data.EraserMode.Normal,
     val pendingInkEdits: List<com.vivenotes.data.PendingInkEdit> = emptyList(),
     val shapeSettings: ShapeToolSettings = ShapeToolSettings(),
@@ -186,7 +216,7 @@ data class WorkspaceState(
      */
     val focusedTextOutline: Outline.Text?
         get() = focusedTextOutlineId?.let { id ->
-            selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()?.firstOrNull { it.id == id }
+            selectedPage?.document?.textContainer(id)
         }
 
     /** The page's first text box: the one [PageSummary.body] reads and [updateSelectedPage] writes. */
@@ -219,14 +249,13 @@ data class WorkspaceState(
         copy(editorDefaults = defaults.normalized())
 
     fun richTextFor(id: String): RichTextBuffer? =
-        selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()
-            ?.firstOrNull { it.id == id }?.let {
+        selectedPage?.document?.textContainer(id)?.let {
                 RichTextBuffer(it.blocks, if (id == focusedTextOutline?.id) editorSelection else TextSelection(0),
                     if (id == focusedTextOutline?.id) typingMarks else emptySet())
             }
 
     fun toggleTextTool(): WorkspaceState = discardEmptyFocusedTextBox().copy(
-        inkTool = null,
+        inkTool = null, drawPlacement = null, pendingEquation = null,
         textToolArmed = !textToolArmed,
         objectLassoArmed = false,
         shapeToolArmed = false,
@@ -235,7 +264,7 @@ data class WorkspaceState(
     )
 
     fun toggleObjectLasso(): WorkspaceState = discardEmptyFocusedTextBox().copy(
-        inkTool = null,
+        inkTool = null, drawPlacement = null, pendingEquation = null,
         objectLassoArmed = !objectLassoArmed,
         textToolArmed = false,
         shapeToolArmed = false,
@@ -245,7 +274,7 @@ data class WorkspaceState(
 
     /** Escape and the Select command return to the ordinary mouse pointer. */
     fun selectPointer(): WorkspaceState = discardEmptyFocusedTextBox().copy(
-        inkTool = null,
+        inkTool = null, drawPlacement = null, pendingEquation = null,
         textToolArmed = false,
         objectLassoArmed = false,
         shapeToolArmed = false,
@@ -255,8 +284,15 @@ data class WorkspaceState(
         editorComposition = null,
     )
 
+    fun selectRibbonTab(tab: RibbonTab): WorkspaceState =
+        if (tab == RibbonTab.Document && focusedTextOutline != null) copy(activeTab = tab,
+            inkTool = null, drawPlacement = null, pendingEquation = null, shapeToolArmed = false,
+            objectLassoArmed = false, textToolArmed = false, selectedInk = null,
+            selectedObjectIds = emptySet(), selectedTextOutlineIds = emptySet())
+        else selectPointer().copy(activeTab = tab)
+
     fun toggleShapeTool(): WorkspaceState = discardEmptyFocusedTextBox().copy(
-        inkTool = null,
+        inkTool = null, drawPlacement = null, pendingEquation = null,
         shapeToolArmed = !shapeToolArmed,
         textToolArmed = false,
         objectLassoArmed = false,
@@ -270,9 +306,86 @@ data class WorkspaceState(
         return selectPointer().copy(inkTool = tool.takeUnless { inkTool == tool })
     }
 
-    fun setEraserMode(mode: com.vivenotes.data.EraserMode): WorkspaceState = copy(eraserMode = mode)
+    fun selectInkTool(tool: InkTool, penIndex: Int = activePenIndex): WorkspaceState {
+        if (editablePage?.inkReady != true || notebookTransfer.running || filePane.busy) return this
+        return selectPointer().copy(inkTool = tool, activePenIndex = penIndex.coerceIn(0, 2))
+    }
 
-    fun setInkSettings(settings: InkSettings): WorkspaceState = copy(inkSettings = settings.normalized())
+    fun selectDrawPlacement(tool: DrawPlacementTool): WorkspaceState =
+        if (editablePage == null || notebookTransfer.running || filePane.busy) this else selectPointer().copy(drawPlacement = tool)
+
+    fun armEquation(equation: PendingDrawEquation): WorkspaceState {
+        if (editablePage == null || equation.latex.isBlank() || !equation.width.isFinite() || !equation.height.isFinite()) return this
+        return selectDrawPlacement(DrawPlacementTool.Equation).copy(pendingEquation = equation)
+    }
+
+    fun placeDrawObject(x: Float, y: Float): WorkspaceState {
+        val page = editablePage ?: return this
+        if (y < page.document.style.titleFloor || !x.isFinite() || !y.isFinite() || x < 0f) return this
+        val outline = when (drawPlacement) {
+            DrawPlacementTool.Table -> inkSettings.table.normalized().let { t -> newTable(t.columns, t.rows, x, y,
+                headerRow = t.headerRow, headerColumn = t.headerColumn, borderArgb = t.borderArgb,
+                borderFollowsTheme = t.colorFollowsTheme, borderWidth = t.borderWidth.toFloat(), fillArgb = t.fillArgb, inkOnly = t.inkOnly) }
+            DrawPlacementTool.Equation -> pendingEquation?.let { e -> Outline.Equation(newId(), x, y,
+                e.width.coerceAtLeast(Outline.Equation.MIN_SIZE), e.height.coerceAtLeast(Outline.Equation.MIN_SIZE), e.latex) }
+            else -> null
+        } ?: return this
+        return editOutlines { it + outline }.selectPointer().copy(selectedObjectIds = setOf(outline.id))
+    }
+
+    fun updateTableCell(id: String, row: Int, column: Int, text: String): WorkspaceState = editOutlines(recordHistory = false) { outlines ->
+        outlines.map { outline -> if (outline is Outline.Table && outline.id == id && !outline.inkOnly && outline.lockGroup == null)
+            outline.copy(rows = outline.rows.mapIndexed { r, value -> if (r != row) value else value.copy(
+                cells = value.cells.mapIndexed { c, cell -> if (c != column) cell else cell.copy(blocks = listOf(Block.of(text))) }) })
+            else outline }
+    }
+
+    fun editSelectedTable(action: String): WorkspaceState = editOutlines { outlines -> outlines.map { outline ->
+        if (outline is Outline.Table && outline.id in selectedObjectIds && outline.lockGroup == null) when (action) {
+            "add-row" -> outline.withRowInserted(outline.rowCount)
+            "remove-row" -> outline.withRowRemoved(outline.rowCount - 1)
+            "add-column" -> outline.withColumnInserted(outline.columnCount)
+            "remove-column" -> outline.withColumnRemoved(outline.columnCount - 1)
+            "header-row" -> outline.copy(headerRow = !outline.headerRow)
+            "header-column" -> outline.copy(headerColumn = !outline.headerColumn)
+            else -> outline
+        } else outline
+    } }
+
+    fun updateSelectedEquation(latex: String, width: Float, height: Float): WorkspaceState {
+        if (latex.isBlank() || !width.isFinite() || !height.isFinite()) return this
+        return editOutlines { outlines ->
+            outlines.map { if (it is Outline.Equation && it.id in selectedObjectIds && it.lockGroup == null)
+                it.copy(latex = latex, width = width.coerceAtLeast(8f), height = height.coerceAtLeast(8f)) else it }
+        }
+    }
+
+    fun applySpaceInsertion(insertion: com.vivenotes.ui.ribbon.draw.SpaceInsertion): WorkspaceState {
+        val page = editablePage ?: return this
+        if (drawPlacement != DrawPlacementTool.InsertSpace || !page.inkReady || notebookTransfer.running || filePane.busy ||
+            page.id != insertion.pageId || page.document !== insertion.document || page.ink !== insertion.ink) return this
+        val ids = insertion.outlineIds
+        val change = insertion.change
+        if (change != null) return copy(selectedInk = change.source,
+            selectedTextOutlineIds = page.document.outlines.filterIsInstance<Outline.Text>().filter { it.id in ids }.map { it.id }.toSet(),
+            selectedObjectIds = page.document.outlines.filter { it.id in ids && it.isPrimeObject() }.map { it.id }.toSet())
+            .applyInkSelectionChange(change).clearCanvasFocus()
+        return editOutlines { outlines -> outlines.map { outline ->
+            if (outline.id !in ids) outline else if (outline is Outline.Text)
+                outline.copy(x = outline.x + insertion.cut.dx, y = outline.y + insertion.cut.dy)
+            else outline.movedBy(insertion.cut.dx, insertion.cut.dy)
+        } }.clearCanvasFocus()
+    }
+
+    fun toggleRuler(): WorkspaceState = copy(rulerVisible = !rulerVisible)
+
+    fun setEraserMode(mode: com.vivenotes.data.EraserMode): WorkspaceState =
+        copy(eraserMode = mode, inkSettings = inkSettings.copy(eraser = inkSettings.eraser.copy(mode = mode)))
+
+    fun setInkSettings(settings: InkSettings): WorkspaceState {
+        val normalized = settings.normalized()
+        return copy(inkSettings = normalized, eraserMode = normalized.eraser.mode)
+    }
 
     fun selectInkAt(x: Float, y: Float): WorkspaceState {
         val ink = selectedPage?.ink ?: return this
@@ -363,6 +476,18 @@ data class WorkspaceState(
             selectedTextOutlineIds = emptySet(), focusedTextOutlineId = null)
     }
 
+    fun createStraightLine(line: com.vivenotes.model.ink.StraightLine, pen: InkPenSettings): WorkspaceState {
+        val page = editablePage ?: return this
+        if (inkTool != InkTool.Pen || line.startY < page.document.style.titleFloor ||
+            listOf(line.startX, line.startY, line.endX, line.endY).any { !it.isFinite() || it < 0f }) return this
+        val settings = pen.normalized()
+        val shape = Outline.Shape(id = newId(), kind = ShapeKind.Line,
+            segments = seedSegments(ShapeKind.Line, line.startX, line.startY, line.endX, line.endY, ::newId),
+            borderArgb = settings.colorArgb, borderFollowsTheme = settings.colorFollowsTheme,
+            borderWidth = settings.sizeDp, lineType = settings.lineType).withRecomputedBounds()
+        return editOutlines { it + shape }
+    }
+
     fun setSelectedShapeLineType(type: LineType): WorkspaceState = editOutlines { outlines ->
         outlines.map { if (it.id in selectedObjectIds && it is Outline.Shape) it.copy(lineType = type) else it }
     }
@@ -393,9 +518,9 @@ data class WorkspaceState(
         } }
 
     fun focusTextBox(id: String): WorkspaceState {
-        if (selectedPage?.document?.outlines?.none { it is Outline.Text && it.id == id } != false) return this
+        if (selectedPage?.document?.textContainer(id) == null) return this
         val next = if (id == focusedTextOutlineId) this else discardEmptyFocusedTextBox()
-        val outline = next.selectedPage?.document?.outlines?.firstOrNull { it.id == id } as? Outline.Text
+        val outline = next.selectedPage?.document?.textContainer(id)
         val marks = if (outline?.blocks?.all { it.runs.isEmpty() } == true)
             editorDefaults.textMarks(nextFontFamily ?: editorDefaults.fontFamily,
                 nextFontSize ?: editorDefaults.fontSize) else emptySet()
@@ -588,6 +713,27 @@ data class WorkspaceState(
         }
         return cleaned.copy(selectedObjectIds = ids, selectedTextOutlineIds = textIds, selectedInk = inkSelection,
             focusedTextOutlineId = null)
+    }
+
+    fun selectObjectsInLasso(path: List<InkSample>, measuredHeights: Map<String, Float> = emptyMap()): WorkspaceState {
+        val cleaned = discardEmptyFocusedTextBox().clearCanvasFocus()
+        if (!inkLassoCloses(path)) return cleaned
+        val page = cleaned.selectedPage ?: return cleaned
+        val outlines = page.document.outlines
+        val hit = outlines.filter { outline ->
+            path.encloses(InkSelectionBounds(outline.x, outline.y, outline.x + outline.width,
+                outline.y + (measuredHeights[outline.id] ?: if (outline is Outline.Text) maxOf(outline.minHeight, 150f) else outline.primeHeight())))
+        }
+        val ink = page.ink
+        val selected = ink?.geometry?.selectInLasso(ink, path)
+        val texts = hit.filterIsInstance<Outline.Text>().filterNot { it.isUnwritten() }.map { it.id }.toSet()
+        val objects = hit.filter { it.isPrimeObject() }
+        val unlocked = objects.filter { it.lockGroup == null }
+        val ids = if (selected != null || texts.isNotEmpty() || unlocked.isNotEmpty()) unlocked.map { it.id }.toSet() else {
+            val groups = objects.mapNotNull { it.lockGroup }.toSet()
+            outlines.filter { it.isPrimeObject() && it.lockGroup in groups }.map { it.id }.toSet()
+        }
+        return cleaned.copy(selectedObjectIds = ids, selectedTextOutlineIds = texts, selectedInk = selected)
     }
 
     val selectedObjectsLocked: Boolean get() = selectedInk == null && selectedTextOutlineIds.isEmpty() &&
@@ -824,7 +970,9 @@ data class WorkspaceState(
         val page = editablePage ?: return this
         val oldText = focusedTextOutline ?: return this
         val changedDoc = page.document.copy(outlines = page.document.outlines.map { outline ->
-            if (outline.id == oldText.id) oldText.copy(blocks = buffer.blocks) else outline
+            if (outline.id == oldText.id) oldText.copy(blocks = buffer.blocks)
+            else if (outline is Outline.Table && outline.lockGroup == null && !outline.inkOnly)
+                outline.withCellBlocks(mapOf(oldText.id to buffer.blocks)) else outline
         })
         return updatePage(page.id) { it.withDocument(changedDoc) }
             .copy(editorSelection = buffer.selection, typingMarks = buffer.typingMarks)

@@ -23,7 +23,10 @@ internal fun InkLayer(
     settings: InkSettings = InkSettings(),
     selection: com.vivenotes.model.ink.InkSelection? = null,
     selectionOffset: Offset = Offset.Zero,
-) = PlatformInkLayer(page, canvasSize, canvasInk, visibleWindow, pageId, tool, titleFloorDp, onEdit, zoom, eraserMode, settings, selection, selectionOffset)
+    penIndex: Int = 0,
+    ruler: com.vivenotes.model.ink.Ruler? = null,
+    onStraighten: (com.vivenotes.model.ink.StraightLine, com.vivenotes.workspace.InkPenSettings) -> Unit = { _, _ -> },
+) = PlatformInkLayer(page, canvasSize, canvasInk, visibleWindow, pageId, tool, titleFloorDp, onEdit, zoom, eraserMode, settings, selection, selectionOffset, penIndex, ruler, onStraighten)
 
 @Composable
 internal expect fun PlatformInkLayer(
@@ -34,6 +37,9 @@ internal expect fun PlatformInkLayer(
     settings: InkSettings,
     selection: com.vivenotes.model.ink.InkSelection?,
     selectionOffset: androidx.compose.ui.geometry.Offset,
+    penIndex: Int,
+    ruler: com.vivenotes.model.ink.Ruler?,
+    onStraighten: (com.vivenotes.model.ink.StraightLine, com.vivenotes.workspace.InkPenSettings) -> Unit,
 )
 
 internal fun InkPage.contentEdge(): Offset = geometry?.let { Offset(it.rightDp, it.bottomDp) }

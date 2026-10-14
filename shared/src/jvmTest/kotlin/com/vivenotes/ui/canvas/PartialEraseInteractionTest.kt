@@ -29,6 +29,9 @@ import com.vivenotes.ink.*
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.ui.ribbon.draw.DrawRibbon
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
+import com.vivenotes.workspace.InkSettings
+import com.vivenotes.workspace.InkEraserSettings
+import androidx.compose.ui.input.key.Key
 import com.vivenotes.workspace.InkTool
 import com.vivenotes.workspace.WorkspaceState
 import kotlin.test.*
@@ -44,7 +47,7 @@ class PartialEraseInteractionTest {
             CompositionLocalProvider(LocalDensity provides Density(density)) {
                 Box(Modifier.size((256f / density).dp).clipToBounds().background(Color.White).testTag(FRAME)) {
                     Layout(content = {
-                        InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser, zoom = zoom,
+                        InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser, settings = InkSettings(eraser = InkEraserSettings(sizeDp = 24f)), zoom = zoom,
                             visibleWindow = { Rect(scroll.x / zoom, scroll.y / zoom,
                                 (scroll.x + 256f) / zoom, (scroll.y + 256f) / zoom) },
                             onEdit = { edit, updated -> edits += edit; page.value = updated })
@@ -107,7 +110,7 @@ class PartialEraseInteractionTest {
         val edits = mutableListOf<InkEdit>()
         setContent {
             Box(Modifier.size(128.dp).background(Color.White).testTag(FRAME)) {
-                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser,
+                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser, settings = InkSettings(eraser = InkEraserSettings(sizeDp = 24f)),
                     onEdit = { edit, updated -> edits += edit; page.value = updated })
             }
         }
@@ -131,7 +134,7 @@ class PartialEraseInteractionTest {
         val edits = mutableListOf<InkEdit>()
         setContent {
             Box(Modifier.size(128.dp).background(Color.White).testTag(FRAME)) {
-                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser,
+                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser, settings = InkSettings(eraser = InkEraserSettings(sizeDp = 24f)),
                     onEdit = { edit, updated -> edits += edit; page.value = updated })
             }
         }
@@ -156,7 +159,7 @@ class PartialEraseInteractionTest {
         val edits = mutableListOf<InkEdit>()
         setContent {
             Box(Modifier.size(128.dp).background(Color.White).testTag(FRAME)) {
-                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser,
+                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser, settings = InkSettings(eraser = InkEraserSettings(sizeDp = 24f)),
                     onEdit = { edit, updated -> edits += edit; page.value = updated })
             }
         }
@@ -194,7 +197,7 @@ class PartialEraseInteractionTest {
         setContent {
             CompositionLocalProvider(LocalDensity provides Density(2f)) {
                 Box(Modifier.size(128.dp).background(Color.White).testTag(FRAME)) {
-                    InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser,
+                    InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser, settings = InkSettings(eraser = InkEraserSettings(sizeDp = 24f)),
                         onEdit = { edit, updated -> edits += edit; page.value = updated })
                 }
             }
@@ -217,13 +220,13 @@ class PartialEraseInteractionTest {
     }
 
     @Test
-    fun modeChangeCancelsAPartialPreviewAndObjectStillErasesWholeRows() = runDesktopComposeUiTest(width = 128, height = 128) {
+    fun modeChangeCancelsAPartialPreviewAndObjectErasesTheTouchedProjection() = runDesktopComposeUiTest(width = 128, height = 128) {
         val page = mutableStateOf(InkPageReader.read("page", listOf(line("pen")), emptyList(), emptyList()))
         val mode = mutableStateOf(EraserMode.Normal)
         val edits = mutableListOf<InkEdit>()
         setContent {
             Box(Modifier.size(128.dp).background(Color.White).testTag(FRAME)) {
-                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser,
+                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser, settings = InkSettings(eraser = InkEraserSettings(sizeDp = 24f)),
                     eraserMode = mode.value, onEdit = { edit, updated -> edits += edit; page.value = updated })
             }
         }
@@ -235,7 +238,12 @@ class PartialEraseInteractionTest {
         assertEquals(Color.Black, frame.captureToImage().toPixelMap()[60, 50])
         runOnIdle { assertTrue(edits.isEmpty()) }
         frame.performMouseInput { updatePointerTo(Offset(20f, 50f)); press(); release() }
-        runOnIdle { assertEquals(setOf("pen"), (edits.single() as InkEdit.EraseStrokes).ids) }
+        waitUntil(timeoutMillis = 5000) { edits.size == 1 }
+        runOnIdle {
+            val edit = edits.single() as InkEdit.PartialErase
+            assertEquals(setOf("pen"), edit.targetIds)
+            assertEquals(EraserMode.Object, edit.row.mode)
+        }
         assertEquals(Color.White, frame.captureToImage().toPixelMap()[100, 50])
     }
 
@@ -245,7 +253,7 @@ class PartialEraseInteractionTest {
         setContent {
             Box(Modifier.size(128.dp).background(Color.White).testTag(FRAME)) {
                 InkLayer(InkPageReader.read("page", listOf(line("pen")), emptyList(), emptyList()),
-                    DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser, titleFloorDp = 30f,
+                    DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Eraser, settings = InkSettings(eraser = InkEraserSettings(sizeDp = 24f)), titleFloorDp = 30f,
                     onEdit = { edit, _ -> edits += edit })
             }
         }
@@ -265,6 +273,7 @@ class PartialEraseInteractionTest {
         for (mode in listOf(EraserMode.Object, EraserMode.Normal)) {
             onNodeWithTag(DrawRibbonTags.EraserModePicker).performClick()
             onNodeWithTag(DrawRibbonTags.eraserMode(mode)).performClick()
+            onNodeWithTag(DrawRibbonTags.eraserMode(mode)).performKeyInput { pressKey(Key.Escape) }
             runOnIdle { assertEquals(mode, state.value.eraserMode); assertEquals(InkTool.Eraser, state.value.inkTool) }
         }
     }

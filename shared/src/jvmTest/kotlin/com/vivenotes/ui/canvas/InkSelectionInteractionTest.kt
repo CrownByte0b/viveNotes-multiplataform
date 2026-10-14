@@ -56,12 +56,13 @@ class InkSelectionInteractionTest {
     }
 
     @Test
-    fun marqueeIncludesInkAndDraggingItsFrameCommitsOneMoveWithUndo() = runDesktopComposeUiTest(width = 1500, height = 900) {
+    fun closedLassoIncludesInkAndDraggingItsFrameCommitsOneMoveWithUndo() = runDesktopComposeUiTest(width = 1500, height = 900) {
         val state = mutableStateOf(workspace())
         setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
         onNodeWithTag(DrawRibbonTags.ObjectLasso).performClick()
         onNodeWithTag(INK_LAYER_TAG).performMouseInput {
-            updatePointerTo(Offset(0f, 180f)); press(); moveTo(Offset(120f, 230f), delayMillis = 80); release()
+            updatePointerTo(Offset(0f, 180f)); press(); moveTo(Offset(120f, 180f), delayMillis = 20); moveTo(Offset(120f, 230f), delayMillis = 20);
+            moveTo(Offset(0f, 230f), delayMillis = 20); moveTo(Offset(0f, 180f), delayMillis = 20); release()
         }
         onNodeWithTag(INK_SELECTION_FRAME_TAG).assertIsDisplayed()
         val before = state.value.selectedInk!!.bounds
@@ -110,7 +111,8 @@ class InkSelectionInteractionTest {
         setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
         onNodeWithTag(DrawRibbonTags.ObjectLasso).performClick()
         onNodeWithTag(INK_LAYER_TAG).performMouseInput {
-            updatePointerTo(Offset(0f, 170f)); press(); moveTo(Offset(320f, 360f), delayMillis = 80); release()
+            updatePointerTo(Offset(0f, 170f)); press(); moveTo(Offset(320f, 170f), delayMillis = 20); moveTo(Offset(320f, 360f), delayMillis = 20);
+            moveTo(Offset(0f, 360f), delayMillis = 20); moveTo(Offset(0f, 170f), delayMillis = 20); release()
         }
         onNodeWithTag(INK_SELECTION_FRAME_TAG).assertIsDisplayed()
         onNodeWithTag(WorkspaceTestTags.textGrip(text.id)).assertDoesNotExist()

@@ -70,6 +70,7 @@ fun App(
     accountService: AccountService? = null,
     /** The platform's recognition models, for Settings → Models. */
     aiModels: AiModels? = null,
+    drawMath: com.vivenotes.ui.ribbon.draw.DrawMath? = null,
     appVersion: String = "Development",
     search: com.vivenotes.search.ContentSearchService? = null,
     debugLog: DebugLog = remember { DebugLog() },
@@ -99,7 +100,7 @@ fun App(
                 onInkSettingsChange = onInkSettingsChange,
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange,
                 inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange, fileActions = fileActions,
-                accountService = accountService, aiModels = aiModels,
+                accountService = accountService, aiModels = aiModels, drawMath = drawMath,
                 appVersion = appVersion, search = search, onOpenSearchPage = session::openSearchPage,
                 debugLog = debugLog)
         }

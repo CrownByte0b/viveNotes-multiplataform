@@ -202,7 +202,14 @@ class CanvasTouchTest {
         val moved = bounds(WorkspaceTestTags.primeObject(SHAPE))
         val from2 = Offset(moved.left.value - 40f, moved.top.value - 30f) - canvasOrigin()
         val to2 = Offset(moved.right.value + 40f, moved.bottom.value + 30f) - canvasOrigin()
-        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput { swipe(from2, to2, durationMillis = 400) }
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+            down(from2)
+            moveTo(Offset(to2.x, from2.y), delayMillis = 100)
+            moveTo(to2, delayMillis = 100)
+            moveTo(Offset(from2.x, to2.y), delayMillis = 100)
+            moveTo(from2, delayMillis = 100)
+            up()
+        }
         runOnIdle { assertEquals(setOf(SHAPE), observed.selectedObjectIds) }
     }
 

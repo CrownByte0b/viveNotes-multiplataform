@@ -6,7 +6,7 @@ import com.vivenotes.workspace.InkBrush
 import com.vivenotes.workspace.InkSettings
 import com.vivenotes.workspace.InkTool
 
-internal fun InkSettings.byteInkTool(tool: InkTool?, automaticArgb: Int): ViveInkTool {
+internal fun InkSettings.byteInkTool(tool: InkTool?, automaticArgb: Int, penIndex: Int = 0): ViveInkTool {
     val value = normalized()
     if (tool == InkTool.Highlighter) return ViveInkTool(
         familyId = ViveBrushes.HIGHLIGHTER,
@@ -14,15 +14,17 @@ internal fun InkSettings.byteInkTool(tool: InkTool?, automaticArgb: Int): ViveIn
         colorArgb = value.highlighter.colorArgb,
         colorFollowsTheme = false,
     )
+    val pen = value.pen(penIndex)
     return ViveInkTool(
-        familyId = when (value.pen.brush) {
+        familyId = if (pen.lineType != com.vivenotes.model.ink.LineType.Solid) ViveBrushes.DASHED_LINE else when (pen.brush) {
             InkBrush.Marker -> ViveBrushes.MARKER
             InkBrush.PressurePen -> ViveBrushes.PRESSURE_PEN
-            InkBrush.Calligraphy -> ViveBrushes.calligraphy(ViveBrushes.DEFAULT_CALLIGRAPHY_PRESSURE)
+            InkBrush.Calligraphy -> ViveBrushes.calligraphy(pen.pressure)
             InkBrush.DashedLine -> ViveBrushes.DASHED_LINE
         },
-        sizeDp = value.pen.sizeDp,
-        colorArgb = if (value.pen.colorFollowsTheme) automaticArgb else value.pen.colorArgb,
-        colorFollowsTheme = value.pen.colorFollowsTheme,
+        sizeDp = pen.sizeDp,
+        colorArgb = if (pen.colorFollowsTheme) automaticArgb else pen.colorArgb,
+        colorFollowsTheme = pen.colorFollowsTheme,
+        stabilization = pen.stabilization,
     )
 }

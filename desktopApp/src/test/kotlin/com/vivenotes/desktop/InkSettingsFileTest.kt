@@ -1,5 +1,8 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.data.EraserMode
+import com.vivenotes.model.ink.LineType
+import com.vivenotes.workspace.*
 import com.vivenotes.workspace.InkBrush
 import com.vivenotes.workspace.InkHighlighterSettings
 import com.vivenotes.workspace.InkPenSettings
@@ -17,7 +20,7 @@ class InkSettingsFileTest {
             val store = InkSettingsFile(file)
             assertEquals(InkSettings(), store.load())
             val chosen = InkSettings(InkPenSettings(InkBrush.Calligraphy, 7.5f, 0xff123456.toInt(), false),
-                InkHighlighterSettings(27.5f, 0x80654321.toInt()))
+                InkHighlighterSettings(27.5f, 0x66654321))
             store.save(chosen)
             assertEquals(chosen, InkSettingsFile(file).load())
             store.save(chosen.copy(pen = chosen.pen.copy(colorFollowsTheme = true)))
@@ -28,14 +31,34 @@ class InkSettingsFileTest {
     }
 
     @Test
+    fun allAndroidKitsAndTheRollingPaletteSurviveRestartWhileLegacyFilesKeepTheirFirstPen() {
+        val file = Files.createTempFile("draw-kits", ".properties").toFile()
+        try {
+            val settings = InkSettings(pen2 = InkPenSettings(InkBrush.Calligraphy, 6f, 0xff123456.toInt(), false,
+                lineType = LineType.Dotted, pressure = 5, stabilization = 4, holdForStraightLine = false),
+                pen3 = InkPenSettings(sizeDp = 7f), eraser = InkEraserSettings(EraserMode.Object, 42f),
+                ruler = InkRulerSettings(RulerKind.Protractor, 800), palette = PenColors.withColorInFront(0xff123456.toInt()),
+                table = TableToolSettings(inkOnly = false, columns = 5, rows = 4, headerColumn = true,
+                    borderWidth = 3, fillArgb = 0xffeeeeee.toInt()))
+            InkSettingsFile(file).save(settings)
+            assertEquals(settings, InkSettingsFile(file).load())
+            file.writeText("pen.brush=Calligraphy\npen.sizeDp=7.5\npen.colorArgb=-15584170\npen.colorFollowsTheme=false\n")
+            val legacy = InkSettingsFile(file).load()
+            assertEquals(InkPenSettings(InkBrush.Calligraphy, 7.5f, 0xff123456.toInt(), false), legacy.pen)
+            assertEquals(InkSettings().pen2, legacy.pen2)
+            assertEquals(InkSettings().pen3, legacy.pen3)
+        } finally { file.delete() }
+    }
+
+    @Test
     fun damagedPreferencesFallBackAndUnsafeValuesNormalize() {
         val file = Files.createTempFile("ink-settings-invalid", ".properties").toFile()
         try {
             file.writeText("pen.brush=Unknown\npen.sizeDp=NaN\npen.colorArgb=broken\npen.colorFollowsTheme=invalid\nhighlighter.sizeDp=Infinity\n")
             assertEquals(InkSettings(), InkSettingsFile(file).load())
             file.writeText("pen.sizeDp=-5\nhighlighter.sizeDp=200\nhighlighter.colorArgb=1193046\n")
-            assertEquals(InkSettings(InkPenSettings(sizeDp = 0.5f),
-                InkHighlighterSettings(96f, 0x80123456.toInt())), InkSettingsFile(file).load())
+            assertEquals(InkSettings(InkPenSettings(sizeDp = 1f),
+                InkHighlighterSettings(40f, 0x66123456)), InkSettingsFile(file).load())
             InkSettingsFile(file).save(InkSettings(pen = InkPenSettings(sizeDp = Float.NaN)))
             assertEquals(InkSettings(), InkSettingsFile(file).load())
             file.writeText("pen.brush=\\uZZZZ")

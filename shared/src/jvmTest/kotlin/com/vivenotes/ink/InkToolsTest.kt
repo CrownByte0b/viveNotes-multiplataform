@@ -20,11 +20,12 @@ class InkToolsTest {
             val pen = defaults.byteInkTool(InkTool.Pen, automatic)
             assertEquals(automatic, pen.colorArgb)
             assertEquals(true, pen.colorFollowsTheme)
-            assertEquals(3f, pen.sizeDp)
+            assertEquals(1.5f, pen.sizeDp)
+            assertEquals(1, pen.stabilization)
             val highlighter = defaults.byteInkTool(InkTool.Highlighter, automatic)
             assertEquals(ViveBrushes.HIGHLIGHTER, highlighter.familyId)
             assertEquals(false, highlighter.colorFollowsTheme)
-            assertEquals(0x80ffe000.toInt(), highlighter.colorArgb)
+            assertEquals(0x66ffeb3b, highlighter.colorArgb)
             assertEquals(0, highlighter.stabilization)
         }
     }
@@ -39,7 +40,7 @@ class InkToolsTest {
                 InkBrush.DashedLine to ViveBrushes.DASHED_LINE)
             val settings = expectedFamilies.keys.map { brush ->
                 InkSettings(pen = InkPenSettings(brush, 7.5f, 0xff123456.toInt(), false)) to InkTool.Pen
-            } + (InkSettings(highlighter = InkHighlighterSettings(27.5f, 0x80654321.toInt())) to InkTool.Highlighter)
+            } + (InkSettings(highlighter = InkHighlighterSettings(27.5f, 0x66654321)) to InkTool.Highlighter)
             val inputs = MutableStrokeInputBatch().apply {
                 add(InputToolType.MOUSE, 10f, 50f, 0L)
                 add(InputToolType.MOUSE, 90f, 50f, 80L)
@@ -59,7 +60,7 @@ class InkToolsTest {
                     assertEquals(if (tool == InkTool.Pen) expectedFamilies[preference.pen.brush] else ViveBrushes.HIGHLIGHTER,
                         row.brushFamily)
                     assertEquals(if (tool == InkTool.Pen) 7.5f else 27.5f, row.sizeDp)
-                    assertEquals(if (tool == InkTool.Pen) 0xff123456.toInt() else 0x80654321.toInt(), row.colorArgb)
+                    assertEquals(if (tool == InkTool.Pen) 0xff123456.toInt() else 0x66654321, row.colorArgb)
                     assertEquals(false, row.colorFollowsTheme)
                 }
                 page

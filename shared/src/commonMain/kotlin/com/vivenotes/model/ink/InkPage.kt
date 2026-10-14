@@ -48,6 +48,8 @@ interface InkPageGeometry {
     val rightDp: Float
     val bottomDp: Float
     fun selectAt(page: InkPage, x: Float, y: Float, reach: Float = 6f): InkSelection? = null
+    fun selectPastLine(page: InkPage, cut: com.vivenotes.model.SpaceCut): InkSelection? = null
+    fun selectInLasso(page: InkPage, path: List<InkSample>): InkSelection? = null
     fun selectInRect(page: InkPage, left: Float, top: Float, right: Float, bottom: Float): InkSelection? = null
 }
 

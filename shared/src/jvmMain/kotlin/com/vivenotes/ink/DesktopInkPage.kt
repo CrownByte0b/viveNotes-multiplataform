@@ -28,6 +28,7 @@ internal class DesktopInkPage private constructor(
     private val bounds: InkBounds?,
     val sourceStrokes: List<PageStroke>,
     val operations: List<DecodedInkOperation>,
+    val excludedProjections: Set<InkProjectionKey> = emptySet(),
 ) : InkPageGeometry {
     constructor(projections: List<PageStroke>, sourceIds: Collection<String> = projections.map { it.id },
         sourceStrokes: List<PageStroke> = projections, operations: List<DecodedInkOperation> = emptyList()) :
@@ -37,7 +38,8 @@ internal class DesktopInkPage private constructor(
     override val rightDp: Float get() = bounds?.right ?: 0f
     override val bottomDp: Float get() = bounds?.bottom ?: 0f
     val projections: List<PageStroke> by lazy {
-        Collections.unmodifiableList(base.projections.filterNot { it.id in excludedRows } + additions.projections)
+        Collections.unmodifiableList(base.projections.filterNot { it.id in excludedRows || it.projectionKey in excludedProjections } +
+            additions.projections.filterNot { it.projectionKey in excludedProjections })
     }
     val isEmpty: Boolean get() = bounds == null
     fun containsSource(id: String): Boolean = (id in base.sourceIds && id !in excludedRows) || id in additions.sourceIds
@@ -60,6 +62,22 @@ internal class DesktopInkPage private constructor(
         return DesktopInkSelection(page, selected)
     }
 
+    override fun selectPastLine(page: InkPage, cut: com.vivenotes.model.SpaceCut): InkSelection? {
+        val moving = projections.groupBy { it.groupId ?: it.id }.values.filter { unit ->
+            val boxes = unit.mapNotNull { it.pageBounds }
+            boxes.isNotEmpty() && boxes.all { cut.moves(it.left, it.top) }
+        }.flatten()
+        val box = moving.mapNotNull { it.pageBounds }.unionBounds() ?: return null
+        val selected = moving.selectWithLasso(InkBounds(box.left - 6f, box.top - 6f, box.right + 6f, box.bottom + 6f).selectionPath()) ?: return null
+        return DesktopInkSelection(page, selected)
+    }
+
+    override fun selectInLasso(page: InkPage, path: List<com.vivenotes.model.ink.InkSample>): InkSelection? {
+        if (!com.vivenotes.model.ink.inkLassoCloses(path)) return null
+        val selected = projections.selectWithLasso(path.map { InkPoint(it.x, it.y) }) ?: return null
+        return DesktopInkSelection(page, selected)
+    }
+
     fun withChanges(added: List<PageStroke>, removed: Set<String>): DesktopInkPage {
         if (added.isEmpty() && removed.isEmpty()) return this
         val excluded = Collections.unmodifiableSet(HashSet(excludedRows).apply {
@@ -69,16 +87,29 @@ internal class DesktopInkPage private constructor(
             DesktopInkSegment(additions.projections.filterNot { it.id in removed } + added)
         val baseBounds = if (excluded == excludedRows) {
             // The previous extent includes the tail, which remains present when only appending.
-            if (removed.isEmpty()) bounds else base.projections.filterNot { it.id in excluded }.mapNotNull { it.pageBounds }.unionBounds()
-        } else base.projections.filterNot { it.id in excluded }.mapNotNull { it.pageBounds }.unionBounds()
-        val extent = listOfNotNull(baseBounds, tail.bounds).unionBounds()
+            if (removed.isEmpty()) bounds else base.projections.filterNot { it.id in excluded || it.projectionKey in excludedProjections }.mapNotNull { it.pageBounds }.unionBounds()
+        } else base.projections.filterNot { it.id in excluded || it.projectionKey in excludedProjections }.mapNotNull { it.pageBounds }.unionBounds()
+        val tailBounds = if (excludedProjections.isEmpty()) tail.bounds else
+            tail.projections.filterNot { it.projectionKey in excludedProjections }.mapNotNull { it.pageBounds }.unionBounds()
+        val extent = listOfNotNull(baseBounds, tailBounds).unionBounds()
         val sources = appendInk(if (removed.isEmpty()) sourceStrokes else sourceStrokes.filterNot { it.id in removed }, added)
-        if (tail.projections.size >= ADDITION_LIMIT || excluded.size >= TOMBSTONE_LIMIT) {
-            val live = base.projections.filterNot { it.id in excluded } + tail.projections
+        if (tail.projections.size >= ADDITION_LIMIT || excluded.size >= TOMBSTONE_LIMIT || excludedProjections.size >= TOMBSTONE_LIMIT) {
+            val live = base.projections.filterNot { it.id in excluded || it.projectionKey in excludedProjections } +
+                tail.projections.filterNot { it.projectionKey in excludedProjections }
             val sourceIds = base.sourceIds.filterNot { it in excluded } + tail.sourceIds
             return DesktopInkPage(live, sourceIds, sources, operations)
         }
-        return DesktopInkPage(base, tail, excluded, extent, sources, operations)
+        return DesktopInkPage(base, tail, excluded, extent, sources, operations, excludedProjections)
+    }
+
+    fun withObjectErase(operation: DecodedInkOperation.Erase): DesktopInkPage? {
+        val touched = index.touching(operation.mask).filter { it.id in operation.targetIds }
+        if (touched.eraseObjects(operation.mask, operation.targetIds).isNotEmpty()) return null
+        val excluded = Collections.unmodifiableSet(HashSet(excludedProjections).apply { addAll(touched.map { it.projectionKey }) })
+        val live = (base.projections + additions.projections).filterNot { it.id in excludedRows || it.projectionKey in excluded }
+        val nextBounds = live.mapNotNull { it.pageBounds }.unionBounds()
+        return DesktopInkPage(base, additions, excludedRows, nextBounds, sourceStrokes,
+            Collections.unmodifiableList(operations + operation), excluded)
     }
 
     companion object {
@@ -90,11 +121,14 @@ internal class DesktopInkPage private constructor(
 
 internal class DesktopInkQueries(private val page: DesktopInkPage) {
     fun touching(mask: Stroke): List<PageStroke> =
-        page.base.index.touching(mask).filterNot { it.id in page.excludedRows } + page.additions.index.touching(mask)
+        page.base.index.touching(mask).filterNot { it.id in page.excludedRows || it.projectionKey in page.excludedProjections } +
+            page.additions.index.touching(mask).filterNot { it.projectionKey in page.excludedProjections }
     fun at(point: InkPoint, reach: Float): List<PageStroke> =
-        page.base.index.at(point, reach).filterNot { it.id in page.excludedRows } + page.additions.index.at(point, reach)
+        page.base.index.at(point, reach).filterNot { it.id in page.excludedRows || it.projectionKey in page.excludedProjections } +
+            page.additions.index.at(point, reach).filterNot { it.projectionKey in page.excludedProjections }
     fun crossing(from: InkPoint, to: InkPoint, width: Float): List<PageStroke> =
-        page.base.index.crossing(from, to, width).filterNot { it.id in page.excludedRows } + page.additions.index.crossing(from, to, width)
+        page.base.index.crossing(from, to, width).filterNot { it.id in page.excludedRows || it.projectionKey in page.excludedProjections } +
+            page.additions.index.crossing(from, to, width).filterNot { it.projectionKey in page.excludedProjections }
 }
 
 internal fun InkStrokeEntity.toByteInk() = StoredInkStroke(id, pageId, seq, brushFamily,
@@ -200,6 +234,13 @@ private fun InkPage.withPartialErase(edit: InkEdit.PartialErase): InkPage {
         val stored = StoredInkErase(row.id, pageId, row.mode.name, row.sizeDp, row.points, row.enc,
             row.createdAt, targetIds = edit.targetIds.toList())
         val decoded = ViveInkPage.load(emptyList(), listOf(stored), emptyList()).operations.single()
+        if (decoded is DecodedInkOperation.Erase && decoded.mode == InkEraseMode.Object &&
+            native.operations.all { it.createdAt < decoded.createdAt }) {
+            native.withObjectErase(decoded)?.let { projected ->
+                return copy(geometry = projected, operations = this.operations + listOfNotNull(decoded.portableOperation()),
+                    latestOperationAt = maxOf(latestOperationAt, edit.row.createdAt))
+            }
+        }
         operations.add(decoded)
     }
     return replaySources(native.sourceStrokes, operations).copy(

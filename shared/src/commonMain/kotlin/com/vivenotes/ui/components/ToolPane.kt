@@ -53,7 +53,7 @@ object ToolPaneTags {
     fun option(label: String, option: String): String = "tool-pane-field-$label-$option"
 }
 
-private val PaneWidth = 300.dp
+internal val ToolPaneWidth = 300.dp
 private val FieldHeight = 32.dp
 private const val DisabledAlpha = 0.42f
 
@@ -72,7 +72,7 @@ internal fun ToolPane(
     Surface(
         color = LocalDesktopColors.current.sidebar,
         // Android's tool panel leaves to the right under a finger, the way it came in.
-        modifier = modifier.width(PaneWidth).fillMaxHeight().testTag(ToolPaneTags.Pane).swipeRight(onClose),
+        modifier = modifier.width(ToolPaneWidth).fillMaxHeight().testTag(ToolPaneTags.Pane).swipeRight(onClose),
     ) {
         Column {
             Row(

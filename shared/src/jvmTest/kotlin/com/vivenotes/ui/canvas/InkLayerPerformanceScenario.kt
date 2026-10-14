@@ -178,9 +178,9 @@ class InkLayerPerformanceScenario {
             frame.captureToImage()
             val eraseFinishCounts = diagnostics.counts() - beforeEraseFinish
             runOnIdle {
-                val erase = assertNotNull(edits.filterIsInstance<InkEdit.EraseStrokes>().singleOrNull())
-                assertTrue(erase.ids.isNotEmpty())
-                assertEquals(PAGE_STROKES + additions - erase.ids.size,
+                val erase = assertNotNull(edits.filterIsInstance<InkEdit.PartialErase>().singleOrNull())
+                assertTrue(erase.targetIds.isNotEmpty())
+                assertEquals(PAGE_STROKES + additions - erase.targetIds.size,
                     page.value.desktopGeometry().projections.size)
                 assertEquals(additions + 2, pageSnapshots)
                 if (java.lang.Boolean.getBoolean("vivenotes.ink.phase2Optimized")) {
@@ -195,7 +195,7 @@ class InkLayerPerformanceScenario {
                     put("view", view); put("density", density); put("zoom", zoom)
                     put("viewportPx", VIEWPORT_PX); put("scrollXPx", SCROLL_X); put("scrollYPx", SCROLL_Y)
                     put("finishedPageStrokes", PAGE_STROKES); put("pendingAdditions", additions)
-                    put("pageSnapshotIdentities", pageSnapshots); put("erasedRows", erase.ids.size)
+                    put("pageSnapshotIdentities", pageSnapshots); put("erasedRows", erase.targetIds.size)
                     put("retainedRasterPixelBytes", diagnostics.retainedPixelBytes)
                     put("peakRetainedRasterPixelBytes", diagnostics.peakRetainedPixelBytes)
                     put("fullPageSceneBuilds", diagnostics.baseSceneBuilds)

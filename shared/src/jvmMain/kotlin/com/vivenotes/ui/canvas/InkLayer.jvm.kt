@@ -34,6 +34,10 @@ import com.vivenotes.model.newId
 import com.vivenotes.workspace.InkTool
 import java.util.Collections
 import java.util.IdentityHashMap
+import kotlinx.coroutines.delay
+import com.vivenotes.model.ink.RulerPoint
+import com.vivenotes.model.ink.Ruler
+import com.vivenotes.model.ink.StraightenHold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -50,6 +54,9 @@ internal actual fun PlatformInkLayer(
     settings: InkSettings,
     selection: com.vivenotes.model.ink.InkSelection?,
     selectionOffset: androidx.compose.ui.geometry.Offset,
+    penIndex: Int,
+    ruler: com.vivenotes.model.ink.Ruler?,
+    onStraighten: (com.vivenotes.model.ink.StraightLine, com.vivenotes.workspace.InkPenSettings) -> Unit,
 ) {
     if (pageId.isEmpty()) return
     val snapshot = page ?: remember(pageId) { InkPage(pageId, emptyList()) }
@@ -70,8 +77,23 @@ internal actual fun PlatformInkLayer(
         diagnostics?.rasterReleased()
         renderer.clearCache()
     } }
-    val pen = remember(tool, canvasInk, settings) { settings.byteInkTool(tool, canvasInk.toArgb()) }
+    val pen = remember(tool, canvasInk, settings, penIndex) { settings.byteInkTool(tool, canvasInk.toArgb(), penIndex) }
     val currentPen by rememberUpdatedState(pen)
+    val currentSettings by rememberUpdatedState(settings)
+    val currentRuler by rememberUpdatedState(ruler)
+    val currentStraighten by rememberUpdatedState(onStraighten)
+    var holdCandidate by remember(controller) { mutableStateOf<HoldCandidate?>(null) }
+    var holdRevision by remember(controller) { mutableIntStateOf(0) }
+    LaunchedEffect(holdCandidate, holdRevision) {
+        val candidate = holdCandidate ?: return@LaunchedEffect
+        delay(1000)
+        if (holdCandidate !== candidate || !controller.isDrawing) return@LaunchedEffect
+        val line = candidate.hold.line() ?: return@LaunchedEffect
+        candidate.hold.spend()
+        controller.cancel()
+        frameRevision++
+        candidate.commit(line)
+    }
     val currentPage by rememberUpdatedState(remember(snapshot, native) {
         if (snapshot.geometry === native) snapshot else snapshot.copy(geometry = native)
     })
@@ -110,20 +132,24 @@ internal actual fun PlatformInkLayer(
         }
     val sceneStrokesByRow = remember(scene) { rowsFor(scene, displayed.base.projections) }
     val additionsStrokesByRow = remember(additionsScene) { rowsFor(additionsScene, displayed.additions.projections) }
+    val sceneByProjection = remember(scene) { displayed.base.projections.mapIndexed { index, p -> p.projectionKey to scene.strokes[index] }.toMap() }
+    val additionsByProjection = remember(additionsScene) { displayed.additions.projections.mapIndexed { index, p -> p.projectionKey to additionsScene.strokes[index] }.toMap() }
     fun exclusions(rows: Set<String>, entries: Map<String, List<InkSceneStroke>>, layer: InkScene,
-                   projections: List<com.vivenotes.byteink.kit.PageStroke>): Set<InkSceneStroke> =
-        if (rows.isEmpty() && moving == null) emptySet() else Collections.unmodifiableSet(
+                   projections: List<com.vivenotes.byteink.kit.PageStroke>,
+                   byProjection: Map<com.vivenotes.byteink.kit.InkProjectionKey, InkSceneStroke>): Set<InkSceneStroke> =
+        if (rows.isEmpty() && displayed.excludedProjections.isEmpty() && moving == null) emptySet() else Collections.unmodifiableSet(
             Collections.newSetFromMap(IdentityHashMap<InkSceneStroke, Boolean>()).apply {
                 rows.forEach { addAll(entries[it].orEmpty()) }
+                displayed.excludedProjections.forEach { key -> byProjection[key]?.let { add(it) } }
                 if (moving != null) projections.forEachIndexed { index, stroke ->
                     if (stroke.projectionKey in moving.held.projections) add(layer.strokes[index])
                 }
             })
-    val excludedStrokes = remember(scene, displayed.excludedRows, erasing, moving) {
-        exclusions(displayed.excludedRows + erasing, sceneStrokesByRow, scene, displayed.base.projections)
+    val excludedStrokes = remember(scene, displayed.excludedRows, displayed.excludedProjections, erasing, moving) {
+        exclusions(displayed.excludedRows + erasing, sceneStrokesByRow, scene, displayed.base.projections, sceneByProjection)
     }
-    val excludedAdditions = remember(additionsScene, erasing, moving) {
-        exclusions(erasing, additionsStrokesByRow, additionsScene, displayed.additions.projections)
+    val excludedAdditions = remember(additionsScene, displayed.excludedProjections, erasing, moving) {
+        exclusions(erasing, additionsStrokesByRow, additionsScene, displayed.additions.projections, additionsByProjection)
     }
     val movingStrokes = remember(moving) {
         moving?.page?.desktopGeometry()?.projections?.filter { it.projectionKey in moving.held.projections }.orEmpty()
@@ -147,8 +173,8 @@ internal actual fun PlatformInkLayer(
             }
         }
     }
-    val input = if (tool == null) Modifier else if (tool == InkTool.Eraser && eraserMode == EraserMode.Normal)
-        Modifier.pointerInput(pageId, tool, eraserMode, density, zoom, titleFloorDp) {
+    val input = if (tool == null) Modifier else if (tool == InkTool.Eraser)
+        Modifier.pointerInput(pageId, tool, penIndex, eraserMode, settings.eraser.sizeDp, density, zoom, titleFloorDp) {
             coroutineScope {
                 var anchor = currentPage
                 var projected = anchor
@@ -190,7 +216,7 @@ internal actual fun PlatformInkLayer(
                         }
                         refresh()
                         val capturedGeneration = generation
-                        val gesture = DesktopPartialEraseGesture(projected, density)
+                        val gesture = DesktopPartialEraseGesture(projected, density, settings.eraser.sizeDp, mode = eraserMode)
                         val callback = currentCallback
                         fun observe(sample: InkPointerSample, position: Offset) {
                             if (gesture.observe(sample)) eraseRequest = gesture.request().onPage(projected)
@@ -231,7 +257,7 @@ internal actual fun PlatformInkLayer(
                 }
             }
         }
-    else Modifier.pointerInput(pageId, tool, eraserMode, density, zoom, titleFloorDp) {
+    else Modifier.pointerInput(pageId, tool, penIndex, density, zoom, titleFloorDp) {
         try {
             awaitEachGesture {
                 val down = awaitFirstDown()
@@ -239,68 +265,65 @@ internal actual fun PlatformInkLayer(
                 if (down.position.y < titleFloorDp * density) return@awaitEachGesture
                 diagnostics?.inputObserved()
                 val capturedTool = currentPen
+                val capturedPreset = currentSettings.pen(penIndex)
                 val callback = currentCallback
-                val index = currentNative.index
-                var previous = InkPoint(down.position.x / density, down.position.y / density)
-                val targets = mutableSetOf<String>()
-                fun observeEraser(position: Offset) {
-                    val next = InkPoint(position.x / density, position.y / density)
-                    val previousTargetCount = targets.size
-                    index.crossing(previous, next, 24f).forEach { targets += it.id }
-                    index.at(next, 12f).forEach { targets += it.id }
-                    previous = next
-                    if (targets.size != previousTargetCount) erasing = targets.toSet()
-                    eraserPoint = position
+                val straightCallback = currentStraighten
+                val capturedRuler = currentRuler?.takeIf {
+                    it.engages(RulerPoint(down.position.x / density, down.position.y / density), Ruler.SNAP_TOLERANCE_DP)
                 }
-                if (tool == InkTool.Eraser) observeEraser(down.position) else {
-                    controller.begin(capturedTool.brush, down.inkSample(), transform)
-                    diagnostics?.shapeAdvanced()
-                    frameRevision++
-                    timing.begin(down.uptimeMillis)
+                val side = capturedRuler?.sideOf(RulerPoint(down.position.x / density, down.position.y / density))
+                fun sample(change: PointerInputChange, point: Offset = change.position, time: Long = change.uptimeMillis,
+                           pressure: Boolean = true): InkPointerSample {
+                    val mapped = if (capturedRuler != null && side != null) {
+                        val p = capturedRuler.snap(RulerPoint(point.x / density, point.y / density), side)
+                        Offset(p.x.coerceAtLeast(0f) * density, p.y.coerceAtLeast(titleFloorDp) * density)
+                    } else point
+                    return change.inkSample(mapped, time, pressure)
                 }
+                val hold = if (tool == InkTool.Pen && capturedPreset.holdForStraightLine && capturedRuler == null)
+                    StraightenHold(viewConfiguration.touchSlop / density) else null
+                fun observeHold(point: Offset) {
+                    if (hold?.observe(point.x / density, point.y / density) == true) holdRevision++
+                }
+                holdCandidate = hold?.let { HoldCandidate(it) { line -> straightCallback(line, capturedPreset) } }
+                observeHold(down.position)
+                controller.begin(capturedTool.brush, sample(down), transform)
+                diagnostics?.shapeAdvanced()
+                frameRevision++
+                timing.begin(down.uptimeMillis)
                 down.consume()
                 try {
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id }
-                        if (change == null || change.isConsumed) break
-                        diagnostics?.inputObserved(1 + change.historical.size)
-                        change.historical.forEach { historical ->
-                            if (tool == InkTool.Eraser) observeEraser(historical.position)
-                            else controller.append(change.inkSample(historical.position, historical.uptimeMillis, false))
-                        }
+                        if (change == null || change.isConsumed || event.changes.count { it.pressed } > 1) break
                         val finished = change.changedToUpIgnoreConsumed() ||
                             (down.type == PointerType.Mouse && !event.buttons.isPrimaryPressed)
-                        if (tool == InkTool.Eraser) {
-                            observeEraser(change.position)
-                            if (finished && targets.isNotEmpty()) {
-                                val edit = InkEdit.EraseStrokes(targets.toSet())
-                                callback(edit, currentPage.withDesktopEdit(edit))
+                        if (hold?.spent != true) {
+                            diagnostics?.inputObserved(1 + change.historical.size)
+                            change.historical.forEach { historical ->
+                                controller.append(sample(change, historical.position, historical.uptimeMillis, false))
+                                observeHold(historical.position)
                             }
-                        } else if (finished) {
-                            diagnostics?.shapeAdvanced()
-                            controller.finish(change.inkSample())?.let { stroke ->
-                                val edit = capturedTool.complete(stroke, newId(), pageId, 0, System.currentTimeMillis()).desktopEdit()
-                                callback(edit, currentPage.withDesktopEdit(edit))
+                            if (finished) {
+                                holdCandidate = null
+                                diagnostics?.shapeAdvanced()
+                                controller.finish(sample(change))?.let { stroke ->
+                                    val edit = capturedTool.complete(stroke, newId(), pageId, 0, System.currentTimeMillis()).desktopEdit()
+                                    callback(edit, currentPage.withDesktopEdit(edit))
+                                }
+                                frameRevision++
+                            } else {
+                                controller.append(sample(change))
+                                observeHold(change.position)
                             }
-                            frameRevision++
-                        } else {
-                            controller.append(change.inkSample())
                         }
                         change.consume()
                         if (finished) break
                     }
-                } finally {
-                    cancelGesture()
-                    erasing = emptySet()
-                    eraserPoint = null
-                }
+                } finally { holdCandidate = null; cancelGesture() }
             }
-        } finally {
-            cancelGesture()
-            erasing = emptySet()
-            eraserPoint = null
-        }
+        } finally { holdCandidate = null; cancelGesture() }
     }
     // Extent reports arbitrarily large document sizes while measuring the child unbounded.
     // Draw and input belong outside it so their coordinate space is the reported page, not that
@@ -326,7 +349,7 @@ internal actual fun PlatformInkLayer(
         val finishedPathBuilds = renderer.pathBuildCount - pathsBeforeBackground
         @Suppress("UNUSED_VARIABLE") val revision = frameRevision
         controller.liveStroke?.let { drawInk(renderer, it, controller.strokeToView) }
-        eraserPoint?.let { drawCircle(canvasInk.copy(alpha = 0.5f), 12f * density, it,
+        eraserPoint?.let { drawCircle(canvasInk.copy(alpha = 0.5f), settings.eraser.sizeDp / 2f * density, it,
             style = Stroke(width = density)) }
         diagnostics?.drawn(renderer.pathBuildCount, rasterCache.rasterBuildCount + additionsCache.rasterBuildCount,
             finishedDrawn, finishedPathBuilds, rasterCache.retainedPixelBytes + additionsCache.retainedPixelBytes)
@@ -357,3 +380,5 @@ private fun PointerInputChange.inkSample(
         it.isFinite() && it in 0f..1f }
     return InkPointerSample(point.x, point.y, uptime, inputTool, measuredPressure)
 }
+
+private class HoldCandidate(val hold: StraightenHold, val commit: (com.vivenotes.model.ink.StraightLine) -> Unit)

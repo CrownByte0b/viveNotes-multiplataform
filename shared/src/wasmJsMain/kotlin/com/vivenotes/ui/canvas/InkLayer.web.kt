@@ -18,4 +18,7 @@ internal actual fun PlatformInkLayer(
     settings: InkSettings,
     selection: com.vivenotes.model.ink.InkSelection?,
     selectionOffset: androidx.compose.ui.geometry.Offset,
+    penIndex: Int,
+    ruler: com.vivenotes.model.ink.Ruler?,
+    onStraighten: (com.vivenotes.model.ink.StraightLine, com.vivenotes.workspace.InkPenSettings) -> Unit,
 ) { /* Ink authoring and rendering are desktop services. */ }

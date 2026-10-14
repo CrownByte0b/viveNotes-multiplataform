@@ -22,7 +22,7 @@ internal fun selectedCanvasBounds(
                 y + (measuredTextHeights[outline.id] ?: maxOf(outline.minHeight, 150f)))
         } else {
             Rect(outline.x, outline.y, outline.x + outline.width.coerceAtLeast(24f),
-                outline.y + outline.primeHeight().coerceAtLeast(24f))
+                outline.y + (measuredTextHeights[outline.id] ?: outline.primeHeight()).coerceAtLeast(24f))
         }
     }
     val all = bounds + listOfNotNull(ink?.bounds?.let { Rect(it.left, it.top, it.right, it.bottom) })

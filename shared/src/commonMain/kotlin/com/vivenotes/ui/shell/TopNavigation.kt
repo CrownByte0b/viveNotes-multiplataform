@@ -1,5 +1,12 @@
 package com.vivenotes.ui.shell
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,7 +48,9 @@ internal fun TopNavigation(
     onOpenAccount: () -> Unit,
     onSearch: () -> Unit = {},
     searchAvailable: Boolean = false,
+    onTabPress: () -> Unit = {},
 ) {
+    val currentTabPress by rememberUpdatedState(onTabPress)
     Surface(modifier = Modifier.testTag(WorkspaceTestTags.HeaderBar),
         color = LocalDesktopColors.current.headerBar, shadowElevation = 1.dp) {
         Row(
@@ -66,7 +75,13 @@ internal fun TopNavigation(
             )
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.horizontalScroll(rememberScrollState()).pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            currentTabPress()
+                            waitForUpOrCancellation(pass = PointerEventPass.Initial)
+                        }
+                    },
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     RibbonTab.entries.forEach { tab ->

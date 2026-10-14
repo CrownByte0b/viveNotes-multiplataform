@@ -19,6 +19,8 @@ import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.ui.ribbon.draw.DrawRibbon
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
+import com.vivenotes.workspace.InkSettings
+import com.vivenotes.workspace.InkPenSettings
 import com.vivenotes.workspace.InkTool
 import com.vivenotes.workspace.WorkspaceState
 import kotlin.test.*
@@ -45,7 +47,7 @@ class InkAuthoringIntegrationTest {
         val edits = mutableListOf<InkEdit>()
         setContent {
             Box(Modifier.size(128.dp).background(Color.White).testTag("frame")) {
-                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = tool.value, eraserMode = com.vivenotes.data.EraserMode.Object,
+                InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = tool.value, settings = InkSettings(pen = InkPenSettings(sizeDp = 3f)), eraserMode = com.vivenotes.data.EraserMode.Object,
                     onEdit = { edit, rendered -> edits += edit; page.value = rendered })
             }
         }
@@ -69,17 +71,20 @@ class InkAuthoringIntegrationTest {
             assertEquals("highlighter", row.brushFamily)
             assertEquals(false, row.colorFollowsTheme)
             assertEquals(0, row.stabilization)
-            assertEquals(0x80ffe000.toInt(), row.colorArgb)
+            assertEquals(0x66ffeb3b, row.colorArgb)
             assertNotNull(ViveInkCodec.decode(row.toByteInk()))
             tool.value = InkTool.Eraser
         }
         val pixels = onNodeWithTag("frame").captureToImage().toPixelMap()
-        assertTrue(pixels[60, 80].blue in 0.49f..0.51f, "highlighter remains translucent")
+        assertTrue(pixels[60, 80].blue in 0.68f..0.70f, "highlighter remains translucent")
         onNodeWithTag(INK_LAYER_TAG).performMouseInput {
             updatePointerTo(Offset(60f, 35f)); press(); moveTo(Offset(60f, 57f), delayMillis = 40); release()
         }
+        waitUntil(timeoutMillis = 5000) { edits.lastOrNull() is InkEdit.PartialErase }
         runOnIdle {
-            assertEquals(setOf((edits.first() as InkEdit.AddStroke).row.id), (edits.last() as InkEdit.EraseStrokes).ids)
+            val erased = edits.last() as InkEdit.PartialErase
+            assertEquals(com.vivenotes.data.EraserMode.Object, erased.row.mode)
+            assertEquals(setOf((edits.first() as InkEdit.AddStroke).row.id), erased.targetIds)
             assertEquals(1, page.value.desktopGeometry().projections.size)
         }
         assertEquals(Color.White, onNodeWithTag("frame").captureToImage().toPixelMap()[60, 50])
