@@ -3,8 +3,9 @@ package com.vivenotes.math
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Whether this device can run the math engine: a uv-managed CPython with SymPy, installed into the
- * app's own data directory on request. Android bundles Python in the APK; the desktop installs it.
+ * Whether this device can run the math engine: a uv-managed CPython with SymPy in the app's own data
+ * directory. Android bundles Python in the APK; the desktop installs it by default at launch, unless
+ * the person removed it.
  */
 sealed interface MathRuntimeState {
     /** Reading what is installed, at launch. */
@@ -35,9 +36,15 @@ enum class MathInstallStep(val label: String) {
 interface MathRuntime {
     val state: StateFlow<MathRuntimeState>
 
-    /** Installs Python and SymPy, or repairs them. A request while one is under way is ignored. */
+    /**
+     * Installs Python and SymPy, or repairs them, and takes back an earlier [remove]. A request
+     * while one is under way is ignored.
+     */
     fun install()
 
-    /** Stops the engine and removes everything the install put on this device. */
+    /**
+     * Stops the engine and removes everything the install put on this device. Remembered: launches
+     * no longer install it by default until [install] is asked for.
+     */
     fun remove()
 }

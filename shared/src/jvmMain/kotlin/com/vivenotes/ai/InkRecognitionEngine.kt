@@ -66,8 +66,8 @@ interface InkRecognitionEngine {
 }
 
 /**
- * Offline PP-OCRv5 and formula inference through ONNX Runtime's JVM package, the same `ai.onnxruntime`
- * API Android's `onnxruntime-android` exposes. Formulas go to PP-FormulaNet-S or UniMERNet-T,
+ * Offline PP-OCRv6 Small and formula inference through ONNX Runtime's JVM package, the same `ai.onnxruntime`
+ * API Android's `onnxruntime-android` exposes. Formulas go to PP-FormulaNet-S or a UniMERNet variant,
  * whichever [formulaEngine] names; it is asked on every formula rather than fixed, so a test can
  * name its model outright.
  *
@@ -101,9 +101,9 @@ class OnnxInkRecognitionEngine(
         withContext(inferenceDispatcher) { readLine(image) }
 
     override suspend fun recognizeFormula(image: Image): FormulaRecognitionResult =
-        when (formulaEngine()) {
+        when (val selected = formulaEngine()) {
             FormulaEngine.FormulaNetS -> recognizeWithFormulaNet(image)
-            FormulaEngine.UniMerNetTiny -> recognizeWithUniMerNet(image)
+            FormulaEngine.UniMerNetTiny, FormulaEngine.UniMerNetSmall -> recognizeWithUniMerNet(image, selected)
         }
 
     /**
@@ -130,6 +130,7 @@ class OnnxInkRecognitionEngine(
         val kinds = when (formulaEngine()) {
             FormulaEngine.FormulaNetS -> listOf(ModelKind.Formula)
             FormulaEngine.UniMerNetTiny -> listOf(ModelKind.UniMerNetEncoder, ModelKind.UniMerNetDecoder)
+            FormulaEngine.UniMerNetSmall -> listOf(ModelKind.UniMerNetSmallEncoder, ModelKind.UniMerNetSmallDecoder)
         }
         try {
             withContext(inferenceDispatcher) { everyLane { kinds.forEach { session(it) } } }
@@ -164,16 +165,16 @@ class OnnxInkRecognitionEngine(
             FormulaRecognitionResult(latex = FormulaTokenizerDecoder.decode(files.tokenizer, ids))
         }
 
-    private suspend fun recognizeWithUniMerNet(image: Image): FormulaRecognitionResult =
+    private suspend fun recognizeWithUniMerNet(image: Image, selected: FormulaEngine): FormulaRecognitionResult =
         withContext(inferenceDispatcher) {
-            val files = models.installedUniMerNetFiles() ?: error("UniMERNet-T is not installed")
+            val files = models.installedUniMerNetFiles(selected) ?: error("${selected.displayName} is not installed")
             val input = preprocessUniMerNet(image)
-            val ids = everyLane { decodeUniMerNet(input) }
+            val ids = everyLane { decodeUniMerNet(input, selected) }
             FormulaRecognitionResult(latex = FormulaTokenizerDecoder.decode(files.tokenizer, ids))
         }
 
     /**
-     * Greedy decoding over UniMERNet-T's two graphs, with the decoder's cache carried by hand.
+     * Greedy decoding over one UniMERNet variant's two graphs, with the decoder's cache carried by hand.
      *
      * FormulaNet-S's export has the generation loop inside its graph. This one does not, so the loop
      * is here. The encoder runs once. Each decoder step takes the last token and the self-attention
@@ -184,9 +185,13 @@ class OnnxInkRecognitionEngine(
      * The cache shapes come from the graph, with its one dynamic axis, the prefix length, set to
      * zero for the first step. Keys are half as wide as values in this decoder.
      */
-    private fun decodeUniMerNet(pixels: FloatArray): List<Long> {
-        val encoder = session(ModelKind.UniMerNetEncoder)
-        val decoder = session(ModelKind.UniMerNetDecoder)
+    private fun decodeUniMerNet(pixels: FloatArray, selected: FormulaEngine): List<Long> {
+        val encoder = session(
+            if (selected == FormulaEngine.UniMerNetSmall) ModelKind.UniMerNetSmallEncoder else ModelKind.UniMerNetEncoder,
+        )
+        val decoder = session(
+            if (selected == FormulaEngine.UniMerNetSmall) ModelKind.UniMerNetSmallDecoder else ModelKind.UniMerNetDecoder,
+        )
         val ids = ArrayList<Long>()
         OnnxTensor.createTensor(
             environment,
@@ -251,7 +256,7 @@ class OnnxInkRecognitionEngine(
      */
     override suspend fun recognizeImageText(image: Image): ImageTextResult =
         withContext(inferenceDispatcher) {
-            val input = preprocessDetection(image)
+            val input = preprocessDetection(image, channelOrder = DetectionChannelOrder.Bgr)
             val probability = inLane {
                 val detector = session(ModelKind.Detect)
                 OnnxTensor.createTensor(
@@ -266,7 +271,7 @@ class OnnxInkRecognitionEngine(
                     }
                 }
             }
-            val quads = TextDetection.quads(probability, input.width, input.height)
+            val quads = ppOcrV6SmallQuads(probability, input.width, input.height)
             if (quads.isEmpty()) return@withContext ImageTextResult.Empty
 
             // Detection ran on the aligned, side-limited copy; the crops come out of the picture at
@@ -364,7 +369,7 @@ class OnnxInkRecognitionEngine(
      * The session for [kind], opening it if this is the first ask. Called only while holding a lane.
      *
      * **Detection and recognition stay resident together; a formula model stays exclusive.** The
-     * two OCR graphs are 12.7 MB between them and are kept; the formula models are the reason a rule
+     * two OCR graphs are about 31 MB between them and are kept; the formula models are the reason a rule
      * exists at all, so they evict and are evicted. The rule is by [ModelKind.family]: using a graph
      * closes every graph of another family.
      *
@@ -412,10 +417,14 @@ class OnnxInkRecognitionEngine(
                         ?: error("PP-FormulaNet-S is not installed")
                     environment.createSession(file.absolutePath, options)
                 }
-                ModelKind.UniMerNetEncoder, ModelKind.UniMerNetDecoder -> {
-                    val files = models.installedUniMerNetFiles()
-                        ?: error("UniMERNet-T is not installed")
-                    val file = if (kind == ModelKind.UniMerNetEncoder) files.encoder else files.decoder
+                ModelKind.UniMerNetEncoder, ModelKind.UniMerNetDecoder,
+                ModelKind.UniMerNetSmallEncoder, ModelKind.UniMerNetSmallDecoder -> {
+                    val selected = if (kind.family == ModelFamily.UniMerNetSmall) FormulaEngine.UniMerNetSmall
+                        else FormulaEngine.UniMerNetTiny
+                    val files = models.installedUniMerNetFiles(selected)
+                        ?: error("${selected.displayName} is not installed")
+                    val file = if (kind == ModelKind.UniMerNetEncoder || kind == ModelKind.UniMerNetSmallEncoder)
+                        files.encoder else files.decoder
                     environment.createSession(file.absolutePath, options)
                 }
             }
@@ -438,14 +447,16 @@ class OnnxInkRecognitionEngine(
     }
 
     /** The graphs that stay resident together — see [session]. */
-    private enum class ModelFamily { Ocr, FormulaNet, UniMerNet }
+    private enum class ModelFamily { Ocr, FormulaNet, UniMerNetTiny, UniMerNetSmall }
 
     private enum class ModelKind(val family: ModelFamily) {
         Text(ModelFamily.Ocr),
         Detect(ModelFamily.Ocr),
         Formula(ModelFamily.FormulaNet),
-        UniMerNetEncoder(ModelFamily.UniMerNet),
-        UniMerNetDecoder(ModelFamily.UniMerNet),
+        UniMerNetEncoder(ModelFamily.UniMerNetTiny),
+        UniMerNetDecoder(ModelFamily.UniMerNetTiny),
+        UniMerNetSmallEncoder(ModelFamily.UniMerNetSmall),
+        UniMerNetSmallDecoder(ModelFamily.UniMerNetSmall),
     }
 
     companion object {
@@ -493,7 +504,7 @@ class OnnxInkRecognitionEngine(
 internal data class TextTensor(val values: FloatArray, val width: Int)
 
 /**
- * PP-OCRv5 line resize, BGR channel order, `[-1, 1]` normalization and zero padding.
+ * PaddleOCR v5/v6 line resize, BGR channel order, `[-1, 1]` normalization and zero padding.
  *
  * The rows are copied one at a time because the two buffers have different strides, and getting
  * that wrong is silent. The resized image is [resizedWidth] wide; the tensor is [width] wide, so any
@@ -641,7 +652,8 @@ private inline fun <T> withInkCrop(image: Image, block: (Image) -> T): T {
     }
 }
 
-private fun decodeCtc(logits: Array<FloatArray>, characters: List<String>): TextRecognitionResult {
+internal fun decodeCtc(logits: Array<FloatArray>, characters: List<String>): TextRecognitionResult {
+    require(logits.all { it.size == characters.size }) { "OCR dictionary does not match model" }
     val result = StringBuilder()
     var previous = 0
     var confidence = 0f
@@ -655,7 +667,7 @@ private fun decodeCtc(logits: Array<FloatArray>, characters: List<String>): Text
                 bestIndex = index
             }
         }
-        if (bestIndex != 0 && bestIndex != previous && bestIndex < characters.size) {
+        if (bestIndex != 0 && bestIndex != previous) {
             result.append(characters[bestIndex])
             confidence += bestScore
             charactersRead++

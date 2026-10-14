@@ -78,15 +78,49 @@ class ModelsPaneTest {
         setWorkspace()
         openModels()
 
+        onNodeWithTag(ModelsTags.formula(FormulaEngine.UniMerNetSmall))
+            .assertTextContains("UniMERNet Small")
+            .assertTextContains("Best on algebra · 209 MB")
         onNodeWithTag(ModelsTags.formula(FormulaEngine.UniMerNetTiny))
             .assertTextContains("UniMERNet-T")
-            .assertTextContains("Best on algebra · 113 MB")
+            .assertTextContains("Smaller download · 113 MB")
         onNodeWithTag(ModelsTags.formula(FormulaEngine.FormulaNetS))
             .assertTextContains("PP-FormulaNet-S")
             .assertTextContains("Reads matrices · 234 MB")
         onNodeWithTag(ModelsTags.download(FormulaEngine.FormulaNetS)).performClick()
 
         assertEquals(listOf(FormulaEngine.FormulaNetS), models.downloads)
+    }
+
+    @Test
+    fun smallOffersDownloadProgressRetryUseAndDelete() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        val small = FormulaEngine.UniMerNetSmall
+        setWorkspace()
+        openModels()
+        onNodeWithTag(ModelsTags.download(small)).performClick()
+        assertEquals(listOf(small), models.downloads)
+
+        models.state.value = models.state.value.withFormula(small,
+            AiModelInstallState.Downloading(104_517_967, 209_035_935))
+        onNodeWithTag(ModelsTags.progress(small)).assertTextContains("Downloading 50%")
+        onNodeWithTag(ModelsTags.download(small)).assertDoesNotExist()
+        models.state.value = models.state.value.withFormula(small, AiModelInstallState.Verifying)
+        onNodeWithTag(ModelsTags.progress(small)).assertTextContains("Verifying…")
+        models.state.value = models.state.value.withFormula(small, AiModelInstallState.Failed("Download interrupted"))
+        onNodeWithTag(ModelsTags.formula(small)).assertTextContains("Download interrupted")
+        onNodeWithTag(ModelsTags.download(small)).assertTextContains("Retry").performClick()
+        assertEquals(listOf(small, small), models.downloads)
+
+        models.state.value = models.state.value.withFormula(small, AiModelInstallState.Installed)
+            .withFormula(FormulaEngine.UniMerNetTiny, AiModelInstallState.Installed)
+            .copy(formulaEngine = FormulaEngine.UniMerNetTiny)
+        onNodeWithTag(ModelsTags.use(small)).assertIsNotSelected().performClick()
+        assertEquals(listOf(small), models.selections)
+        models.state.value = models.state.value.copy(formulaEngine = small)
+        onNodeWithTag(ModelsTags.use(small)).assertIsSelected().assertTextContains("In use")
+        onNodeWithTag(ModelsTags.use(FormulaEngine.UniMerNetTiny)).assertIsNotSelected()
+        onNodeWithTag(ModelsTags.delete(small)).performClick()
+        assertEquals(listOf(small), models.deletes)
     }
 
     @Test
@@ -153,8 +187,8 @@ class ModelsPaneTest {
         openModels()
 
         onNodeWithTag(ModelsTags.TextModel)
-            .assertTextContains("PP-OCRv5 Mobile")
-            .assertTextContains("Handwriting and pictures · 12.7 MB · built in")
+            .assertTextContains("PP-OCRv6 Small")
+            .assertTextContains("Handwriting and pictures · 31.1 MB · built in")
 
         models.state.value = models.state.value.copy(handwritingText = AiModelInstallState.Failed("Bundled OCR model is unavailable"))
         onNodeWithTag(ModelsTags.TextModel).assertTextContains("Bundled OCR model is unavailable")
@@ -245,6 +279,7 @@ class ModelsPaneTest {
                 handwritingText = AiModelInstallState.Installed,
                 formulaLatex = AiModelInstallState.NotInstalled,
                 uniMerNet = AiModelInstallState.NotInstalled,
+                uniMerNetSmall = AiModelInstallState.NotInstalled,
             ),
         )
         val downloads = mutableListOf<FormulaEngine>()

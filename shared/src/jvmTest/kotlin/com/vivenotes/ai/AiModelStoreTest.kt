@@ -86,10 +86,12 @@ class AiModelStoreTest {
             assertEquals(AiModelInstallState.Installed, state.handwritingText)
             assertEquals(AiModelInstallState.NotInstalled, state.formulaLatex)
             assertEquals(AiModelInstallState.NotInstalled, state.uniMerNet)
-            assertEquals(FormulaEngine.UniMerNetTiny, state.formulaEngine)
+            assertEquals(AiModelInstallState.NotInstalled, state.uniMerNetSmall)
+            assertEquals(FormulaEngine.UniMerNetSmall, state.formulaEngine)
             assertFalse(state.formulaReady)
             assertNull(store.installedFormulaFiles())
             assertNull(store.installedUniMerNetFiles())
+            assertNull(store.installedUniMerNetFiles(FormulaEngine.UniMerNetSmall))
             // The bundled graphs open from the jar.
             assertEquals(AiModelCatalog.TEXT_MODEL.bytes, store.openTextModel().use { it.readBytes().size.toLong() })
         }
@@ -103,26 +105,41 @@ class AiModelStoreTest {
         assertTrue("reached for $attempted with auto-download off", attempted.isEmpty())
     }
 
+    @Test
+    fun bundledSmallVerificationLogsItsIdentityOnlyWhenDebugIsEnabled() = runBlocking<Unit> {
+        for (enabled in listOf(false, true)) {
+            val lines = Collections.synchronizedList(mutableListOf<String>())
+            store(root = File(temporary.root, "ocr-$enabled"), log = DebugLog(enabled) { lines += it }).use { store ->
+                assertEquals(AiModelInstallState.Installed, settle(store).handwritingText)
+            }
+            if (enabled) {
+                assertTrue(lines.toString(), lines.any { it.contains("bundled OCR verified: PP-OCRv6 Small") })
+            } else {
+                assertTrue(lines.toString(), lines.isEmpty())
+            }
+        }
+    }
+
     /** Android's `anInstalledPackageIsNeverFetchedAgain`, after the first fetch that installed it. */
     @Test
     fun autoDownloadFetchesTheDefaultOnceAndNeverAgain() = runBlocking<Unit> {
         store(downloader = writing, autoDownload = true).use { store ->
             settle(store)
-            installed(store, FormulaEngine.UniMerNetTiny)
+            installed(store, FormulaEngine.UniMerNetSmall)
         }
-        assertEquals(AiModelCatalog.formulaArtifacts(FormulaEngine.UniMerNetTiny).map { it.fileName }, attempted.toList())
+        assertEquals(AiModelCatalog.formulaArtifacts(FormulaEngine.UniMerNetSmall).map { it.fileName }, attempted.toList())
 
         attempted.clear()
         store(downloader = refusing, autoDownload = true).use { store ->
             val state = settle(store)
-            assertEquals(AiModelInstallState.Installed, state.uniMerNet)
+            assertEquals(AiModelInstallState.Installed, state.uniMerNetSmall)
         }
         assertTrue("reached for $attempted despite the default being installed", attempted.isEmpty())
     }
 
     @Test
     fun autoDownloadHonoursADeletedDefault() = runBlocking<Unit> {
-        val deleted = InMemoryAiModelPreferences(AiModelChoices(deletedFormulaEngines = setOf(FormulaEngine.UniMerNetTiny)))
+        val deleted = InMemoryAiModelPreferences(AiModelChoices(deletedFormulaEngines = setOf(FormulaEngine.UniMerNetSmall)))
         store(autoDownload = true, preferences = deleted).use { settle(it) }
 
         assertTrue("fetched $attempted after the user deleted it", attempted.isEmpty())
@@ -145,6 +162,91 @@ class AiModelStoreTest {
             assertEquals(File(root, "pp-formulanet-s-v1"), files.model.parentFile)
             assertTrue(File(files.model.parentFile, ".verified").isFile)
             assertTrue("staging left behind", root.listFiles()!!.none { it.name.endsWith(".part") })
+        }
+    }
+
+    @Test
+    fun smallAndTinyInstallIndependentlyAndDeletingSmallPreservesTiny() = runBlocking<Unit> {
+        val root = File(temporary.root, AiModelStore.DIRECTORY)
+        val preferences = InMemoryAiModelPreferences()
+        store(root, downloader = writing, preferences = preferences).use { store ->
+            settle(store)
+            for (engine in listOf(FormulaEngine.UniMerNetTiny, FormulaEngine.UniMerNetSmall)) {
+                store.download(engine)
+                installed(store, engine)
+            }
+            val small = store.installedUniMerNetFiles(FormulaEngine.UniMerNetSmall)!!
+            val tiny = store.installedUniMerNetFiles(FormulaEngine.UniMerNetTiny)!!
+            assertEquals(File(root, "unimernet-small-v1"), small.encoder.parentFile)
+            assertEquals(AiModelCatalog.UNIMERNET_SMALL_ENCODER.bytes, small.encoder.length())
+            assertEquals(AiModelCatalog.UNIMERNET_SMALL_DECODER.bytes, small.decoder.length())
+            assertEquals(AiModelCatalog.UNIMERNET_SMALL_TOKENIZER.bytes, small.tokenizer.length())
+            assertEquals(File(root, "unimernet-tiny-v1"), tiny.encoder.parentFile)
+            assertEquals(FormulaEngine.UniMerNetSmall, store.state.value.formulaEngine)
+            assertNull(store.installedUniMerNetFiles(FormulaEngine.FormulaNetS))
+
+            store.delete(FormulaEngine.UniMerNetSmall)
+            assertEquals(FormulaEngine.UniMerNetTiny, store.state.value.formulaEngine)
+            assertNull(store.installedUniMerNetFiles(FormulaEngine.UniMerNetSmall))
+            assertTrue(tiny.encoder.isFile && tiny.decoder.isFile)
+            eventually { FormulaEngine.UniMerNetSmall in preferences.load().deletedFormulaEngines }
+            eventually { !small.encoder.parentFile.exists() }
+        }
+        store(root, preferences = preferences).use { store ->
+            assertEquals(FormulaEngine.UniMerNetTiny, settle(store).formulaEngine)
+            assertNull(store.installedUniMerNetFiles(FormulaEngine.UniMerNetSmall))
+            assertTrue(store.installedUniMerNetFiles(FormulaEngine.UniMerNetTiny)!!.encoder.isFile)
+        }
+    }
+
+    @Test
+    fun aFailedSmallDownloadPreservesTheInstalledTinyPackageAndReportsProgress() = runBlocking<Unit> {
+        val root = File(temporary.root, AiModelStore.DIRECTORY)
+        val lines = Collections.synchronizedList(mutableListOf<String>())
+        val failing = ArtifactDownloader { artifact, destination, onBytes ->
+            if (artifact == AiModelCatalog.UNIMERNET_SMALL_DECODER) throw IOException("Small decoder interrupted")
+            writing.download(artifact, destination, onBytes)
+        }
+        store(root, downloader = failing, log = DebugLog(enabled = true) { lines += it }).use { store ->
+            settle(store)
+            store.download(FormulaEngine.UniMerNetTiny)
+            installed(store, FormulaEngine.UniMerNetTiny)
+            store.download(FormulaEngine.UniMerNetSmall)
+            val state = withTimeout(SETTLE_TIMEOUT_MS) {
+                store.state.first { it.uniMerNetSmall is AiModelInstallState.Failed }
+            }
+            assertEquals(AiModelInstallState.Failed("Small decoder interrupted"), state.uniMerNetSmall)
+            assertEquals(AiModelInstallState.Installed, state.uniMerNet)
+            assertEquals(FormulaEngine.UniMerNetTiny, state.formulaEngine)
+            assertFalse(File(root, "unimernet-small-v1").exists())
+            assertTrue(root.listFiles()!!.none { it.name.endsWith(".part") })
+            assertTrue(lines.toString(), lines.any {
+                it.contains("UniMERNet Small download after ${AiModelCatalog.UNIMERNET_SMALL_ENCODER.bytes} bytes failed")
+            })
+        }
+    }
+
+    @Test
+    fun installingSmallKeepsAnExplicitTinyChoiceAcrossRelaunch() = runBlocking<Unit> {
+        val root = File(temporary.root, AiModelStore.DIRECTORY)
+        val preferences = InMemoryAiModelPreferences()
+        store(root, downloader = writing, preferences = preferences).use { store ->
+            settle(store)
+            store.download(FormulaEngine.UniMerNetTiny)
+            installed(store, FormulaEngine.UniMerNetTiny)
+            store.selectFormulaEngine(FormulaEngine.UniMerNetTiny)
+            eventually { preferences.load().formulaEngine == FormulaEngine.UniMerNetTiny }
+            store.download(FormulaEngine.UniMerNetSmall)
+            installed(store, FormulaEngine.UniMerNetSmall)
+            assertEquals(FormulaEngine.UniMerNetTiny, store.state.value.formulaEngine)
+        }
+        store(root, preferences = preferences).use { store ->
+            assertEquals(FormulaEngine.UniMerNetTiny, settle(store).formulaEngine)
+            store.selectFormulaEngine(FormulaEngine.UniMerNetSmall)
+            eventually { preferences.load().formulaEngine == FormulaEngine.UniMerNetSmall }
+        }
+        store(root, preferences = preferences).use { store ->
+            assertEquals(FormulaEngine.UniMerNetSmall, settle(store).formulaEngine)
         }
     }
 
@@ -185,8 +287,8 @@ class AiModelStoreTest {
         store(root, downloader = writing, preferences = preferences).use { store ->
             settle(store)
             FormulaEngine.entries.forEach { store.download(it); installed(store, it) }
-            // Both installed: the best one is in use until somebody picks.
-            assertEquals(FormulaEngine.UniMerNetTiny, store.state.value.formulaEngine)
+            // All installed: the best one is in use until somebody picks.
+            assertEquals(FormulaEngine.UniMerNetSmall, store.state.value.formulaEngine)
 
             store.selectFormulaEngine(FormulaEngine.FormulaNetS)
             assertEquals(FormulaEngine.FormulaNetS, store.state.value.formulaEngine)
@@ -194,13 +296,13 @@ class AiModelStoreTest {
 
             store.delete(FormulaEngine.FormulaNetS)
             assertEquals(AiModelInstallState.NotInstalled, store.state.value.formulaLatex)
-            assertEquals(FormulaEngine.UniMerNetTiny, store.state.value.formulaEngine)
+            assertEquals(FormulaEngine.UniMerNetSmall, store.state.value.formulaEngine)
             eventually { !File(root, "pp-formulanet-s-v1").exists() }
             eventually { FormulaEngine.FormulaNetS in preferences.load().deletedFormulaEngines }
 
             // Only an installed model can be chosen.
             store.selectFormulaEngine(FormulaEngine.FormulaNetS)
-            assertEquals(FormulaEngine.UniMerNetTiny, store.state.value.formulaEngine)
+            assertEquals(FormulaEngine.UniMerNetSmall, store.state.value.formulaEngine)
         }
         // The choice survives a relaunch while its model is installed.
         store(root, preferences = InMemoryAiModelPreferences(AiModelChoices(FormulaEngine.UniMerNetTiny))).use { store ->

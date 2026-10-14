@@ -30,9 +30,13 @@ data class ImageTextResult(
 /** The detector's input tensor and the size it was built at, which the boxes come back in. */
 internal data class DetectionTensor(val values: FloatArray, val width: Int, val height: Int)
 
+internal enum class DetectionChannelOrder { Rgb, Bgr }
+
 /**
- * PP-OCRv5 detection preprocessing: fit a side limit, round to a multiple of 32, ImageNet-normalize.
+ * PaddleOCR v5/v6 detection preprocessing: fit a side limit, round to a multiple of 32, ImageNet-normalize.
  * Android's `ai/ImageOcr.kt`.
+ * [channelOrder] keeps Android's original RGB projection by default; the v6 Small adapter
+ * explicitly selects the BGR order from its official export configuration.
  *
  * The multiple of 32 is the network's own requirement — it downsamples by 32 and upsamples back —
  * and `limit_side_len` is what keeps a 12-megapixel photograph from being fed in whole. 960 is
@@ -40,7 +44,11 @@ internal data class DetectionTensor(val values: FloatArray, val width: Int, val 
  * repository's `simulations/image-ocr/`, but every sample in that corpus is comfortably large type,
  * so the corpus cannot see the case 960 exists for.
  */
-internal fun preprocessDetection(image: Image, limit: Int = DETECTION_LIMIT): DetectionTensor {
+internal fun preprocessDetection(
+    image: Image,
+    limit: Int = DETECTION_LIMIT,
+    channelOrder: DetectionChannelOrder = DetectionChannelOrder.Rgb,
+): DetectionTensor {
     require(image.width > 0 && image.height > 0) { "Detection image is empty" }
     val longest = max(image.width, image.height)
     val ratio = if (longest > limit) limit.toFloat() / longest else 1f
@@ -55,13 +63,20 @@ internal fun preprocessDetection(image: Image, limit: Int = DETECTION_LIMIT): De
 
     val plane = width * height
     val values = FloatArray(plane * 3)
+    val bgr = channelOrder == DetectionChannelOrder.Bgr
     pixels.forEachIndexed { index, color ->
-        values[index] = (red(color) / 255f - DETECTION_MEAN_R) / DETECTION_STD_R
-        values[plane + index] = (green(color) / 255f - DETECTION_MEAN_G) / DETECTION_STD_G
-        values[plane * 2 + index] = (blue(color) / 255f - DETECTION_MEAN_B) / DETECTION_STD_B
+        val first = if (bgr) blue(color) else red(color)
+        val third = if (bgr) red(color) else blue(color)
+        values[index] = (first / 255f - DETECTION_MEAN_0) / DETECTION_STD_0
+        values[plane + index] = (green(color) / 255f - DETECTION_MEAN_1) / DETECTION_STD_1
+        values[plane * 2 + index] = (third / 255f - DETECTION_MEAN_2) / DETECTION_STD_2
     }
     return DetectionTensor(values, width, height)
 }
+
+/** The Small detector's inference.yml settings, leaving Android's DB defaults unchanged. */
+internal fun ppOcrV6SmallQuads(probability: FloatArray, width: Int, height: Int): List<TextDetection.Quad> =
+    TextDetection.quads(probability, width, height, threshold = 0.2f, boxThreshold = 0.45f, unclipRatio = 1.4f)
 
 /**
  * Warps one detected quad to a horizontal strip 48 pixels tall — what the recognizer eats.
@@ -130,9 +145,9 @@ private const val MAX_CROP_WIDTH = 3200
 
 // ImageNet statistics, which is what the detector was trained with — not the [-1, 1] the recognizer
 // uses. Feeding one model the other's normalization is silent and produces an empty page.
-private const val DETECTION_MEAN_R = 0.485f
-private const val DETECTION_MEAN_G = 0.456f
-private const val DETECTION_MEAN_B = 0.406f
-private const val DETECTION_STD_R = 0.229f
-private const val DETECTION_STD_G = 0.224f
-private const val DETECTION_STD_B = 0.225f
+private const val DETECTION_MEAN_0 = 0.485f
+private const val DETECTION_MEAN_1 = 0.456f
+private const val DETECTION_MEAN_2 = 0.406f
+private const val DETECTION_STD_0 = 0.229f
+private const val DETECTION_STD_1 = 0.224f
+private const val DETECTION_STD_2 = 0.225f

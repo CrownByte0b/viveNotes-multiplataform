@@ -6,13 +6,13 @@ import kotlin.test.assertNull
 
 /**
  * Which formula model recognition runs, and when one is fetched unasked. Android's
- * `FormulaEngineSelectionTest`, unchanged in substance.
+ * `FormulaEngineSelectionTest`, extended for the desktop Small model.
  *
  * The rules that decide what a person upgrading, deleting or downloading ends up with. Each case is
  * one of those people.
  */
 class FormulaEngineSelectionTest {
-    private val uniMerNet = FormulaEngine.UniMerNetTiny
+    private val uniMerNet = FormulaEngine.UniMerNetSmall
     private val formulaNet = FormulaEngine.FormulaNetS
 
     @Test
@@ -87,10 +87,42 @@ class FormulaEngineSelectionTest {
         val state = AiModelsState(
             formulaLatex = AiModelInstallState.Installed,
             uniMerNet = AiModelInstallState.NotInstalled,
+            uniMerNetSmall = AiModelInstallState.NotInstalled,
             formulaEngine = uniMerNet,
         )
         assertEquals(false, state.formulaReady)
         assertEquals(true, state.copy(formulaEngine = formulaNet).formulaReady)
         assertEquals(setOf(formulaNet), state.installedFormulaEngines)
+        val ready = state.withFormula(uniMerNet, AiModelInstallState.Installed)
+        assertEquals(true, ready.formulaReady)
+        assertEquals(setOf(uniMerNet, formulaNet), ready.installedFormulaEngines)
+    }
+
+    @Test
+    fun smallTakesOverAnImplicitTinyChoiceButPreservesExplicitChoices() {
+        val tiny = FormulaEngine.UniMerNetTiny
+        assertEquals(tiny, formulaEngineInUse(chosen = null, installed = setOf(tiny)))
+        val installed = setOf(tiny, uniMerNet, formulaNet)
+        assertEquals(uniMerNet, formulaEngineInUse(chosen = null, installed = installed))
+        assertEquals(tiny, formulaEngineInUse(chosen = tiny, installed = installed))
+        assertEquals(formulaNet, formulaEngineInUse(chosen = formulaNet, installed = installed))
+        assertEquals(uniMerNet, formulaEngineInUse(chosen = uniMerNet, installed = installed))
+    }
+
+    @Test
+    fun deletingSmallFallsBackToTinyBeforeFormulaNet() {
+        val tiny = FormulaEngine.UniMerNetTiny
+        assertEquals(tiny, formulaEngineAfterDelete(uniMerNet, uniMerNet, setOf(tiny, formulaNet)))
+        assertEquals(formulaNet, formulaEngineAfterDelete(uniMerNet, uniMerNet, setOf(formulaNet)))
+        assertEquals(tiny, formulaEngineInUse(chosen = uniMerNet, installed = setOf(tiny, formulaNet)))
+    }
+
+    @Test
+    fun tinyStillUsesTheOriginalFallbackAndDeleteRulesWhenSmallIsAbsent() {
+        val tiny = FormulaEngine.UniMerNetTiny
+        assertEquals(tiny, formulaEngineInUse(chosen = null, installed = setOf(tiny, formulaNet)))
+        assertEquals(formulaNet, formulaEngineAfterDelete(tiny, tiny, setOf(formulaNet)))
+        assertEquals(uniMerNet, formulaEngineToFetch(installed = setOf(tiny), deleted = setOf(formulaNet)))
+        assertEquals(null, formulaEngineToFetch(installed = setOf(tiny), deleted = setOf(uniMerNet)))
     }
 }

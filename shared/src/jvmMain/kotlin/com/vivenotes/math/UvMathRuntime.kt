@@ -26,17 +26,20 @@ import java.util.concurrent.TimeUnit
 
 /**
  * The math engine's runtime on the desktop: a real CPython with SymPy, which uv installs into
- * [root] on request — `math_engine` in the data directory — from the lock the app carries.
+ * [root] — `math_engine` in the data directory — from the lock the app carries.
  *
- * Android bundles its interpreter in the APK through Chaquopy. Here uv does that job once: it
- * downloads the exact CPython `.python-version` names (its own python-build-standalone build, never
- * the system's, so every machine runs the same interpreter) and installs the locked packages beside
- * it. Nothing is installed into the user's own Python, uv's shared directories, or `PATH`:
+ * Android bundles its interpreter in the APK through Chaquopy, so SymPy is simply there. Here uv
+ * does that job, and does it **by default**: a launch that finds the engine missing installs it in
+ * the background, unless the person removed it — then it stays removed until they press Install.
+ * uv downloads the exact CPython `.python-version` names (its own python-build-standalone build,
+ * never the system's, so every machine runs the same interpreter) and installs the locked packages
+ * beside it. Nothing is installed into the user's own Python, uv's shared directories, or `PATH`:
  *
  * - `project/` — the bundled uv project, written out ([MathEngineProject])
  * - `python/` — the uv-managed CPython
  * - `venv/` — the project environment, with SymPy and its bytecode compiled at install
  * - `installed.properties` — what the last verified install was
+ * - `removed` — left by Remove, and alone: the person's no to installing by default
  *
  * uv is needed to install, not to run: an installed engine keeps working if uv goes away.
  */
@@ -48,10 +51,13 @@ class UvMathRuntime internal constructor(
     private val findUv: () -> UvLookup,
     ioDispatcher: CoroutineDispatcher,
     private val windows: Boolean,
+    /** Whether a launch that finds the engine missing installs it unasked — see the class. */
+    autoInstall: Boolean,
 ) : MathRuntime, AutoCloseable {
     constructor(root: File, log: DebugLog = DebugLog()) : this(
         root, log, MathEngineProject(), { UvLookup.find() }, Dispatchers.IO,
         System.getProperty("os.name").startsWith("Windows", ignoreCase = true),
+        autoInstall = true,
     )
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
@@ -65,6 +71,7 @@ class UvMathRuntime internal constructor(
     private val environment = File(root, "venv")
     private val cache = File(root, "cache")
     private val marker = File(root, "installed.properties")
+    private val removedByUser = File(root, "removed")
     private val python = File(environment, if (windows) "Scripts/python.exe" else "bin/python")
 
     private val _state = MutableStateFlow<MathRuntimeState>(MathRuntimeState.Checking)
@@ -84,9 +91,24 @@ class UvMathRuntime internal constructor(
     internal val serverDirectory: File get() = projectDirectory
 
     init {
-        scope.launch {
-            operations.withLock { _state.value = currentState() }
-            log.event("math") { "runtime checked: ${_state.value.describe()}" }
+        // Counted as an install from the start, so an Install press meanwhile is not a second one
+        // and Remove can stop it. Checking goes straight to Installing: the pane never offers an
+        // Install button for the moment between them.
+        synchronized(this) {
+            installing = scope.launch {
+                operations.withLock {
+                    val checked = currentState()
+                    if (autoInstall && checked == MathRuntimeState.NotInstalled && !removedByUser.exists()) {
+                        log.event("math") { "runtime checked: not installed; installing by default" }
+                        runInstall()
+                    } else {
+                        _state.value = checked
+                        log.event("math") {
+                            "runtime checked: ${checked.describe()}" + if (removedByUser.exists()) " (removed by the user)" else ""
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -97,6 +119,10 @@ class UvMathRuntime internal constructor(
         }
     }
 
+    /**
+     * Stops the engine, deletes what the install put here and leaves [removedByUser], so launches
+     * stop installing it by default until [install] is pressed again.
+     */
     override fun remove() {
         val pending = synchronized(this) { installing.also { it?.cancel() } }
         scope.launch {
@@ -104,6 +130,12 @@ class UvMathRuntime internal constructor(
             operations.withLock {
                 sympy.stop()
                 if (!root.deleteRecursively()) log.event("math") { "remove left files behind" }
+                try {
+                    root.mkdirs()
+                    removedByUser.writeText("Removed from Settings → Models; Install brings the math engine back.\n")
+                } catch (failure: Exception) {
+                    log.failure("math", "remembering the removal", failure)
+                }
                 log.event("math") { "removed" }
                 _state.value = currentState()
             }
@@ -117,6 +149,8 @@ class UvMathRuntime internal constructor(
     }
 
     private suspend fun runInstall() {
+        // Asking for it again takes back the earlier Remove, whether or not this install succeeds.
+        removedByUser.delete()
         val uv = when (val lookup = findUv()) {
             is UvLookup.Found -> lookup
             is UvLookup.Unavailable -> {

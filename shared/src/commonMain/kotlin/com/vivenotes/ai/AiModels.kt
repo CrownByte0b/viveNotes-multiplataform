@@ -14,22 +14,26 @@ sealed interface AiModelInstallState {
 
 /** Every recognition model on this device, and which formula model is in use. */
 data class AiModelsState(
-    /** The bundled PP-OCRv5 recognizer, detector and dictionary, verified together. */
+    /** The bundled PP-OCRv6 Small recognizer, detector and dictionary, verified together. */
     val handwritingText: AiModelInstallState = AiModelInstallState.Verifying,
     /** PP-FormulaNet-S's package. */
     val formulaLatex: AiModelInstallState = AiModelInstallState.Verifying,
     /** UniMERNet-T's package. */
     val uniMerNet: AiModelInstallState = AiModelInstallState.Verifying,
+    /** Desktop UniMERNet Small's package. */
+    val uniMerNetSmall: AiModelInstallState = AiModelInstallState.Verifying,
     /** The model formula recognition runs — see [formulaEngineInUse]. */
     val formulaEngine: FormulaEngine = DEFAULT_FORMULA_ENGINE,
 ) {
     fun formula(engine: FormulaEngine): AiModelInstallState = when (engine) {
+        FormulaEngine.UniMerNetSmall -> uniMerNetSmall
         FormulaEngine.UniMerNetTiny -> uniMerNet
         FormulaEngine.FormulaNetS -> formulaLatex
     }
 
     fun withFormula(engine: FormulaEngine, install: AiModelInstallState): AiModelsState =
         when (engine) {
+            FormulaEngine.UniMerNetSmall -> copy(uniMerNetSmall = install)
             FormulaEngine.UniMerNetTiny -> copy(uniMerNet = install)
             FormulaEngine.FormulaNetS -> copy(formulaLatex = install)
         }
@@ -74,32 +78,34 @@ data class BundledArtifact(
 )
 
 /**
- * Every model file the app bundles or downloads, pinned by size and SHA-256 — the Android app's
- * catalog, byte for byte. A changed pin here means a different model, not a new copy of the same one.
+ * Every model file the app bundles or downloads, pinned by size and SHA-256. Legacy formula
+ * packages keep Android's pins; desktop Small and the bundled OCR have independent releases.
  */
 object AiModelCatalog {
+    const val TEXT_MODEL_NAME = "PP-OCRv6 Small"
+
     val TEXT_MODEL = BundledArtifact(
-        fileName = "en_pp-ocrv5_mobile_rec.onnx",
-        bytes = 7_876_014L,
-        sha256 = "8307465d3c9ef2ba4055c3bd0be55aafe11f518630212b7598b70ccb376028ac",
+        fileName = "pp-ocrv6_small_rec.onnx",
+        bytes = 21_159_378L,
+        sha256 = "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
     )
     val TEXT_DICTIONARY = BundledArtifact(
-        fileName = "ppocrv5_en_dict.txt",
-        bytes = 1_416L,
-        sha256 = "e025a66d31f327ba0c232e03f407ae8d105e1e709e7ccb3f408aa778c24e70d6",
+        fileName = "ppocrv6_dict.txt",
+        bytes = 74_947L,
+        sha256 = "b5f2bfe2bdd9448429e3e82b51c789775d9b42f2403d082b00662eb77e401c5d",
     )
 
     /**
-     * PP-OCRv5_mobile_det, from the same pinned oar-ocr v0.3.0 release as everything else here.
+     * PP-OCRv6_small_det, paired with its recognizer and dictionary from oar-ocr v0.7.0.
      *
      * It is not a second recognizer and cannot replace one: its only output is a per-pixel
      * probability map, `[1, 1, H, W]`, with no box, class or score tensor anywhere in the graph.
      * Turning that map into text quads is `model/ocr/TextDetection.kt`.
      */
     val DETECTION_MODEL = BundledArtifact(
-        fileName = "pp-ocrv5_mobile_det.onnx",
-        bytes = 4_826_518L,
-        sha256 = "1eb7b4f7ab657ebd1c66d5f79bca7497f29768a2e3c15e52daecbba1a8e4a039",
+        fileName = "pp-ocrv6_small_det.onnx",
+        bytes = 9_880_512L,
+        sha256 = "d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e",
     )
 
     /** The detector, recognizer and dictionary: one capability, so verified and counted together. */
@@ -157,8 +163,31 @@ object AiModelCatalog {
         url = UNIMERNET_RELEASE_URL + "unimernet-tiny-decoder-int8.onnx",
     )
 
+    const val UNIMERNET_SMALL_RELEASE_URL =
+        "https://github.com/AquilaIgnis/viveNotes/releases/download/models-unimernet-small-v1/"
+
+    val UNIMERNET_SMALL_ENCODER = ModelArtifact(
+        fileName = "unimernet-small-encoder-int8.onnx",
+        bytes = 61_983_109L,
+        sha256 = "4982c38cbed338e5bdc24420322128c63bef7199415eb8662c74a32fbdf665d8",
+        url = UNIMERNET_SMALL_RELEASE_URL + "unimernet-small-encoder-int8.onnx",
+    )
+    val UNIMERNET_SMALL_DECODER = ModelArtifact(
+        fileName = "unimernet-small-decoder-int8.onnx",
+        bytes = 144_912_813L,
+        sha256 = "6fb715a5e9b840b0e4b8f9cb98dbe815f5563c18c49ed8938d630e145820140e",
+        url = UNIMERNET_SMALL_RELEASE_URL + "unimernet-small-decoder-int8.onnx",
+    )
+    val UNIMERNET_SMALL_TOKENIZER = ModelArtifact(
+        fileName = "unimernet-small-tokenizer.json",
+        bytes = 2_140_013L,
+        sha256 = "02c318d9cfa95bf323371762b8f838a82709530274d36dba6eca880f0add6cc4",
+        url = UNIMERNET_SMALL_RELEASE_URL + "unimernet-small-tokenizer.json",
+    )
+
     /** One formula model's whole package. UniMERNet's tokenizer is FormulaNet's, bar one newline. */
     fun formulaArtifacts(engine: FormulaEngine): List<ModelArtifact> = when (engine) {
+        FormulaEngine.UniMerNetSmall -> listOf(UNIMERNET_SMALL_ENCODER, UNIMERNET_SMALL_DECODER, UNIMERNET_SMALL_TOKENIZER)
         FormulaEngine.UniMerNetTiny -> listOf(UNIMERNET_ENCODER, UNIMERNET_DECODER, FORMULA_TOKENIZER)
         FormulaEngine.FormulaNetS -> listOf(FORMULA_MODEL, FORMULA_TOKENIZER)
     }

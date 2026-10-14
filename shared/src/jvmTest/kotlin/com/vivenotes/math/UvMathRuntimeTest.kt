@@ -29,12 +29,20 @@ class UvMathRuntimeTest {
     private val windows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
     private val noUv = UvLookup.Unavailable("Installing the math engine needs uv.")
 
+    /**
+     * A uv that is found but cannot run: an absolute path to nothing, so an install that should not
+     * happen fails loudly instead of reaching a real uv on `PATH`.
+     */
+    private val unrunnableUv by lazy { UvLookup.Found(File(temporary.root, "no-uv-here/uv"), UvVersion(0, 12, 19)) }
+
+    /** Off unless a test is about it, so the others see the states a launch starts in. */
     private fun runtime(
         root: File = temporary.newFolder(UvMathRuntime.DIRECTORY),
         uv: () -> UvLookup = { noUv },
         project: MathEngineProject = MathEngineProject(),
         log: DebugLog = DebugLog(),
-    ) = UvMathRuntime(root, log, project, uv, Dispatchers.IO, windows)
+        autoInstall: Boolean = false,
+    ) = UvMathRuntime(root, log, project, uv, Dispatchers.IO, windows, autoInstall)
 
     private suspend fun UvMathRuntime.settled(): MathRuntimeState = withTimeout(30_000) {
         state.first { it !is MathRuntimeState.Checking && it !is MathRuntimeState.Installing }
@@ -57,8 +65,86 @@ class UvMathRuntimeTest {
 
     @Test
     fun withUvTheInstallIsOffered() = runBlocking {
-        val uv = UvLookup.Found(File("uv"), UvVersion(0, 12, 19))
-        runtime(uv = { uv }).use { assertEquals(MathRuntimeState.NotInstalled, it.settled()) }
+        runtime(uv = { unrunnableUv }).use { assertEquals(MathRuntimeState.NotInstalled, it.settled()) }
+    }
+
+    /**
+     * SymPy is installed by default, as Android always has it: a launch that finds no engine runs
+     * the install itself, without anyone pressing Install.
+     */
+    @Test
+    fun aLaunchInstallsTheEngineByDefault() = runBlocking {
+        assumeFalse("the stand-in uv is a shell script", windows)
+        val calls = File(temporary.root, "calls.txt")
+        val uv = File(temporary.newFolder("bin"), "uv").executable(
+            """
+            #!/bin/sh
+            echo "${'$'}1" >> "${calls.path}"
+            case "${'$'}1" in
+              sync) echo "error: offline" >&2; exit 2 ;;
+            esac
+            """.trimIndent(),
+        )
+        val lines = mutableListOf<String>()
+        val lookup = UvLookup.Found(uv, UvVersion(0, 12, 19))
+        runtime(uv = { lookup }, autoInstall = true, log = DebugLog(enabled = true) { lines += it }).use { runtime ->
+            // An offline first launch fails where it is shown, and the next launch tries again.
+            assertEquals(MathRuntimeState.Failed("error: offline"), runtime.settled())
+        }
+        assertEquals(listOf("python", "sync"), calls.readLines())
+        assertTrue(lines.toString(), lines.any { it.contains("installing by default") })
+    }
+
+    /** An installed engine is left alone, and so is a launch with no uv to install with. */
+    @Test
+    fun aLaunchInstallsOnlyWhatIsMissingAndOnlyWithUv() = runBlocking {
+        val root = temporary.newFolder(UvMathRuntime.DIRECTORY)
+        recordInstall(root)
+        runtime(root, uv = { unrunnableUv }, autoInstall = true).use { runtime ->
+            assertEquals(MathRuntimeState.Ready("3.13.15", "1.14.0"), runtime.settled())
+        }
+        runtime(temporary.newFolder("without-uv"), uv = { noUv }, autoInstall = true).use { runtime ->
+            assertEquals(MathRuntimeState.UvUnavailable(noUv.reason), runtime.settled())
+        }
+    }
+
+    /**
+     * Remove is a no to the default, and it is kept: a later launch leaves the engine uninstalled
+     * and offers Install, rather than downloading 180 MB the person just deleted.
+     */
+    @Test
+    fun aRemovedEngineIsNotInstalledAgainAtLaunch() = runBlocking {
+        val root = temporary.newFolder(UvMathRuntime.DIRECTORY)
+        recordInstall(root)
+        runtime(root, uv = { unrunnableUv }, autoInstall = true).use { runtime ->
+            assertEquals(MathRuntimeState.Ready("3.13.15", "1.14.0"), runtime.settled())
+            runtime.remove()
+            withTimeout(10_000) { while (!File(root, "removed").isFile) delay(20) }
+        }
+
+        // Were it to install by default, the uv that cannot run would leave it Failed.
+        runtime(root, uv = { unrunnableUv }, autoInstall = true).use { runtime ->
+            assertEquals(MathRuntimeState.NotInstalled, runtime.settled())
+            delay(300)
+            assertEquals(MathRuntimeState.NotInstalled, runtime.state.value)
+        }
+    }
+
+    /** Pressing Install takes the Remove back, so the default applies again from then on. */
+    @Test
+    fun installTakesBackAnEarlierRemove() = runBlocking {
+        val root = temporary.newFolder(UvMathRuntime.DIRECTORY)
+        File(root, "removed").writeText("")
+        runtime(root, uv = { unrunnableUv }, autoInstall = true).use { runtime ->
+            assertEquals(MathRuntimeState.NotInstalled, runtime.settled())
+            runtime.install()
+            assertTrue(withTimeout(10_000) { runtime.state.first { it is MathRuntimeState.Failed } } is MathRuntimeState.Failed)
+        }
+        assertFalse(File(root, "removed").exists())
+
+        runtime(root, uv = { unrunnableUv }, autoInstall = true).use { runtime ->
+            assertTrue("${runtime.state.value}", runtime.settled() is MathRuntimeState.Failed)
+        }
     }
 
     @Test
@@ -119,8 +205,7 @@ class UvMathRuntimeTest {
     fun removeDeletesTheWholeInstall() = runBlocking {
         val root = temporary.newFolder(UvMathRuntime.DIRECTORY)
         recordInstall(root)
-        val uv = UvLookup.Found(File("uv"), UvVersion(0, 12, 19))
-        runtime(root, uv = { uv }).use { runtime ->
+        runtime(root, uv = { unrunnableUv }).use { runtime ->
             assertEquals(MathRuntimeState.Ready("3.13.15", "1.14.0"), runtime.settled())
 
             runtime.remove()
@@ -128,7 +213,8 @@ class UvMathRuntimeTest {
             assertEquals(MathRuntimeState.NotInstalled, withTimeout(30_000) {
                 runtime.state.first { it == MathRuntimeState.NotInstalled }
             })
-            assertFalse(root.exists())
+            // Only the answer stays: see `aRemovedEngineIsNotInstalledAgainAtLaunch`.
+            assertEquals(listOf("removed"), root.list()!!.toList())
         }
     }
 
@@ -141,9 +227,7 @@ class UvMathRuntimeTest {
             MathEngineProject::class.java.getResourceAsStream("/math-engine/$name")?.use { it.readBytes() }
                 ?.let { bytes -> if (name == "uv.lock") bytes + "\n# moved".encodeToByteArray() else bytes }
         }
-        val uv = UvLookup.Found(File("uv"), UvVersion(0, 12, 19))
-
-        runtime(root, uv = { uv }, project = moved).use { assertEquals(MathRuntimeState.NotInstalled, it.settled()) }
+        runtime(root, uv = { unrunnableUv }, project = moved).use { assertEquals(MathRuntimeState.NotInstalled, it.settled()) }
     }
 
     /**
@@ -206,9 +290,10 @@ class UvMathRuntimeTest {
             runtime.remove()
 
             // The cancelled install reports NotInstalled itself, before the removal has run, so
-            // wait for the directory: a uv still running would hold the install open far longer.
-            withTimeout(10_000) { while (root.exists()) delay(20) }
+            // wait for its marker: a uv still running would hold the install open far longer.
+            withTimeout(10_000) { while (!File(root, "removed").isFile) delay(20) }
             assertEquals(MathRuntimeState.NotInstalled, runtime.settled())
+            assertEquals(listOf("removed"), root.list()!!.toList())
         }
     }
 

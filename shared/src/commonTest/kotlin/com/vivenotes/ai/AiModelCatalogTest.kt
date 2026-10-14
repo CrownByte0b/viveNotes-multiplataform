@@ -5,10 +5,29 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The pinned catalog is the Android app's, byte for byte: the same files, sizes and digests, so a
- * model downloaded on either platform is the same model.
+ * The desktop models are pinned independently; legacy formula packages keep Android's pins.
  */
 class AiModelCatalogTest {
+    @Test
+    fun smallUsesTheValidatedGithubReleaseWithoutChangingAndroidPackages() {
+        val artifacts = AiModelCatalog.formulaArtifacts(FormulaEngine.UniMerNetSmall)
+        assertEquals(
+            listOf(
+                "unimernet-small-encoder-int8.onnx:61983109:4982c38cbed338e5bdc24420322128c63bef7199415eb8662c74a32fbdf665d8",
+                "unimernet-small-decoder-int8.onnx:144912813:6fb715a5e9b840b0e4b8f9cb98dbe815f5563c18c49ed8938d630e145820140e",
+                "unimernet-small-tokenizer.json:2140013:02c318d9cfa95bf323371762b8f838a82709530274d36dba6eca880f0add6cc4",
+            ),
+            artifacts.map { "${it.fileName}:${it.bytes}:${it.sha256}" },
+        )
+        artifacts.forEach { artifact ->
+            assertEquals(
+                "https://github.com/AquilaIgnis/viveNotes/releases/download/models-unimernet-small-v1/${artifact.fileName}",
+                artifact.url,
+            )
+        }
+        assertEquals(209_035_935L, AiModelCatalog.downloadBytes(FormulaEngine.UniMerNetSmall))
+    }
+
     @Test
     fun formulaPackagesArePinnedToAndroidsArtifacts() {
         assertEquals(
@@ -33,23 +52,25 @@ class AiModelCatalogTest {
     }
 
     @Test
-    fun theBundledOcrIsTheAndroidAssetsTrio() {
+    fun theBundledOcrIsTheCompletePpOcrV6SmallPackage() {
         assertEquals(
             listOf(
-                "en_pp-ocrv5_mobile_rec.onnx:7876014:8307465d3c9ef2ba4055c3bd0be55aafe11f518630212b7598b70ccb376028ac",
-                "ppocrv5_en_dict.txt:1416:e025a66d31f327ba0c232e03f407ae8d105e1e709e7ccb3f408aa778c24e70d6",
-                "pp-ocrv5_mobile_det.onnx:4826518:1eb7b4f7ab657ebd1c66d5f79bca7497f29768a2e3c15e52daecbba1a8e4a039",
+                "pp-ocrv6_small_rec.onnx:21159378:5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+                "ppocrv6_dict.txt:74947:b5f2bfe2bdd9448429e3e82b51c789775d9b42f2403d082b00662eb77e401c5d",
+                "pp-ocrv6_small_det.onnx:9880512:d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e",
             ),
             AiModelCatalog.BUNDLED_TEXT.map { "${it.fileName}:${it.bytes}:${it.sha256}" },
         )
+        assertEquals(31_114_837L, AiModelCatalog.bundledTextBytes)
     }
 
     /** What the pane prints: decimal megabytes, as Android's short file sizes read. */
     @Test
     fun sizesReadAsAFileManagerWritesThem() {
+        assertEquals("209 MB", formatModelBytes(AiModelCatalog.downloadBytes(FormulaEngine.UniMerNetSmall)))
         assertEquals("113 MB", formatModelBytes(AiModelCatalog.downloadBytes(FormulaEngine.UniMerNetTiny)))
         assertEquals("234 MB", formatModelBytes(AiModelCatalog.downloadBytes(FormulaEngine.FormulaNetS)))
-        assertEquals("12.7 MB", formatModelBytes(AiModelCatalog.bundledTextBytes))
+        assertEquals("31.1 MB", formatModelBytes(AiModelCatalog.bundledTextBytes))
         assertEquals("1 kB", formatModelBytes(1_416))
         assertEquals("100 MB", formatModelBytes(99_960_000))
     }

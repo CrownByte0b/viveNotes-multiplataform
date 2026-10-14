@@ -2,13 +2,13 @@ package com.vivenotes.ai
 
 /**
  * Which graph turns a formula bitmap into LaTeX. Listed best first, which is the order the Models
- * pane shows them in and the order [formulaEngineInUse] falls back through. Android's
- * `ai/FormulaEngine.kt`.
+ * pane shows them in and the order [formulaEngineInUse] falls back through.
  *
  * `simulations/formula-models` in the Android repository measured both on its Recognition Test page.
  * UniMERNet-T read ordinary handwriting exactly more often, 66 of 88 rasters against 54. It never
  * read the handwritten matrix, which FormulaNet-S read 9 times in 11. Both stay installable, and the
- * user picks.
+ * user picks. The desktop Small export read 77/88 at stem 4 on the same corpus, so it is preferred
+ * when installed. Tiny stays available as a smaller download, and explicit choices are retained.
  *
  * [stemPx] is the stroke width each model was measured best at, stated in the 384-square frame
  * [recognitionStemSize] uses for every width. That frame is only the yardstick — UniMERNet's own
@@ -16,6 +16,7 @@ package com.vivenotes.ai
  * exact on 66/88 at 3–4 px, 65 at 6 and 55 at 10, so drawing for one model starves the other.
  */
 enum class FormulaEngine(val stemPx: Float) {
+    UniMerNetSmall(UNIMERNET_STEM_PX),
     UniMerNetTiny(UNIMERNET_STEM_PX),
     FormulaNetS(RECOGNITION_STEM_PX),
 }
@@ -23,6 +24,7 @@ enum class FormulaEngine(val stemPx: Float) {
 /** The name a person reads for a formula model, in the Models pane and in log lines. */
 val FormulaEngine.displayName: String
     get() = when (this) {
+        FormulaEngine.UniMerNetSmall -> "UniMERNet Small"
         FormulaEngine.UniMerNetTiny -> "UniMERNet-T"
         FormulaEngine.FormulaNetS -> "PP-FormulaNet-S"
     }
@@ -30,23 +32,24 @@ val FormulaEngine.displayName: String
 /** What each is measurably better at — `simulations/formula-models` — as Android's pane says it. */
 val FormulaEngine.strength: String
     get() = when (this) {
-        FormulaEngine.UniMerNetTiny -> "Best on algebra"
+        FormulaEngine.UniMerNetSmall -> "Best on algebra"
+        FormulaEngine.UniMerNetTiny -> "Smaller download"
         FormulaEngine.FormulaNetS -> "Reads matrices"
     }
 
-/** UniMERNet-T's measured best stem; see [FormulaEngine]. */
+/** Both UniMERNet variants read best at stem 3–4 on the handwriting corpus. */
 internal const val UNIMERNET_STEM_PX = 4f
 
 /** The model everyone ends up on unless they pick another, and the one a launch fetches unasked. */
-internal val DEFAULT_FORMULA_ENGINE = FormulaEngine.UniMerNetTiny
+internal val DEFAULT_FORMULA_ENGINE = FormulaEngine.UniMerNetSmall
 
 /**
  * The model formula recognition runs, at launch and again after every install.
  *
  * That is the user's own choice while its model is installed. A choice is made only by pressing
  * Use, never by a default. Otherwise it is the best installed model, and otherwise the default. So
- * someone with only FormulaNet-S keeps reading with it until UniMERNet-T arrives, then moves to it.
- * Someone who picked FormulaNet-S stays on it.
+ * someone with only Tiny or FormulaNet-S keeps reading with it until Small arrives, then moves to
+ * it. Someone who explicitly picked a model stays on it while it is installed.
  */
 internal fun formulaEngineInUse(
     chosen: FormulaEngine?,
@@ -60,10 +63,8 @@ internal fun formulaEngineInUse(
  * What a launch fetches without being asked, where launches fetch at all: the default, whenever it
  * is not installed and the user has never deleted it.
  *
- * FormulaNet-S being installed does not stop it. FormulaNet-S is the optional model, and someone
- * who had it from before UniMERNet-T existed belongs on the default like everyone else. Only
- * deleting the default itself is a no — deleting FormulaNet-S says nothing about UniMERNet-T — and
- * fetching it again on the next launch would undo that no.
+ * Another model being installed does not stop it. Only deleting the default itself prevents this
+ * fetch; deleting an optional model says nothing about the default.
  */
 internal fun formulaEngineToFetch(
     installed: Set<FormulaEngine>,

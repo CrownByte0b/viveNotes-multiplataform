@@ -1,5 +1,6 @@
 package com.vivenotes.ai
 
+import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
@@ -16,8 +17,10 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.jetbrains.skia.Image
 import java.io.File
 import java.nio.file.Files
+import java.util.Collections
 
 /**
  * The real graphs through ONNX Runtime's JVM package: Android's `OnnxRecognitionSmokeTest`, on the
@@ -42,6 +45,45 @@ class OnnxRecognitionSmokeTest {
             assertTrue("OCR read \"${result.text}\"", result.text.contains("hello", ignoreCase = true))
             assertTrue(result.confidence > 0.5f)
         } finally {
+            engine.close()
+            models.close()
+        }
+    }
+
+    @Test
+    fun bundledSmallRecognizerPreservesLatinDiacritics() = runBlocking {
+        val models = settledStore()
+        val engine = OnnxInkRecognitionEngine(models)
+        val image = textImage(520, 90, 64f, listOf(Triple("Café mañana", 12f, 70f)))
+        try {
+            val result = withTimeout(30_000) { engine.recognizeText(image) }
+            assertEquals("Café mañana", result.text.trim())
+            assertTrue(result.confidence > 0.5f)
+        } finally {
+            image.close()
+            engine.close()
+            models.close()
+        }
+    }
+
+    @Test
+    fun bundledSmallPipelineReadsBlueAndRedInk() = runBlocking {
+        val models = settledStore()
+        val engine = OnnxInkRecognitionEngine(models)
+        val lines = listOf("Blue ink", "Red ink")
+        val pixels = textImage(600, 240, 64f, listOf(
+            Triple(lines[0], 24f, 80f), Triple(lines[1], 24f, 200f),
+        )).use { it.argbPixels() }
+        val image = imageOf(600, 240) { x, y ->
+            val level = red(pixels[y * 600 + x])
+            if (y < 120) 0xFF0000FF.toInt() or (level shl 16) or (level shl 8)
+            else 0xFFFF0000.toInt() or (level shl 8) or level
+        }
+        try {
+            val result = withTimeout(60_000) { engine.recognizeImageText(image) }
+            assertEquals(lines, result.lines.map { it.text })
+        } finally {
+            image.close()
             engine.close()
             models.close()
         }
@@ -159,6 +201,45 @@ class OnnxRecognitionSmokeTest {
         assertFormulaRead(models!!, FormulaEngine.UniMerNetTiny)
     }
 
+    @Test
+    fun uniMerNetSmallReadsAPrintedFormula() = runBlocking {
+        val models = seededStore(FormulaEngine.UniMerNetSmall)
+        assumeTrue("UniMERNet Small is not installed in the development profile", models != null)
+        assertFormulaRead(models!!, FormulaEngine.UniMerNetSmall)
+    }
+
+    @Test
+    fun switchingBetweenTinyAndSmallReloadsTheCorrectGraphsWhileHeld() = runBlocking {
+        val models = seededStore(FormulaEngine.UniMerNetTiny, FormulaEngine.UniMerNetSmall)
+        assumeTrue("Tiny and Small are not both installed in the development profile", models != null)
+        models!!
+        models.selectFormulaEngine(FormulaEngine.UniMerNetTiny)
+        val lines = Collections.synchronizedList(mutableListOf<String>())
+        val engine = OnnxInkRecognitionEngine(models, log = DebugLog(enabled = true) { lines += it })
+        val bytes = javaClass.getResourceAsStream("/ai/unimernet-small-handwriting.png")!!.use { it.readBytes() }
+        val image = Image.makeFromEncoded(bytes)
+        val hold = launch { engine.keepFormulaModelLoaded() }
+        try {
+            withTimeout(60_000) { while (!engine.formulaModelOpen) delay(50) }
+            val tiny = withTimeout(60_000) { engine.recognizeFormula(image).latex }
+            models.selectFormulaEngine(FormulaEngine.UniMerNetSmall)
+            val small = withTimeout(60_000) { engine.recognizeFormula(image).latex }
+            assertTrue("Small did not read the handwritten exponent: $small",
+                small.replace(Regex("\\s+"), "").contains("e^{-7n}"))
+            assertTrue(lines.toString(), lines.any { it.contains("opened UniMerNetSmallEncoder session") })
+            assertTrue(lines.toString(), lines.any { it.contains("closed UniMerNetEncoder session") })
+
+            models.selectFormulaEngine(FormulaEngine.UniMerNetTiny)
+            assertEquals(tiny, withTimeout(60_000) { engine.recognizeFormula(image).latex })
+            assertTrue(lines.toString(), lines.any { it.contains("closed UniMerNetSmallEncoder session") })
+        } finally {
+            hold.cancelAndJoin()
+            image.close()
+            engine.close()
+            models.close()
+        }
+    }
+
     private suspend fun assertFormulaRead(models: AiModelStore, formula: FormulaEngine) {
         val image = textImage(900, 180, 112f, listOf(Triple("x² + y² = z²", 24f, 130f)))
         val engine = OnnxInkRecognitionEngine(models, formulaEngine = { formula })
@@ -188,21 +269,26 @@ class OnnxRecognitionSmokeTest {
      * profile's install — verified in full, since the copy has no marker. Null when that profile
      * does not have the whole package.
      */
-    private suspend fun seededStore(engine: FormulaEngine): AiModelStore? {
-        val seed = System.getProperty("vivenotes.test.formulaModels")?.let { File(it, AiModelStore.slot(engine)) }
-            ?: return null
-        val artifacts = AiModelCatalog.formulaArtifacts(engine)
-        if (artifacts.any { File(seed, it.fileName).length() != it.bytes }) return null
+    private suspend fun seededStore(vararg engines: FormulaEngine): AiModelStore? {
+        val seedRoot = System.getProperty("vivenotes.test.formulaModels")?.let(::File) ?: return null
+        if (engines.any { engine ->
+                AiModelCatalog.formulaArtifacts(engine).any {
+                    File(seedRoot, "${AiModelStore.slot(engine)}/${it.fileName}").length() != it.bytes
+                }
+            }) return null
         val root = temporary.newFolder()
-        val slot = File(root, AiModelStore.slot(engine)).apply { mkdirs() }
-        artifacts.forEach { artifact ->
-            val source = File(seed, artifact.fileName).toPath()
-            val target = File(slot, artifact.fileName).toPath()
-            runCatching { Files.createLink(target, source) }.getOrElse { Files.copy(source, target) }
+        engines.forEach { engine ->
+            val seed = File(seedRoot, AiModelStore.slot(engine))
+            val slot = File(root, AiModelStore.slot(engine)).apply { mkdirs() }
+            AiModelCatalog.formulaArtifacts(engine).forEach { artifact ->
+                val source = File(seed, artifact.fileName).toPath()
+                val target = File(slot, artifact.fileName).toPath()
+                runCatching { Files.createLink(target, source) }.getOrElse { Files.copy(source, target) }
+            }
         }
         val store = settledStore(root)
-        return store.takeIf { it.state.value.formula(engine) == AiModelInstallState.Installed }
-            ?: error("$engine in the development profile failed verification")
+        return store.takeIf { state -> engines.all { state.state.value.formula(it) == AiModelInstallState.Installed } }
+            ?: error("${engines.toList()} in the development profile failed verification")
     }
 
     private fun picture(lines: List<String>) =

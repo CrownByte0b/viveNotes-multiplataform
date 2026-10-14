@@ -3,6 +3,7 @@ package com.vivenotes.ai
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.vivenotes.model.ocr.TextDetection
 
 /**
  * Android's instrumented `RecognitionPreprocessTest`, on the desktop's Skia images: the tensors each
@@ -107,6 +108,31 @@ class RecognitionPreprocessTest {
         assertEquals((1f - 0.485f) / 0.229f, tensor.values[0], 1e-4f)
         assertEquals((0f - 0.456f) / 0.224f, tensor.values[plane], 1e-4f)
         assertEquals((0f - 0.406f) / 0.225f, tensor.values[plane * 2], 1e-4f)
+    }
+
+    @Test
+    fun smallDetectorUsesItsOfficialBgrChannelOrder() {
+        imageOf(1920, 1000) { _, _ -> 0xFFFF0000.toInt() }.use { image ->
+            val tensor = preprocessDetection(image, channelOrder = DetectionChannelOrder.Bgr)
+            assertEquals(960, tensor.width)
+            assertEquals(512, tensor.height)
+            val plane = tensor.width * tensor.height
+            assertEquals((0f - 0.485f) / 0.229f, tensor.values[0], 1e-4f)
+            assertEquals((0f - 0.456f) / 0.224f, tensor.values[plane], 1e-4f)
+            assertEquals((1f - 0.406f) / 0.225f, tensor.values[plane * 2], 1e-4f)
+        }
+    }
+
+    @Test
+    fun smallDetectorRetainsTextBelowTheLegacyBoxThreshold() {
+        val width = 96
+        val height = 64
+        fun map(score: Float) = FloatArray(width * height) { index ->
+            if (index % width in 16..79 && index / width in 20..39) score else 0f
+        }
+        assertEquals(1, ppOcrV6SmallQuads(map(0.5f), width, height).size)
+        assertTrue(TextDetection.quads(map(0.5f), width, height).isEmpty())
+        assertTrue(ppOcrV6SmallQuads(map(0.4f), width, height).isEmpty())
     }
 
     /** A 120×60 page with a 60×20 rectangle outlined in black, as Android's two tests draw it. */

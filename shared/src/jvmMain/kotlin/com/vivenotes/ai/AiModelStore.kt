@@ -118,6 +118,7 @@ class AiModelStore internal constructor(
                 handwritingText = textState,
                 formulaLatex = formula.getValue(FormulaEngine.FormulaNetS),
                 uniMerNet = formula.getValue(FormulaEngine.UniMerNetTiny),
+                uniMerNetSmall = formula.getValue(FormulaEngine.UniMerNetSmall),
                 formulaEngine = formulaEngineInUse(choices.formulaEngine, installed),
             )
             log.event("ai") {
@@ -259,29 +260,29 @@ class AiModelStore internal constructor(
         )
     }
 
-    /** UniMERNet-T's verified graphs and tokenizer, or null until the whole package exists. */
-    fun installedUniMerNetFiles(): UniMerNetFiles? {
-        if (_state.value.uniMerNet != AiModelInstallState.Installed) return null
-        val directory = packages.getValue(FormulaEngine.UniMerNetTiny).directory
+    /** One UniMERNet variant's verified graphs and tokenizer, or null until its whole package exists. */
+    fun installedUniMerNetFiles(engine: FormulaEngine = FormulaEngine.UniMerNetTiny): UniMerNetFiles? {
+        if (engine == FormulaEngine.FormulaNetS || _state.value.formula(engine) != AiModelInstallState.Installed) return null
+        val formulaPackage = packages.getValue(engine)
+        val directory = formulaPackage.directory
+        val (encoder, decoder, tokenizer) = formulaPackage.artifacts
         return UniMerNetFiles(
-            encoder = File(directory, AiModelCatalog.UNIMERNET_ENCODER.fileName),
-            decoder = File(directory, AiModelCatalog.UNIMERNET_DECODER.fileName),
-            tokenizer = File(directory, AiModelCatalog.FORMULA_TOKENIZER.fileName),
+            encoder = File(directory, encoder.fileName),
+            decoder = File(directory, decoder.fileName),
+            tokenizer = File(directory, tokenizer.fileName),
         )
     }
 
-    /** Opens the bundled English PP-OCRv5 graph. */
+    /** Opens the bundled multilingual PP-OCRv6 Small recognizer. */
     fun openTextModel(): InputStream = openBundled(AiModelCatalog.TEXT_MODEL)
 
-    /** Opens the bundled English PP-OCRv5 CTC dictionary. */
+    /** Opens the bundled PP-OCRv6 Small CTC dictionary. */
     fun openTextDictionary(): InputStream = openBundled(AiModelCatalog.TEXT_DICTIONARY)
 
     /**
-     * Opens the bundled PP-OCRv5 text detector.
+     * Opens the bundled PP-OCRv6 Small text detector.
      *
-     * Bundled rather than downloaded. 4.8 MB beside a 7.9 MB recognizer is not the size that made
-     * FormulaNet optional, and OCR that needs a network round trip before it works is OCR that
-     * mostly does not work.
+     * The complete 31.1 MB OCR package is bundled so text recognition works offline immediately.
      */
     fun openDetectionModel(): InputStream = openBundled(AiModelCatalog.DETECTION_MODEL)
 
@@ -309,6 +310,7 @@ class AiModelStore internal constructor(
                 }
             }
         }
+        log.event("ai") { "bundled OCR verified: ${AiModelCatalog.TEXT_MODEL_NAME}" }
         AiModelInstallState.Installed
     } catch (failure: Exception) {
         log.failure("ai", "bundled OCR verification", failure)
@@ -394,6 +396,7 @@ class AiModelStore internal constructor(
          * package's verification marker is what says which model is in there.
          */
         internal fun slot(engine: FormulaEngine): String = when (engine) {
+            FormulaEngine.UniMerNetSmall -> "unimernet-small-v1"
             FormulaEngine.FormulaNetS -> "pp-formulanet-s-v1"
             FormulaEngine.UniMerNetTiny -> "unimernet-tiny-v1"
         }

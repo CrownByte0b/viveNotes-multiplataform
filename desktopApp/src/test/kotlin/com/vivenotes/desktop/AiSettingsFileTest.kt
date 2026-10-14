@@ -9,6 +9,27 @@ import kotlin.test.assertEquals
 
 class AiSettingsFileTest {
     @Test
+    fun smallChoiceAndDeletedModelsRoundTripWithoutRenamingLegacyChoices() {
+        val file = Files.createTempFile("ai-settings-small", ".properties").toFile()
+        try {
+            val store = AiSettingsFile(file)
+            val choices = AiModelChoices(
+                formulaEngine = FormulaEngine.UniMerNetSmall,
+                deletedFormulaEngines = setOf(FormulaEngine.UniMerNetSmall, FormulaEngine.UniMerNetTiny),
+            )
+            store.save(choices)
+            assertEquals(choices, AiSettingsFile(file).load())
+            file.writeText("formulaEngine=UniMerNetTiny\ndeletedFormulaModels=UniMerNetSmall,FormulaNetS\n")
+            assertEquals(
+                AiModelChoices(FormulaEngine.UniMerNetTiny, setOf(FormulaEngine.UniMerNetSmall, FormulaEngine.FormulaNetS)),
+                store.load(),
+            )
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
     fun noChoiceUntilOneIsMadeAndEveryChoiceIsKept() {
         val directory = Files.createTempDirectory("ai-settings").toFile()
         try {

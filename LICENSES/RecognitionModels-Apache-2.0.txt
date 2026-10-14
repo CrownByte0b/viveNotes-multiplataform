@@ -1,5 +1,7 @@
-PP-OCRv5 recognition models bundled for on-device text recognition:
-en_PP-OCRv5_mobile_rec, PP-OCRv5_mobile_det and the ppocrv5_en dictionary.
+PP-OCRv6 Small models bundled for offline text recognition:
+PP-OCRv6_small_rec, PP-OCRv6_small_det and the ppocrv6 dictionary.
+Android compatibility test fixtures retain PP-OCRv5's en_PP-OCRv5_mobile_rec,
+PP-OCRv5_mobile_det and ppocrv5_en dictionary; these are not included in the app.
 Copyright PaddlePaddle Authors
 Source: https://github.com/PaddlePaddle/PaddleOCR
 ONNX conversion: https://github.com/GreatV/oar-ocr

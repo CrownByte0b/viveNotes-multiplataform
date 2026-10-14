@@ -65,8 +65,8 @@ object ModelsTags {
  * Settings → Models, docked beside the canvas: Android's Integrated pane. Its Math group lists the
  * formula recognition models, one row each — Download until installed, then Use and Delete, with
  * the model in use marked "In use". Text is the bundled OCR, which has nothing to do. The math
- * engine is the desktop's own row: the uv-installed Python and SymPy, which Android carries in its
- * APK instead.
+ * engine is the desktop's own row: the Python and SymPy uv installs by default, which Android
+ * carries in its APK instead.
  */
 @Composable
 internal fun ModelsPane(models: AiModels?, mathRuntime: MathRuntime?, onClose: () -> Unit) {
@@ -174,7 +174,7 @@ private fun FormulaModelRow(
 @Composable
 private fun TextModelRow(install: AiModelInstallState) {
     ModelRow(
-        title = "PP-OCRv5 Mobile",
+        title = AiModelCatalog.TEXT_MODEL_NAME,
         detail = "Handwriting and pictures · ${formatModelBytes(AiModelCatalog.bundledTextBytes)} · built in",
         first = true,
         modifier = Modifier.testTag(ModelsTags.TextModel),
@@ -187,7 +187,7 @@ private fun TextModelRow(install: AiModelInstallState) {
     }
 }
 
-/** Python and SymPy, which uv installs on request and Remove takes away again. */
+/** Python and SymPy, which uv installs by default and Remove takes away until Install. */
 @Composable
 private fun MathEngineRow(state: MathRuntimeState, onInstall: () -> Unit, onRemove: () -> Unit) {
     val detail = when (state) {
