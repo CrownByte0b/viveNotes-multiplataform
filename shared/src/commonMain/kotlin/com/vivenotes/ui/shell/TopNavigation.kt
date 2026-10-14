@@ -39,6 +39,8 @@ internal fun TopNavigation(
     onRedo: () -> Unit,
     accountConnected: Boolean,
     onOpenAccount: () -> Unit,
+    onSearch: () -> Unit = {},
+    searchAvailable: Boolean = false,
 ) {
     Surface(modifier = Modifier.testTag(WorkspaceTestTags.HeaderBar),
         color = LocalDesktopColors.current.headerBar, shadowElevation = 1.dp) {
@@ -86,6 +88,10 @@ internal fun TopNavigation(
                         }
                     }
                 }
+            }
+            TooltipIconButton("Search notebook", onClick = onSearch, enabled = searchAvailable,
+                modifier = Modifier.testTag(com.vivenotes.ui.search.SearchTags.Open)) {
+                Icon(ShellSymbols.Search, contentDescription = null, modifier = Modifier.size(20.dp))
             }
             TooltipIconButton("Undo canvas action", onClick = onUndo, enabled = canUndo,
                 modifier = Modifier.testTag(WorkspaceTestTags.StructuralUndo)) {

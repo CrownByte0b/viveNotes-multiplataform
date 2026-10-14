@@ -223,6 +223,12 @@ import com.vivenotes.workspace.toggleNavigation
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.workspace.ShortcutScope
+import com.vivenotes.search.ContentSearchService
+import com.vivenotes.search.SearchRequest
+import com.vivenotes.search.revealSearchHit
+import com.vivenotes.model.search.ContentHit
+import com.vivenotes.model.search.ContentKind
+import com.vivenotes.ui.search.SearchPane
 
 private val ObjectColors = listOf(
     "White" to 0xFFFFFFFF.toInt(), "Black" to 0xFF000000.toInt(),
@@ -318,6 +324,8 @@ fun WorkspaceScreen(
     /** The math engine's Python and SymPy, installed and removed from Settings → Models. */
     mathRuntime: MathRuntime? = null,
     appVersion: String = "Development",
+    search: ContentSearchService? = null,
+    onOpenSearchPage: ((String, String) -> Unit)? = null,
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
     // Held here as well, so a caller that does not keep the settings still sees its changes.
@@ -366,7 +374,8 @@ fun WorkspaceScreen(
                     onEditorDefaultsChange = onEditorDefaultsChange,
                     onShapeSettingsChange = onShapeSettingsChange,
                     accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
-                    onAbout = { aboutOpen = true }, aiModels = aiModels, mathRuntime = mathRuntime)
+                    onAbout = { aboutOpen = true }, aiModels = aiModels, mathRuntime = mathRuntime,
+                    search = search, onOpenSearchPage = onOpenSearchPage)
             }
             if (accountOpen) AccountScreen(accountService, accountModel, onBack = { accountOpen = false })
             if (aboutOpen) AboutDialog(appVersion, onDismiss = { aboutOpen = false })
@@ -418,10 +427,16 @@ private fun WorkspaceContent(
     onAbout: () -> Unit,
     aiModels: AiModels?,
     mathRuntime: MathRuntime?,
+    search: ContentSearchService?,
+    onOpenSearchPage: ((String, String) -> Unit)?,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
     var openPane by remember { mutableStateOf<DockedPane?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var searchHit by remember { mutableStateOf<ContentHit?>(null) }
+    var searchRevealTick by remember { mutableIntStateOf(0) }
+    var searchFocusTick by remember { mutableIntStateOf(0) }
     var notebookConfirmation by remember { mutableStateOf<String?>(null) }
     var confirmRevision by remember { mutableStateOf(false) }
     fun togglePane(pane: DockedPane) {
@@ -459,10 +474,24 @@ private fun WorkspaceContent(
             fileActions?.openPane(FilePane.VersionHistory)
         }
     }
+    LaunchedEffect(searchHit, searchRevealTick, state.selectedPageId, state.selectedPage?.content) {
+        val hit = searchHit ?: return@LaunchedEffect
+        if (state.selectedPageId != hit.unit.pageId || state.selectedPage?.editable != true) return@LaunchedEffect
+        onStateChange { it.revealSearchHit(hit) }
+        if (hit.unit.kind == ContentKind.Text) {
+            withFrameNanos { }
+            editorFocusRequest++
+        }
+    }
     val currentBindings by rememberUpdatedState(bindings)
     val shortcutKeys = remember { ShortcutKeys() }
     val shortcuts = WorkspaceShortcuts({ currentState }, onStateChange, ::applyEditorCommand, navigation,
-        viewActions, TextClipboardActions(LocalClipboardManager.current, ::applyEditorCommand))
+        viewActions, TextClipboardActions(LocalClipboardManager.current, ::applyEditorCommand),
+        onSearch = if (search == null) null else { {
+            fileActions?.closePane()
+            openPane = DockedPane.Search
+            searchFocusTick++
+        } })
     Box(modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
@@ -491,6 +520,8 @@ private fun WorkspaceContent(
             onRedo = { onStateChange { it.redoStructure() } },
             accountConnected = accountConnected,
             onOpenAccount = onOpenAccount,
+            searchAvailable = search != null,
+            onSearch = { fileActions?.closePane(); togglePane(DockedPane.Search) },
         )
         // Each tab's buttons, and what they do, live in that tab's package under `ui/ribbon`.
         when (state.activeTab) {
@@ -579,6 +610,8 @@ private fun WorkspaceContent(
                 CompositionLocalProvider(LocalDensity provides pageDensity) {
                 PageCanvas(
                     state = state,
+                    searchHit = searchHit,
+                    searchRevealTick = searchRevealTick,
                     pictures = pictures,
                     thumbnails = thumbnails.takeIf { view.linkPreviews },
                     canvasOrigin = canvasOrigin,
@@ -703,6 +736,18 @@ private fun WorkspaceContent(
                             onResetAll = { confirmResetShortcuts = true },
                             onClose = { openPane = null },
                         )
+                        DockedPane.Search -> search?.let { service ->
+                            SearchPane(service, SearchRequest(state.selectedNotebookId, searchQuery,
+                                state.selectedPageId, state.selectedSectionId, state.selectedPage?.title.orEmpty(),
+                                state.selectedPage?.takeIf { it.editable }?.document), searchQuery,
+                                onQueryChange = { searchQuery = it },
+                                onHit = { hit ->
+                                    searchHit = hit
+                                    searchRevealTick++
+                                    if (onOpenSearchPage != null) onOpenSearchPage(hit.unit.sectionId, hit.unit.pageId)
+                                    else onStateChange { it.selectPage(hit.unit.pageId) }
+                                }, onClose = { openPane = null }, focusRequest = searchFocusTick)
+                        }
                         DockedPane.Models -> ModelsPane(aiModels, mathRuntime, onClose = { openPane = null })
                     }
                 }
@@ -766,11 +811,13 @@ private fun WorkspaceContent(
 }
 
 /** The settings pane docked right of the canvas: one at a time, as on Android. */
-internal enum class DockedPane { PaperSize, Hardware, Models }
+internal enum class DockedPane { PaperSize, Hardware, Models, Search }
 
 @Composable
 private fun PageCanvas(
     state: WorkspaceState,
+    searchHit: ContentHit?,
+    searchRevealTick: Int,
     pictures: PictureLibrary?,
     thumbnails: VideoThumbnailSource?,
     canvasOrigin: CanvasOrigin,
@@ -869,6 +916,31 @@ private fun PageCanvas(
     val currentState by rememberUpdatedState(state)
     val measuredTextHeights = remember(page?.id) { mutableStateMapOf<String, Float>() }
     val textLayouts = remember(page?.id) { mutableStateMapOf<String, TextLayoutResult>() }
+    val titleFocus = remember { FocusRequester() }
+    var titleValue by remember(page?.id) { mutableStateOf(TextFieldValue(page?.title.orEmpty())) }
+    LaunchedEffect(page?.title) {
+        val title = page?.title.orEmpty()
+        if (titleValue.text != title) titleValue = TextFieldValue(title,
+            TextRange(titleValue.selection.start.coerceAtMost(title.length), titleValue.selection.end.coerceAtMost(title.length)))
+    }
+    LaunchedEffect(searchHit, searchRevealTick, page?.id, page?.content) {
+        val hit = searchHit ?: return@LaunchedEffect
+        if (hit.unit.pageId != page?.id || page.editable != true) return@LaunchedEffect
+        withFrameNanos { }
+        withFrameNanos { }
+        val outline = page.document.outlines.firstOrNull { it.id == (hit.unit.tableId ?: hit.unit.boxId) }
+        val textLayout = textLayouts[hit.unit.boxId]
+        val lineY = if (textLayout != null && hit.unit.kind == ContentKind.Text &&
+            hit.editorStart < textLayout.layoutInput.text.length)
+            textLayout.getBoundingBox(hit.editorStart).top / density.density else 0f
+        horizontalScroll.scrollTo((((outline?.x ?: 0f) - 24f).coerceAtLeast(0f) * density.density * zoom).roundToInt())
+        verticalScroll.scrollTo((((outline?.y ?: 0f) + lineY - 40f).coerceAtLeast(0f) * density.density * zoom).roundToInt())
+        if (hit.unit.kind == ContentKind.Title && !page.document.style.hideTitle) {
+            titleValue = TextFieldValue(page.title, TextRange(hit.editorStart.coerceIn(0, page.title.length),
+                hit.editorEnd.coerceIn(0, page.title.length)))
+            titleFocus.requestFocus()
+        }
+    }
     val textClipboard = TextClipboardActions(LocalClipboardManager.current, onTextCommand)
     // The text box whose field holds the keyboard. Esc and a tap on the page end the editing but
     // not the field's focus, and the field would go on taking keys — Ctrl+Z as its own text undo,
@@ -1277,8 +1349,8 @@ private fun PageCanvas(
                 if (!page.document.style.hideTitle) {
                     Column(Modifier.offset(16.dp, 8.dp).width(720.dp)) {
                         BasicTextField(
-                            value = page.title,
-                            onValueChange = onTitleChange,
+                            value = titleValue,
+                            onValueChange = { titleValue = it; onTitleChange(it.text) },
                             singleLine = true,
                             textStyle = MaterialTheme.typography.headlineMedium.copy(color = palette.ink),
                             cursorBrush = SolidColor(palette.ink),
@@ -1290,7 +1362,7 @@ private fun PageCanvas(
                                     inner()
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().focusRequester(titleFocus)
                                 // Typing a title leaves the text box: its formatting commands must
                                 // not go on acting on a box the caret has left.
                                 .onFocusChanged { if (it.isFocused) onClearCanvasFocus() }

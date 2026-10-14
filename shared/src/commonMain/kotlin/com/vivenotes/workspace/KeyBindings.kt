@@ -104,6 +104,7 @@ enum class ShortcutAction(
     val repeatable: Boolean,
     vararg chords: KeyChord,
 ) {
+    Search("Search notebook", "Pages", ShortcutScope.Anywhere, false, ctrl(ShortcutKey.F)),
     NewPage("New page", "Pages", ShortcutScope.Workspace, false, ctrl(ShortcutKey.N)),
 
     Undo("Undo", "Edit", ShortcutScope.Workspace, true, ctrl(ShortcutKey.Z)),

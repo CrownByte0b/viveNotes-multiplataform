@@ -987,6 +987,9 @@ interface AttachmentDao {
 @Dao
 interface ImageTextDao {
 
+    @Query("DELETE FROM attachment_text WHERE status = 'Failed'")
+    suspend fun deleteFailed()
+
     /**
      * Rows for the pictures a notebook contains.
      *

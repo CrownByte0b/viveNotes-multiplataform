@@ -148,6 +148,14 @@ class WorkspaceSession(
         }
     }
 
+    /** Search can reach a page whose section's page list has not been loaded into the UI yet. */
+    fun openSearchPage(sectionId: String, pageId: String) {
+        if (current.value?.selectedPageId == pageId) return
+        openingPage = sectionId to pageId
+        update { it.selectSection(sectionId).copy(selectedPageId = "") }
+        openPendingPage()
+    }
+
     /**
      * Renames a notebook, section or page: shown at once, then stored. The open page's title is
      * already stored by [react] as it changes, like typing into the title.

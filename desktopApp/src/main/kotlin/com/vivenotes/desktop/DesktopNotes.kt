@@ -61,6 +61,8 @@ internal class DesktopNotes(
     /** The math engine's uv-installed Python and SymPy, managed from Settings → Models. */
     val mathRuntime: UvMathRuntime? = null,
 ) {
+    val search = com.vivenotes.search.DesktopContentSearch(library.repository, library.attachments,
+        com.vivenotes.search.SearchProcessPool(log = log), log)
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     var editorDefaults by mutableStateOf(editorStore?.load() ?: EditorDefaults())
         private set
@@ -200,6 +202,7 @@ internal class DesktopNotes(
                     // package that later reads as installed.
                     aiModels?.close()
                     mathRuntime?.close()
+                    search.close()
                     library.close()
                     log.event("app") { "closed" }
                     done()

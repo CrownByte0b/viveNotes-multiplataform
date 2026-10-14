@@ -20,11 +20,13 @@ internal class WorkspaceShortcuts(
     private val navigation: NavigationActions,
     private val view: ViewActions,
     private val clipboard: TextClipboardActions,
+    private val onSearch: (() -> Unit)? = null,
 ) {
     fun run(action: ShortcutAction): Boolean {
         val current = state()
         val selected = !current.editorSelection.collapsed
         when (action) {
+            ShortcutAction.Search -> onSearch?.invoke() ?: return false
             ShortcutAction.NewPage -> navigation.addPage()
             ShortcutAction.Undo -> if (current.structuralUndo.isEmpty()) return false
                 else onStateChange { it.undoStructure() }

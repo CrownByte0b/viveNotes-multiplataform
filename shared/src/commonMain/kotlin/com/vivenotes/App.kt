@@ -70,6 +70,7 @@ fun App(
     aiModels: AiModels? = null,
     mathRuntime: MathRuntime? = null,
     appVersion: String = "Development",
+    search: com.vivenotes.search.ContentSearchService? = null,
 ) {
     val state by session.state.collectAsState()
     val fileActions = remember(session, notebookFiles) { notebookFiles?.let(session::fileActions) }
@@ -96,7 +97,7 @@ fun App(
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange,
                 inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange, fileActions = fileActions,
                 accountService = accountService, aiModels = aiModels, mathRuntime = mathRuntime,
-                appVersion = appVersion)
+                appVersion = appVersion, search = search, onOpenSearchPage = session::openSearchPage)
         }
     }
 }

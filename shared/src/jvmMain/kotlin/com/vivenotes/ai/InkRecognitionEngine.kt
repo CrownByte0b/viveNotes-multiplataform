@@ -83,6 +83,7 @@ class OnnxInkRecognitionEngine(
     lanes: Int = defaultInferenceLanes(),
     private val formulaEngine: () -> FormulaEngine = { models.state.value.formulaEngine },
     private val log: DebugLog = DebugLog(),
+    private val inferenceThreads: Int = INFERENCE_THREADS,
 ) : InkRecognitionEngine, Closeable {
     private val environment = OrtEnvironment.getEnvironment()
 
@@ -400,7 +401,7 @@ class OnnxInkRecognitionEngine(
     private fun open(kind: ModelKind): OrtSession {
         val options = OrtSession.SessionOptions().apply {
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-            setIntraOpNumThreads(INFERENCE_THREADS)
+            setIntraOpNumThreads(inferenceThreads.coerceAtLeast(1))
         }
         val opened = options.use {
             when (kind) {

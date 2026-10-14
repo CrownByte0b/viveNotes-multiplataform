@@ -194,6 +194,26 @@ class NotesRepository(
     /** One page's metadata — its title and its created stamp — without its body. */
     override suspend fun pageById(id: String): PageEntity? = pages.byId(id)
 
+    suspend fun pagesInNotebook(notebookId: String): List<PageEntity> {
+        val notebook = notebooks.byId(notebookId) ?: return emptyList()
+        if (notebook.deletedAt != null || !notebook.holdsItsOwnContents()) return emptyList()
+        return pages.inNotebook(notebookId)
+    }
+    suspend fun sectionsInNotebook(notebookId: String) = sections.inNotebook(notebookId)
+    suspend fun searchBodies(pageIds: List<String>): List<PageContentEntity> =
+        pageIds.chunked(400).flatMap { contents.byIds(it) }
+
+    fun observeSearchChanges() = db.invalidationTracker.createFlow("notebooks", "sections", "pages", "page_content", "attachments")
+
+    suspend fun imageTextFor(ids: Set<String>) = ids.toList().chunked(400)
+        .flatMap { db.imageTextDao().byIds(it) }.associateBy { it.attachmentId }
+
+    suspend fun storeImageText(row: com.vivenotes.data.db.AttachmentTextEntity) = db.withTransaction {
+        if (db.attachmentDao().byId(row.attachmentId) != null) db.imageTextDao().upsert(row)
+    }
+
+    suspend fun retryFailedImageText() = db.imageTextDao().deleteFailed()
+
     // --- notebooks -------------------------------------------------------------------------
 
     override suspend fun createNotebook(name: String): String {
