@@ -1,7 +1,5 @@
 package com.vivenotes.ui.components
 
-import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.animation.core.snap
 import androidx.compose.foundation.MutatorMutex
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -9,7 +7,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipAnchorPosition
@@ -37,12 +34,6 @@ internal const val HoverTooltipDelayMillis = 250L
 /** Desktop popup layers must use the host window's density for their window coordinates. */
 internal val LocalPopupLayerDensity = compositionLocalOf<Density?> { null }
 
-/** SwingGraphics can miss subsequent draw-only animation frames, so start fully opaque. */
-private class ImmediateTooltipMotionScheme(private val delegate: MotionScheme) : MotionScheme by delegate {
-    override fun <T> fastSpatialSpec(): FiniteAnimationSpec<T> = snap()
-    override fun <T> fastEffectsSpec(): FiniteAnimationSpec<T> = snap()
-}
-
 /**
  * Cancels a pending tooltip when the pointer leaves before the hover delay expires, and keeps a tap
  * from showing one.
@@ -59,6 +50,12 @@ internal class DelayedTooltipState(private val delegate: TooltipState) : Tooltip
     private var request = 0
     private var openRequest: Int? = null
     internal val hasOpenRequest: Boolean get() = openRequest != null || isVisible
+    internal var suppressed = false
+        set(value) {
+            if (field == value) return
+            field = value
+            if (value) dismiss()
+        }
 
     /** A finger is down on the control. */
     var touching = false
@@ -69,6 +66,7 @@ internal class DelayedTooltipState(private val delegate: TooltipState) : Tooltip
     }
 
     override suspend fun show(mutatePriority: MutatePriority) {
+        if (suppressed) return
         if (mutatePriority == MutatePriority.PreventUserInput && focusedByTap) {
             focusedByTap = false
             return
@@ -123,11 +121,12 @@ fun HoverTooltip(
     val materialState = rememberTooltipState(mutatorMutex = remember { MutatorMutex() })
     val positionProvider = rememberHoverTooltipPositionProvider(position)
     val motionScheme = MaterialTheme.motionScheme
-    val tooltipMotion = remember(motionScheme) { ImmediateTooltipMotionScheme(motionScheme) }
+    val tooltipMotion = remember(motionScheme) { ImmediatePopupMotionScheme(motionScheme) }
     val state = remember(materialState) { DelayedTooltipState(materialState) }
     val dismissals = LocalTooltipDismissals.current
-    DisposableEffect(dismissals, state) {
-        dismissals?.register(state)
+    val owner = LocalTooltipOwner.current
+    DisposableEffect(dismissals, state, owner) {
+        dismissals?.register(state, owner)
         onDispose { dismissals?.unregister(state) }
     }
     CompositionLocalProvider(LocalDensity provides layerDensity) {

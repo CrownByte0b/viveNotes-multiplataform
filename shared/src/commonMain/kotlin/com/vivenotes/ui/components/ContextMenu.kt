@@ -109,18 +109,20 @@ fun ContextMenu(
     CompositionLocalProvider(LocalDensity provides layerDensity) {
         Box(Modifier.offset { shownAt.round() }) {
             DropdownMenuPopup(expanded = anchor != null, onDismissRequest = onDismiss) {
-                CompositionLocalProvider(LocalDensity provides contentDensity) {
-                    val shape = MenuDefaults.standaloneGroupShape
-                    // One step above the panes and the canvas, with an outline: a dark shadow barely shows
-                    // against the dark theme, so the edge carries the separation.
-                    DropdownMenuGroup(
-                        shapes = MenuDefaults.groupShapes(shape = shape, inactiveShape = shape),
-                        modifier = modifier.dismissPopupOnEscape(onDismiss),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                        contentPadding = PaddingValues(vertical = 4.dp),
-                        content = content,
-                    )
+                PopupTooltipScope("context menu") {
+                    CompositionLocalProvider(LocalDensity provides contentDensity) {
+                        val shape = MenuDefaults.standaloneGroupShape
+                        // One step above the panes and the canvas, with an outline: a dark shadow barely shows
+                        // against the dark theme, so the edge carries the separation.
+                        DropdownMenuGroup(
+                            shapes = MenuDefaults.groupShapes(shape = shape, inactiveShape = shape),
+                            modifier = modifier.dismissPopupOnEscape(onDismiss),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            contentPadding = PaddingValues(vertical = 4.dp),
+                            content = content,
+                        )
+                    }
                 }
             }
         }

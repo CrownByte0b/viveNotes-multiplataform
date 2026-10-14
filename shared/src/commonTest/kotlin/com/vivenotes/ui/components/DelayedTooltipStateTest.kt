@@ -4,6 +4,7 @@ import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TooltipState
+import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
@@ -12,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertEquals
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalCoroutinesApi::class)
 class DelayedTooltipStateTest {
@@ -80,6 +82,96 @@ class DelayedTooltipStateTest {
         job.cancel()
         runCurrent()
         assertFalse(state.hasOpenRequest)
+    }
+
+    @Test
+    fun aMenuCancelsVisibleAndDelayedAnchorHintsAndRefusesFurtherRequests() = runTest {
+        val registry = TooltipDismissals()
+        val visible = DelayedTooltipState(FakeTooltipState()).also(registry::register)
+        val pending = DelayedTooltipState(FakeTooltipState()).also(registry::register)
+        visible.show(MutatePriority.Default)
+        launch { pending.show(MutatePriority.PreventUserInput) }
+        runCurrent()
+
+        val menu = Any()
+        registry.openPopup(menu, "dropdown")
+        assertFalse(visible.isVisible)
+        assertFalse(pending.hasOpenRequest)
+        for (priority in MutatePriority.entries) visible.show(priority)
+        advanceTimeBy(HoverTooltipDelayMillis + 1)
+        runCurrent()
+        assertTrue(listOf(visible, pending).none { it.isVisible || it.hasOpenRequest })
+
+        val late = DelayedTooltipState(FakeTooltipState())
+        registry.register(late)
+        late.show(MutatePriority.Default)
+        assertFalse(late.isVisible)
+        registry.closePopup(menu)
+        assertFalse(visible.isVisible)
+        visible.show(MutatePriority.Default)
+        assertTrue(visible.isVisible)
+    }
+
+    @Test
+    fun onlyTheForemostMenusHintsShowAndClosingItRestoresTheParentScope() = runTest {
+        val registry = TooltipDismissals()
+        val parent = Any()
+        val child = Any()
+        val anchor = DelayedTooltipState(FakeTooltipState()).also(registry::register)
+        val parentHint = DelayedTooltipState(FakeTooltipState())
+        registry.register(parentHint, parent)
+        registry.openPopup(parent, "dropdown")
+        parentHint.show(MutatePriority.Default)
+        assertTrue(parentHint.isVisible)
+
+        registry.openPopup(child, "dropdown")
+        assertFalse(parentHint.isVisible)
+        val childHint = DelayedTooltipState(FakeTooltipState())
+        registry.register(childHint, child)
+        childHint.show(MutatePriority.Default)
+        assertTrue(childHint.isVisible)
+        assertTrue(registry.dismiss())
+        assertFalse(childHint.isVisible)
+
+        registry.closePopup(child)
+        parentHint.show(MutatePriority.Default)
+        anchor.show(MutatePriority.Default)
+        assertTrue(parentHint.isVisible)
+        assertFalse(anchor.isVisible)
+        registry.unregister(childHint)
+        registry.closePopup(parent)
+        anchor.show(MutatePriority.Default)
+        assertTrue(anchor.isVisible)
+    }
+
+    @Test
+    fun removingABackgroundMenuKeepsTheForemostMenuInCharge() = runTest {
+        val registry = TooltipDismissals()
+        val parent = Any()
+        val child = Any()
+        val anchor = DelayedTooltipState(FakeTooltipState()).also(registry::register)
+        registry.openPopup(parent, "dropdown")
+        registry.openPopup(child, "context menu")
+        registry.closePopup(parent)
+        anchor.show(MutatePriority.Default)
+        assertFalse(anchor.isVisible)
+        registry.closePopup(child)
+        anchor.show(MutatePriority.Default)
+        assertTrue(anchor.isVisible)
+    }
+
+    @Test
+    fun popupDiagnosticsAreOptInAndDescribeOnlyLifecycleChanges() {
+        val lines = mutableListOf<String>()
+        for (enabled in listOf(false, true)) {
+            val registry = TooltipDismissals(DebugLog(enabled, lines::add))
+            val menu = Any()
+            registry.openPopup(menu, "dropdown")
+            registry.closePopup(menu)
+            registry.closePopup(menu)
+            if (!enabled) assertTrue(lines.isEmpty())
+        }
+        assertEquals(listOf("ViveNotes DEBUG [popup] Opened dropdown", "ViveNotes DEBUG [popup] Closed dropdown"), lines)
     }
 
     private class FakeTooltipState : TooltipState {

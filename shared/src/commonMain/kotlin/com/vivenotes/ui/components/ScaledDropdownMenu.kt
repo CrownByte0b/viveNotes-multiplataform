@@ -2,8 +2,10 @@ package com.vivenotes.ui.components
 
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 
@@ -17,10 +19,18 @@ internal fun ScaledDropdownMenu(
 ) {
     val contentDensity = LocalDensity.current
     val layerDensity = LocalPopupLayerDensity.current ?: contentDensity
+    val motionScheme = MaterialTheme.motionScheme
+    val popupMotion = remember(motionScheme) { ImmediatePopupMotionScheme(motionScheme) }
     CompositionLocalProvider(LocalDensity provides layerDensity) {
-        DropdownMenu(expanded = expanded, onDismissRequest = onDismissRequest,
-            modifier = modifier.dismissPopupOnEscape(onDismissRequest)) {
-            CompositionLocalProvider(LocalDensity provides contentDensity) { content() }
+        MaterialTheme(motionScheme = popupMotion) {
+            DropdownMenu(expanded = expanded, onDismissRequest = onDismissRequest,
+                modifier = modifier.dismissPopupOnEscape(onDismissRequest)) {
+                PopupTooltipScope("dropdown") {
+                    CompositionLocalProvider(LocalDensity provides contentDensity) {
+                        MaterialTheme(motionScheme = motionScheme) { content() }
+                    }
+                }
+            }
         }
     }
 }

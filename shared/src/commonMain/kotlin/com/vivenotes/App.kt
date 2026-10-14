@@ -24,6 +24,7 @@ import com.vivenotes.data.NotebookFiles
 import com.vivenotes.math.MathRuntime
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.VideoThumbnailSource
+import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.account.AccountService
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
@@ -71,6 +72,7 @@ fun App(
     mathRuntime: MathRuntime? = null,
     appVersion: String = "Development",
     search: com.vivenotes.search.ContentSearchService? = null,
+    debugLog: DebugLog = remember { DebugLog() },
 ) {
     val state by session.state.collectAsState()
     val fileActions = remember(session, notebookFiles) { notebookFiles?.let(session::fileActions) }
@@ -97,7 +99,8 @@ fun App(
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange,
                 inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange, fileActions = fileActions,
                 accountService = accountService, aiModels = aiModels, mathRuntime = mathRuntime,
-                appVersion = appVersion, search = search, onOpenSearchPage = session::openSearchPage)
+                appVersion = appVersion, search = search, onOpenSearchPage = session::openSearchPage,
+                debugLog = debugLog)
         }
     }
 }

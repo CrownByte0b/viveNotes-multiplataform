@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
@@ -26,6 +27,7 @@ import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
@@ -43,6 +45,7 @@ import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.focusBody
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -197,6 +200,56 @@ class HoverTooltipRuleTest {
         waitForIdle()
         assertTrue(onAllNodes(hasText("Italic") and inTooltip).fetchSemanticsNodes().isNotEmpty())
     }
+
+    @Test
+    fun openingAPaletteHidesItsButtonsTooltipAndKeepsSwatchTooltips() =
+        runDesktopComposeUiTest(width = 2000, height = 900) {
+            setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.Document).focusBody())
+            mainClock.autoAdvance = false
+            val opener = onNodeWithTag(DocumentRibbonTags.colorMenu(DocumentRibbonTags.FontColor))
+            opener.performMouseInput { moveTo(center) }
+            mainClock.advanceTimeBy(HoverTooltipDelayMillis + 32)
+            onNode(hasText("Choose Font colour") and inTooltip).assertExists()
+
+            opener.performSemanticsAction(SemanticsActions.RequestFocus)
+            opener.performClick()
+            mainClock.advanceTimeBy(64)
+            onNode(hasText("Choose Font colour") and inTooltip).assertDoesNotExist()
+            assertEquals(1, onAllNodes(isPopup()).fetchSemanticsNodes().size)
+            mainClock.advanceTimeBy(HoverTooltipDelayMillis + 32)
+            onNode(hasText("Choose Font colour") and inTooltip).assertDoesNotExist()
+
+            onNodeWithTag(DocumentRibbonTags.mark(Mark.Bold)).performMouseInput { moveTo(center) }
+            mainClock.advanceTimeBy(HoverTooltipDelayMillis + 32)
+            onNode(hasText("Bold") and inTooltip).assertDoesNotExist()
+            opener.performMouseInput { moveTo(center) }
+            mainClock.advanceTimeBy(HoverTooltipDelayMillis + 32)
+            onNode(hasText("Choose Font colour") and inTooltip).assertDoesNotExist()
+
+            onNodeWithTag("${DocumentRibbonTags.FontColor}-${0xFFE53935.toInt()}")
+                .performMouseInput { moveTo(center) }
+            mainClock.advanceTimeBy(HoverTooltipDelayMillis + 32)
+            onNode(hasText("Red") and inTooltip).assertExists()
+            onNodeWithTag("${DocumentRibbonTags.FontColor}-none").performClick()
+            mainClock.advanceTimeBy(300)
+            opener.performMouseInput { moveTo(center) }
+            mainClock.advanceTimeBy(HoverTooltipDelayMillis + 32)
+            onNode(hasText("Choose Font colour") and inTooltip).assertExists()
+        }
+
+    @Test
+    fun openingAPaletteBeforeTheHoverDelayCancelsItsButtonsPendingTooltip() =
+        runDesktopComposeUiTest(width = 2000, height = 900) {
+            setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.Document).focusBody())
+            mainClock.autoAdvance = false
+            val opener = onNodeWithTag(DocumentRibbonTags.colorMenu(DocumentRibbonTags.FontColor))
+            opener.performMouseInput { moveTo(center) }
+            opener.performSemanticsAction(SemanticsActions.RequestFocus)
+            opener.performClick()
+            mainClock.advanceTimeBy(HoverTooltipDelayMillis + 64)
+            onNode(hasText("Choose Font colour") and inTooltip).assertDoesNotExist()
+            onNodeWithTag("${DocumentRibbonTags.FontColor}-none").assertExists()
+        }
 
     @Test
     fun crossingButtonsQuicklyDoesNotFlashTooltips() = runDesktopComposeUiTest(width = 600, height = 300) {

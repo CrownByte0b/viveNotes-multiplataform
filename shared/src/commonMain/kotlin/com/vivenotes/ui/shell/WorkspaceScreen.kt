@@ -160,6 +160,7 @@ import com.vivenotes.ui.canvas.todoAt
 import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.components.LocalTooltipDismissals
 import com.vivenotes.ui.components.TooltipDismissals
+import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.ui.components.LocalPopupLayerDensity
 import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.TooltipIconButton
@@ -328,6 +329,7 @@ fun WorkspaceScreen(
     appVersion: String = "Development",
     search: ContentSearchService? = null,
     onOpenSearchPage: ((String, String) -> Unit)? = null,
+    debugLog: DebugLog = remember { DebugLog() },
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
     // Held here as well, so a caller that does not keep the settings still sees its changes.
@@ -346,7 +348,7 @@ fun WorkspaceScreen(
     // without one: at launch, and whenever the focused element goes (a discarded text box, a
     // closed dialog), the canvas takes the focus and the keyboard shortcuts keep working.
     val canvasFocusRequester = remember { FocusRequester() }
-    val tooltipDismissals = remember { TooltipDismissals() }
+    val tooltipDismissals = remember(debugLog) { TooltipDismissals(debugLog) }
     val shortcutKeys = remember { ShortcutKeys() }
     var workspaceHasFocus by remember { mutableStateOf(false) }
     LaunchedEffect(workspaceHasFocus) {
