@@ -32,6 +32,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.MouseButton
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -682,6 +683,9 @@ class WorkspaceScreenTest {
             setWorkspace(initial = initial) { observed = it }
 
             onNodeWithTag(WorkspaceTestTags.primeObject(shape.id)).performClick()
+            val toolkit = onNodeWithTag(WorkspaceTestTags.ObjectToolkit).assertIsDisplayed()
+                .captureToImage().toPixelMap()
+            assertEquals(0xFF161618.toInt(), toolkit[toolkit.width / 2, 1].toArgb())
             onNodeWithTag(WorkspaceTestTags.ObjectColor).performClick()
             onNodeWithContentDescription("Red").performClick()
             runOnIdle { assertEquals(0xFFEF4444.toInt(),

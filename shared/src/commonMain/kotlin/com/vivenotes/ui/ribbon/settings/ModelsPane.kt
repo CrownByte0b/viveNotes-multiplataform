@@ -37,8 +37,6 @@ import com.vivenotes.ai.FormulaEngine
 import com.vivenotes.ai.displayName
 import com.vivenotes.ai.formatModelBytes
 import com.vivenotes.ai.strength
-import com.vivenotes.math.MathRuntime
-import com.vivenotes.math.MathRuntimeState
 import com.vivenotes.ui.components.PaneGroup
 import com.vivenotes.ui.components.ToolPane
 import com.vivenotes.ui.icons.ObjectSymbols
@@ -50,10 +48,6 @@ import kotlin.math.roundToInt
 object ModelsTags {
     const val Open = "settings-models"
     const val TextModel = "models-text"
-    const val MathEngine = "models-math-engine"
-    const val MathInstall = "models-math-install"
-    const val MathRemove = "models-math-remove"
-    const val MathProgress = "models-math-progress"
     fun formula(engine: FormulaEngine): String = "models-formula-${engine.name}"
     fun download(engine: FormulaEngine): String = "models-formula-download-${engine.name}"
     fun delete(engine: FormulaEngine): String = "models-formula-delete-${engine.name}"
@@ -64,12 +58,10 @@ object ModelsTags {
 /**
  * Settings → Models, docked beside the canvas: Android's Integrated pane. Its Math group lists the
  * formula recognition models, one row each — Download until installed, then Use and Delete, with
- * the model in use marked "In use". Text is the bundled OCR, which has nothing to do. The math
- * engine is the desktop's own row: the Python and SymPy uv installs by default, which Android
- * carries in its APK instead.
+ * the model in use marked "In use". Text is the bundled OCR, which has nothing to do.
  */
 @Composable
-internal fun ModelsPane(models: AiModels?, mathRuntime: MathRuntime?, onClose: () -> Unit) {
+internal fun ModelsPane(models: AiModels?, onClose: () -> Unit) {
     ToolPane(title = "Models", onClose = onClose) {
         if (models != null) {
             val state by models.state.collectAsState()
@@ -88,12 +80,6 @@ internal fun ModelsPane(models: AiModels?, mathRuntime: MathRuntime?, onClose: (
                 }
             }
             PaneGroup("Text") { TextModelRow(state.handwritingText) }
-        }
-        if (mathRuntime != null) {
-            val state by mathRuntime.state.collectAsState()
-            PaneGroup("Math engine") {
-                MathEngineRow(state, onInstall = mathRuntime::install, onRemove = mathRuntime::remove)
-            }
         }
     }
 }
@@ -183,44 +169,6 @@ private fun TextModelRow(install: AiModelInstallState) {
             is AiModelInstallState.Failed -> ErrorLine(install.message)
             AiModelInstallState.Verifying -> ProgressLine("Verifying…", fraction = null, tag = null)
             else -> {}
-        }
-    }
-}
-
-/** Python and SymPy, which uv installs by default and Remove takes away until Install. */
-@Composable
-private fun MathEngineRow(state: MathRuntimeState, onInstall: () -> Unit, onRemove: () -> Unit) {
-    val detail = when (state) {
-        is MathRuntimeState.Ready -> "SymPy ${state.sympy} · Python ${state.python} · installed by uv"
-        else -> "Solves, factors and graphs formulas · Python and SymPy, about 180 MB"
-    }
-    ModelRow(title = "SymPy", detail = detail, first = true, modifier = Modifier.testTag(ModelsTags.MathEngine)) {
-        when (state) {
-            MathRuntimeState.Checking -> ProgressLine("Checking…", fraction = null, ModelsTags.MathProgress)
-            MathRuntimeState.NotInstalled -> DownloadButton("Install", ModelsTags.MathInstall, onInstall)
-            is MathRuntimeState.UvUnavailable -> {
-                Text(state.reason, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                DownloadButton("Install", ModelsTags.MathInstall, onInstall)
-            }
-            is MathRuntimeState.Installing ->
-                ProgressLine(state.step.label, fraction = null, ModelsTags.MathProgress)
-            is MathRuntimeState.Ready -> TextButton(
-                onClick = onRemove,
-                shape = MaterialTheme.shapes.small,
-                contentPadding = CompactButtonPadding,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier.testTag(ModelsTags.MathRemove),
-            ) {
-                Icon(ObjectSymbols.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Remove")
-            }
-            is MathRuntimeState.Failed -> {
-                ErrorLine(state.message)
-                DownloadButton("Retry", ModelsTags.MathInstall, onInstall)
-            }
         }
     }
 }

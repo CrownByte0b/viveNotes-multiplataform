@@ -17,15 +17,11 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ai.AiModelInstallState
 import com.vivenotes.ai.AiModels
 import com.vivenotes.ai.AiModelsState
 import com.vivenotes.ai.FormulaEngine
-import com.vivenotes.math.MathInstallStep
-import com.vivenotes.math.MathRuntime
-import com.vivenotes.math.MathRuntimeState
 import com.vivenotes.ui.components.ToolPaneTags
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.theme.ViveNotesTheme
@@ -39,16 +35,15 @@ import kotlin.test.assertTrue
 
 /**
  * Settings → Models: Android's Integrated pane, docked like Hardware. Each formula model offers
- * what its install state allows; the math engine row installs and removes Python and SymPy.
+ * what its install state allows; the automatically installed math engine has no management UI.
  */
 @OptIn(ExperimentalTestApi::class)
 class ModelsPaneTest {
     private val models = FakeModels()
-    private val math = FakeMathRuntime()
 
     @Test
-    fun modelsIsUnavailableWithoutAnythingToManage() = runDesktopComposeUiTest(width = 1600, height = 900) {
-        setWorkspace(models = null, math = null)
+    fun modelsIsUnavailableWithoutRecognitionModels() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        setWorkspace(models = null)
 
         onNodeWithTag(ModelsTags.Open).assertIsNotEnabled()
     }
@@ -63,7 +58,6 @@ class ModelsPaneTest {
         onNodeWithTag(ToolPaneTags.Pane).assertExists()
         FormulaEngine.entries.forEach { onNodeWithTag(ModelsTags.formula(it)).assertExists() }
         onNodeWithTag(ModelsTags.TextModel).assertExists()
-        onNodeWithTag(ModelsTags.MathEngine).assertExists()
         val tab = onNodeWithTag(ModelsTags.Open).captureToImage().toPixelMap()
         val underline = tab[tab.width / 2, tab.height - 2]
         assertTrue(abs(underline.red - 0f) < 0.03f && abs(underline.blue - 1f) < 0.03f, "underline painted $underline")
@@ -71,6 +65,19 @@ class ModelsPaneTest {
         onNodeWithTag(ToolPaneTags.Close).performClick()
         onNodeWithTag(ToolPaneTags.Pane).assertDoesNotExist()
         onNodeWithTag(ModelsTags.Open).assertIsNotSelected()
+    }
+
+    @Test
+    fun modelsPaneDoesNotExposeMathEngineManagement() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        setWorkspace()
+        openModels()
+
+        onNodeWithText("Math engine").assertDoesNotExist()
+        onNodeWithText("SymPy", substring = true).assertDoesNotExist()
+        onNodeWithText("Install").assertDoesNotExist()
+        onNodeWithText("Remove").assertDoesNotExist()
+        FormulaEngine.entries.forEach { onNodeWithTag(ModelsTags.formula(it)).assertExists() }
+        onNodeWithTag(ModelsTags.TextModel).assertExists()
     }
 
     @Test
@@ -194,58 +201,6 @@ class ModelsPaneTest {
         onNodeWithTag(ModelsTags.TextModel).assertTextContains("Bundled OCR model is unavailable")
     }
 
-    @Test
-    fun theMathEngineInstallsAndRemovesPythonAndSympy() = runDesktopComposeUiTest(width = 1600, height = 900) {
-        setWorkspace()
-        openModels()
-        onNodeWithTag(ModelsTags.MathEngine).performScrollTo()
-            .assertTextContains("SymPy")
-            .assertTextContains("Solves, factors and graphs formulas · Python and SymPy, about 180 MB")
-
-        onNodeWithTag(ModelsTags.MathInstall).performScrollTo().assertTextContains("Install").performClick()
-        assertEquals(1, math.installs)
-
-        math.state.value = MathRuntimeState.Installing(MathInstallStep.DownloadingPython)
-        onNodeWithTag(ModelsTags.MathProgress).assertTextContains("Downloading Python…")
-        onNodeWithTag(ModelsTags.MathInstall).assertDoesNotExist()
-        math.state.value = MathRuntimeState.Installing(MathInstallStep.InstallingPackages)
-        onNodeWithTag(ModelsTags.MathProgress).assertTextContains("Installing SymPy…")
-
-        math.state.value = MathRuntimeState.Ready(python = "3.13.15", sympy = "1.14.0")
-        onNodeWithTag(ModelsTags.MathEngine).assertTextContains("SymPy 1.14.0 · Python 3.13.15 · installed by uv")
-        onNodeWithTag(ModelsTags.MathRemove).performScrollTo().performClick()
-        assertEquals(1, math.removes)
-    }
-
-    @Test
-    fun theMathEngineSaysWhatStopsAnInstall() = runDesktopComposeUiTest(width = 1600, height = 900) {
-        math.state.value = MathRuntimeState.UvUnavailable("Installing the math engine needs uv. Get it from docs.astral.sh/uv, then install again.")
-        setWorkspace()
-        openModels()
-
-        onNodeWithTag(ModelsTags.MathEngine).performScrollTo()
-            .assertTextContains("Installing the math engine needs uv. Get it from docs.astral.sh/uv, then install again.")
-        // Install looks for uv again, so someone who has just installed it need not restart.
-        onNodeWithTag(ModelsTags.MathInstall).performScrollTo().performClick()
-        assertEquals(1, math.installs)
-
-        math.state.value = MathRuntimeState.Failed("error: Failed to download sympy")
-        onNodeWithTag(ModelsTags.MathEngine).assertTextContains("error: Failed to download sympy")
-        onNodeWithTag(ModelsTags.MathInstall).assertTextContains("Retry").performClick()
-        assertEquals(2, math.installs)
-    }
-
-    @Test
-    fun aPaneWithOnlyTheMathEngineStillOpens() = runDesktopComposeUiTest(width = 1600, height = 900) {
-        setWorkspace(models = null)
-
-        openModels()
-
-        onNodeWithTag(ModelsTags.MathEngine).assertExists()
-        onNodeWithTag(ModelsTags.TextModel).assertDoesNotExist()
-        onNodeWithText("Math engine").assertExists()
-    }
-
     private fun ComposeUiTest.assertPaints(tag: String, expected: Color, tolerance: Float = 0.05f) {
         val pixels = onNodeWithTag(tag).captureToImage().toPixelMap()
         assertTrue((0 until pixels.width).any { x ->
@@ -262,13 +217,12 @@ class ModelsPaneTest {
         onNodeWithTag(ToolPaneTags.Pane).assertExists()
     }
 
-    private fun ComposeUiTest.setWorkspace(models: AiModels? = this@ModelsPaneTest.models,
-        math: MathRuntime? = this@ModelsPaneTest.math) {
+    private fun ComposeUiTest.setWorkspace(models: AiModels? = this@ModelsPaneTest.models) {
         setContent {
             var state by remember { mutableStateOf(WorkspaceState.demo().copy(activeTab = RibbonTab.Settings)) }
             ViveNotesTheme(darkTheme = true) {
                 WorkspaceScreen(state = state, onStateChange = { state = it(state) },
-                    aiModels = models, mathRuntime = math)
+                    aiModels = models)
             }
         }
     }
@@ -288,13 +242,5 @@ class ModelsPaneTest {
         override fun download(engine: FormulaEngine) { downloads += engine }
         override fun delete(engine: FormulaEngine) { deletes += engine }
         override fun selectFormulaEngine(engine: FormulaEngine) { selections += engine }
-    }
-
-    private class FakeMathRuntime : MathRuntime {
-        override val state = MutableStateFlow<MathRuntimeState>(MathRuntimeState.NotInstalled)
-        var installs = 0
-        var removes = 0
-        override fun install() { installs++ }
-        override fun remove() { removes++ }
     }
 }

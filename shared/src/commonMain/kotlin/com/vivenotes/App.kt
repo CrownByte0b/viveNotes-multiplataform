@@ -21,7 +21,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.vivenotes.ai.AiModels
 import com.vivenotes.data.NotebookFiles
-import com.vivenotes.math.MathRuntime
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.diagnostics.DebugLog
@@ -67,9 +66,8 @@ fun App(
     notebookFiles: NotebookFiles? = null,
     thumbnails: VideoThumbnailSource? = null,
     accountService: AccountService? = null,
-    /** The platform's recognition models and math engine, for Settings → Models. */
+    /** The platform's recognition models, for Settings → Models. */
     aiModels: AiModels? = null,
-    mathRuntime: MathRuntime? = null,
     appVersion: String = "Development",
     search: com.vivenotes.search.ContentSearchService? = null,
     debugLog: DebugLog = remember { DebugLog() },
@@ -98,7 +96,7 @@ fun App(
                 onShapeSettingsChange = onShapeSettingsChange,
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange,
                 inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange, fileActions = fileActions,
-                accountService = accountService, aiModels = aiModels, mathRuntime = mathRuntime,
+                accountService = accountService, aiModels = aiModels,
                 appVersion = appVersion, search = search, onOpenSearchPage = session::openSearchPage,
                 debugLog = debugLog)
         }

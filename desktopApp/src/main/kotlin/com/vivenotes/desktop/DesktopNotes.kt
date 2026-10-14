@@ -58,7 +58,7 @@ internal class DesktopNotes(
     private val inkSource: InkSource = library.repository,
     /** The recognition models in the data directory, managed from Settings → Models. */
     val aiModels: AiModelStore? = null,
-    /** The math engine's uv-installed Python and SymPy, managed from Settings → Models. */
+    /** The math engine's Python and SymPy, automatically installed by uv at launch. */
     val mathRuntime: UvMathRuntime? = null,
 ) {
     val search = com.vivenotes.search.DesktopContentSearch(library.repository, library.attachments,

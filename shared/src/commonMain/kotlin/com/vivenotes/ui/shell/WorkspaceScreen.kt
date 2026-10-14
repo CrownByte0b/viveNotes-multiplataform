@@ -177,7 +177,6 @@ import com.vivenotes.workspace.FilePane
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
 import com.vivenotes.ui.ribbon.settings.ModelsPane
 import com.vivenotes.ai.AiModels
-import com.vivenotes.math.MathRuntime
 import com.vivenotes.ui.account.AccountScreen
 import com.vivenotes.ui.account.AccountScreenModel
 import com.vivenotes.ui.account.AccountService
@@ -264,6 +263,7 @@ object WorkspaceTestTags {
     const val ObjectCopy = "workspace-object-copy"
     const val ObjectDelete = "workspace-object-delete"
     const val ObjectLock = "workspace-object-lock"
+    const val ObjectToolkit = "workspace-object-toolkit"
     const val ObjectColor = "workspace-object-color"
     const val GroupSelectionFrame = "workspace-group-selection-frame"
     const val StructuralUndo = "workspace-structural-undo"
@@ -322,10 +322,8 @@ fun WorkspaceScreen(
     /** The File tab's `.vive` export and import; without it those commands are unavailable. */
     fileActions: FileActions? = null,
     accountService: AccountService? = null,
-    /** This device's recognition models, for Settings → Models; without them and [mathRuntime] it is unavailable. */
+    /** This device's recognition models, for Settings → Models; without them it is unavailable. */
     aiModels: AiModels? = null,
-    /** The math engine's Python and SymPy, installed and removed from Settings → Models. */
-    mathRuntime: MathRuntime? = null,
     appVersion: String = "Development",
     search: ContentSearchService? = null,
     onOpenSearchPage: ((String, String) -> Unit)? = null,
@@ -384,7 +382,7 @@ fun WorkspaceScreen(
                         onEditorDefaultsChange = onEditorDefaultsChange,
                         onShapeSettingsChange = onShapeSettingsChange,
                         accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
-                        onAbout = { aboutOpen = true }, aiModels = aiModels, mathRuntime = mathRuntime,
+                        onAbout = { aboutOpen = true }, aiModels = aiModels,
                         search = search, onOpenSearchPage = onOpenSearchPage, shortcutKeys = shortcutKeys)
                 }
                 if (accountOpen) AccountScreen(accountService, accountModel, onBack = { accountOpen = false })
@@ -437,7 +435,6 @@ private fun WorkspaceContent(
     onOpenAccount: () -> Unit,
     onAbout: () -> Unit,
     aiModels: AiModels?,
-    mathRuntime: MathRuntime?,
     search: ContentSearchService?,
     onOpenSearchPage: ((String, String) -> Unit)?,
     shortcutKeys: ShortcutKeys,
@@ -564,7 +561,7 @@ private fun WorkspaceContent(
             RibbonTab.Settings -> SettingsRibbon(onInterface, hardwareOpen = openPane == DockedPane.Hardware,
                 onHardware = { togglePane(DockedPane.Hardware) }, linkPreviews = view.linkPreviews,
                 onLinkPreviewsChange = { enabled -> onViewChange(view.copy(linkPreviews = enabled)) },
-                onAbout = onAbout, modelsAvailable = aiModels != null || mathRuntime != null,
+                onAbout = onAbout, modelsAvailable = aiModels != null,
                 modelsOpen = openPane == DockedPane.Models, onModels = { togglePane(DockedPane.Models) })
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -769,7 +766,7 @@ private fun WorkspaceContent(
                                     else onStateChange { it.selectPage(hit.unit.pageId) }
                                 }, onClose = { openPane = null }, focusRequest = searchFocusTick)
                         }
-                        DockedPane.Models -> ModelsPane(aiModels, mathRuntime, onClose = { openPane = null })
+                        DockedPane.Models -> ModelsPane(aiModels, onClose = { openPane = null })
                     }
                 }
             }
@@ -1867,10 +1864,11 @@ private fun PageCanvas(
                     val selected = page.document.outlines.firstOrNull { it.id in state.selectedObjectIds }
                     if (selected != null) {
                         var colorMenu by remember(selected.id) { mutableStateOf(false) }
-                        Surface(color = MaterialTheme.colorScheme.primaryContainer,
+                        Surface(color = Color(0xFF161618), contentColor = Color.White,
                             shape = MaterialTheme.shapes.medium, tonalElevation = 4.dp,
                             modifier = Modifier.offset((groupBounds?.left ?: selected.x).dp,
-                                ((groupBounds?.top ?: selected.y).dp - 52.dp).coerceAtLeast(0.dp))) {
+                                ((groupBounds?.top ?: selected.y).dp - 52.dp).coerceAtLeast(0.dp))
+                                .testTag(WorkspaceTestTags.ObjectToolkit)) {
                             Row(Modifier.padding(3.dp)) {
                                 if (selected !is Outline.Image && state.selectedTextOutlineIds.isEmpty()) {
                                     Box {
