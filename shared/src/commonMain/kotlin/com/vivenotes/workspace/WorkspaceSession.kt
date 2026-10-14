@@ -56,6 +56,7 @@ class WorkspaceSession(
     private val editorDefaults: EditorDefaults = EditorDefaults(),
     private val shapeSettings: ShapeToolSettings = ShapeToolSettings(),
     private val log: DebugLog = DebugLog(),
+    private val inkSettings: InkSettings = InkSettings(),
 ) : NavigationActions {
     private val current = MutableStateFlow<WorkspaceState?>(null)
 
@@ -127,6 +128,10 @@ class WorkspaceSession(
         }
         if (before.inkTool != after.inkTool) log.event("ink") { "tool ${after.inkTool?.name ?: "Select"}" }
         if (before.eraserMode != after.eraserMode) log.event("ink") { "eraser mode ${after.eraserMode.name}" }
+        if (before.inkSettings != after.inkSettings) log.event("ink") { "drawing preferences changed" }
+        if (before.selectedInk !== after.selectedInk) log.event("ink") {
+            if (after.selectedInk == null) "selection cleared" else "ink selected"
+        }
         react(before, after)
     }
 
@@ -535,7 +540,7 @@ class WorkspaceSession(
                 editorComposition = null,
                 focusedTextOutlineId = null,
                 selectedTextOutlineIds = emptySet(),
-                selectedObjectIds = emptySet(),
+                selectedObjectIds = emptySet(), selectedInk = null,
                 structuralUndo = emptyList(),
                 structuralRedo = emptyList(),
             )
@@ -641,6 +646,7 @@ class WorkspaceSession(
                         is com.vivenotes.data.InkEdit.RestoreStrokes -> "stroke restore saved"
                         is com.vivenotes.data.InkEdit.PartialErase ->
                             if (pending.edit.active) "partial erase saved" else "partial erase undone"
+                        is com.vivenotes.data.InkEdit.Move -> if (pending.edit.active) "ink move saved" else "ink move undone"
                     } }
                 }
             } finally { inkSaveQueued = false }
@@ -708,6 +714,7 @@ class WorkspaceSession(
         val snapshot = if (pending.isEmpty()) ink else (inkSource as? com.vivenotes.data.InkWriter)
             ?.overlayPendingInk(ink, pending) ?: ink
         current.value = state.updatePage(pageId) { it.copy(ink = snapshot, inkReady = true) }
+            .let { if (state.selectedPageId == pageId) it.copy(selectedInk = null) else it }
     }
 
     /** Puts a body just read into its page, if that page is still open and still waiting for it. */
@@ -756,7 +763,7 @@ class WorkspaceSession(
             val notebook = notebooks.firstOrNull()
             val section = notebook?.sections?.firstOrNull()
             current.value = WorkspaceState(notebooks, notebook?.id.orEmpty(), section?.id.orEmpty(), "",
-                editorDefaults = editorDefaults, shapeSettings = shapeSettings)
+                editorDefaults = editorDefaults, shapeSettings = shapeSettings, inkSettings = inkSettings.normalized())
             openSection.value = section?.id
             return
         }
@@ -864,7 +871,7 @@ class WorkspaceSession(
         log.failure("storage", "store operation", error)
         val message = "$failure. ${error.message ?: error::class.simpleName.orEmpty()}".trim()
         current.value = (current.value ?: WorkspaceState(emptyList(), "", "", "",
-            editorDefaults = editorDefaults, shapeSettings = shapeSettings)).copy(storageError = message)
+            editorDefaults = editorDefaults, shapeSettings = shapeSettings, inkSettings = inkSettings.normalized())).copy(storageError = message)
     }
 
     companion object {

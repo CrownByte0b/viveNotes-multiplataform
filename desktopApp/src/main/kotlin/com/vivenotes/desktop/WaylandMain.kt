@@ -77,7 +77,8 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
             inputSettings = notes.inputSettings, onInputSettingsChange = notes::updateInputSettings,
             notebookFiles = notebookFiles, thumbnails = notes.thumbnails,
             onEditorDefaultsChange = notes::updateEditorDefaults,
-            onShapeSettingsChange = notes::updateShapeSettings, accountService = notes.accountService,
+            onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
+            accountService = notes.accountService,
             aiModels = notes.aiModels, search = notes.search,
             appVersion = DesktopBuildInfo.version, debugLog = log)
     }

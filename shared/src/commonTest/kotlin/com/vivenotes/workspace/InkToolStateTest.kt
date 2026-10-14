@@ -308,7 +308,7 @@ class InkToolStateTest {
                 })
                 is InkEdit.EraseStrokes -> snapshot.copy(strokes = snapshot.strokes.filterNot { it.id in edit.ids })
                 is InkEdit.RestoreStrokes -> snapshot.copy(strokes = snapshot.strokes + edit.source.strokes.filter { it.id in edit.ids })
-                is InkEdit.PartialErase -> snapshot
+                is InkEdit.PartialErase, is InkEdit.Move -> snapshot
             }
         }
         override suspend fun applyInkEdit(pageId: String, edit: InkEdit) {
@@ -319,6 +319,7 @@ class InkToolStateTest {
                 is InkEdit.EraseStrokes -> "erase"
                 is InkEdit.RestoreStrokes -> "restore"
                 is InkEdit.PartialErase -> if (edit.active) "partial" else "undo-partial"
+                is InkEdit.Move -> if (edit.active) "move" else "undo-move"
             }
         }
     }

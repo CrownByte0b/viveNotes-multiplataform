@@ -1,5 +1,6 @@
 package com.vivenotes.ui.canvas
 
+import com.vivenotes.workspace.InkSettings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -14,4 +15,7 @@ internal actual fun PlatformInkLayer(
     pageId: String, tool: InkTool?, titleFloorDp: Float, onEdit: (InkEdit, InkPage) -> Unit,
     zoom: Float,
     eraserMode: com.vivenotes.data.EraserMode,
+    settings: InkSettings,
+    selection: com.vivenotes.model.ink.InkSelection?,
+    selectionOffset: androidx.compose.ui.geometry.Offset,
 ) { /* Ink authoring and rendering are desktop services. */ }

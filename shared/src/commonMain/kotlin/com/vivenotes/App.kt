@@ -1,5 +1,6 @@
 package com.vivenotes
 
+import com.vivenotes.workspace.InkSettings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -62,6 +63,7 @@ fun App(
     onInputSettingsChange: (InputSettings) -> Unit = {},
     onEditorDefaultsChange: (EditorDefaults) -> Unit = {},
     onShapeSettingsChange: (ShapeToolSettings) -> Unit = {},
+    onInkSettingsChange: (InkSettings) -> Unit = {},
     /** The platform's `.vive` file dialogs; without them notebooks cannot be exported or imported. */
     notebookFiles: NotebookFiles? = null,
     thumbnails: VideoThumbnailSource? = null,
@@ -94,6 +96,7 @@ fun App(
                 viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
                 onEditorDefaultsChange = onEditorDefaultsChange,
                 onShapeSettingsChange = onShapeSettingsChange,
+                onInkSettingsChange = onInkSettingsChange,
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange,
                 inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange, fileActions = fileActions,
                 accountService = accountService, aiModels = aiModels,

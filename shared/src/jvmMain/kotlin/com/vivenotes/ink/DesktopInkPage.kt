@@ -44,6 +44,22 @@ internal class DesktopInkPage private constructor(
 
     val index = DesktopInkQueries(this)
 
+    override fun selectAt(page: InkPage, x: Float, y: Float, reach: Float): InkSelection? {
+        if (!x.isFinite() || !y.isFinite() || !reach.isFinite() || reach < 0f) return null
+        val hit = index.at(InkPoint(x, y), reach).lastOrNull() ?: return null
+        val candidates = projections.filter { it.id == hit.id || (hit.groupId != null && it.groupId == hit.groupId) }
+        val bounds = if (hit.groupId == null) hit.pageBounds else candidates.mapNotNull { it.pageBounds }.unionBounds()
+        val box = bounds ?: return null
+        val selection = candidates.selectWithLasso(box.selectionPath()) ?: return null
+        return DesktopInkSelection(page, selection)
+    }
+
+    override fun selectInRect(page: InkPage, left: Float, top: Float, right: Float, bottom: Float): InkSelection? {
+        if (listOf(left, top, right, bottom).any { !it.isFinite() } || right <= left || bottom <= top) return null
+        val selected = projections.selectWithLasso(InkBounds(left, top, right, bottom).selectionPath()) ?: return null
+        return DesktopInkSelection(page, selected)
+    }
+
     fun withChanges(added: List<PageStroke>, removed: Set<String>): DesktopInkPage {
         if (added.isEmpty() && removed.isEmpty()) return this
         val excluded = Collections.unmodifiableSet(HashSet(excludedRows).apply {
@@ -133,7 +149,7 @@ internal fun InkPage.withDesktopEdit(edit: InkEdit): InkPage = withDesktopEdits(
 
 internal fun InkPage.withDesktopEdits(edits: List<InkEdit>): InkPage {
     if (edits.isEmpty()) return this
-    if (edits.any { it is InkEdit.PartialErase || it is InkEdit.RestoreStrokes }) {
+    if (edits.any { it is InkEdit.PartialErase || it is InkEdit.RestoreStrokes || it is InkEdit.Move }) {
         var page = this
         val rows = ArrayList<InkEdit>()
         fun flushRows() {
@@ -141,6 +157,7 @@ internal fun InkPage.withDesktopEdits(edits: List<InkEdit>): InkPage {
         }
         for (edit in edits) when (edit) {
             is InkEdit.PartialErase -> { flushRows(); page = page.withPartialErase(edit) }
+            is InkEdit.Move -> { flushRows(); page = page.withMove(edit) }
             is InkEdit.RestoreStrokes -> { flushRows(); page = page.withRestoredStrokes(edit) }
             else -> rows.add(edit)
         }
@@ -164,7 +181,7 @@ internal fun InkPage.withDesktopEdits(edits: List<InkEdit>): InkPage {
             removed.addAll(edit.ids)
             edit.ids.forEach(added::remove)
         }
-        is InkEdit.PartialErase, is InkEdit.RestoreStrokes -> error("Operation edits must be replayed in order")
+        is InkEdit.PartialErase, is InkEdit.RestoreStrokes, is InkEdit.Move -> error("Operation edits must be replayed in order")
     }
     if (added.isEmpty() && removed.isEmpty()) return this
     val geometry = original.withChanges(added.values.map { it.second }, removed)
@@ -201,6 +218,20 @@ private fun InkPage.withRestoredStrokes(edit: InkEdit.RestoreStrokes): InkPage {
     val portable = (edit.source.strokes.mapNotNull { source -> visible[source.id]
         ?: source.takeIf { it.id in edit.ids } } + strokes.filterNot { it.id in originalIds })
     return copy(strokes = portable).replaySources(sources, native.operations)
+}
+
+private fun InkPage.withMove(edit: InkEdit.Move): InkPage {
+    require(edit.row.pageId == pageId) { "Move belongs to another page" }
+    val native = desktopGeometry()
+    if (edit.active == native.operations.any { it.id == edit.row.id }) return this
+    val operations = native.operations.filterNot { it.id == edit.row.id }.toMutableList()
+    if (edit.active) {
+        val row = edit.row
+        val stored = StoredInkMove(row.id, pageId, row.dxDp, row.dyDp, row.scaleX, row.scaleY,
+            row.anchorX, row.anchorY, row.points, row.enc, row.createdAt, targetIds = edit.targetIds.toList())
+        operations += ViveInkPage.load(emptyList(), emptyList(), listOf(stored)).operations.single()
+    }
+    return replaySources(native.sourceStrokes, operations).copy(latestOperationAt = maxOf(latestOperationAt, edit.row.createdAt))
 }
 
 private fun InkPage.replaySources(sources: List<PageStroke>, operations: List<DecodedInkOperation>): InkPage =

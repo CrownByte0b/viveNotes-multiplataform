@@ -788,8 +788,8 @@ class NotesRepository(
             is InkEdit.PartialErase -> db.withTransaction {
                 val row = edit.row
                 require(row.pageId == pageId) { "Erase belongs to another page" }
-                require(row.mode == EraserMode.Normal && row.deletedAt == null && row.sizeDp.isFinite() && row.sizeDp > 0f) {
-                    "Expected a live Normal erase mask"
+                require(row.deletedAt == null && row.sizeDp.isFinite() && row.sizeDp > 0f) {
+                    "Expected a live erase mask"
                 }
                 require(edit.targetIds.isNotEmpty()) { "Erase needs explicit targets" }
                 val targets = edit.targetIds.toList().chunked(SQLITE_BIND_CHUNK).flatMap { ink.byIds(it) }
@@ -809,6 +809,35 @@ class NotesRepository(
                         "Erase operation payload is immutable"
                     }
                     if ((existing.deletedAt == null) != edit.active) setPartialEraseActive(row.id, edit.active)
+                }
+            }
+            is InkEdit.Move -> db.withTransaction {
+                val row = edit.row
+                require(row.pageId == pageId && row.deletedAt == null) { "Expected a live same-page move" }
+                require(listOf(row.dxDp, row.dyDp, row.scaleX, row.scaleY, row.anchorX, row.anchorY).all { it.isFinite() } &&
+                    row.scaleX > 0f && row.scaleY > 0f) { "Invalid move transform" }
+                require(edit.targetIds.isNotEmpty()) { "Move needs explicit targets" }
+                val targets = edit.targetIds.toList().chunked(SQLITE_BIND_CHUNK).flatMap { ink.byIds(it) }
+                require(targets.all { it.pageId == pageId }) { "Move targets must belong to this page" }
+                val stored = com.vivenotes.byteink.kit.StoredInkMove(row.id, pageId, row.dxDp, row.dyDp,
+                    row.scaleX, row.scaleY, row.anchorX, row.anchorY, row.points, row.enc, row.createdAt,
+                    targetIds = edit.targetIds.toList())
+                requireNotNull(com.vivenotes.byteink.kit.ViveInkCodec.decodeMove(stored)) { "Unreadable move path" }
+                val existing = inkMoves.byIds(listOf(row.id)).singleOrNull()
+                if (existing == null) {
+                    if (edit.active) {
+                        require(targets.size == edit.targetIds.size) { "Move target is missing" }
+                        addInkMove(row, edit.targetIds)
+                    }
+                } else {
+                    require(existing.pageId == pageId && existing.dxDp == row.dxDp && existing.dyDp == row.dyDp &&
+                        existing.scaleX == row.scaleX && existing.scaleY == row.scaleY &&
+                        existing.anchorX == row.anchorX && existing.anchorY == row.anchorY &&
+                        existing.enc == row.enc && existing.createdAt == row.createdAt && existing.points.contentEquals(row.points) &&
+                        inkMoves.targetsForMoves(listOf(row.id)).map { it.strokeId }.toSet() == edit.targetIds) {
+                        "Move operation payload is immutable"
+                    }
+                    if ((existing.deletedAt == null) != edit.active) setInkMoveActive(row.id, edit.active)
                 }
             }
         }

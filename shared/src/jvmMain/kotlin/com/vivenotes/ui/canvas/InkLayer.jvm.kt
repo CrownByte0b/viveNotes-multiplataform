@@ -1,5 +1,6 @@
 package com.vivenotes.ui.canvas
 
+import com.vivenotes.workspace.InkSettings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -19,8 +20,6 @@ import androidx.ink.brush.InputToolType
 import androidx.ink.geometry.ImmutableAffineTransform
 import com.vivenotes.byteink.compose.*
 import com.vivenotes.byteink.kit.InkPoint
-import com.vivenotes.byteink.kit.ViveInkTool
-import com.vivenotes.byteink.kit.ViveBrushes
 import com.vivenotes.byteink.kit.automaticColorOr
 import com.vivenotes.data.InkEdit
 import com.vivenotes.data.EraserMode
@@ -28,6 +27,7 @@ import com.vivenotes.ink.DesktopPartialEraseGesture
 import com.vivenotes.ink.PartialEraseRequest
 import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.ink.desktopEdit
+import com.vivenotes.ink.byteInkTool
 import com.vivenotes.ink.withDesktopEdit
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.model.newId
@@ -47,6 +47,9 @@ internal actual fun PlatformInkLayer(
     pageId: String, tool: InkTool?, titleFloorDp: Float, onEdit: (InkEdit, InkPage) -> Unit,
     zoom: Float,
     eraserMode: EraserMode,
+    settings: InkSettings,
+    selection: com.vivenotes.model.ink.InkSelection?,
+    selectionOffset: androidx.compose.ui.geometry.Offset,
 ) {
     if (pageId.isEmpty()) return
     val snapshot = page ?: remember(pageId) { InkPage(pageId, emptyList()) }
@@ -67,10 +70,7 @@ internal actual fun PlatformInkLayer(
         diagnostics?.rasterReleased()
         renderer.clearCache()
     } }
-    val pen = remember(tool, canvasInk) { when (tool) {
-        InkTool.Highlighter -> ViveInkTool(ViveBrushes.HIGHLIGHTER, colorArgb = 0x80ffe000.toInt(), sizeDp = 18f)
-        else -> ViveInkTool(colorArgb = canvasInk.toArgb(), colorFollowsTheme = true)
-    } }
+    val pen = remember(tool, canvasInk, settings) { settings.byteInkTool(tool, canvasInk.toArgb()) }
     val currentPen by rememberUpdatedState(pen)
     val currentPage by rememberUpdatedState(remember(snapshot, native) {
         if (snapshot.geometry === native) snapshot else snapshot.copy(geometry = native)
@@ -90,6 +90,9 @@ internal actual fun PlatformInkLayer(
         }
     }
     val displayed = erasePreview?.desktopGeometry() ?: native
+    val moving = (selection as? com.vivenotes.ink.DesktopInkSelection)?.takeIf {
+        selectionOffset != Offset.Zero && it.page.geometry === native
+    }
     fun sceneFor(projections: List<com.vivenotes.byteink.kit.PageStroke>, base: Boolean): InkScene {
         if (projections.isNotEmpty()) diagnostics?.sceneBuilt(base)
         return InkScene(projections.map {
@@ -107,15 +110,24 @@ internal actual fun PlatformInkLayer(
         }
     val sceneStrokesByRow = remember(scene) { rowsFor(scene, displayed.base.projections) }
     val additionsStrokesByRow = remember(additionsScene) { rowsFor(additionsScene, displayed.additions.projections) }
-    fun exclusions(rows: Set<String>, entries: Map<String, List<InkSceneStroke>>): Set<InkSceneStroke> =
-        if (rows.isEmpty()) emptySet() else Collections.unmodifiableSet(
+    fun exclusions(rows: Set<String>, entries: Map<String, List<InkSceneStroke>>, layer: InkScene,
+                   projections: List<com.vivenotes.byteink.kit.PageStroke>): Set<InkSceneStroke> =
+        if (rows.isEmpty() && moving == null) emptySet() else Collections.unmodifiableSet(
             Collections.newSetFromMap(IdentityHashMap<InkSceneStroke, Boolean>()).apply {
                 rows.forEach { addAll(entries[it].orEmpty()) }
+                if (moving != null) projections.forEachIndexed { index, stroke ->
+                    if (stroke.projectionKey in moving.held.projections) add(layer.strokes[index])
+                }
             })
-    val excludedStrokes = remember(scene, displayed.excludedRows, erasing) {
-        exclusions(displayed.excludedRows + erasing, sceneStrokesByRow)
+    val excludedStrokes = remember(scene, displayed.excludedRows, erasing, moving) {
+        exclusions(displayed.excludedRows + erasing, sceneStrokesByRow, scene, displayed.base.projections)
     }
-    val excludedAdditions = remember(additionsScene, erasing) { exclusions(erasing, additionsStrokesByRow) }
+    val excludedAdditions = remember(additionsScene, erasing, moving) {
+        exclusions(erasing, additionsStrokesByRow, additionsScene, displayed.additions.projections)
+    }
+    val movingStrokes = remember(moving) {
+        moving?.page?.desktopGeometry()?.projections?.filter { it.projectionKey in moving.held.projections }.orEmpty()
+    }
     fun cancelGesture() {
         if (controller.isDrawing) {
             controller.cancel()
@@ -305,6 +317,12 @@ internal actual fun PlatformInkLayer(
         }
         background(rasterCache, scene, excludedStrokes)
         background(additionsCache, additionsScene, excludedAdditions)
+        movingStrokes.forEach { projection ->
+            drawInk(renderer, projection.stroke,
+                ImmutableAffineTransform(projection.scaleX * density, 0f, (projection.offsetX + selectionOffset.x) * density,
+                    0f, projection.scaleY * density, (projection.offsetY + selectionOffset.y) * density),
+                automaticColorOr(projection.stroke.brush.colorIntArgb, projection.colorFollowsTheme, canvasInk.toArgb()))
+        }
         val finishedPathBuilds = renderer.pathBuildCount - pathsBeforeBackground
         @Suppress("UNUSED_VARIABLE") val revision = frameRevision
         controller.liveStroke?.let { drawInk(renderer, it, controller.strokeToView) }

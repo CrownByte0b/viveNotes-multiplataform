@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -23,6 +24,7 @@ import com.vivenotes.data.EraserMode
 import com.vivenotes.workspace.InkTool
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.ShapeToolSettings
+import com.vivenotes.workspace.InkSettings
 
 object DrawRibbonTags {
     const val PointerTool = "workspace-pointer-tool"
@@ -40,6 +42,7 @@ internal fun DrawRibbon(
     state: WorkspaceState,
     onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
     onShapeSettingsChange: (ShapeToolSettings) -> Unit = {},
+    onInkSettingsChange: (InkSettings) -> Unit = {},
 ) {
     var shapeMenuOpen by remember { mutableStateOf(false) }
     var eraserMenuOpen by remember { mutableStateOf(false) }
@@ -82,6 +85,12 @@ internal fun DrawRibbon(
             modifier = Modifier.testTag(DrawRibbonTags.ObjectLasso),
             icon = { Icon(DrawSymbols.Lasso, contentDescription = null, modifier = Modifier.size(18.dp)) },
         )
+        if (state.inkTool == InkTool.Pen || state.inkTool == InkTool.Highlighter) key(state.inkTool) {
+            InkControls(state.inkTool, state.inkSettings) { settings ->
+                onStateChange { it.setInkSettings(settings) }
+                onInkSettingsChange(settings.normalized())
+            }
+        }
         if (state.inkTool == InkTool.Eraser) Box {
             RibbonCommand("${state.eraserMode.label} eraser", onClick = { eraserMenuOpen = true }, dropdown = true,
                 modifier = Modifier.testTag(DrawRibbonTags.EraserModePicker))

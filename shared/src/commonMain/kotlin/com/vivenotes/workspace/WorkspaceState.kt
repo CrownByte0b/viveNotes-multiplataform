@@ -146,12 +146,14 @@ data class WorkspaceState(
     val objectLassoArmed: Boolean = false,
     val shapeToolArmed: Boolean = false,
     val inkTool: InkTool? = null,
+    val inkSettings: InkSettings = InkSettings(),
     val eraserMode: com.vivenotes.data.EraserMode = com.vivenotes.data.EraserMode.Normal,
     val pendingInkEdits: List<com.vivenotes.data.PendingInkEdit> = emptyList(),
     val shapeSettings: ShapeToolSettings = ShapeToolSettings(),
     val focusedTextOutlineId: String? = null,
     val selectedTextOutlineIds: Set<String> = emptySet(),
     val selectedObjectIds: Set<String> = emptySet(),
+    val selectedInk: com.vivenotes.model.ink.InkSelection? = null,
     val canvasClipboard: CanvasClipboard = CanvasClipboard(),
     /** Text last copied from a text box, with its formatting — see [pasteText]. */
     val textClipboard: TextClipboard? = null,
@@ -229,7 +231,7 @@ data class WorkspaceState(
         objectLassoArmed = false,
         shapeToolArmed = false,
         selectedTextOutlineIds = emptySet(),
-        selectedObjectIds = emptySet(),
+        selectedObjectIds = emptySet(), selectedInk = null,
     )
 
     fun toggleObjectLasso(): WorkspaceState = discardEmptyFocusedTextBox().copy(
@@ -238,7 +240,7 @@ data class WorkspaceState(
         textToolArmed = false,
         shapeToolArmed = false,
         selectedTextOutlineIds = emptySet(),
-        selectedObjectIds = emptySet(),
+        selectedObjectIds = emptySet(), selectedInk = null,
     )
 
     /** Escape and the Select command return to the ordinary mouse pointer. */
@@ -249,7 +251,7 @@ data class WorkspaceState(
         shapeToolArmed = false,
         focusedTextOutlineId = null,
         selectedTextOutlineIds = emptySet(),
-        selectedObjectIds = emptySet(),
+        selectedObjectIds = emptySet(), selectedInk = null,
         editorComposition = null,
     )
 
@@ -260,7 +262,7 @@ data class WorkspaceState(
         objectLassoArmed = false,
         focusedTextOutlineId = null,
         selectedTextOutlineIds = emptySet(),
-        selectedObjectIds = emptySet(),
+        selectedObjectIds = emptySet(), selectedInk = null,
     )
 
     fun toggleInkTool(tool: InkTool): WorkspaceState {
@@ -270,13 +272,54 @@ data class WorkspaceState(
 
     fun setEraserMode(mode: com.vivenotes.data.EraserMode): WorkspaceState = copy(eraserMode = mode)
 
+    fun setInkSettings(settings: InkSettings): WorkspaceState = copy(inkSettings = settings.normalized())
+
+    fun selectInkAt(x: Float, y: Float): WorkspaceState {
+        val ink = selectedPage?.ink ?: return this
+        val selection = ink.geometry?.selectAt(ink, x, y) ?: return this
+        return selectInk(selection)
+    }
+
+    fun selectInk(selection: com.vivenotes.model.ink.InkSelection): WorkspaceState =
+        if (selection.page !== selectedPage?.ink || inkTool != null || textToolArmed || shapeToolArmed) this
+        else clearCanvasFocus().copy(selectedInk = selection)
+
+    fun applyInkSelectionChange(change: com.vivenotes.model.ink.InkSelectionChange, deleteOutlines: Boolean = false): WorkspaceState {
+        val page = editablePage ?: return this
+        if (!page.inkReady || notebookTransfer.running || filePane.busy || change.edits.isEmpty() ||
+            change.source !== selectedInk || page.ink !== change.before || change.after.pageId != page.id) return this
+        val document = page.document.copy(outlines = page.document.outlines.mapNotNull { outline ->
+            if (outline.id !in selectedObjectIds && outline.id !in selectedTextOutlineIds) outline
+            else if (deleteOutlines) null
+            else if (outline is Outline.Text) outline.copy(x = (outline.x + change.dx).coerceAtLeast(0f),
+                y = (outline.y + change.dy).coerceAtLeast(0f))
+            else outline.movedBy(change.dx, change.dy)
+        })
+        val history = InkHistoryChange(change.before, change.after, change.undo, change.edits,
+            document.takeIf { it != page.document })
+        return updatePage(page.id) { it.withDocument(document).copy(ink = change.after) }.copy(
+            selectedInk = change.selection,
+            selectedObjectIds = if (deleteOutlines) emptySet() else selectedObjectIds,
+            selectedTextOutlineIds = if (deleteOutlines) emptySet() else selectedTextOutlineIds,
+            pendingInkEdits = pendingInkEdits + change.edits.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) },
+            structuralUndo = (structuralUndo + StructuralSnapshot(page.id, page.document, history)).takeLast(100),
+            structuralRedo = emptyList(),
+        )
+    }
+
+    fun deleteSelectedObjects(): WorkspaceState {
+        val ink = selectedInk ?: return deleteSelectedOutlines()
+        val change = ink.delete() ?: return this
+        return applyInkSelectionChange(change, deleteOutlines = true)
+    }
+
     /** The renderer supplies the same immutable snapshot it just displayed. */
     fun applyInkEdit(edit: com.vivenotes.data.InkEdit, rendered: InkPage): WorkspaceState {
         val page = editablePage ?: return this
         if (page.id != rendered.pageId || inkTool == null || !page.inkReady || notebookTransfer.running || filePane.busy) return this
         if (edit is com.vivenotes.data.InkEdit.AddStroke && edit.row.pageId != page.id) return this
         if (edit is com.vivenotes.data.InkEdit.EraseStrokes && edit.ids.isEmpty()) return this
-        if (edit is com.vivenotes.data.InkEdit.RestoreStrokes) return this
+        if (edit is com.vivenotes.data.InkEdit.RestoreStrokes || edit is com.vivenotes.data.InkEdit.Move) return this
         if (edit is com.vivenotes.data.InkEdit.PartialErase &&
             (edit.row.pageId != page.id || edit.targetIds.isEmpty() || !edit.active)) return this
         val before = page.ink ?: InkPage(page.id, emptyList())
@@ -284,14 +327,14 @@ data class WorkspaceState(
             is com.vivenotes.data.InkEdit.AddStroke -> com.vivenotes.data.InkEdit.EraseStrokes(setOf(edit.row.id))
             is com.vivenotes.data.InkEdit.EraseStrokes -> com.vivenotes.data.InkEdit.RestoreStrokes(edit.ids, before)
             is com.vivenotes.data.InkEdit.PartialErase -> edit.copy(active = false)
-            is com.vivenotes.data.InkEdit.RestoreStrokes -> return this
+            is com.vivenotes.data.InkEdit.RestoreStrokes, is com.vivenotes.data.InkEdit.Move -> return this
         }
         val redo = if (edit is com.vivenotes.data.InkEdit.AddStroke)
             com.vivenotes.data.InkEdit.RestoreStrokes(setOf(edit.row.id), rendered) else edit
         return updatePage(page.id) { it.copy(ink = rendered) }.copy(
             pendingInkEdits = pendingInkEdits + com.vivenotes.data.PendingInkEdit(newId(), page.id, edit),
             structuralUndo = (structuralUndo + StructuralSnapshot(page.id, page.document,
-                InkHistoryChange(before, rendered, inverse, redo))).takeLast(100),
+                InkHistoryChange(before, rendered, listOf(inverse), listOf(redo)))).takeLast(100),
             structuralRedo = emptyList(),
         )
     }
@@ -357,14 +400,14 @@ data class WorkspaceState(
             editorDefaults.textMarks(nextFontFamily ?: editorDefaults.fontFamily,
                 nextFontSize ?: editorDefaults.fontSize) else emptySet()
         return next.copy(focusedTextOutlineId = id, selectedTextOutlineIds = emptySet(),
-            selectedObjectIds = emptySet(),
+            selectedObjectIds = emptySet(), selectedInk = null,
             editorSelection = TextSelection(0), typingMarks = marks, editorComposition = null,
             nextFontFamily = null, nextFontSize = null)
     }
 
     fun clearCanvasFocus(): WorkspaceState = discardEmptyFocusedTextBox().copy(
         focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
-        selectedObjectIds = emptySet(), editorComposition = null)
+        selectedObjectIds = emptySet(), selectedInk = null, editorComposition = null)
 
     private fun discardEmptyFocusedTextBox(): WorkspaceState {
         val id = focusedTextOutlineId ?: return this
@@ -454,6 +497,7 @@ data class WorkspaceState(
             focusedTextOutlineId = pasted.filterIsInstance<Outline.Text>().firstOrNull()?.id,
             selectedTextOutlineIds = emptySet(),
             selectedObjectIds = pasted.filter { it.isPrimeObject() }.map { it.id }.toSet(),
+            selectedInk = null,
             editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null,
         )
     }
@@ -476,10 +520,11 @@ data class WorkspaceState(
         if (prior.pageId != page.id) return this
         prior.ink?.let { change ->
             if (!page.inkReady || notebookTransfer.running || filePane.busy) return this
-            return updatePage(page.id) { it.copy(ink = change.before.copy(
+            return updatePage(page.id) { it.withDocument(if (change.afterDocument != null) prior.document.withCurrentTextFrom(it.document) else it.document).copy(ink = change.before.copy(
                 latestOperationAt = maxOf(change.before.latestOperationAt, page.ink?.latestOperationAt ?: 0L))) }.copy(
-                pendingInkEdits = pendingInkEdits + com.vivenotes.data.PendingInkEdit(newId(), page.id, change.undo),
+                pendingInkEdits = pendingInkEdits + change.undo.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) },
                 structuralUndo = structuralUndo.dropLast(1), structuralRedo = structuralRedo + prior,
+                selectedInk = null, selectedObjectIds = emptySet(), selectedTextOutlineIds = emptySet(),
             )
         }
         val restored = prior.document.withCurrentTextFrom(page.document)
@@ -487,7 +532,7 @@ data class WorkspaceState(
             structuralUndo = structuralUndo.dropLast(1),
             structuralRedo = structuralRedo + StructuralSnapshot(page.id, page.document),
             focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
-            selectedObjectIds = emptySet(), editorSelection = TextSelection(0),
+            selectedObjectIds = emptySet(), selectedInk = null, editorSelection = TextSelection(0),
         )
     }
 
@@ -497,10 +542,11 @@ data class WorkspaceState(
         if (next.pageId != page.id) return this
         next.ink?.let { change ->
             if (!page.inkReady || notebookTransfer.running || filePane.busy) return this
-            return updatePage(page.id) { it.copy(ink = change.after.copy(
+            return updatePage(page.id) { it.withDocument(change.afterDocument?.withCurrentTextFrom(it.document) ?: it.document).copy(ink = change.after.copy(
                 latestOperationAt = maxOf(change.after.latestOperationAt, page.ink?.latestOperationAt ?: 0L))) }.copy(
-                pendingInkEdits = pendingInkEdits + com.vivenotes.data.PendingInkEdit(newId(), page.id, change.redo),
+                pendingInkEdits = pendingInkEdits + change.redo.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) },
                 structuralRedo = structuralRedo.dropLast(1), structuralUndo = structuralUndo + next,
+                selectedInk = null, selectedObjectIds = emptySet(), selectedTextOutlineIds = emptySet(),
             )
         }
         val restored = next.document.withCurrentTextFrom(page.document)
@@ -508,7 +554,7 @@ data class WorkspaceState(
             structuralRedo = structuralRedo.dropLast(1),
             structuralUndo = structuralUndo + StructuralSnapshot(page.id, page.document),
             focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
-            selectedObjectIds = emptySet(), editorSelection = TextSelection(0),
+            selectedObjectIds = emptySet(), selectedInk = null, editorSelection = TextSelection(0),
         )
     }
 
@@ -518,7 +564,7 @@ data class WorkspaceState(
         val tapped = objects.firstOrNull { it.id == id } ?: return this
         val ids = if (tapped.lockGroup == null) setOf(id) else
             objects.filter { it.lockGroup == tapped.lockGroup }.map { it.id }.toSet()
-        return discardEmptyFocusedTextBox().copy(selectedObjectIds = ids,
+        return discardEmptyFocusedTextBox().copy(selectedObjectIds = ids, selectedInk = null,
             selectedTextOutlineIds = emptySet(), focusedTextOutlineId = null)
     }
 
@@ -533,22 +579,24 @@ data class WorkspaceState(
             !text.isUnwritten() && text.x < right && text.x + text.width > left &&
                 text.y < bottom && text.y + maxOf(text.minHeight, 150f) > top
         }.map { it.id }.toSet()
+        val ink = cleaned.selectedPage?.ink
+        val inkSelection = ink?.geometry?.selectInRect(ink, left, top, right, bottom)
         val unlocked = hit.filter { it.lockGroup == null }
-        val ids = if (unlocked.isNotEmpty() || textIds.isNotEmpty()) unlocked.map { it.id }.toSet() else {
+        val ids = if (unlocked.isNotEmpty() || textIds.isNotEmpty() || inkSelection != null) unlocked.map { it.id }.toSet() else {
             val groups = hit.mapNotNull { it.lockGroup }.toSet()
             objects.filter { it.lockGroup in groups }.map { it.id }.toSet()
         }
-        return cleaned.copy(selectedObjectIds = ids, selectedTextOutlineIds = textIds,
+        return cleaned.copy(selectedObjectIds = ids, selectedTextOutlineIds = textIds, selectedInk = inkSelection,
             focusedTextOutlineId = null)
     }
 
-    val selectedObjectsLocked: Boolean get() = selectedTextOutlineIds.isEmpty() &&
+    val selectedObjectsLocked: Boolean get() = selectedInk == null && selectedTextOutlineIds.isEmpty() &&
         selectedObjectIds.isNotEmpty() &&
         selectedPage?.document?.outlines?.filter { it.id in selectedObjectIds }
             ?.all { it.lockGroup != null } == true
 
     fun toggleObjectLock(): WorkspaceState {
-        if (selectedObjectIds.isEmpty()) return this
+        if (selectedObjectIds.isEmpty() || selectedInk != null) return this
         val group = if (selectedObjectsLocked) null else newId()
         return editOutlines { outlines -> outlines.map {
             if (it.id in selectedObjectIds && it.isPrimeObject()) it.withLockGroup(group) else it
@@ -566,10 +614,10 @@ data class WorkspaceState(
             copy(canvasClipboard = CanvasClipboard(objects = objects, texts = texts))
     }
 
-    fun deleteSelectedObjects(): WorkspaceState = editOutlines { outlines ->
+    private fun deleteSelectedOutlines(): WorkspaceState = editOutlines { outlines ->
         outlines.filterNot { it.id in selectedTextOutlineIds ||
             (it.id in selectedObjectIds && it.isPrimeObject()) }
-    }.copy(selectedObjectIds = emptySet(), selectedTextOutlineIds = emptySet())
+    }.copy(selectedObjectIds = emptySet(), selectedInk = null, selectedTextOutlineIds = emptySet())
 
     fun moveSelectedObjects(dx: Float, dy: Float, recordHistory: Boolean = true): WorkspaceState {
         if (selectedObjectsLocked) return this
@@ -618,7 +666,7 @@ data class WorkspaceState(
             editorComposition = null,
             focusedTextOutlineId = null,
             selectedTextOutlineIds = emptySet(),
-            selectedObjectIds = emptySet(),
+            selectedObjectIds = emptySet(), selectedInk = null,
         )
     }
 
@@ -636,7 +684,7 @@ data class WorkspaceState(
             editorComposition = null,
             focusedTextOutlineId = null,
             selectedTextOutlineIds = emptySet(),
-            selectedObjectIds = emptySet(),
+            selectedObjectIds = emptySet(), selectedInk = null,
         )
     }
 
@@ -654,7 +702,7 @@ data class WorkspaceState(
             editorComposition = null,
             focusedTextOutlineId = null,
             selectedTextOutlineIds = emptySet(),
-            selectedObjectIds = emptySet(),
+            selectedObjectIds = emptySet(), selectedInk = null,
         )
     }
 

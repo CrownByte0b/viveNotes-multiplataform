@@ -1,5 +1,14 @@
 package com.vivenotes.ui.shell
 
+import com.vivenotes.ui.canvas.InkSelectionFrame
+import com.vivenotes.model.ink.InkSelection
+import com.vivenotes.model.ink.InkSelectionChange
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.vivenotes.workspace.InkSettings
+import com.vivenotes.workspace.movedBy
+import androidx.compose.ui.input.pointer.isPrimaryPressed
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.animation.animateContentSize
@@ -313,6 +322,7 @@ fun WorkspaceScreen(
     onViewSettingsChange: (ViewSettings) -> Unit = {},
     onEditorDefaultsChange: (EditorDefaults) -> Unit = {},
     onShapeSettingsChange: (ShapeToolSettings) -> Unit = {},
+    onInkSettingsChange: (InkSettings) -> Unit = {},
     /** The keyboard shortcuts in force, and where Settings → Hardware sends changes to them. */
     keyBindings: KeyBindings = KeyBindings.Default,
     onKeyBindingsChange: (KeyBindings) -> Unit = {},
@@ -381,6 +391,7 @@ fun WorkspaceScreen(
                         }, canvasFocusRequester = canvasFocusRequester, fileActions = fileActions,
                         onEditorDefaultsChange = onEditorDefaultsChange,
                         onShapeSettingsChange = onShapeSettingsChange,
+                        onInkSettingsChange = onInkSettingsChange,
                         accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
                         onAbout = { aboutOpen = true }, aiModels = aiModels,
                         search = search, onOpenSearchPage = onOpenSearchPage, shortcutKeys = shortcutKeys)
@@ -431,6 +442,7 @@ private fun WorkspaceContent(
     fileActions: FileActions?,
     onEditorDefaultsChange: (EditorDefaults) -> Unit,
     onShapeSettingsChange: (ShapeToolSettings) -> Unit,
+    onInkSettingsChange: (InkSettings) -> Unit,
     accountConnected: Boolean,
     onOpenAccount: () -> Unit,
     onAbout: () -> Unit,
@@ -548,7 +560,7 @@ private fun WorkspaceContent(
                 transferRunning = state.notebookTransfer.running, actions = fileActions,
                 onCloseNotebook = { notebookConfirmation = "close" },
                 onDeleteNotebook = { notebookConfirmation = "delete" })
-            RibbonTab.Draw -> DrawRibbon(state, onStateChange, onShapeSettingsChange)
+            RibbonTab.Draw -> DrawRibbon(state, onStateChange, onShapeSettingsChange, onInkSettingsChange)
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
                 { canvasOrigin.read() }, documentColorSelection, onLinkRequest = { linkEditor = it },
                 onEditorDefaultsChange = onEditorDefaultsChange)
@@ -652,6 +664,8 @@ private fun WorkspaceContent(
                     },
                     onClearCanvasFocus = { onStateChange { it.clearCanvasFocus() } },
                     onInkEdit = { edit, rendered -> onStateChange { it.applyInkEdit(edit, rendered) } },
+                    onSelectInk = { selection -> onStateChange { it.selectInk(selection) } },
+                    onInkSelectionChange = { change -> onStateChange { it.applyInkSelectionChange(change) } },
                     onCreateShape = { sx, sy, ex, ey -> onStateChange { it.createShape(sx, sy, ex, ey) } },
                     onCreateTextBox = { x, y ->
                         // Decided on what is on screen: a box placed there is the one that types next.
@@ -854,6 +868,8 @@ private fun PageCanvas(
     onFocusTextBox: (String) -> Unit,
     onClearCanvasFocus: () -> Unit,
     onInkEdit: (com.vivenotes.data.InkEdit, com.vivenotes.model.ink.InkPage) -> Unit,
+    onSelectInk: (InkSelection) -> Unit,
+    onInkSelectionChange: (InkSelectionChange) -> Unit,
     onCreateShape: (Float, Float, Float, Float) -> Unit,
     onCreateTextBox: (Float, Float) -> Unit,
     onMoveTextBox: (String, Float, Float, Boolean) -> Unit,
@@ -905,6 +921,21 @@ private fun PageCanvas(
     var pendingViewport by remember(page?.id) { mutableStateOf<CanvasViewport?>(null) }
     var pastePoint by remember(page?.id) { mutableStateOf<Offset?>(null) }
     var lasso by remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
+    var inkDragOffset by remember(page?.id, state.selectedInk, zoom) { mutableStateOf(Offset.Zero) }
+    var inkMoveBusy by remember(page?.id) { mutableStateOf(false) }
+    val inkMoveScope = rememberCoroutineScope()
+    val currentSelectInk by rememberUpdatedState(onSelectInk)
+    val currentInkSelectionChange by rememberUpdatedState(onInkSelectionChange)
+    fun finishInkMove(selection: InkSelection, offset: Offset) {
+        if (inkMoveBusy) return
+        inkMoveBusy = true
+        inkMoveScope.launch {
+            try {
+                val change = withContext(Dispatchers.Default) { selection.move(offset.x, offset.y) }
+                if (change != null) currentInkSelectionChange(change)
+            } finally { inkDragOffset = Offset.Zero; inkMoveBusy = false }
+        }
+    }
     var shapeDraft by remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
     var panActive by remember(page?.id) { mutableStateOf(false) }
     var panAnchor by remember(page?.id) { mutableStateOf(Offset.Zero) }
@@ -1067,6 +1098,7 @@ private fun PageCanvas(
     }
 
     fun hitsContent(point: Offset, snapshot: WorkspaceState): Boolean =
+        snapshot.selectedPage?.ink?.let { ink -> ink.geometry?.selectAt(ink, point.x, point.y) != null } == true ||
         snapshot.selectedPage?.document?.outlines?.any { outline ->
             val height = if (outline is Outline.Text) measuredTextHeights[outline.id]
                 ?: maxOf(150f, outline.minHeight) else outline.primeHeight()
@@ -1081,10 +1113,10 @@ private fun PageCanvas(
     fun hitsSelectedTransform(point: Offset, snapshot: WorkspaceState): Boolean {
         val outlines = snapshot.selectedPage?.document?.outlines ?: return false
         val group = selectedCanvasBounds(outlines,
-            snapshot.selectedObjectIds + snapshot.selectedTextOutlineIds, measuredTextHeights)
+            snapshot.selectedObjectIds + snapshot.selectedTextOutlineIds, measuredTextHeights, snapshot.selectedInk)
         val groupBody = group != null && point.x in (group.left - 6f)..(group.right + 6f) &&
             point.y in (group.top - 6f)..(group.bottom + 6f)
-        val groupCorner = group != null && snapshot.selectedTextOutlineIds.isEmpty() &&
+        val groupCorner = group != null && snapshot.selectedInk == null && snapshot.selectedTextOutlineIds.isEmpty() &&
             !snapshot.selectedObjectsLocked && listOf(
                 Offset(group.left - 6f, group.top - 6f), Offset(group.right + 6f, group.top - 6f),
                 Offset(group.left - 6f, group.bottom + 6f), Offset(group.right + 6f, group.bottom + 6f),
@@ -1105,7 +1137,7 @@ private fun PageCanvas(
     /** The selected objects' toolbar, which sits just above their frame. */
     fun hitsSelectionToolbar(point: Offset, snapshot: WorkspaceState, reach: Float): Boolean {
         val bounds = selectedCanvasBounds(snapshot.selectedPage?.document?.outlines.orEmpty(),
-            snapshot.selectedObjectIds + snapshot.selectedTextOutlineIds, measuredTextHeights) ?: return false
+            snapshot.selectedObjectIds + snapshot.selectedTextOutlineIds, measuredTextHeights, snapshot.selectedInk) ?: return false
         return point.x in bounds.left..(bounds.left + 400f) && point.y in (bounds.top - reach)..bounds.top
     }
 
@@ -1213,7 +1245,7 @@ private fun PageCanvas(
                     }
                 }
             }
-            .pointerInput(page?.id) {
+            .pointerInput(page?.id, zoom, state.inkTool, state.objectLassoArmed, state.textToolArmed, state.shapeToolArmed) {
                 var previousTapTime = 0L
                 var previousTapPoint = Offset.Zero
                 awaitEachGesture {
@@ -1225,6 +1257,22 @@ private fun PageCanvas(
                     val start = toPage(down.position)
                     val titleFloor = currentState.selectedPage?.document?.style?.titleFloor ?: PageStyle.TITLE_BAND_DP
                     val onObjectToolbar = hitsSelectionToolbar(start, currentState, reach = 60f)
+                    if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) {
+                        waitForUpOrCancellation(pass = PointerEventPass.Initial)
+                        return@awaitEachGesture
+                    }
+                    val inkHit = if (start.y >= titleFloor && !onObjectToolbar && !currentState.objectLassoArmed &&
+                        !currentState.textToolArmed && !currentState.shapeToolArmed && !hitsSelectedTransform(start, currentState))
+                        currentState.selectedPage?.ink?.let { ink -> ink.geometry?.selectAt(ink, start.x, start.y) }
+                        else null
+                    val canMoveInk = currentState.selectedPage?.let { it.editable && it.inkReady } == true &&
+                        !currentState.notebookTransfer.running && !currentState.filePane.busy && !inkMoveBusy
+                    if (inkHit != null) {
+                        down.consume()
+                        focusManager.clearFocus()
+                        canvasFocusRequester.requestFocus()
+                        currentSelectInk(inkHit)
+                    }
                     // A finger drags these tools only when fingers may draw; otherwise its drag moves
                     // the page (`canvasTouchGestures`), and on an empty page it never draws a marquee.
                     val finger = down.type == PointerType.Touch
@@ -1232,7 +1280,7 @@ private fun PageCanvas(
                     val shaping = fingerTool && currentState.shapeToolArmed && start.y >= titleFloor &&
                         currentState.selectedPage?.editable == true && !onObjectToolbar &&
                         !hitsSelectedTransform(start, currentState)
-                    val marquee = (!finger || (currentDrawWithFinger && currentState.objectLassoArmed)) &&
+                    val marquee = inkHit == null && (!finger || (currentDrawWithFinger && currentState.objectLassoArmed)) &&
                         !hitsSelectedTransform(start, currentState) &&
                         (currentState.objectLassoArmed ||
                         (!currentState.textToolArmed && !currentState.shapeToolArmed && start.y >= titleFloor &&
@@ -1245,6 +1293,11 @@ private fun PageCanvas(
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         if (finger && event.changes.count { it.pressed } > 1 && change.isConsumed) pinched = true
                         last = change
+                        if (inkHit != null && canMoveInk && (change.position - down.position).getDistance() >= 12.dp.toPx()) {
+                            change.consume()
+                            val delta = toPage(change.position) - start
+                            inkDragOffset = Offset(delta.x.coerceAtLeast(-inkHit.bounds.left), delta.y.coerceAtLeast(-inkHit.bounds.top))
+                        }
                         if (shaping && (change.position - down.position).getDistance() >= 12.dp.toPx()) {
                             change.consume()
                             shapeDraft = start to toPage(change.position)
@@ -1259,6 +1312,11 @@ private fun PageCanvas(
                     if (pinched) {
                         shapeDraft = null
                         lasso = null
+                        inkDragOffset = Offset.Zero
+                    } else if (inkHit != null) {
+                        if (distance >= 12.dp.toPx() && canMoveInk)
+                            finishInkMove(inkHit, inkDragOffset)
+                        else inkDragOffset = Offset.Zero
                     } else if (shaping) {
                         val end = if (distance >= 12.dp.toPx()) toPage(last.position) else
                             Offset(start.x + Outline.Shape.DEFAULT_WIDTH,
@@ -1289,7 +1347,7 @@ private fun PageCanvas(
                         val insideGroup = selectedCanvasBounds(
                             currentState.selectedPage?.document?.outlines.orEmpty(),
                             currentState.selectedObjectIds + currentState.selectedTextOutlineIds,
-                            measuredTextHeights)?.let { bounds ->
+                            measuredTextHeights, currentState.selectedInk)?.let { bounds ->
                             x in (bounds.left - 6f)..(bounds.right + 6f) &&
                                 y in (bounds.top - 6f)..(bounds.bottom + 6f)
                         } == true
@@ -1349,7 +1407,7 @@ private fun PageCanvas(
             ZoomedCanvas(zoom) {
             Box(Modifier.documentExtent(canvasSize).testTag(WorkspaceTestTags.CanvasExtent)) {
                 val groupBounds = selectedCanvasBounds(page.document.outlines,
-                    state.selectedObjectIds + state.selectedTextOutlineIds, measuredTextHeights)
+                    state.selectedObjectIds + state.selectedTextOutlineIds, measuredTextHeights, state.selectedInk)
                 CanvasPaper(page.document.style, palette, pageExtent, canvasSize, zoom, visibleWindow,
                     showMargins, lasso)
                 shapeDraft?.let { (start, end) ->
@@ -1393,7 +1451,12 @@ private fun PageCanvas(
                             color = palette.secondaryInk)
                     }
                 }
-                page.document.outlines.filterIsInstance<Outline.Text>().forEachIndexed { index, outline ->
+                val displayedOutlines = if (inkDragOffset == Offset.Zero) page.document.outlines else page.document.outlines.map { outline ->
+                    if (outline.id !in state.selectedObjectIds && outline.id !in state.selectedTextOutlineIds) outline
+                    else if (outline is Outline.Text) outline.copy(x = outline.x + inkDragOffset.x, y = outline.y + inkDragOffset.y)
+                    else outline.movedBy(inkDragOffset.x, inkDragOffset.y)
+                }
+                displayedOutlines.filterIsInstance<Outline.Text>().forEachIndexed { index, outline ->
                     val focused = state.focusedTextOutlineId == outline.id
                     val lassoSelected = outline.id in state.selectedTextOutlineIds
                     val richText = state.richTextFor(outline.id)
@@ -1405,7 +1468,7 @@ private fun PageCanvas(
                     val showChrome = focused && outline.blocks.any { it.runs.any { run -> run.plainText.isNotEmpty() } }
                     val currentMove by rememberUpdatedState(onMoveTextBox)
                     val currentResize by rememberUpdatedState(onResizeTextBox)
-                    if (lassoSelected && state.selectedObjectIds.isEmpty() &&
+                    if (lassoSelected && state.selectedInk == null && state.selectedObjectIds.isEmpty() &&
                         outline.id == state.selectedTextOutlineIds.firstOrNull()) {
                         Surface(
                             color = MaterialTheme.colorScheme.primaryContainer,
@@ -1428,7 +1491,7 @@ private fun PageCanvas(
                             }
                         }
                     }
-                    if (showChrome || lassoSelected) {
+                    if ((showChrome || lassoSelected) && state.selectedInk == null) {
                         Box(
                             modifier = Modifier.offset(x, (y - 32.dp).coerceAtLeast(0.dp))
                                 .size(48.dp, 32.dp)
@@ -1618,7 +1681,7 @@ private fun PageCanvas(
                 val currentMoveObject by rememberUpdatedState(onMoveObject)
                 val currentSelectObject by rememberUpdatedState(onSelectObject)
                 val currentResizeObjects by rememberUpdatedState(onResizeObjects)
-                page.document.outlines.filter { it.isPrimeObject() }.forEach { outline ->
+                displayedOutlines.filter { it.isPrimeObject() }.forEach { outline ->
                     val selected = outline.id in state.selectedObjectIds
                     val drawnShape = outline is Outline.Shape && outline.segments.isNotEmpty()
                     // Leave half the stroke and rounded surface clip outside the actual geometry.
@@ -1778,8 +1841,14 @@ private fun PageCanvas(
                 InkLayer(page.ink, canvasSize, palette.ink, visibleWindow, page.id,
                     state.inkTool.takeIf { page.editable && page.inkReady &&
                         !state.notebookTransfer.running && !state.filePane.busy }, page.document.style.titleFloor, onInkEdit, zoom,
-                    state.eraserMode)
-                if (groupBounds != null) {
+                    state.eraserMode, state.inkSettings, state.selectedInk, inkDragOffset)
+                state.selectedInk?.let { selectedInk ->
+                    if (groupBounds != null) InkSelectionFrame(selectedInk, groupBounds, inkDragOffset,
+                        enabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy && !inkMoveBusy,
+                        zoom = zoom, onFocus = { focusManager.clearFocus(); canvasFocusRequester.requestFocus() },
+                        onOffset = { inkDragOffset = it }, onMove = ::finishInkMove, onDelete = onDeleteObjects)
+                }
+                if (groupBounds != null && state.selectedInk == null) {
                     val padding = 6.dp
                     val left = groupBounds.left.dp - padding
                     val top = groupBounds.top.dp - padding
@@ -1860,7 +1929,7 @@ private fun PageCanvas(
                             }
                     }
                 }
-                if (state.selectedObjectIds.isNotEmpty()) {
+                if (state.selectedObjectIds.isNotEmpty() && state.selectedInk == null) {
                     val selected = page.document.outlines.firstOrNull { it.id in state.selectedObjectIds }
                     if (selected != null) {
                         var colorMenu by remember(selected.id) { mutableStateOf(false) }

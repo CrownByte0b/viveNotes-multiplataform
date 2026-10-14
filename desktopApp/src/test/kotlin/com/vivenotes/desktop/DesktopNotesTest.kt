@@ -1,5 +1,9 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.workspace.InkBrush
+import com.vivenotes.workspace.InkHighlighterSettings
+import com.vivenotes.workspace.InkPenSettings
+import com.vivenotes.workspace.InkSettings
 import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.InkEdit
 import com.vivenotes.data.InkWriter
@@ -47,6 +51,57 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /** The process's notes as the windows use them: opened at launch, written and closed at exit. */
 class DesktopNotesTest {
+
+    @Test
+    fun failedInkPreferenceWriteLogsTheFailureAndCanBeRetried() = runBlocking<Unit> {
+        val blocked = File(directory, "ink-config").apply { writeText("blocked") }
+        val file = File(blocked, "ink.properties")
+        val ui = CoroutineScope(coroutineContext + SupervisorJob())
+        val logs = mutableListOf<String>()
+        val notes = DesktopNotes(NotesLibrary.open(directory), ui, inkStore = InkSettingsFile(file),
+            log = DebugLog(true, logs::add))
+        notes.start()
+        openPage(notes)
+        val chosen = InkSettings(pen = InkPenSettings(sizeDp = 12f))
+        notes.updateInkSettings(chosen)
+        assertEquals(InkSettings(), notes.inkSettings)
+        assertTrue(logs.any { it.contains("save ink preferences failed") })
+        assertFalse(logs.any { it.contains("ink preferences saved") })
+        blocked.delete()
+        notes.updateInkSettings(chosen)
+        assertEquals(chosen, InkSettingsFile(file).load())
+        assertEquals(chosen, notes.inkSettings)
+        close(notes)
+        ui.cancel()
+    }
+
+    @Test
+    fun inkChoicesSurviveRestartAndSeedTheNextWorkspace() = runBlocking<Unit> {
+        val file = File(directory, "config/ink.properties")
+        val ui = CoroutineScope(coroutineContext + SupervisorJob())
+        val logs = mutableListOf<String>()
+        val notes = DesktopNotes(NotesLibrary.open(directory), ui, inkStore = InkSettingsFile(file),
+            log = DebugLog(true, logs::add))
+        notes.start()
+        openPage(notes)
+        val chosen = InkSettings(
+            InkPenSettings(InkBrush.PressurePen, 6f, 0xff3584e4.toInt(), false),
+            InkHighlighterSettings(32f, 0x80e01b24.toInt()))
+        notes.session.update { it.setInkSettings(chosen) }
+        notes.updateInkSettings(chosen)
+        notes.updateInkSettings(chosen)
+        assertEquals(chosen, InkSettingsFile(file).load())
+        assertEquals(1, logs.count { it.contains("ink preferences saved") })
+        close(notes)
+        ui.cancel()
+
+        val restartedUi = CoroutineScope(coroutineContext + SupervisorJob())
+        val restarted = DesktopNotes(NotesLibrary.open(directory), restartedUi, inkStore = InkSettingsFile(file))
+        restarted.start()
+        assertEquals(chosen, openPage(restarted).inkSettings)
+        close(restarted)
+        restartedUi.cancel()
+    }
 
     @Test
     fun shapeChoicesSurviveRestartAndSeedTheNextWorkspace() = runBlocking<Unit> {

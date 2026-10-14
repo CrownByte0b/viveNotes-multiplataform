@@ -15,8 +15,9 @@ data class CanvasClipboard(
 data class InkHistoryChange(
     val before: com.vivenotes.model.ink.InkPage,
     val after: com.vivenotes.model.ink.InkPage,
-    val undo: com.vivenotes.data.InkEdit,
-    val redo: com.vivenotes.data.InkEdit,
+    val undo: List<com.vivenotes.data.InkEdit>,
+    val redo: List<com.vivenotes.data.InkEdit>,
+    val afterDocument: com.vivenotes.model.PageDoc? = null,
 )
 
 data class StructuralSnapshot(val pageId: String, val document: com.vivenotes.model.PageDoc,

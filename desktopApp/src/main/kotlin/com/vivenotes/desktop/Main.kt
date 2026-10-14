@@ -91,7 +91,8 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
                 inputSettings = notes.inputSettings, onInputSettingsChange = notes::updateInputSettings,
                 notebookFiles = remember(window) { notes.notebookFiles(window) }, thumbnails = notes.thumbnails,
                 onEditorDefaultsChange = notes::updateEditorDefaults,
-                onShapeSettingsChange = notes::updateShapeSettings, accountService = notes.accountService,
+                onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
+                accountService = notes.accountService,
                 aiModels = notes.aiModels, search = notes.search,
                 appVersion = DesktopBuildInfo.version, debugLog = log)
         }

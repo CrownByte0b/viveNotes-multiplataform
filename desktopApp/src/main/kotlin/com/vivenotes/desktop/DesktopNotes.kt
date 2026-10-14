@@ -16,6 +16,7 @@ import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.EditorDefaults
 import com.vivenotes.workspace.ShapeToolSettings
+import com.vivenotes.workspace.InkSettings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -60,6 +61,7 @@ internal class DesktopNotes(
     val aiModels: AiModelStore? = null,
     /** The math engine's Python and SymPy, automatically installed by uv at launch. */
     val mathRuntime: UvMathRuntime? = null,
+    private val inkStore: InkSettingsFile? = null,
 ) {
     val search = com.vivenotes.search.DesktopContentSearch(library.repository, library.attachments,
         com.vivenotes.search.SearchProcessPool(log = log), log)
@@ -68,9 +70,11 @@ internal class DesktopNotes(
         private set
     var shapeSettings by mutableStateOf(shapeStore?.load() ?: ShapeToolSettings())
         private set
+    var inkSettings by mutableStateOf(inkStore?.load() ?: InkSettings())
+        private set
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated,
         updatedLabel = { formatUpdated(it) }, editorDefaults = editorDefaults,
-        shapeSettings = shapeSettings, log = log, inkSource = inkSource)
+        shapeSettings = shapeSettings, inkSettings = inkSettings, log = log, inkSource = inkSource)
     init {
         accountService.flushBeforeSync = session::flush
         accountService.afterSync = session::refreshOpenPageFromStorage
@@ -88,6 +92,18 @@ internal class DesktopNotes(
         shapeStore?.save(settings)
         shapeSettings = settings
         log.event("settings") { "shape preferences saved" }
+    }
+
+    fun updateInkSettings(settings: InkSettings) {
+        val value = settings.normalized()
+        if (value == inkSettings) return
+        try {
+            inkStore?.save(value)
+            inkSettings = value
+            log.event("settings") { "ink preferences saved" }
+        } catch (error: Exception) {
+            log.failure("settings", "save ink preferences", error)
+        }
     }
     var interfaceSettings by mutableStateOf(interfaceStore?.load() ?: InterfaceSettings())
         private set
@@ -227,6 +243,7 @@ internal class DesktopNotes(
                 viewStore = ViewSettingsFile(File(directories.config, "view.properties")),
                 editorStore = EditorDefaultsFile(File(directories.config, "editor.properties")),
                 shapeStore = ShapeSettingsFile(File(directories.config, "shape.properties")),
+                inkStore = InkSettingsFile(File(directories.config, "ink.properties")),
                 keyStore = KeyBindingsFile(File(directories.config, "keyboard.properties")),
                 inputStore = InputSettingsFile(File(directories.config, "input.properties")),
                 thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")), log = log,

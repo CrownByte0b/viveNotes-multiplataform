@@ -47,6 +47,8 @@ sealed interface InkPageOperation {
 interface InkPageGeometry {
     val rightDp: Float
     val bottomDp: Float
+    fun selectAt(page: InkPage, x: Float, y: Float, reach: Float = 6f): InkSelection? = null
+    fun selectInRect(page: InkPage, left: Float, top: Float, right: Float, bottom: Float): InkSelection? = null
 }
 
 /** Optional platform snapshot carried with a new stored stroke. */

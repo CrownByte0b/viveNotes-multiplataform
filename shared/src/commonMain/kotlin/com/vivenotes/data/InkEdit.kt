@@ -11,6 +11,7 @@ sealed interface InkEdit {
     data class EraseStrokes(val ids: Set<String>) : InkEdit
     data class RestoreStrokes(val ids: Set<String>, val source: InkPage) : InkEdit
     data class PartialErase(val row: InkEraseEntity, val targetIds: Set<String>, val active: Boolean = true) : InkEdit
+    data class Move(val row: com.vivenotes.data.db.InkMoveEntity, val targetIds: Set<String>, val active: Boolean = true) : InkEdit
 }
 
 data class PendingInkEdit(val id: String, val pageId: String, val edit: InkEdit)

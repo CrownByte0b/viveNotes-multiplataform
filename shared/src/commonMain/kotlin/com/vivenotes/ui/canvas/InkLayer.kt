@@ -1,5 +1,6 @@
 package com.vivenotes.ui.canvas
 
+import com.vivenotes.workspace.InkSettings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -19,7 +20,10 @@ internal fun InkLayer(
     titleFloorDp: Float = 0f, onEdit: (InkEdit, InkPage) -> Unit = { _, _ -> },
     zoom: Float = 1f,
     eraserMode: com.vivenotes.data.EraserMode = com.vivenotes.data.EraserMode.Normal,
-) = PlatformInkLayer(page, canvasSize, canvasInk, visibleWindow, pageId, tool, titleFloorDp, onEdit, zoom, eraserMode)
+    settings: InkSettings = InkSettings(),
+    selection: com.vivenotes.model.ink.InkSelection? = null,
+    selectionOffset: Offset = Offset.Zero,
+) = PlatformInkLayer(page, canvasSize, canvasInk, visibleWindow, pageId, tool, titleFloorDp, onEdit, zoom, eraserMode, settings, selection, selectionOffset)
 
 @Composable
 internal expect fun PlatformInkLayer(
@@ -27,6 +31,9 @@ internal expect fun PlatformInkLayer(
     pageId: String, tool: InkTool?, titleFloorDp: Float, onEdit: (InkEdit, InkPage) -> Unit,
     zoom: Float,
     eraserMode: com.vivenotes.data.EraserMode,
+    settings: InkSettings,
+    selection: com.vivenotes.model.ink.InkSelection?,
+    selectionOffset: androidx.compose.ui.geometry.Offset,
 )
 
 internal fun InkPage.contentEdge(): Offset = geometry?.let { Offset(it.rightDp, it.bottomDp) }

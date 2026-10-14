@@ -10,9 +10,10 @@ internal fun selectedCanvasBounds(
     outlines: List<Outline>,
     selectedIds: Set<String>,
     measuredTextHeights: Map<String, Float> = emptyMap(),
+    ink: com.vivenotes.model.ink.InkSelection? = null,
 ): Rect? {
     val selected = outlines.filter { it.id in selectedIds && (it is Outline.Text || it.isPrimeObject()) }
-    if (selected.size < 2) return null
+    if (selected.size < 2 && ink == null) return null
     val bounds = selected.map { outline ->
         if (outline is Outline.Text) {
             val x = outline.x.coerceAtLeast(0f)
@@ -24,6 +25,6 @@ internal fun selectedCanvasBounds(
                 outline.y + outline.primeHeight().coerceAtLeast(24f))
         }
     }
-    return Rect(bounds.minOf { it.left }, bounds.minOf { it.top },
-        bounds.maxOf { it.right }, bounds.maxOf { it.bottom })
+    val all = bounds + listOfNotNull(ink?.bounds?.let { Rect(it.left, it.top, it.right, it.bottom) })
+    return Rect(all.minOf { it.left }, all.minOf { it.top }, all.maxOf { it.right }, all.maxOf { it.bottom })
 }
