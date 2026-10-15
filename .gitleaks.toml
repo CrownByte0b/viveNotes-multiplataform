@@ -1,5 +1,5 @@
 # gitleaks reads this from the repository root. It keeps every built-in rule and only excuses
-# the fake credentials the sync client tests send to their local test server.
+# the fake sync-test credentials and published tokenizer checksums in the AI notice.
 [extend]
 useDefault = true
 
@@ -12,4 +12,15 @@ regexes = [
   '''^vive_c29tZS1leGFtcGxlLWRldmljZS10b2tlbg$''',
   '''^4f2a1c88-0e3d-4c1b-8b4a-77c9f0e5d612$''',
   '''^5a3b2d99-1f4e-4d2c-9c5b-88daf1e6c723$''',
+]
+
+[[allowlists]]
+description = "Published UniMERNet Small and PP-FormulaNet-S tokenizer SHA-256 checksums"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^shared/src/jvmMain/resources/ai/NOTICE\.md$''']
+regexTarget = "secret"
+regexes = [
+  '''^02c318d9cfa95bf323371762b8f838a82709530274d36dba6eca880f0add6cc4$''',
+  '''^2811d82701ec97c192fa256aa2b4516929373870ae660326cc5b1dc879b95ff2$''',
 ]
