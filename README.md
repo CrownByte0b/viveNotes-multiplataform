@@ -27,6 +27,10 @@ Use a current JDK with `jpackage` available (JDK 25 is recommended).
 The default on linux is wayland
 
 ```bash
+./gradlew :desktopApp:assemble
+```
+
+```bash
 ./gradlew :desktopApp:run
 ./gradlew :shared:jvmTest :desktopApp:test
 ```

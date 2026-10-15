@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
@@ -17,27 +18,30 @@ import com.vivenotes.data.InkEdit
 import com.vivenotes.ink.toByteInk
 import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.model.ink.InkPage
-import com.vivenotes.ui.ribbon.draw.DrawRibbon
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
+import com.vivenotes.ui.shell.WorkspaceScreen
+import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.InkSettings
 import com.vivenotes.workspace.InkPenSettings
 import com.vivenotes.workspace.InkTool
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.RibbonTab
 import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class InkAuthoringIntegrationTest {
     @Test
-    fun ribbonChoosesEachDrawingToolAndSelectDisarmsIt() = runDesktopComposeUiTest(width = 1000, height = 100) {
-        val state = mutableStateOf(WorkspaceState.demo())
-        setContent { DrawRibbon(state.value, { state.value = it(state.value) }) }
+    fun ribbonChoosesEachDrawingToolAndEscapeDisarmsIt() = runDesktopComposeUiTest(width = 1500, height = 900) {
+        val state = mutableStateOf(WorkspaceState.demo().copy(activeTab = RibbonTab.Draw))
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
         for ((tag, tool) in listOf(DrawRibbonTags.PenTool to InkTool.Pen,
             DrawRibbonTags.HighlighterTool to InkTool.Highlighter, DrawRibbonTags.EraserTool to InkTool.Eraser)) {
             onNodeWithTag(tag).performClick().assertIsSelected()
             runOnIdle { assertEquals(tool, state.value.inkTool) }
+            onNodeWithTag(tag).performKeyInput { pressKey(Key.Escape) }
+            onNodeWithTag(tag).assertIsNotSelected()
+            runOnIdle { assertNull(state.value.inkTool) }
         }
-        onNodeWithTag(DrawRibbonTags.PointerTool).performClick().assertIsSelected()
-        runOnIdle { assertNull(state.value.inkTool) }
     }
 
     @Test

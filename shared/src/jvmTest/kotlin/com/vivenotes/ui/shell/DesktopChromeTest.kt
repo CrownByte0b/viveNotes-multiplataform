@@ -93,9 +93,10 @@ class DesktopChromeTest {
                 assertPaintedColor(pixels[pixels.width - 8, pixels.height - 1], Color(0xFF393B42))
             }
             onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Draw)).performClick()
-            val pointer = onNodeWithTag(DrawRibbonTags.PointerTool).assertIsSelected()
+            onNodeWithTag(DrawRibbonTags.PenTool).performClick().assertIsSelected()
+            val pen = onNodeWithTag(DrawRibbonTags.control(DrawRibbonTags.PenTool))
                 .captureToImage().toPixelMap()
-            assertPaintedColor(pointer[pointer.width / 2, pointer.height - 2], Color(0xFF007FFF))
+            assertPaintedColor(pen[pen.width / 2, pen.height - 2], Color(0xFF007FFF))
 
             onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Document)).performClick()
             val textTool = onNodeWithTag(DocumentRibbonTags.Text).performClick().assertIsSelected()

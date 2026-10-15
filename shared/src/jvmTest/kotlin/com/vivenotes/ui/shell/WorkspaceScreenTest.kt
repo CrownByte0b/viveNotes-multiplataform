@@ -24,6 +24,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
@@ -69,6 +70,7 @@ import com.vivenotes.workspace.focusBody
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
@@ -811,7 +813,7 @@ class WorkspaceScreenTest {
             onNodeWithTag(WorkspaceTestTags.textBoxOutline(firstId)).assertExists()
             onNodeWithTag(WorkspaceTestTags.textBoxOutline(secondId)).assertExists()
 
-            onNodeWithTag(DrawRibbonTags.PointerTool).performClick()
+            onNodeWithTag(DrawRibbonTags.ObjectLasso).performKeyInput { pressKey(Key.Escape) }
             onNodeWithTag(DrawRibbonTags.ObjectLasso).performClick()
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
                 moveTo(Offset(250f, 320f))
@@ -841,7 +843,7 @@ class WorkspaceScreenTest {
         }
 
     @Test
-    fun pointerModeDragsSelectionBoxOverObjectsAndSelectButtonClearsIt() =
+    fun pointerModeDragsSelectionBoxOverObjectsAndEscapeClearsIt() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
             val shape = Outline.Shape(id = "pointer-shape", x = 300f, y = 350f)
@@ -857,7 +859,7 @@ class WorkspaceScreenTest {
             var observed = initial
             setWorkspace(initial = initial) { observed = it }
 
-            onNodeWithTag(DrawRibbonTags.PointerTool).assertIsSelected()
+            runOnIdle { assertNull(observed.inkTool); assertFalse(observed.objectLassoArmed) }
 
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
                 moveTo(Offset(250f, 320f))
@@ -866,7 +868,7 @@ class WorkspaceScreenTest {
                 release()
             }
             runOnIdle { assertEquals(setOf(shape.id), observed.selectedObjectIds) }
-            onNodeWithTag(DrawRibbonTags.PointerTool).performClick()
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performKeyInput { pressKey(Key.Escape) }
             runOnIdle { assertTrue(observed.selectedObjectIds.isEmpty()) }
         }
 
@@ -1260,7 +1262,7 @@ class WorkspaceScreenTest {
                 keyUp(Key.Escape)
             }
             runOnIdle { assertFalse(observed.objectLassoArmed) }
-            onNodeWithTag(DrawRibbonTags.PointerTool).assertIsSelected()
+            runOnIdle { assertNull(observed.inkTool); assertFalse(observed.textToolArmed) }
         }
 
     @Test

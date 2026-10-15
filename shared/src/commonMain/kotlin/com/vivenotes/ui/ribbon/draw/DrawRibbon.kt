@@ -2,7 +2,10 @@ package com.vivenotes.ui.ribbon.draw
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
@@ -10,8 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.vivenotes.data.EraserMode
+import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.DrawSymbols
@@ -19,10 +27,11 @@ import com.vivenotes.ui.ribbon.*
 import com.vivenotes.workspace.*
 
 object DrawRibbonTags {
-    const val PointerTool = "workspace-pointer-tool"
     const val PenTool = "workspace-pen-tool"
     fun pen(index: Int) = if (index == 0) PenTool else "$PenTool-$index"
     fun penKit(index: Int) = "draw-pen-kit-$index"
+    fun control(tool: String) = "$tool-control"
+    fun icon(tool: String) = "$tool-icon"
     const val HighlighterTool = "workspace-highlighter-tool"
     const val HighlighterKit = "draw-highlighter-kit"
     const val EraserTool = "workspace-eraser-tool"
@@ -58,16 +67,14 @@ internal fun DrawRibbon(
         else { kit = null; onStateChange { it.selectInkTool(tool, index) } }
     }
     RibbonBar(spacing = 2.dp) {
-        RibbonToggle("Select", state.inkTool == null && !state.textToolArmed && !state.objectLassoArmed && !state.shapeToolArmed && state.drawPlacement == null,
-            onClick = { kit = null; onStateChange { it.selectPointer() } }, modifier = Modifier.testTag(DrawRibbonTags.PointerTool),
-            icon = { Icon(DrawSymbols.Select, null, Modifier.size(18.dp)) })
         repeat(3) { index ->
             val pane = DrawRibbonTags.penKit(index)
             SplitTool("Pen ${index + 1}", DrawSymbols.Pen, state.inkTool == InkTool.Pen && state.activePenIndex == index,
                 enabled, DrawRibbonTags.pen(index), pane,
                 onClick = { ink(InkTool.Pen, index, pane) },
                 onKit = { onStateChange { it.selectInkTool(InkTool.Pen, index) }; kit = pane },
-                swatch = if (state.inkSettings.pen(index).colorFollowsTheme) canvasInk else Color(state.inkSettings.pen(index).colorArgb)) {
+                tip = DrawSymbols.PenTip,
+                inkColor = if (state.inkSettings.pen(index).colorFollowsTheme) canvasInk else Color(state.inkSettings.pen(index).colorArgb)) {
                 ScaledDropdownMenu(kit == pane, { kit = null }) { PenKit(index, state.inkSettings, canvasInk, ::settings) }
             }
         }
@@ -75,7 +82,7 @@ internal fun DrawRibbon(
             enabled, DrawRibbonTags.HighlighterTool, DrawRibbonTags.HighlighterKit,
             onClick = { ink(InkTool.Highlighter, pane = DrawRibbonTags.HighlighterKit) },
             onKit = { onStateChange { it.selectInkTool(InkTool.Highlighter) }; kit = DrawRibbonTags.HighlighterKit },
-            swatch = Color(state.inkSettings.highlighter.colorArgb).copy(alpha = 1f)) {
+            tip = DrawSymbols.HighlighterTip, inkColor = Color(state.inkSettings.highlighter.colorArgb).copy(alpha = 1f)) {
             ScaledDropdownMenu(kit == DrawRibbonTags.HighlighterKit, { kit = null }) { HighlighterKit(state.inkSettings, ::settings) }
         }
         SplitTool("Eraser", DrawSymbols.Eraser, state.inkTool == InkTool.Eraser,
@@ -120,15 +127,43 @@ internal fun DrawRibbon(
 
 @Composable
 private fun SplitTool(label: String, icon: ImageVector, selected: Boolean, enabled: Boolean, tag: String, kitTag: String,
-                      onClick: () -> Unit, onKit: () -> Unit, swatch: Color? = null, popup: @Composable () -> Unit) {
+                      onClick: () -> Unit, onKit: () -> Unit, tip: ImageVector? = null, inkColor: Color = Color.Unspecified,
+                      popup: @Composable () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val tint = when {
+        !enabled -> RibbonStyle.disabledText
+        selected -> RibbonStyle.activeText
+        hovered -> RibbonStyle.hoverText
+        else -> RibbonStyle.normalText
+    }
     Box {
-        Row {
-            Box {
-                RibbonIcon(icon, label, selected, enabled, tag, onClick = onClick)
-                if (swatch != null) Box(Modifier.align(Alignment.BottomEnd).padding(end = 5.dp, bottom = 5.dp)
-                    .size(7.dp).background(swatch).border(1.dp, Color(0xffdddddd)).testTag("$tag-color"))
+        Row(Modifier.height(46.dp)
+            .background(if (hovered && enabled) RibbonStyle.hover else Color.Transparent)
+            .ribbonActiveIndicator(selected)
+            .hoverable(interaction, enabled = enabled)
+            .testTag(DrawRibbonTags.control(tag)), verticalAlignment = Alignment.CenterVertically) {
+            HoverTooltip(label) {
+                Box(Modifier.size(width = 36.dp, height = 46.dp)
+                    .clickable(interactionSource = interaction, indication = null, enabled = enabled,
+                        role = Role.Button, onClick = onClick)
+                    .testTag(tag).semantics { contentDescription = label; this.selected = selected }
+                    .padding(end = 2.dp), contentAlignment = Alignment.CenterEnd) {
+                    Box(Modifier.size(18.dp).testTag(DrawRibbonTags.icon(tag))) {
+                        if (tip != null) Icon(tip, null, Modifier.fillMaxSize(), tint = inkColor)
+                        Icon(icon, null, Modifier.fillMaxSize(), tint = tint)
+                    }
+                }
             }
-            RibbonIcon(DocumentSymbols.ArrowDropDown, "$label settings", selected, enabled, kitTag, onClick = onKit)
+            HoverTooltip("$label settings") {
+                Box(Modifier.size(width = 18.dp, height = 46.dp)
+                    .clickable(interactionSource = interaction, indication = null, enabled = enabled,
+                        role = Role.DropdownList, onClick = onKit)
+                    .testTag(kitTag).semantics { contentDescription = "$label settings" },
+                    contentAlignment = Alignment.Center) {
+                    Icon(DocumentSymbols.ArrowDropDown, null, Modifier.size(14.dp), tint = tint)
+                }
+            }
         }
         popup()
     }

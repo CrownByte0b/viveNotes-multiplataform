@@ -50,6 +50,14 @@ object DrawSymbols {
         }.build()
     }
 
+    val PenTip: ImageVector by lazy {
+        ImageVector.Builder("Pen tip", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M356-400h248L480-721 356-400Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+
     val Highlighter: ImageVector by lazy {
         ImageVector.Builder("Highlighter", 24.dp, 24.dp, 960f, 960f).apply {
             group(translationY = 960f) {
@@ -58,6 +66,14 @@ object DrawSymbols {
                     "1v281q0 17-11.5 28.5T640-320H320Zm40-80h240v-241L360-760v360Zm0 0h240-240ZM215-120q-20 0-32.5-16.5T177-17" +
                     "3l5-12q8-25 29-40t47-15h444q26 0 47 15t29 40l5 12q7 20-5.5 36.5T745-120H215Z"
                 ), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+
+    val HighlighterTip: ImageVector by lazy {
+        ImageVector.Builder("Highlighter tip", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M360-400h240v-241L360-760v360Z"), fill = SolidColor(Color.Black))
             }
         }.build()
     }
