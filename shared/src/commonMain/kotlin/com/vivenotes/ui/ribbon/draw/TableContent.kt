@@ -31,12 +31,14 @@ import com.vivenotes.workspace.WorkspaceState
 
 @Composable
 internal fun measuredTableRows(table: Outline.Table, colors: RichTextColors): List<Float> {
+    if (table.inkOnly) return table.rows.map { it.minHeight }
+
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val styled = table.rows.map { row -> row.cells.map { RichTextBuffer(it.blocks).asAnnotatedString(colors) } }
     return remember(table, density, colors, styled) {
         table.rows.mapIndexed { r, row ->
-            if (table.inkOnly) row.minHeight else maxOf(row.minHeight, row.cells.mapIndexed { c, cell ->
+            maxOf(row.minHeight, row.cells.mapIndexed { c, cell ->
                 val header = (r == 0 && table.headerRow) || (c == 0 && table.headerColumn)
                 val measured = measurer.measure(styled[r][c], TextStyle(fontSize = 14.sp,
                     fontWeight = if (header) FontWeight.Bold else FontWeight.Normal),

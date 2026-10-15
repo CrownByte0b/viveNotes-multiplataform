@@ -28,6 +28,8 @@ The default on linux is wayland
 
 ```bash
 ./gradlew :desktopApp:assemble
+
+./gradlew clean :desktopApp:assemble --no-build-cache --rerun-tasks Pkotlin.incremental=false
 ```
 
 ```bash

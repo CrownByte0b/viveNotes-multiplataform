@@ -7,6 +7,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.model.*
 import com.vivenotes.ui.ribbon.document.DocumentRibbonTags
+import com.vivenotes.ui.ribbon.settings.InterfaceTags
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.theme.ViveNotesTheme
@@ -18,6 +19,41 @@ class DrawPlacementInteractionTest {
     private fun workspace(): WorkspaceState {
         val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
         return initial.updatePage(initial.selectedPageId) { it.copy(document = PageDoc(outlines = emptyList())) }
+    }
+
+    @Test
+    fun defaultInkTablePlacesAndItsGridCanBeEditedWithoutFreezingTheWorkspace() = runDesktopComposeUiTest(width = 1500, height = 1000) {
+        val state = mutableStateOf(workspace())
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
+        onNodeWithTag(TableTags.Tool).performClick()
+        onNodeWithTag(WorkspaceTestTags.CanvasExtent).performMouseInput { click(Offset(100f, 200f)) }
+        val table = state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single()
+        assertTrue(table.inkOnly)
+        assertTrue(table.rows.flatMap { it.cells }.all { it.blocks.isEmpty() })
+        onNodeWithTag(WorkspaceTestTags.primeObject(table.id)).assertIsDisplayed()
+        table.rows.flatMap { it.cells }.forEach { onNodeWithTag(TableTags.cell(it.id)).assertDoesNotExist() }
+
+        onNodeWithTag("draw-table-edit").performClick()
+        onNodeWithTag("draw-table-edit-add-row").performClick()
+        onNodeWithTag("draw-table-edit-add-column").performClick()
+        onNodeWithTag("draw-table-edit-add-column").performKeyInput { pressKey(Key.Escape) }
+        runOnIdle {
+            val edited = state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single()
+            assertEquals(table.rowCount + 1, edited.rowCount)
+            assertEquals(table.columnCount + 1, edited.columnCount)
+            assertTrue(edited.rows.flatMap { it.cells }.all { it.blocks.isEmpty() })
+        }
+        onNodeWithTag(WorkspaceTestTags.StructuralUndo).performClick()
+        runOnIdle {
+            val undone = state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single()
+            assertEquals(table.columnCount, undone.columnCount)
+            assertEquals(table.rowCount + 1, undone.rowCount)
+        }
+        onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Settings)).performClick()
+        onNodeWithTag(InterfaceTags.Open).performClick()
+        onNodeWithTag(InterfaceTags.Dialog).assertIsDisplayed()
+        onNodeWithTag(InterfaceTags.Cancel).performClick()
+        runOnIdle { assertEquals(RibbonTab.Settings, state.value.activeTab) }
     }
 
     @Test

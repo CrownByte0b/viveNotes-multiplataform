@@ -15,8 +15,8 @@ import com.vivenotes.ui.icons.importNotebookGlyph
 import com.vivenotes.ui.icons.versionHistoryGlyph
 import com.vivenotes.ui.icons.deletedItemsGlyph
 import com.vivenotes.ui.icons.deleteNotebookGlyph
-import com.vivenotes.ui.icons.NavigationSymbols
-import com.vivenotes.ui.icons.ViewSymbols
+import com.vivenotes.ui.icons.closeNotebookGlyph
+import com.vivenotes.ui.icons.closedNotebooksGlyph
 import com.vivenotes.ui.ribbon.PendingRibbonAction
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonCommand
@@ -37,6 +37,7 @@ object FileRibbonTags {
     const val ClosedNotebooks = "file-closed-notebooks"
     const val CloseNotebook = "file-close-notebook"
     const val DeleteNotebook = "file-delete-notebook"
+    fun icon(command: String) = "$command-icon"
 }
 
 /**
@@ -60,6 +61,8 @@ internal fun FileRibbon(
     val historyIcon = remember(neutral, accent) { versionHistoryGlyph(neutral, accent) }
     val recoveredIcon = remember(neutral) { deletedItemsGlyph(neutral, Color(0xFF73DD83)) }
     val deleteIcon = remember(neutral) { deleteNotebookGlyph(neutral, Color(0xFFE94C4F)) }
+    val closeIcon = remember(neutral, accent) { closeNotebookGlyph(neutral, accent) }
+    val closedIcon = remember(neutral, accent) { closedNotebooksGlyph(neutral, accent) }
     RibbonBar {
         PendingRibbonAction("Export PDF")
         RibbonDivider()
@@ -67,11 +70,11 @@ internal fun FileRibbon(
             actions != null && pageOpen && !transferRunning, twoTone = true) { actions?.openPane(FilePane.VersionHistory) }
         FileCommand("Deleted Items", recoveredIcon, FileRibbonTags.DeletedItems,
             actions != null && !transferRunning, twoTone = true) { actions?.openPane(FilePane.DeletedItems) }
-        FileCommand("Closed Notebooks", NavigationSymbols.Book, FileRibbonTags.ClosedNotebooks,
-            actions != null && !transferRunning) { actions?.openPane(FilePane.ClosedNotebooks) }
+        FileCommand("Closed Notebooks", closedIcon, FileRibbonTags.ClosedNotebooks,
+            actions != null && !transferRunning, twoTone = true) { actions?.openPane(FilePane.ClosedNotebooks) }
         RibbonDivider()
-        FileCommand("Close Notebook", ViewSymbols.Close, FileRibbonTags.CloseNotebook,
-            actions != null && notebookOpen && !transferRunning, onClick = onCloseNotebook)
+        FileCommand("Close Notebook", closeIcon, FileRibbonTags.CloseNotebook,
+            actions != null && notebookOpen && !transferRunning, twoTone = true, onClick = onCloseNotebook)
         RibbonCommand(
             label = "Export Notebook",
             onClick = { actions?.exportNotebook() },
@@ -97,7 +100,7 @@ private fun FileCommand(label: String, icon: ImageVector, tag: String, enabled: 
         modifier = Modifier.testTag(tag)) {
         Icon(icon, contentDescription = null,
             tint = if (twoTone) Color.Unspecified else LocalContentColor.current,
-            modifier = Modifier.size(18.dp))
+            modifier = Modifier.size(18.dp).testTag(FileRibbonTags.icon(tag)))
     }
 }
 

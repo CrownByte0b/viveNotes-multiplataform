@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import com.vivenotes.ui.components.HoverTooltipDelayMillis
 import com.vivenotes.ui.ribbon.RibbonStyle
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.*
@@ -16,6 +17,27 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class DrawRibbonStyleTest {
+    @Test
+    fun lassoIsIconOnlyAndKeepsItsAccessibleNameTooltipAndToggle() = runDesktopComposeUiTest(width = 1200, height = 700) {
+        val state = mutableStateOf(WorkspaceState.demo())
+        setContent { ViveNotesTheme { DrawRibbon(state.value, { state.value = it(state.value) }) } }
+        onNodeWithText("Lasso").assertDoesNotExist()
+        val lasso = onNodeWithTag(DrawRibbonTags.ObjectLasso)
+            .assertContentDescriptionEquals("Lasso").assertIsEnabled().assertIsNotSelected()
+        val bounds = lasso.getUnclippedBoundsInRoot()
+        assertEquals(40f, (bounds.right - bounds.left).value, .1f)
+        lasso.performClick().assertIsSelected()
+        runOnIdle { assertTrue(state.value.objectLassoArmed) }
+        lasso.performKeyInput { pressKey(Key.Enter) }
+        lasso.assertIsNotSelected()
+        runOnIdle { assertFalse(state.value.objectLassoArmed) }
+
+        mainClock.autoAdvance = false
+        lasso.performMouseInput { moveTo(center) }
+        mainClock.advanceTimeBy(HoverTooltipDelayMillis + 20)
+        onNodeWithText("Lasso").assertIsDisplayed()
+    }
+
     @Test
     fun selectIsRemovedAndDropdownsShareCompactToolControlsAndHover() = runDesktopComposeUiTest(width = 1200, height = 700) {
         val state = mutableStateOf(WorkspaceState.demo())
@@ -108,6 +130,7 @@ class DrawRibbonStyleTest {
             onNodeWithTag(tool).assertIsNotEnabled().performClick()
             onNodeWithTag(menu).assertIsNotEnabled().performClick()
         }
+        onNodeWithTag(DrawRibbonTags.ObjectLasso).assertIsNotEnabled().performClick()
         onNodeWithTag(InkControlsTags.Preview).assertDoesNotExist()
         runOnIdle { assertEquals(0, changes) }
     }

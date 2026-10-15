@@ -22,6 +22,10 @@ import com.vivenotes.data.NotesStore
 import com.vivenotes.data.PageLoad
 import com.vivenotes.data.execute
 import com.vivenotes.model.plainText
+import com.vivenotes.model.Outline
+import com.vivenotes.model.newTable
+import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
+import com.vivenotes.ui.ribbon.draw.TableTags
 import com.vivenotes.ui.navigation.NavigationTestTags
 import com.vivenotes.ui.shell.UnreadablePageMessage
 import com.vivenotes.ui.ribbon.file.FileRibbonTags
@@ -81,6 +85,41 @@ class AppTest {
 
                 onNodeWithTag(WorkspaceTestTags.TitleEditor).assertTextContains("Groceries")
                 onNodeWithTag(WorkspaceTestTags.BodyEditor).assertTextContains("Milk and eggs")
+            }
+        }
+    }
+
+    @Test
+    fun aSavedInkOnlyTableOpensWithoutTextEditorsAndTheAppRemainsInteractive() {
+        val table = newTable(3, 2, x = 100f, y = 240f, rowHeight = 48f, inkOnly = true)
+        val pageId = NotesLibrary.open(directory).use { library ->
+            runBlocking {
+                library.repository.seedIfEmpty()
+                firstPage(library).id.also { id ->
+                    val doc = assertIs<PageLoad.Loaded>(library.repository.loadDoc(id)).doc
+                    library.repository.saveDoc(id, doc.copy(outlines = doc.outlines + table))
+                }
+            }
+        }
+        repeat(2) {
+            NotesLibrary.open(directory).use { library ->
+                runDesktopComposeUiTest(width = 1400, height = 900) {
+                    val app = showApp(library.repository)
+                    awaitOpenPage()
+                    onNodeWithTag(WorkspaceTestTags.primeObject(table.id)).assertIsDisplayed()
+                    waitUntil(timeoutMillis = 10_000) { app.session.state.value?.selectedPage?.inkReady == true }
+                    table.rows.flatMap { it.cells }.forEach { cell ->
+                        onNodeWithTag(TableTags.cell(cell.id)).assertDoesNotExist()
+                    }
+                    onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Draw)).performClick()
+                    onNodeWithTag(DrawRibbonTags.ObjectLasso).performClick()
+                    runOnIdle { assertTrue(app.session.state.value!!.objectLassoArmed) }
+                    onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Document)).performClick()
+                    runOnIdle { assertEquals(RibbonTab.Document, app.session.state.value!!.activeTab) }
+                    app.close()
+                }
+                val loaded = runBlocking { assertIs<PageLoad.Loaded>(library.repository.loadDoc(pageId)).doc }
+                assertEquals(table, loaded.outlines.filterIsInstance<Outline.Table>().single())
             }
         }
     }

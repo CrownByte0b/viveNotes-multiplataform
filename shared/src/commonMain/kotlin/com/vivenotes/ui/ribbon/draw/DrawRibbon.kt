@@ -91,9 +91,9 @@ internal fun DrawRibbon(
             onKit = { onStateChange { it.selectInkTool(InkTool.Eraser) }; kit = DrawRibbonTags.EraserModePicker }) {
             ScaledDropdownMenu(kit == DrawRibbonTags.EraserModePicker, { kit = null }) { EraserKit(state.inkSettings, ::settings) }
         }
-        RibbonToggle("Lasso", state.objectLassoArmed, enabled = enabled,
-            onClick = { kit = null; onStateChange { it.toggleObjectLasso() } }, modifier = Modifier.testTag(DrawRibbonTags.ObjectLasso),
-            icon = { Icon(DrawSymbols.Lasso, null, Modifier.size(18.dp)) })
+        RibbonIcon(DrawSymbols.Lasso, "Lasso", state.objectLassoArmed, enabled, DrawRibbonTags.ObjectLasso) {
+            kit = null; onStateChange { it.toggleObjectLasso() }
+        }
         RibbonIcon(DrawSymbols.InsertSpace, "Insert Space", state.drawPlacement == DrawPlacementTool.InsertSpace,
             enabled, "draw-insert-space") { kit = null; onStateChange { it.selectDrawPlacement(DrawPlacementTool.InsertSpace) } }
         SplitTool("Shape", DrawSymbols.Shape, state.shapeToolArmed, enabled, ShapeMenuTags.ShapeTool, DrawRibbonTags.ShapeKit,

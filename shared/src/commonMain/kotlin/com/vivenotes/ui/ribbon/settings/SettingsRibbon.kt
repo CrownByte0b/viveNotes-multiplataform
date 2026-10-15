@@ -30,7 +30,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vivenotes.ui.icons.ViewSymbols
+import com.vivenotes.ui.icons.SettingsSymbols
 import com.vivenotes.ui.icons.aboutGlyph
 import com.vivenotes.ui.icons.hardwareGlyph
 import com.vivenotes.ui.icons.integratedGlyph
@@ -61,8 +61,7 @@ internal fun SettingsRibbon(onInterface: () -> Unit, hardwareOpen: Boolean, onHa
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Android has no Interface command; its Material sun symbol identifies display settings here.
-            SettingsTab("Interface", icon = { _, _ -> ViewSymbols.WbSunny }, monochrome = true,
+            SettingsTab("Interface", icon = { _, _ -> SettingsSymbols.DisplaySettings }, monochrome = true,
                 tag = InterfaceTags.Open, onClick = onInterface)
             SettingsTab("Link previews", icon = ::linkPreviewGlyph,
                 tag = LINK_PREVIEWS_TAG, active = linkPreviews,
