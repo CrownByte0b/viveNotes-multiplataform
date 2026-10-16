@@ -75,7 +75,7 @@ internal fun DrawRibbon(
                 onKit = { onStateChange { it.selectInkTool(InkTool.Pen, index) }; kit = pane },
                 tip = DrawSymbols.PenTip,
                 inkColor = if (state.inkSettings.pen(index).colorFollowsTheme) canvasInk else Color(state.inkSettings.pen(index).colorArgb)) {
-                ScaledDropdownMenu(kit == pane, { kit = null }) { PenKit(index, state.inkSettings, canvasInk, ::settings) }
+                DrawToolkitPopup(kit == pane, { kit = null }) { PenKit(index, state.inkSettings, canvasInk, ::settings) }
             }
         }
         SplitTool("Highlighter", DrawSymbols.Highlighter, state.inkTool == InkTool.Highlighter,
@@ -99,7 +99,9 @@ internal fun DrawRibbon(
         SplitTool("Shape", DrawSymbols.Shape, state.shapeToolArmed, enabled, ShapeMenuTags.ShapeTool, DrawRibbonTags.ShapeKit,
             onClick = { if (state.shapeToolArmed) kit = DrawRibbonTags.ShapeKit else { kit = null; onStateChange { it.toggleShapeTool() } } },
             onKit = { if (!state.shapeToolArmed) onStateChange { it.toggleShapeTool() }; kit = DrawRibbonTags.ShapeKit }) {
-            ShapeMenu(kit == DrawRibbonTags.ShapeKit, state.shapeSettings, { kit = null }) {
+            ShapeMenu(kit == DrawRibbonTags.ShapeKit, state.shapeSettings, { kit = null },
+                palette = state.inkSettings.palette, canvasInk = canvasInk,
+                onPaletteColor = { settings(state.inkSettings.copy(palette = state.inkSettings.palette.withColorInFront(it))) }) {
                 onStateChange { state -> state.setShapeSettings(it) }; onShapeSettingsChange(it)
             }
         }
@@ -107,7 +109,7 @@ internal fun DrawRibbon(
             onClick = { if (state.drawPlacement == DrawPlacementTool.Table) kit = TableTags.Kit else {
                 kit = null; onStateChange { it.selectDrawPlacement(DrawPlacementTool.Table) }
             } }, onKit = { onStateChange { it.selectDrawPlacement(DrawPlacementTool.Table) }; kit = TableTags.Kit }) {
-            ScaledDropdownMenu(kit == TableTags.Kit, { kit = null }) { TableKit(state.inkSettings, ::settings) }
+            DrawToolkitPopup(kit == TableTags.Kit, { kit = null }) { TableKit(state.inkSettings, ::settings) }
         }
         SplitTool("Equation", DocumentSymbols.Function, state.drawPlacement == DrawPlacementTool.Equation,
             enabled, EquationTags.Tool, EquationTags.Kit, onClick = { kit = EquationTags.Kit }, onKit = { kit = EquationTags.Kit }) {

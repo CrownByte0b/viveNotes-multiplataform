@@ -62,7 +62,8 @@ class DrawPlacementInteractionTest {
         setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
         onNodeWithTag(TableTags.Kit).performClick()
         onNodeWithTag("draw-table-ink-only").performClick()
-        onNodeWithTag("draw-table-columns-plus").performClick()
+        onNodeWithTag(TableTags.Columns).performClick()
+        onNodeWithTag("${TableTags.Columns}-option-4").performClick()
         onNodeWithTag("draw-table-ink-only").performKeyInput { pressKey(Key.Escape) }
         onNodeWithTag(WorkspaceTestTags.CanvasExtent).performMouseInput { click(Offset(100f, 200f)) }
         val table = state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single()

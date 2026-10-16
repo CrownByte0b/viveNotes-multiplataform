@@ -86,9 +86,13 @@ class WorkspaceScreenTest {
             onNodeWithTag("draw-shape-page-1").performClick()
             onNodeWithTag(ShapeMenuTags.kind(ShapeKind.Cube)).performClick()
             onNodeWithTag(ShapeMenuTags.lineType(LineType.Dashed)).performClick()
-            onNodeWithTag(ShapeMenuTags.fill(0xFFE01B24.toInt())).performClick()
+            onNodeWithTag(ShapeMenuTags.Fill).performClick()
+            onNodeWithTag("draw-shape-custom-fill").performScrollTo().performTextReplacement("#E01B24")
+            onNodeWithTag("draw-shape-custom-fill-apply").performClick()
+            runOnIdle { assertEquals(0xFFE01B24.toInt(), observed.shapeSettings.fillArgb) }
             onNodeWithTag("draw-shape-custom-fill").performScrollTo().performTextReplacement("#123456")
             onNodeWithTag("draw-shape-custom-fill-apply").performClick()
+            onNodeWithTag(com.vivenotes.ui.ribbon.draw.InkControlsTags.WheelDone).performClick()
             onNodeWithTag(ShapeMenuTags.ShapeTool).performClick()
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
                 moveTo(Offset(450f, 400f))

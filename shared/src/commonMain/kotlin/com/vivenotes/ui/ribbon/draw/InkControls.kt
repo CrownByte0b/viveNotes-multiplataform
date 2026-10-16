@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -68,69 +72,69 @@ internal fun ToolKit(title: String, content: @Composable ColumnScope.() -> Unit)
 @Composable
 internal fun PenKit(index: Int, settings: InkSettings, canvasInk: Color, onChange: (InkSettings) -> Unit) {
     val pen = settings.pen(index)
-    var wheel by remember { mutableStateOf(false) }
-    var wheelPick by remember { mutableStateOf<Int?>(null) }
+    val color = if (pen.colorFollowsTheme) canvasInk else Color(pen.colorArgb)
     fun update(value: InkPenSettings) = onChange(settings.withPen(index, value))
-    ToolKit("Pen ${index + 1}") {
-        if (wheel) {
-            ColorWheelContent(if (pen.colorFollowsTheme) canvasInk.toArgbCompat() else pen.colorArgb,
-                onPick = { wheelPick = it; update(pen.copy(colorArgb = it, colorFollowsTheme = false)) },
-                onDone = {
-                    wheelPick?.let { onChange(settings.copy(palette = settings.palette.withColorInFront(it))) }
-                    wheel = false; wheelPick = null
-                })
-        } else {
-            StrokePreview(pen, canvasInk)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(InkBrush.Marker, InkBrush.Calligraphy).forEach { kind ->
-                    Choice(kind.label, pen.brush == kind, InkControlsTags.brush(kind)) { update(pen.copy(brush = kind)) }
+    ReferenceToolKit("Pen ${index + 1}") {
+        StrokePreview(pen, canvasInk)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf(InkBrush.Marker to DrawToolkitSymbols.Edit, InkBrush.Calligraphy to DrawToolkitSymbols.Brush).forEach { (kind, icon) ->
+                val selected = pen.brush == kind
+                val content = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                Column(Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(10.dp))
+                    .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                    .clickable(role = Role.RadioButton) { update(pen.copy(brush = kind)) }
+                    .testTag(InkControlsTags.brush(kind)).semantics { this.selected = selected },
+                    verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(icon, null, tint = content, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.height(3.dp))
+                    Text(kind.label, style = MaterialTheme.typography.labelMedium, color = content)
                 }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LineType.entries.forEach { type ->
-                    Choice(type.name, pen.lineType == type, InkControlsTags.line(type)) { update(pen.copy(lineType = type)) }
-                }
-            }
-            KitToggle("Hold for straight line", pen.holdForStraightLine, InkControlsTags.Hold) {
-                update(pen.copy(holdForStraightLine = it))
-            }
-            KitSlider("Thickness", pen.sizeDp, 1f..8f, 0.5f, InkControlsTags.Width) { update(pen.copy(sizeDp = it)) }
-            if (pen.brush == InkBrush.Calligraphy) KitStepper("Pressure", pen.pressure, InkControlsTags.Pressure) {
-                update(pen.copy(pressure = it))
-            }
-            KitStepper("Stabilization", pen.stabilization, InkControlsTags.Stabilization) { update(pen.copy(stabilization = it)) }
-            Text("Color", style = MaterialTheme.typography.labelLarge)
-            ColorSwatches(settings.palette, if (pen.colorFollowsTheme) canvasInk.toArgbCompat() else pen.colorArgb) { argb ->
-                update(pen.copy(colorArgb = argb, colorFollowsTheme = argb == canvasInk.toArgbCompat()))
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { update(pen.copy(colorFollowsTheme = true)) },
-                    modifier = Modifier.testTag(InkControlsTags.Automatic).semantics { selected = pen.colorFollowsTheme }) { Text("Automatic") }
-                HoverTooltip("Custom color") {
-                    Box(Modifier.size(32.dp).background(Brush.sweepGradient(HUE_STOPS), MaterialTheme.shapes.small)
-                        .clickable(role = Role.Button) { wheelPick = null; wheel = true }
-                        .testTag(InkControlsTags.WheelButton).semantics { contentDescription = "Custom color wheel" })
-                }
-            }
-            CustomInkColorField(InkControlsTags.CustomColor) { argb ->
-                onChange(settings.withPen(index, pen.copy(colorArgb = argb, colorFollowsTheme = false))
-                    .copy(palette = settings.palette.withColorInFront(argb)))
             }
         }
+        Spacer(Modifier.height(8.dp))
+        ToolkitLineTypes(pen.lineType, InkControlsTags::line) { update(pen.copy(lineType = it)) }
+        Spacer(Modifier.height(4.dp))
+        ToolkitToggle("Hold for straight line", pen.holdForStraightLine, InkControlsTags.Hold,
+            "Draw a line and pause with the pen still down for a second: the stroke is replaced by a straight line you can move and resize. Lift without pausing and the freehand stroke stays. Nearly horizontal and nearly vertical lines are levelled.") {
+            update(pen.copy(holdForStraightLine = it))
+        }
+        ToolkitSlider("Thickness", pen.sizeDp, 1f..8f, .5f, InkControlsTags.Width, color) { update(pen.copy(sizeDp = it)) }
+        Spacer(Modifier.height(2.dp))
+        if (pen.brush == InkBrush.Calligraphy) ToolkitNumberPicker("Pressure", pen.pressure, 0..5, InkControlsTags.Pressure,
+            "How much harder pressing thickens the line. 0 turns off pressure response; the broad nib still makes downstrokes and cross-strokes different.") {
+            update(pen.copy(pressure = it))
+        }
+        ToolkitNumberPicker("Stabilization", pen.stabilization, 0..5, InkControlsTags.Stabilization,
+            "Smooths out shake. A little goes a long way — high settings make the ink lag behind the pen.") { update(pen.copy(stabilization = it)) }
+        Spacer(Modifier.height(2.dp))
+        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Color", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            Icon(DrawToolkitSymbols.Add, "Add color", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp).alpha(.42f))
+        }
+        ToolkitPalette(settings.palette, color.toArgb(), InkControlsTags::color, InkControlsTags.WheelButton,
+            InkControlsTags.CustomColor,
+            onPick = { update(pen.copy(colorArgb = it, colorFollowsTheme = it == canvasInk.toArgb())) },
+            onPromote = { onChange(settings.copy(palette = settings.palette.withColorInFront(it))) },
+            onAutomatic = { update(pen.copy(colorFollowsTheme = true)) })
+        Spacer(Modifier.height(6.dp))
     }
 }
 
 @Composable
 private fun StrokePreview(pen: InkPenSettings, automatic: Color) {
     val color = if (pen.colorFollowsTheme) automatic else Color(pen.colorArgb)
-    val paper = if (automatic == Color.White) Color(0xff242424) else Color.White
-    Canvas(Modifier.fillMaxWidth().height(64.dp).background(paper, MaterialTheme.shapes.small).testTag(InkControlsTags.Preview)) {
-        val path = Path().apply { moveTo(18.dp.toPx(), size.height * .7f)
-            cubicTo(size.width * .3f, -size.height * .1f, size.width * .55f, size.height * 1.1f, size.width - 18.dp.toPx(), size.height * .3f) }
-        drawPath(path, color, style = Stroke(width = pen.sizeDp.dp.toPx(), pathEffect = when (pen.lineType) {
-            LineType.Solid -> null
-            else -> androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx()))
-        }))
+    Canvas(Modifier.fillMaxWidth().height(76.dp).clip(RoundedCornerShape(38.dp))
+        .background(MaterialTheme.colorScheme.surfaceContainerHighest).testTag(InkControlsTags.Preview)) {
+        val path = Path().apply {
+            moveTo(size.width * .14f, size.height * .70f)
+            cubicTo(size.width * .34f, size.height * .12f, size.width * .48f, size.height * .18f, size.width * .58f, size.height * .52f)
+            cubicTo(size.width * .66f, size.height * .80f, size.width * .74f, size.height * .86f, size.width * .86f, size.height * .62f)
+        }
+        drawPath(path, color, style = Stroke(width = pen.sizeDp.dp.toPx(), cap = StrokeCap.Round,
+            pathEffect = pen.lineType.toolkitPathEffect(pen.sizeDp.dp.toPx())))
     }
 }
 

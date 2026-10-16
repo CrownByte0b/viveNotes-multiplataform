@@ -39,6 +39,11 @@ class InkControlsTest {
         onNodeWithTag(InkControlsTags.Width).performSemanticsAction(SemanticsActions.SetProgress) { it(6f) }
         onNodeWithTag(InkControlsTags.color(0xff2962ff.toInt())).performClick()
         onNodeWithTag(InkControlsTags.Preview).performKeyInput { pressKey(Key.Escape) }
+        // Escape first dismisses a visible swatch tooltip; the next closes its owner.
+        if (onAllNodesWithTag(InkControlsTags.Preview).fetchSemanticsNodes().isNotEmpty()) {
+            onNodeWithTag(InkControlsTags.Preview).performKeyInput { pressKey(Key.Escape) }
+        }
+        onNodeWithTag(InkControlsTags.Preview).assertDoesNotExist()
         onNodeWithTag(INK_LAYER_TAG).performMouseInput {
             updatePointerTo(Offset(350f, 350f)); press(); moveTo(Offset(450f, 350f), delayMillis = 80); release()
         }
@@ -66,11 +71,14 @@ class InkControlsTest {
         onNodeWithText("Pen 3").assertExists()
         onNodeWithTag(InkControlsTags.Pressure).assertDoesNotExist()
         onNodeWithTag(InkControlsTags.brush(InkBrush.Calligraphy)).performClick()
-        onNodeWithTag("${InkControlsTags.Pressure}-plus").performClick()
-        onNodeWithTag("${InkControlsTags.Stabilization}-plus").performClick()
+        onNodeWithTag(InkControlsTags.Pressure).performClick()
+        onNodeWithTag("${InkControlsTags.Pressure}-option-4").performClick()
+        onNodeWithTag(InkControlsTags.Stabilization).performClick()
+        onNodeWithTag("${InkControlsTags.Stabilization}-option-2").performClick()
         onNodeWithTag(InkControlsTags.Hold).performClick()
         onNodeWithTag(InkControlsTags.Width).performSemanticsAction(SemanticsActions.SetProgress) { it(7.5f) }
-        onNodeWithTag(InkControlsTags.CustomColor).performTextReplacement("invalid")
+        onNodeWithTag(InkControlsTags.WheelButton).performClick()
+        onNodeWithTag(InkControlsTags.CustomColor).performScrollTo().performTextReplacement("invalid")
         onNodeWithTag("${InkControlsTags.CustomColor}-apply").assertIsNotEnabled()
         onNodeWithTag(InkControlsTags.CustomColor).performTextReplacement("#123456")
         onNodeWithTag("${InkControlsTags.CustomColor}-apply").performClick()
@@ -81,6 +89,7 @@ class InkControlsTest {
                 pressure = 4, stabilization = 2, holdForStraightLine = false), state.value.inkSettings.pen3)
             assertEquals(state.value.inkSettings, saved.last())
         }
+        onNodeWithTag(InkControlsTags.WheelDone).performClick()
         onNodeWithTag(InkControlsTags.Preview).performKeyInput { pressKey(Key.Escape) }
         onNodeWithTag(DrawRibbonTags.HighlighterKit).performClick()
         onNodeWithTag(InkControlsTags.Pressure).assertDoesNotExist()
@@ -92,6 +101,7 @@ class InkControlsTest {
         runOnIdle { assertEquals(InkHighlighterSettings(32f, HighlighterColors[3]), state.value.inkSettings.highlighter) }
         onNodeWithTag(InkControlsTags.Preview).performKeyInput { pressKey(Key.Escape) }
         onNodeWithTag(DrawRibbonTags.penKit(2)).performClick()
+        onNodeWithTag(InkControlsTags.WheelButton).performClick()
         onNodeWithTag(InkControlsTags.Automatic).performScrollTo().performClick()
         runOnIdle {
             assertTrue(state.value.inkSettings.pen3.colorFollowsTheme)
