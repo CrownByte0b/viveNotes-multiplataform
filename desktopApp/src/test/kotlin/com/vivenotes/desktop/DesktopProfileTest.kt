@@ -52,6 +52,8 @@ class DesktopProfileTest {
 
     @Test
     fun profilePropertyDefaultsToProductionAndRejectsUnknownValues() {
+        assertFalse(DesktopProfile.PRODUCTION.developmentBuild)
+        assertTrue(DesktopProfile.DEVELOPMENT.developmentBuild)
         assertEquals(DesktopProfile.PRODUCTION, DesktopProfile.fromProperty(null))
         assertEquals(DesktopProfile.DEVELOPMENT, DesktopProfile.fromProperty("dev"))
         assertEquals(DesktopProfile.PRODUCTION, DesktopProfile.fromProperty("production"))

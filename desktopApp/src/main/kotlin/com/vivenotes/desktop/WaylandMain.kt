@@ -43,7 +43,7 @@ internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: De
         frame.size = initialSize
         frame.setLocation(monitor.workArea.x + (monitor.workArea.width - initialSize.width) / 2,
             monitor.workArea.y + (monitor.workArea.height - initialSize.height) / 2)
-        frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame), notes.notebookFiles(frame), log))
+        frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame), notes.notebookFiles(frame), log, profile))
         frame.isVisible = true
     }
 }
@@ -56,7 +56,8 @@ internal fun requireNativeWaylandToolkit(toolkitClassName: String) {
 
 /** The Compose panel inside the [PopupLayerHost] its popups open in. */
 @OptIn(ExperimentalComposeUiApi::class)
-private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, notebookFiles: NotebookFiles, log: DebugLog): PopupLayerHost {
+private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, notebookFiles: NotebookFiles, log: DebugLog,
+                                 profile: DesktopProfile): PopupLayerHost {
     val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
     val host = PopupLayerHost(panel)
     panel.windowContainer = host
@@ -80,7 +81,7 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
             onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
             accountService = notes.accountService,
             aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
-            appVersion = DesktopBuildInfo.version, debugLog = log)
+            appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild)
     }
     return host
 }

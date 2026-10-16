@@ -132,12 +132,20 @@ class InkToolkitInteractionTest {
             .selectInk(move.selection!!)
         val state = mutableStateOf(selected)
         val math = Math()
-        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }, aiModels = Models(), drawMath = math) } }
+        val development = mutableStateOf(false)
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }, aiModels = Models(),
+            drawMath = math, developmentBuild = development.value) } }
         onNodeWithTag(WorkspaceTestTags.InkMath).performMouseInput { click(center) }
         waitUntil(timeoutMillis = 5000) { math.reads.isNotEmpty() }
         onNodeWithTag("draw-math-source").assertIsDisplayed().assertTextContains("x^2-4=0")
+        assertEquals(320f, onNodeWithTag("tool-pane").fetchSemanticsNode().boundsInRoot.width)
         mainClock.advanceTimeBy(300)
         waitUntil(timeoutMillis = 5000) { math.calls.isNotEmpty() }
+        onNodeWithText("Understood as").assertDoesNotExist()
+        runOnIdle { development.value = true }
+        onNodeWithText("Understood as").assertIsDisplayed()
+        runOnIdle { development.value = false }
+        onNodeWithText("Understood as").assertDoesNotExist()
         onNodeWithTag("draw-math-action-simplify").assertIsDisplayed().performClick()
         waitUntil(timeoutMillis = 5000) { math.calls.size == 2 }
         runOnIdle {

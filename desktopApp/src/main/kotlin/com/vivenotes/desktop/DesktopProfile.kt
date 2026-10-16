@@ -10,6 +10,8 @@ internal enum class DesktopProfile(val windowClass: String, val windowTitle: Str
     PRODUCTION("vivenotes", "Vive Notes"),
     DEVELOPMENT("vivenotes-dev", "Vive Notes Dev");
 
+    val developmentBuild: Boolean get() = this == DEVELOPMENT
+
     fun directories(workingDirectory: File = File(System.getProperty("user.dir"))): ProfileDirectories =
         when (this) {
             PRODUCTION -> ProfileDirectories(AppDirectories.data(), AppDirectories.config(), AppDirectories.cache())

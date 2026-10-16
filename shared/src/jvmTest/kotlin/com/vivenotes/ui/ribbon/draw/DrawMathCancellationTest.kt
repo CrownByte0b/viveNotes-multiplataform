@@ -79,4 +79,34 @@ class DrawMathCancellationTest {
         onNodeWithTag("draw-math-action-new").assertExists()
         onNodeWithTag("draw-math-action-old").assertDoesNotExist()
     }
+
+    @Test
+    fun editingTheSourceDiscardsAnOlderNoncancellableActionResult() = runDesktopComposeUiTest(width = 600, height = 900) {
+        val old = CompletableDeferred<Unit>()
+        var started = false
+        var finished = false
+        val math = object : DrawMath {
+            override val engine = object : MathEngine {
+                override suspend fun analyze(latex: String) = MathAnalysis(actions = listOf(MathAction("expand", "Expand")))
+                override suspend fun execute(latex: String, actionId: String): MathOperationResult {
+                    if (latex == "old") withContext(NonCancellable) { started = true; old.await(); finished = true }
+                    return MathOperationResult(latex = latex)
+                }
+            }
+            override suspend fun readFormula(ink: InkPage) = ""
+        }
+        setContent { ViveNotesTheme { MathPane("old", math) {} } }
+        mainClock.advanceTimeBy(300)
+        onNodeWithTag(MathPaneTags.action("expand")).performClick()
+        waitUntil { started }
+        onNodeWithTag(MathPaneTags.action("expand")).assertIsNotEnabled()
+        onNodeWithTag(MathPaneTags.Source).performTextReplacement("new")
+        mainClock.advanceTimeBy(300)
+        onNodeWithTag(MathPaneTags.action("expand")).assertIsEnabled().performClick()
+        onNodeWithTag(MathPaneTags.Result).assertContentDescriptionEquals("new")
+        runOnIdle { old.complete(Unit) }
+        waitUntil { finished }
+        onNodeWithTag(MathPaneTags.Result).assertContentDescriptionEquals("new")
+        onNodeWithTag(MathPaneTags.action("expand")).assertIsEnabled()
+    }
 }

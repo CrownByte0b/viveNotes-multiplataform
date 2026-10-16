@@ -6,7 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.vivenotes.model.ink.InkSelection
-import com.vivenotes.ui.components.ToolPane
+import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -14,7 +14,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 @Composable
-internal fun InkMathPane(selection: InkSelection, math: DrawMath, onClose: () -> Unit) {
+internal fun InkMathPane(selection: InkSelection, math: DrawMath, showInterpretation: Boolean = false,
+                         log: DebugLog = remember { DebugLog() }, onClose: () -> Unit) {
     var source by remember(selection, math) { mutableStateOf<String?>(null) }
     var error by remember(selection, math) { mutableStateOf<String?>(null) }
     var attempt by remember(selection, math) { mutableIntStateOf(0) }
@@ -37,8 +38,8 @@ internal fun InkMathPane(selection: InkSelection, math: DrawMath, onClose: () ->
         }
     }
     val recognized = source
-    if (recognized != null) MathPane(recognized, math, onClose)
-    else ToolPane("Math", onClose) {
+    if (recognized != null) MathPane(recognized, math, showInterpretation, log, onClose)
+    else MathPaneFrame(onClose) {
         val failure = error
         if (failure == null) {
             LinearProgressIndicator(Modifier.fillMaxWidth().testTag("ink-math-loading"))

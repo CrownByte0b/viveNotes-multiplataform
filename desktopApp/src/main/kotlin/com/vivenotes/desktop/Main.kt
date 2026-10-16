@@ -94,7 +94,7 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
                 onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
                 accountService = notes.accountService,
                 aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
-                appVersion = DesktopBuildInfo.version, debugLog = log)
+                appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild)
         }
     }
 }

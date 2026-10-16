@@ -356,6 +356,7 @@ fun WorkspaceScreen(
     search: ContentSearchService? = null,
     onOpenSearchPage: ((String, String) -> Unit)? = null,
     debugLog: DebugLog = remember { DebugLog() },
+    developmentBuild: Boolean = false,
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
     // Held here as well, so a caller that does not keep the settings still sees its changes.
@@ -412,7 +413,8 @@ fun WorkspaceScreen(
                         onInkSettingsChange = onInkSettingsChange,
                         accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
                         onAbout = { aboutOpen = true }, aiModels = aiModels, drawMath = drawMath,
-                        search = search, onOpenSearchPage = onOpenSearchPage, shortcutKeys = shortcutKeys)
+                        search = search, onOpenSearchPage = onOpenSearchPage, shortcutKeys = shortcutKeys,
+                        developmentBuild = developmentBuild, debugLog = debugLog)
                 }
                 if (accountOpen) AccountScreen(accountService, accountModel, onBack = { accountOpen = false })
                 if (aboutOpen) AboutDialog(appVersion, onDismiss = { aboutOpen = false })
@@ -466,6 +468,8 @@ private fun WorkspaceContent(
     onAbout: () -> Unit,
     aiModels: AiModels?,
     drawMath: DrawMath?,
+    developmentBuild: Boolean,
+    debugLog: DebugLog,
     search: ContentSearchService?,
     onOpenSearchPage: ((String, String) -> Unit)?,
     shortcutKeys: ShortcutKeys,
@@ -848,8 +852,10 @@ private fun WorkspaceContent(
                         }
                         DockedPane.Math -> drawMath?.let { math ->
                             val selection = inkMathSelection
-                            if (selection == null) MathPane(mathSource, math, onClose = { openPane = null })
-                            else if (inkMathValid) InkMathPane(selection, math, onClose = { inkMathSelection = null; openPane = null })
+                            if (selection == null) MathPane(mathSource, math, showInterpretation = developmentBuild,
+                                log = debugLog, onClose = { openPane = null })
+                            else if (inkMathValid) InkMathPane(selection, math, showInterpretation = developmentBuild,
+                                log = debugLog, onClose = { inkMathSelection = null; openPane = null })
                         }
                         DockedPane.Models -> ModelsPane(aiModels, onClose = { openPane = null })
                     }
@@ -862,7 +868,11 @@ private fun WorkspaceContent(
         input.drawWithFinger, drawMath, onOpenInPanel = { source ->
             inkMathSelection = null; mathSource = source; openPane = DockedPane.Math
         },
-        onClose = { calculatorOpen = false }, modifier = Modifier.padding(end = if (openPane != null) ToolPaneWidth else 0.dp))
+        onClose = { calculatorOpen = false }, modifier = Modifier.padding(end = when (openPane) {
+            DockedPane.Math -> MathPaneWidth
+            null -> 0.dp
+            else -> ToolPaneWidth
+        }))
     NavigationDialogs(state, navigationRequests, navigation)
     linkEditor?.let { request -> LinkEditorDialog(request, onDismiss = { linkEditor = null }) }
     NotebookTransferDialog(state.notebookTransfer, onDismiss = { fileActions?.dismissTransfer() })
