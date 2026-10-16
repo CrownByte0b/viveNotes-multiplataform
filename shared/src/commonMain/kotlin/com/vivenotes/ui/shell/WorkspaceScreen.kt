@@ -373,10 +373,10 @@ fun WorkspaceScreen(
     val tooltipDismissals = remember(debugLog) { TooltipDismissals(debugLog) }
     val shortcutKeys = remember { ShortcutKeys() }
     var workspaceHasFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(workspaceHasFocus) {
-        if (workspaceHasFocus) return@LaunchedEffect
+    LaunchedEffect(workspaceHasFocus, tooltipDismissals.hasOpenPopup) {
+        if (workspaceHasFocus || tooltipDismissals.hasOpenPopup) return@LaunchedEffect
         withFrameNanos { }
-        canvasFocusRequester.requestFocus()
+        if (!workspaceHasFocus && !tooltipDismissals.hasOpenPopup) canvasFocusRequester.requestFocus()
     }
     val darkTheme = effectiveSettings.darkTheme ?: systemDarkTheme ?:
         (MaterialTheme.colorScheme.background.luminance() < 0.45f)

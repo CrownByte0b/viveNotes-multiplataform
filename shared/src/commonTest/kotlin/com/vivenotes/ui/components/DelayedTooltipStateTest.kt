@@ -18,6 +18,23 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalCoroutinesApi::class)
 class DelayedTooltipStateTest {
     @Test
+    fun popupPresenceKeepsFocusRecoverySuspendedUntilTheLastOwnerCloses() {
+        val registry = TooltipDismissals()
+        val parent = Any()
+        val child = Any()
+        assertFalse(registry.hasOpenPopup)
+        registry.openPopup(parent, "dropdown")
+        assertTrue(registry.hasOpenPopup)
+        registry.openPopup(child, "dropdown")
+        registry.closePopup(parent)
+        assertTrue(registry.hasOpenPopup)
+        registry.closePopup(Any())
+        assertTrue(registry.hasOpenPopup)
+        registry.closePopup(child)
+        assertFalse(registry.hasOpenPopup)
+    }
+
+    @Test
     fun hoverAppearsAfterQuarterSecond() = runTest {
         val delegate = FakeTooltipState()
         val state = DelayedTooltipState(delegate)

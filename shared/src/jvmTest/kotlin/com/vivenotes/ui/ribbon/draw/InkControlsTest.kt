@@ -39,10 +39,6 @@ class InkControlsTest {
         onNodeWithTag(InkControlsTags.Width).performSemanticsAction(SemanticsActions.SetProgress) { it(6f) }
         onNodeWithTag(InkControlsTags.color(0xff2962ff.toInt())).performClick()
         onNodeWithTag(InkControlsTags.Preview).performKeyInput { pressKey(Key.Escape) }
-        // Escape first dismisses a visible swatch tooltip; the next closes its owner.
-        if (onAllNodesWithTag(InkControlsTags.Preview).fetchSemanticsNodes().isNotEmpty()) {
-            onNodeWithTag(InkControlsTags.Preview).performKeyInput { pressKey(Key.Escape) }
-        }
         onNodeWithTag(InkControlsTags.Preview).assertDoesNotExist()
         onNodeWithTag(INK_LAYER_TAG).performMouseInput {
             updatePointerTo(Offset(350f, 350f)); press(); moveTo(Offset(450f, 350f), delayMillis = 80); release()

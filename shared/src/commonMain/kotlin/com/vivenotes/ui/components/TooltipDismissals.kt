@@ -5,6 +5,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import com.vivenotes.ui.keyboard.ShortcutKeys
@@ -14,6 +17,8 @@ import com.vivenotes.diagnostics.DebugLog
 internal class TooltipDismissals(private val log: DebugLog = DebugLog()) {
     private val tooltips = mutableMapOf<DelayedTooltipState, Any?>()
     private val popups = mutableMapOf<Any, String>()
+    var hasOpenPopup by mutableStateOf(false)
+        private set
 
     fun register(state: DelayedTooltipState, owner: Any? = null) {
         tooltips[state] = owner
@@ -23,12 +28,14 @@ internal class TooltipDismissals(private val log: DebugLog = DebugLog()) {
 
     fun openPopup(owner: Any, kind: String) {
         popups[owner] = kind
+        hasOpenPopup = true
         updateSuppression()
         log.event("popup") { "Opened $kind" }
     }
 
     fun closePopup(owner: Any) {
         val kind = popups.remove(owner) ?: return
+        hasOpenPopup = popups.isNotEmpty()
         updateSuppression()
         log.event("popup") { "Closed $kind" }
     }
@@ -69,7 +76,8 @@ internal fun Modifier.dismissPopupOnEscape(onDismiss: () -> Unit): Modifier {
     val keys = remember { ShortcutKeys() }
     return onPreviewKeyEvent { event ->
         keys.observe(event) || keys.dismiss(event) {
-            if (tooltips?.dismiss() != true) onDismiss()
+            tooltips?.dismiss()
+            onDismiss()
             true
         }
     }
