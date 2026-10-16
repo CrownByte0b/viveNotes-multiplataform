@@ -93,8 +93,8 @@ class InkControlsTest {
         onNodeWithTag(InkControlsTags.Hold).assertDoesNotExist()
         onNodeWithTag(InkControlsTags.Automatic).assertDoesNotExist()
         onNodeWithTag(InkControlsTags.Width).performSemanticsAction(SemanticsActions.SetProgress) { it(32f) }
-        onNodeWithTag(InkControlsTags.color(HighlighterColors[3])).performClick()
-        runOnIdle { assertEquals(InkHighlighterSettings(32f, HighlighterColors[3]), state.value.inkSettings.highlighter) }
+        onNodeWithTag(InkControlsTags.color(0x66ff4081)).performClick()
+        runOnIdle { assertEquals(InkHighlighterSettings(32f, 0x66ff4081), state.value.inkSettings.highlighter) }
         onNodeWithTag(InkControlsTags.Preview).performKeyInput { pressKey(Key.Escape) }
         onNodeWithTag(DrawRibbonTags.penKit(2)).performClick()
         onNodeWithTag(InkControlsTags.WheelButton).performClick()
@@ -102,7 +102,7 @@ class InkControlsTest {
         runOnIdle {
             assertTrue(state.value.inkSettings.pen3.colorFollowsTheme)
             assertEquals(0xff123456.toInt(), state.value.inkSettings.pen3.colorArgb)
-            assertEquals(HighlighterColors[3], state.value.inkSettings.highlighter.colorArgb)
+            assertEquals(0x66ff4081, state.value.inkSettings.highlighter.colorArgb)
         }
     }
 
@@ -130,7 +130,7 @@ class InkControlsTest {
         }
         onNodeWithTag(DrawRibbonTags.HighlighterKit).performClick()
         onNodeWithTag(InkControlsTags.Width).performSemanticsAction(SemanticsActions.SetProgress) { it(32f) }
-        onNodeWithTag(InkControlsTags.color(HighlighterColors[2])).performClick()
+        onNodeWithTag(InkControlsTags.color(0x6640c4ff)).performClick()
         onNodeWithTag(InkControlsTags.Preview).performKeyInput { pressKey(Key.Escape) }
         onNodeWithTag(INK_LAYER_TAG).performMouseInput {
             updatePointerTo(Offset(10f, 90f)); press(); moveTo(Offset(110f, 90f), delayMillis = 80); release()
@@ -141,7 +141,7 @@ class InkControlsTest {
             assertEquals(0xffe53935.toInt(), edits[0].row.colorArgb)
             assertEquals(false, edits[0].row.colorFollowsTheme)
             assertEquals(32f, edits[1].row.sizeDp)
-            assertEquals(HighlighterColors[2], edits[1].row.colorArgb)
+            assertEquals(0x6640c4ff, edits[1].row.colorArgb)
             edits.forEach { assertNotNull(ViveInkCodec.decode(it.row.toByteInk())) }
         }
         val before = onNodeWithTag("ink-frame").captureToImage().toPixelMap()

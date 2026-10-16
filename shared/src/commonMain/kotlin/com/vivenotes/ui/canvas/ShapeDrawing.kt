@@ -5,8 +5,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import com.vivenotes.data.automaticColorOr
 import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.LineType
 import com.vivenotes.model.ink.contours
@@ -44,12 +46,7 @@ fun DrawScope.drawDocumentShape(shape: Outline.Shape, originX: Float = shape.x,
             LineType.Dashed -> PathEffect.dashPathEffect(floatArrayOf(width * 2.6f, width * 1.8f))
             LineType.Dotted -> PathEffect.dashPathEffect(floatArrayOf(0.01f, width * 2f))
         }
-        val border = when (shape.borderFollowsTheme) {
-            true -> canvasInk
-            false -> Color(shape.borderArgb)
-            null -> if (shape.borderArgb == 0xFF000000.toInt() ||
-                shape.borderArgb == 0xFFFFFFFF.toInt()) canvasInk else Color(shape.borderArgb)
-        }
+        val border = Color(automaticColorOr(shape.borderArgb, shape.borderFollowsTheme, canvasInk.toArgb()))
         drawPath(path, border, style = Stroke(width = width,
             cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = effect))
     }

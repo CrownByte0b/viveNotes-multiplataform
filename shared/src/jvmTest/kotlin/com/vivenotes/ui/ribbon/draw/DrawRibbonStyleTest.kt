@@ -98,9 +98,9 @@ class DrawRibbonStyleTest {
         assertTip(DrawRibbonTags.pen(2), Color(0xffe53935))
         assertTip(DrawRibbonTags.pen(0), Color.White)
         onNodeWithTag(DrawRibbonTags.HighlighterKit).performClick()
-        onNodeWithTag(InkControlsTags.color(HighlighterColors[2])).performClick()
+        onNodeWithTag(InkControlsTags.color(0x6640c4ff)).performClick()
         onNodeWithTag(InkControlsTags.Preview).performKeyInput { pressKey(Key.Escape) }
-        assertTip(DrawRibbonTags.HighlighterTool, Color(HighlighterColors[2]).copy(alpha = 1f))
+        assertTip(DrawRibbonTags.HighlighterTool, Color(0x6640c4ff).copy(alpha = 1f))
         assertTip(DrawRibbonTags.pen(2), Color(0xffe53935))
     }
 

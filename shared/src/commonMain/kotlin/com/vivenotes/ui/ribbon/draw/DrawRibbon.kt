@@ -109,7 +109,7 @@ internal fun DrawRibbon(
             onClick = { if (state.drawPlacement == DrawPlacementTool.Table) kit = TableTags.Kit else {
                 kit = null; onStateChange { it.selectDrawPlacement(DrawPlacementTool.Table) }
             } }, onKit = { onStateChange { it.selectDrawPlacement(DrawPlacementTool.Table) }; kit = TableTags.Kit }) {
-            DrawToolkitPopup(kit == TableTags.Kit, { kit = null }) { TableKit(state.inkSettings, ::settings) }
+            DrawToolkitPopup(kit == TableTags.Kit, { kit = null }) { TableKit(state.inkSettings, canvasInk, ::settings) }
         }
         SplitTool("Equation", DocumentSymbols.Function, state.drawPlacement == DrawPlacementTool.Equation,
             enabled, EquationTags.Tool, EquationTags.Kit, onClick = { kit = EquationTags.Kit }, onKit = { kit = EquationTags.Kit }) {

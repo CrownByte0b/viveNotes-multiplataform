@@ -51,8 +51,12 @@ data class InkRulerSettings(val kind: RulerKind = RulerKind.Straight, val diamet
 
 val PenColors = listOf(0xffffffff, 0xff000000, 0xffe53935, 0xff00bcd4, 0xff00c853,
     0xffffd600, 0xffff9100, 0xff9c27b0, 0xff2962ff).map { it.toInt() }
-val HighlighterColors = listOf(0x66ffeb3b, 0x6676ff03, 0x6640c4ff, 0x66ff4081, 0x66ff9100, 0x66b388ff)
-fun List<Int>.withColorInFront(argb: Int): List<Int> = (listOf(argb) + filterNot { it == argb }).take(9)
+val HighlighterColors = listOf(0x66ffffff, 0x66000000, 0x66ffeb3b, 0x6676ff03, 0x6640c4ff, 0x66ff4081, 0x66ff9100, 0x66b388ff)
+
+internal fun List<Int>.normalizedPenPalette(): List<Int> =
+    (PenColors.take(2) + map { it or 0xff000000.toInt() } + PenColors).distinct().take(9)
+
+fun List<Int>.withColorInFront(argb: Int): List<Int> = (listOf(argb) + this).normalizedPenPalette()
 
 data class InkSettings(
     val pen: InkPenSettings = InkPenSettings.starting(0),
@@ -70,7 +74,7 @@ data class InkSettings(
     }
     fun normalized(): InkSettings = copy(pen = pen.normalized(), pen2 = pen2.normalized(), pen3 = pen3.normalized(),
         table = table.normalized(), highlighter = highlighter.normalized(), eraser = eraser.normalized(), ruler = ruler.normalized(),
-        palette = palette.map { it or 0xff000000.toInt() }.distinct().take(9).ifEmpty { PenColors })
+        palette = palette.normalizedPenPalette())
 }
 
 

@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.vivenotes.model.ink.LineType
 import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.components.ScaledDropdownMenu
+import com.vivenotes.workspace.normalizedPenPalette
 import kotlin.math.roundToInt
 
 /** Android's panel palette and typography, scoped to the requested drawing controls. */
@@ -232,13 +233,14 @@ internal fun ToolkitPalette(palette: List<Int>, current: Int, colorTag: (Int) ->
     var mixed by remember { mutableStateOf<Int?>(null) }
     val latestPromote by rememberUpdatedState(onPromote)
     fun close() { open = false; mixed?.let(latestPromote); mixed = null }
+    val colors = palette.normalizedPenPalette()
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        palette.forEach { argb ->
+        colors.forEach { argb ->
             ToolkitSwatch(argb == current, colorTag(argb), "Color #${(argb and 0xffffff).toString(16).padStart(6, '0')}",
                 { onPick(argb) }) { drawRect(Color(argb)) }
         }
         Box {
-            ToolkitSwatch(current !in palette, customTag, "Custom color", { mixed = null; open = true }) {
+            ToolkitSwatch(current !in colors, customTag, "Custom color", { mixed = null; open = true }) {
                 drawRect(Brush.sweepGradient(HUE_STOPS, center))
                 drawCircle(Brush.radialGradient(listOf(Color.White, Color.Transparent), center, size.minDimension / 2f))
             }

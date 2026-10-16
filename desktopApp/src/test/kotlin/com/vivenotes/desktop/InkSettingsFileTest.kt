@@ -51,6 +51,26 @@ class InkSettingsFileTest {
     }
 
     @Test
+    fun displacedLegacyPalettePinsWhiteThenBlackOnLoadAndSaveWithoutChangingPenChoices() {
+        val file = Files.createTempFile("ink-palette-legacy", ".properties").toFile()
+        try {
+            val custom = List(9) { 0xff102030.toInt() + it }
+            file.writeText("palette=${custom.joinToString(",")}\npen.colorArgb=-1\npen.colorFollowsTheme=false\n")
+            val loaded = InkSettingsFile(file).load()
+            assertEquals(PenColors.take(2) + custom.take(7), loaded.palette)
+            assertEquals(-1, loaded.pen.colorArgb)
+            assertFalse(loaded.pen.colorFollowsTheme)
+            val changed = loaded.copy(palette = custom.reversed())
+            InkSettingsFile(file).save(changed)
+            val reopened = InkSettingsFile(file).load()
+            assertEquals(PenColors.take(2) + custom.reversed().take(7), reopened.palette)
+            assertEquals(loaded.pen, reopened.pen)
+            assertEquals(loaded.pen2, reopened.pen2)
+            assertEquals(loaded.pen3, reopened.pen3)
+        } finally { file.delete() }
+    }
+
+    @Test
     fun damagedPreferencesFallBackAndUnsafeValuesNormalize() {
         val file = Files.createTempFile("ink-settings-invalid", ".properties").toFile()
         try {

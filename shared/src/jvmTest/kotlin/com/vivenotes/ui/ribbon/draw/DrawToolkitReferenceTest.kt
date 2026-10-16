@@ -90,7 +90,7 @@ class DrawToolkitReferenceTest {
         val state = mutableStateOf(InkSettings())
         setContent {
             ViveNotesTheme(darkTheme = true) {
-                CompositionLocalProvider(LocalDensity provides Density(2f)) { TableKit(state.value) { state.value = it } }
+                CompositionLocalProvider(LocalDensity provides Density(2f)) { TableKit(state.value, Color.White) { state.value = it } }
             }
         }
         val preview = onNodeWithTag(TableTags.Preview)
@@ -119,7 +119,8 @@ class DrawToolkitReferenceTest {
             assertEquals(2, state.value.table.rows)
             assertTrue(state.value.table.headerColumn)
             assertEquals(0xFF123456.toInt(), state.value.table.fillArgb)
-            assertEquals(0xFF123456.toInt(), state.value.palette.first())
+            assertEquals(PenColors.take(2), state.value.palette.take(2))
+            assertEquals(0xFF123456.toInt(), state.value.palette[2])
         }
         onNodeWithTag(TableTags.Fill).performClick()
         onNodeWithTag("draw-table-fill-none").performClick()
@@ -163,7 +164,8 @@ class DrawToolkitReferenceTest {
             assertEquals(0xFF00C853.toInt(), shape.value.borderArgb)
             assertFalse(shape.value.colorFollowsTheme)
             assertEquals(0xFF123456.toInt(), shape.value.fillArgb)
-            assertEquals(0xFF123456.toInt(), palette.value.first())
+            assertEquals(PenColors.take(2), palette.value.take(2))
+            assertEquals(0xFF123456.toInt(), palette.value[2])
         }
         onNodeWithTag(ShapeMenuTags.Fill).performClick()
         onNodeWithTag(ShapeMenuTags.fill(null)).performClick()

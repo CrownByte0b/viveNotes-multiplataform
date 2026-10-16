@@ -11,6 +11,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.vivenotes.model.Outline
@@ -28,11 +29,12 @@ internal object TableTags {
 }
 
 @Composable
-internal fun TableKit(settings: InkSettings, onChange: (InkSettings) -> Unit) {
+internal fun TableKit(settings: InkSettings, canvasInk: Color = Color.Black, onChange: (InkSettings) -> Unit) {
     val table = settings.table
+    val color = if (table.colorFollowsTheme) canvasInk else Color(table.borderArgb)
     fun update(next: TableToolSettings) = onChange(settings.copy(table = next.normalized()))
     ReferenceToolKit("Table") {
-        TablePreview(table)
+        TablePreview(table, color)
         Spacer(Modifier.height(10.dp))
         ToolkitToggle("Write in with a pen", table.inkOnly, "draw-table-ink-only", "Off, each cell is a text field you type into.") {
             update(table.copy(inkOnly = it))
@@ -44,18 +46,18 @@ internal fun TableKit(settings: InkSettings, onChange: (InkSettings) -> Unit) {
             update(table.copy(rows = it))
         }
         Spacer(Modifier.height(4.dp))
-        ToolkitSlider("Border width", table.borderWidth.toFloat(), 1f..8f, 1f, "draw-table-border-width", Color(table.borderArgb)) {
+        ToolkitSlider("Border width", table.borderWidth.toFloat(), 1f..8f, 1f, "draw-table-border-width", color) {
             update(table.copy(borderWidth = it.roundToInt()))
         }
         Spacer(Modifier.height(2.dp))
         Text("Border color", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(vertical = 2.dp))
-        ToolkitPalette(settings.palette, table.borderArgb, InkControlsTags::color, "draw-table-border-wheel", "draw-table-border-custom",
+        ToolkitPalette(settings.palette, color.toArgb(), InkControlsTags::color, "draw-table-border-wheel", "draw-table-border-custom",
             onPick = { update(table.copy(borderArgb = it, colorFollowsTheme = false)) },
             onPromote = { onChange(settings.copy(palette = settings.palette.withColorInFront(it))) },
             onAutomatic = { update(table.copy(colorFollowsTheme = true)) })
         Spacer(Modifier.height(6.dp))
-        ToolkitFill(table.fillArgb, table.borderArgb, TableTags.Fill, "draw-table-fill-none", "draw-table-fill-custom",
+        ToolkitFill(table.fillArgb, color.toArgb(), TableTags.Fill, "draw-table-fill-none", "draw-table-fill-custom",
             onChange = { update(table.copy(fillArgb = it)) },
             onPromote = { onChange(settings.copy(palette = settings.palette.withColorInFront(it))) })
         Spacer(Modifier.height(6.dp))
@@ -63,7 +65,7 @@ internal fun TableKit(settings: InkSettings, onChange: (InkSettings) -> Unit) {
 }
 
 @Composable
-private fun TablePreview(table: TableToolSettings) {
+private fun TablePreview(table: TableToolSettings, color: Color) {
     val header = MaterialTheme.colorScheme.onSurface.copy(alpha = .16f)
     Box(Modifier.fillMaxWidth().height(96.dp).clip(RoundedCornerShape(14.dp))
         .background(MaterialTheme.colorScheme.surfaceContainerHighest).testTag(TableTags.Preview)) {
@@ -76,7 +78,6 @@ private fun TablePreview(table: TableToolSettings) {
             if (table.headerRow) drawRect(header, Offset.Zero, Size(size.width, height))
             if (table.headerColumn) drawRect(header, Offset.Zero, Size(width, size.height))
             val stroke = (table.borderWidth.dp.toPx() * .7f).coerceAtLeast(1f)
-            val color = Color(table.borderArgb)
             for (c in 0..columns) {
                 val x = (c * width).coerceAtMost(size.width - stroke / 2)
                 drawLine(color, Offset(x, 0f), Offset(x, size.height), stroke)

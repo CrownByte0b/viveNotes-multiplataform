@@ -13,6 +13,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vivenotes.model.Outline
+import com.vivenotes.data.automaticColorOr
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.asAnnotatedString
@@ -55,9 +57,7 @@ internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Co
     colors: RichTextColors, focusRequester: FocusRequester, onFocus: (String) -> Unit,
     onChange: (String, TextFieldValue) -> Unit, onShortcut: (KeyEvent) -> Boolean,
 ) {
-    val border = if (table.borderFollowsTheme == true) {
-        if (canvasInk == Color.White) Color(0xff9aa0a6) else Color(0xff80868b)
-    } else Color(table.borderArgb)
+    val border = Color(automaticColorOr(table.borderArgb, table.borderFollowsTheme, canvasInk.toArgb()))
     val editing = table.lockGroup == null && (
         state.selectedObjectIds == setOf(table.id) && state.selectedTextOutlineIds.isEmpty() && state.selectedInk == null ||
             table.locate(state.focusedTextOutlineId.orEmpty()) != null)

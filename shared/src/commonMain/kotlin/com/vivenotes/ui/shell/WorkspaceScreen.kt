@@ -88,6 +88,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -1571,7 +1572,7 @@ private fun PageCanvas(
             }
             val palette = canvasPalette(page.document.style, canvasDark)
             val darkPage = palette.background.luminance() < 0.45f
-            val shapeInk = if (darkPage) Color.White else Color.Black
+            val shapeInk = palette.ink
             val richColors = RichTextColors(
                 // Android's `EditorStyle.accentColor`, for bullets, to-do boxes and quote stripes.
                 accent = Color(0xFF4CAF50),
@@ -2142,12 +2143,10 @@ private fun PageCanvas(
                                 if (colorSource != null) {
                                     Box {
                                         val swatch = when (colorSource) {
-                                            is Outline.Shape -> if (colorSource.borderFollowsTheme == true ||
-                                                (colorSource.borderFollowsTheme == null &&
-                                                    colorSource.borderArgb in setOf(0xFF000000.toInt(), 0xFFFFFFFF.toInt())))
-                                                shapeInk else Color(colorSource.borderArgb)
-                                            is Outline.Table -> if (colorSource.borderFollowsTheme == true)
-                                                shapeInk else Color(colorSource.borderArgb)
+                                            is Outline.Shape -> Color(com.vivenotes.data.automaticColorOr(
+                                                colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
+                                            is Outline.Table -> Color(com.vivenotes.data.automaticColorOr(
+                                                colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
                                             is Outline.Equation -> colorSource.colorArgb?.let(::Color) ?: shapeInk
                                             else -> Color.Black
                                         }

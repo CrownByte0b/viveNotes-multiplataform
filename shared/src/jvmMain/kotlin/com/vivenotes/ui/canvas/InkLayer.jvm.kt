@@ -20,7 +20,7 @@ import androidx.ink.brush.InputToolType
 import androidx.ink.geometry.ImmutableAffineTransform
 import com.vivenotes.byteink.compose.*
 import com.vivenotes.byteink.kit.InkPoint
-import com.vivenotes.byteink.kit.automaticColorOr
+import com.vivenotes.data.automaticColorOr
 import com.vivenotes.data.InkEdit
 import com.vivenotes.data.EraserMode
 import com.vivenotes.ink.DesktopPartialEraseGesture
