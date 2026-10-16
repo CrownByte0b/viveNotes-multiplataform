@@ -7,6 +7,21 @@ import com.vivenotes.workspace.*
 import kotlin.test.*
 
 class InsertSpaceTest {
+    @Test
+    fun insertingSpaceLeavesLockedOutlinesInPlaceAlongsideMovingInkAndText() {
+        val base = workspace()
+        val pinned = Outline.Image("pinned", 200f, 230f, 80f, attachmentId = "attachment", height = 60f, lockGroup = "group")
+        val initial = base.updatePage(base.selectedPageId) {
+            it.copy(document = it.document.copy(outlines = it.document.outlines + pinned))
+        }
+        val plan = assertNotNull(prepareSpaceInsertion(initial, SpaceCut(PageSpace.Axis.Vertical, 200f, 40f)))
+        assertTrue(pinned.id !in plan.outlineIds)
+        val moved = initial.applySpaceInsertion(plan)
+        assertEquals(pinned, moved.selectedPage!!.document.outlines.last())
+        assertEquals(280f, moved.selectedPage!!.document.outlines.first().y)
+        assertEquals(initial.selectedPage!!.document, moved.undoStructure().selectedPage!!.document)
+    }
+
     private fun workspace(): WorkspaceState {
         val base = WorkspaceState.demo().selectDrawPlacement(DrawPlacementTool.InsertSpace)
         val rows = listOf(selectionLine("before", base.selectedPageId, y = 150f), selectionLine("after", base.selectedPageId, y = 250f))

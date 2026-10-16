@@ -49,10 +49,10 @@ internal class DesktopInkPage private constructor(
     override fun selectAt(page: InkPage, x: Float, y: Float, reach: Float): InkSelection? {
         if (!x.isFinite() || !y.isFinite() || !reach.isFinite() || reach < 0f) return null
         val hit = index.at(InkPoint(x, y), reach).lastOrNull() ?: return null
-        val candidates = projections.filter { it.id == hit.id || (hit.groupId != null && it.groupId == hit.groupId) }
-        val bounds = if (hit.groupId == null) hit.pageBounds else candidates.mapNotNull { it.pageBounds }.unionBounds()
-        val box = bounds ?: return null
-        val selection = candidates.selectWithLasso(box.selectionPath()) ?: return null
+        val candidates = if (hit.groupId == null) listOf(hit) else projections.filter { it.groupId == hit.groupId }
+        val box = candidates.mapNotNull { it.pageBounds }.unionBounds() ?: return null
+        val selection = InkLassoSelection(box.selectionPath(), candidates.map { it.id }.toSet(),
+            candidates.map { it.projectionKey }.toSet(), box)
         return DesktopInkSelection(page, selection)
     }
 
@@ -183,7 +183,11 @@ internal fun InkPage.withDesktopEdit(edit: InkEdit): InkPage = withDesktopEdits(
 
 internal fun InkPage.withDesktopEdits(edits: List<InkEdit>): InkPage {
     if (edits.isEmpty()) return this
-    if (edits.any { it is InkEdit.PartialErase || it is InkEdit.RestoreStrokes || it is InkEdit.Move }) {
+    if (edits.any { it is InkEdit.Batch }) return edits.fold(this) { page, edit ->
+        page.withDesktopEdits(if (edit is InkEdit.Batch) edit.edits else listOf(edit))
+    }
+    if (edits.any { it is InkEdit.PartialErase || it is InkEdit.RestoreStrokes || it is InkEdit.Move ||
+        it is InkEdit.SetStrokeColors || it is InkEdit.SetStrokeGroups }) {
         var page = this
         val rows = ArrayList<InkEdit>()
         fun flushRows() {
@@ -193,6 +197,8 @@ internal fun InkPage.withDesktopEdits(edits: List<InkEdit>): InkPage {
             is InkEdit.PartialErase -> { flushRows(); page = page.withPartialErase(edit) }
             is InkEdit.Move -> { flushRows(); page = page.withMove(edit) }
             is InkEdit.RestoreStrokes -> { flushRows(); page = page.withRestoredStrokes(edit) }
+            is InkEdit.SetStrokeColors -> { flushRows(); page = page.withStrokeColors(edit) }
+            is InkEdit.SetStrokeGroups -> { flushRows(); page = page.withStrokeGroups(edit) }
             else -> rows.add(edit)
         }
         flushRows()
@@ -215,13 +221,38 @@ internal fun InkPage.withDesktopEdits(edits: List<InkEdit>): InkPage {
             removed.addAll(edit.ids)
             edit.ids.forEach(added::remove)
         }
-        is InkEdit.PartialErase, is InkEdit.RestoreStrokes, is InkEdit.Move -> error("Operation edits must be replayed in order")
+        is InkEdit.PartialErase, is InkEdit.RestoreStrokes, is InkEdit.Move, is InkEdit.SetStrokeColors, is InkEdit.SetStrokeGroups,
+        is InkEdit.Batch -> error("Operation edits must be replayed in order")
     }
     if (added.isEmpty() && removed.isEmpty()) return this
     val geometry = original.withChanges(added.values.map { it.second }, removed)
     val kept = if (removed.isEmpty()) strokes else strokes.filterNot { it.id in removed }
     val visible = appendPortable(kept, added.values.map { it.first })
     return copy(strokes = visible, geometry = geometry)
+}
+
+private fun InkPage.withStrokeColors(edit: InkEdit.SetStrokeColors): InkPage {
+    val native = desktopGeometry()
+    val sources = native.sourceStrokes.map { stroke ->
+        edit.colors[stroke.id]?.let { color -> stroke.copy(
+            stroke = stroke.stroke.copy(stroke.stroke.brush.copyWithColorIntArgb(color.argb)),
+            colorFollowsTheme = color.followsTheme,
+        ) } ?: stroke
+    }
+    return copy(strokes = strokes.map { stroke -> edit.colors[stroke.id]?.let { color ->
+        stroke.copy(colorArgb = color.argb, colorFollowsTheme = color.followsTheme)
+    } ?: stroke }).replaySources(sources, native.operations)
+}
+
+private fun InkPage.withStrokeGroups(edit: InkEdit.SetStrokeGroups): InkPage {
+    val native = desktopGeometry()
+    val sources = native.sourceStrokes.map { stroke ->
+        if (stroke.id in edit.groups) stroke.copy(groupId = edit.groups[stroke.id]) else stroke
+    }
+    val projections = native.projections.map { stroke ->
+        if (stroke.id in edit.groups) stroke.copy(groupId = edit.groups[stroke.id]) else stroke
+    }
+    return copy(geometry = DesktopInkPage(projections, sources.map { it.id }, sources, native.operations))
 }
 
 private fun InkPage.withPartialErase(edit: InkEdit.PartialErase): InkPage {

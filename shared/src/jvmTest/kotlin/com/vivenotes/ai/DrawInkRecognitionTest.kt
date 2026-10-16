@@ -3,9 +3,25 @@ package com.vivenotes.ai
 import com.vivenotes.ink.InkPageReader
 import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.ink.selectionLine
+import com.vivenotes.ink.splitSelectionPage
 import kotlin.test.*
 
 class DrawInkRecognitionTest {
+    @Test
+    fun selectedFragmentRasterNeverRebuildsItsErasedGapOrUnselectedSibling() {
+        val (_, split) = splitSelectionPage()
+        val selected = split.geometry!!.selectInRect(split, 0f, 180f, 55f, 220f)!!.move(20f, 40f)!!.selection!!
+        val pieces = selected.forRecognition()!!.desktopGeometry().projections
+        assertEquals(1, pieces.size)
+        for (stem in listOf(4f, 10f)) renderDrawInk(pieces, stem).use { image ->
+            val pixels = image.argbPixels()
+            val center = image.height / 2
+            assertEquals(0xffffffff.toInt(), pixels[center * image.width + image.width - 1],
+                "right padding stays white beyond the selected fragment")
+            assertTrue(pixels.any { it == 0xff000000.toInt() })
+        }
+    }
+
     @Test
     fun calculatorRasterUsesAndroidsStemSizingAndAWhiteBackgroundWithOpaqueBlackInk() {
         val page = InkPageReader.read("page", listOf(selectionLine()), emptyList(), emptyList())

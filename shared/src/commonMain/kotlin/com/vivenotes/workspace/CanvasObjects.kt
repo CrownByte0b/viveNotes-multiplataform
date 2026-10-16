@@ -7,9 +7,17 @@ import com.vivenotes.model.newId
 data class CanvasClipboard(
     val texts: List<Outline.Text> = emptyList(),
     val objects: List<Outline> = emptyList(),
+    val ink: com.vivenotes.model.ink.InkClipboard? = null,
 ) {
     val outlines: List<Outline> get() = texts + objects
-    val isEmpty: Boolean get() = texts.isEmpty() && objects.isEmpty()
+    val isEmpty: Boolean get() = texts.isEmpty() && objects.isEmpty() && ink == null
+}
+
+internal fun Outline.recolored(argb: Int): Outline = when (this) {
+    is Outline.Shape -> copy(borderArgb = argb, borderFollowsTheme = false)
+    is Outline.Table -> copy(borderArgb = argb, borderFollowsTheme = false)
+    is Outline.Equation -> copy(colorArgb = argb)
+    else -> this
 }
 
 data class InkHistoryChange(

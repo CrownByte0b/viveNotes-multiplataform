@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -57,6 +58,9 @@ internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Co
     val border = if (table.borderFollowsTheme == true) {
         if (canvasInk == Color.White) Color(0xff9aa0a6) else Color(0xff80868b)
     } else Color(table.borderArgb)
+    val editing = table.lockGroup == null && (
+        state.selectedObjectIds == setOf(table.id) && state.selectedTextOutlineIds.isEmpty() && state.selectedInk == null ||
+            table.locate(state.focusedTextOutlineId.orEmpty()) != null)
     Column(Modifier.fillMaxSize().then(table.fillArgb?.let { Modifier.background(Color(it)) } ?: Modifier)) {
         table.rows.forEachIndexed { r, row ->
             Row(Modifier.fillMaxWidth().height(rows[r].dp)) {
@@ -68,19 +72,26 @@ internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Co
                         if (!table.inkOnly) {
                             val focused = state.focusedTextOutlineId == cell.id
                             val buffer = state.richTextFor(cell.id) ?: RichTextBuffer(cell.blocks)
-                            BasicTextField(TextFieldValue(buffer.asAnnotatedString(colors), TextRange(buffer.selection.start, buffer.selection.end)),
-                                { onChange(cell.id, it) }, readOnly = state.selectedPage?.editable != true || table.lockGroup != null,
-                                cursorBrush = SolidColor(canvasInk),
-                                textStyle = TextStyle(color = canvasInk, fontSize = 14.sp, fontWeight = if (header) FontWeight.Bold else FontWeight.Normal),
-                                modifier = Modifier.fillMaxSize().padding(8.dp).testTag(TableTags.cell(cell.id))
-                                    .then(if (focused) Modifier.focusRequester(focusRequester) else Modifier)
-                                    .onFocusChanged { if (it.isFocused && !focused) onFocus(cell.id) }
-                                    .onPreviewKeyEvent { event ->
-                                        if (event.type == KeyEventType.KeyDown && event.key == Key.Tab && !event.isCtrlPressed && !event.isAltPressed) {
-                                            val next = if (event.isShiftPressed) table.cellBefore(cell.id) else table.cellAfter(cell.id)
-                                            if (next != null) { onFocus(next); true } else onShortcut(event)
-                                        } else onShortcut(event)
-                                    })
+                            val cellStyle = TextStyle(color = canvasInk, fontSize = 14.sp,
+                                fontWeight = if (header) FontWeight.Bold else FontWeight.Normal)
+                            if (!editing) {
+                                Text(buffer.asAnnotatedString(colors), style = cellStyle,
+                                    modifier = Modifier.fillMaxSize().padding(8.dp).testTag(TableTags.cell(cell.id)))
+                            } else {
+                                BasicTextField(TextFieldValue(buffer.asAnnotatedString(colors), TextRange(buffer.selection.start, buffer.selection.end)),
+                                    { onChange(cell.id, it) }, readOnly = state.selectedPage?.editable != true,
+                                    cursorBrush = SolidColor(canvasInk),
+                                    textStyle = cellStyle,
+                                    modifier = Modifier.fillMaxSize().padding(8.dp).testTag(TableTags.cell(cell.id))
+                                        .then(if (focused) Modifier.focusRequester(focusRequester) else Modifier)
+                                        .onFocusChanged { if (it.isFocused && !focused) onFocus(cell.id) }
+                                        .onPreviewKeyEvent { event ->
+                                            if (event.type == KeyEventType.KeyDown && event.key == Key.Tab && !event.isCtrlPressed && !event.isAltPressed) {
+                                                val next = if (event.isShiftPressed) table.cellBefore(cell.id) else table.cellAfter(cell.id)
+                                                if (next != null) { onFocus(next); true } else onShortcut(event)
+                                            } else onShortcut(event)
+                                        })
+                            }
                         }
                     }
                 }

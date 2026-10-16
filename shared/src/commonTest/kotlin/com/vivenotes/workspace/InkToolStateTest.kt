@@ -302,24 +302,32 @@ class InkToolStateTest {
         override suspend fun loadInk(pageId: String) = InkPage(pageId, original)
         override fun overlayPendingInk(page: InkPage, edits: List<InkEdit>): InkPage = edits.fold(page) { snapshot, edit ->
             when (edit) {
+                is InkEdit.Batch -> overlayPendingInk(snapshot, edit.edits)
                 is InkEdit.AddStroke -> snapshot.copy(strokes = snapshot.strokes + edit.row.let { row ->
                     com.vivenotes.model.ink.VisibleInkStroke(row.id, row.brushFamily, row.brushVersion,
                         row.sizeDp, row.colorArgb, row.colorFollowsTheme, emptyList())
                 })
                 is InkEdit.EraseStrokes -> snapshot.copy(strokes = snapshot.strokes.filterNot { it.id in edit.ids })
                 is InkEdit.RestoreStrokes -> snapshot.copy(strokes = snapshot.strokes + edit.source.strokes.filter { it.id in edit.ids })
-                is InkEdit.PartialErase, is InkEdit.Move -> snapshot
+                is InkEdit.PartialErase, is InkEdit.Move, is InkEdit.SetStrokeGroups -> snapshot
+                is InkEdit.SetStrokeColors -> snapshot.copy(strokes = snapshot.strokes.map { stroke ->
+                    edit.colors[stroke.id]?.let { color -> stroke.copy(colorArgb = color.argb,
+                        colorFollowsTheme = color.followsTheme) } ?: stroke
+                })
             }
         }
         override suspend fun applyInkEdit(pageId: String, edit: InkEdit) {
             attempts++
             if (fail) error("disk unavailable")
             saved += when (edit) {
+                is InkEdit.Batch -> "batch"
                 is InkEdit.AddStroke -> "add"
                 is InkEdit.EraseStrokes -> "erase"
                 is InkEdit.RestoreStrokes -> "restore"
                 is InkEdit.PartialErase -> if (edit.active) "partial" else "undo-partial"
                 is InkEdit.Move -> if (edit.active) "move" else "undo-move"
+                is InkEdit.SetStrokeColors -> "colours"
+                is InkEdit.SetStrokeGroups -> "groups"
             }
         }
     }

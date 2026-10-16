@@ -9,8 +9,26 @@ interface InkSelection {
     val page: InkPage
     val bounds: InkSelectionBounds
     val targetIds: Set<String>
+    val colorArgb: Int? get() = page.strokes.filter { it.id in targetIds }.map { it.colorArgb }.distinct().singleOrNull()
+    val colorFollowsTheme: Boolean get() = page.strokes.filter { it.id in targetIds }.let { strokes ->
+        strokes.isNotEmpty() && strokes.all { it.colorFollowsTheme == true ||
+            it.colorFollowsTheme == null && it.colorArgb in setOf(0xff000000.toInt(), 0xffffffff.toInt()) }
+    }
     fun move(dx: Float, dy: Float): InkSelectionChange?
     fun delete(): InkSelectionChange?
+    fun recolor(argb: Int): InkSelectionChange? = null
+    fun copy(): InkClipboard? = null
+    val isGrouped: Boolean get() = false
+    fun group(): InkSelectionChange? = null
+    fun ungroup(): InkSelectionChange? = null
+    /** A read-only snapshot of the visible selected pieces, including their current transforms. */
+    fun forRecognition(): InkPage? = null
+}
+
+/** An immutable, platform-owned copy of the visible selected pieces. */
+interface InkClipboard {
+    val bounds: InkSelectionBounds
+    fun paste(page: InkPage, dx: Float, dy: Float): InkSelectionChange?
 }
 
 data class InkSelectionChange(
@@ -22,4 +40,5 @@ data class InkSelectionChange(
     val dx: Float = 0f,
     val dy: Float = 0f,
     val source: InkSelection? = null,
+    val redo: List<InkEdit> = edits,
 )

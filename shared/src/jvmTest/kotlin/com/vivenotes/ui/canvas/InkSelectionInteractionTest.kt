@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.width
 import com.vivenotes.data.InkEdit
 import com.vivenotes.ink.*
 import com.vivenotes.model.PageDoc
@@ -28,9 +30,87 @@ import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.*
 import kotlin.test.*
+import java.io.File
+import org.jetbrains.skia.Image
+import org.jetbrains.skia.EncodedImageFormat
 
 @OptIn(ExperimentalTestApi::class)
 class InkSelectionInteractionTest {
+    @Test
+    fun selectingInkShowsTheColourCopyDeleteToolkitAndCopyPastesRealInk() = runDesktopComposeUiTest(width = 1500, height = 900) {
+        val state = mutableStateOf(workspace())
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
+        onNodeWithTag(INK_LAYER_TAG).performMouseInput { click(Offset(40f, 200f)) }
+        onNodeWithTag(WorkspaceTestTags.ObjectToolkit).assertIsDisplayed()
+        onNodeWithTag(WorkspaceTestTags.ObjectColor).assertIsDisplayed()
+        onNodeWithTag(WorkspaceTestTags.ObjectCopy).assertIsDisplayed()
+        onNodeWithTag(WorkspaceTestTags.ObjectDelete).assertIsDisplayed()
+        onNodeWithTag(WorkspaceTestTags.ObjectLock).assertDoesNotExist()
+        Image.makeFromBitmap(onNodeWithTag(WorkspaceTestTags.PageCanvas).captureToImage().asSkiaBitmap()).use { image ->
+            image.encodeToData(EncodedImageFormat.PNG)!!.use {
+                File("build/test-artifacts").apply { mkdirs() }.resolve("ink-selection-toolkit.png").writeBytes(it.bytes)
+            }
+        }
+        onNodeWithTag(WorkspaceTestTags.ObjectCopy).performMouseInput { click(center) }
+        runOnIdle { assertFalse(state.value.canvasClipboard.isEmpty); assertNotNull(state.value.selectedInk) }
+        onNodeWithTag(WorkspaceTestTags.CanvasExtent).performMouseInput { doubleClick(Offset(400f, 400f)) }
+        onNodeWithTag(WorkspaceTestTags.CanvasPaste).performMouseInput { click(center) }
+        waitUntil(timeoutMillis = 5000) { state.value.structuralUndo.size == 1 }
+        runOnIdle {
+            val page = state.value.selectedPage!!.ink!!
+            assertEquals(2, page.desktopGeometry().projections.size)
+            assertEquals(400f, state.value.selectedInk!!.bounds.left, 0.5f)
+            assertEquals(1, state.value.structuralUndo.size)
+        }
+        onNodeWithTag(WorkspaceTestTags.StructuralUndo).performClick()
+        runOnIdle { assertEquals(1, state.value.selectedPage!!.ink!!.desktopGeometry().projections.size) }
+        onNodeWithTag(WorkspaceTestTags.StructuralRedo).performClick()
+        runOnIdle { assertEquals(2, state.value.selectedPage!!.ink!!.desktopGeometry().projections.size) }
+    }
+
+    @Test
+    fun theInkToolkitRecoloursTheSelectionAndUndoRestoresItsOriginalBrushColour() = runDesktopComposeUiTest(width = 1500, height = 900) {
+        val state = mutableStateOf(workspace())
+        val original = state.value.selectedPage!!.ink!!.desktopGeometry().projections.single().stroke.brush.colorIntArgb
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
+        onNodeWithTag(INK_LAYER_TAG).performMouseInput { click(Offset(40f, 200f)) }
+        onNodeWithTag(WorkspaceTestTags.ObjectColor).performMouseInput { click(center) }
+        onNodeWithContentDescription("Blue").performMouseInput { click(center) }
+        waitUntil(timeoutMillis = 5000) { state.value.structuralUndo.size == 1 }
+        runOnIdle {
+            val stroke = state.value.selectedPage!!.ink!!.desktopGeometry().projections.single()
+            assertEquals(0xff3b82f6.toInt(), stroke.stroke.brush.colorIntArgb)
+            assertEquals(false, stroke.colorFollowsTheme)
+            assertNotNull(state.value.selectedInk)
+            assertEquals(1, state.value.structuralUndo.size)
+        }
+        onNodeWithTag(WorkspaceTestTags.ObjectToolkit).assertIsDisplayed()
+        onNodeWithTag(WorkspaceTestTags.CanvasExtent).performMouseInput { click(Offset(400f, 400f)) }
+        val pixels = onNodeWithTag(INK_LAYER_TAG).captureToImage().toPixelMap()
+        assertEquals(Color(0xff3b82f6), pixels[40, 200])
+        onNodeWithTag(WorkspaceTestTags.StructuralUndo).performClick()
+        runOnIdle { assertEquals(original, state.value.selectedPage!!.ink!!.desktopGeometry().projections.single().stroke.brush.colorIntArgb) }
+    }
+
+    @Test
+    fun theInkToolkitKeepsItsSizeAndStaysInTheViewportWhenZoomedAndScrolled() = runDesktopComposeUiTest(width = 1500, height = 900) {
+        val state = mutableStateOf(workspace().selectInkAt(40f, 200f))
+        val view = mutableStateOf(ViewSettings(zoom = .5f))
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }, viewSettings = view.value) } }
+        val width = onNodeWithTag(WorkspaceTestTags.ObjectToolkit).getUnclippedBoundsInRoot().width
+        runOnIdle { view.value = view.value.copy(zoom = 2f) }
+        onNodeWithTag(WorkspaceTestTags.ObjectToolkit).assertIsDisplayed()
+        assertEquals(width, onNodeWithTag(WorkspaceTestTags.ObjectToolkit).getUnclippedBoundsInRoot().width)
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { moveTo(Offset(500f, 400f)); scroll(40f) }
+        onNodeWithTag(WorkspaceTestTags.ObjectToolkit).assertIsDisplayed()
+        val canvas = onNodeWithTag(WorkspaceTestTags.PageCanvas).getUnclippedBoundsInRoot()
+        val toolkit = onNodeWithTag(WorkspaceTestTags.ObjectToolkit).getUnclippedBoundsInRoot()
+        assertTrue(toolkit.top >= canvas.top && toolkit.bottom <= canvas.bottom)
+        assertTrue(toolkit.left >= canvas.left && toolkit.right <= canvas.right)
+        onNodeWithTag(WorkspaceTestTags.ObjectCopy).performMouseInput { click(center) }
+        runOnIdle { assertFalse(state.value.canvasClipboard.isEmpty); assertNotNull(state.value.selectedInk) }
+    }
+
     private fun workspace(): WorkspaceState {
         val initial = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
         val ink = InkPageReader.read(initial.selectedPageId, listOf(selectionLine(pageId = initial.selectedPageId)), emptyList(), emptyList())

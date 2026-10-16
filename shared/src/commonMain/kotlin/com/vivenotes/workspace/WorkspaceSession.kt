@@ -119,13 +119,28 @@ class WorkspaceSession(
         if (after == before) return
         current.value = after
         if (before.selectedPageId == after.selectedPageId) {
-            val oldShapes = before.selectedPage?.document?.outlines.orEmpty()
-                .filterIsInstance<com.vivenotes.model.Outline.Shape>().map { it.id }.toSet()
+            val oldObjects = before.selectedPage?.document?.outlines.orEmpty().filter { it.isPrimeObject() }.associateBy { it.id }
+            val newObjects = after.selectedPage?.document?.outlines.orEmpty().filter { it.isPrimeObject() }
+            val oldShapes = oldObjects.values.filterIsInstance<com.vivenotes.model.Outline.Shape>().map { it.id }.toSet()
             after.selectedPage?.document?.outlines.orEmpty()
                 .filterIsInstance<com.vivenotes.model.Outline.Shape>()
                 .filter { it.id !in oldShapes }
                 .forEach { shape -> log.event("shape") { "added ${shape.kind.name}" } }
+            val removed = oldObjects.keys - newObjects.map { it.id }.toSet()
+            if (removed.isNotEmpty()) log.event("objects") { "deleted ${removed.size} objects" }
+            val lockChanges = newObjects.filter { it.id in oldObjects && oldObjects[it.id]?.lockGroup != it.lockGroup }
+            if (lockChanges.isNotEmpty()) log.event("objects") {
+                "${if (lockChanges.all { it.lockGroup == null }) "unlocked" else "locked"} ${lockChanges.size} objects"
+            }
         }
+        if (before.selectedObjectIds != after.selectedObjectIds) log.event("objects") {
+            if (after.selectedObjectIds.isEmpty()) "selection cleared" else "selected ${after.selectedObjectIds.size} objects"
+        }
+        if (before.canvasClipboard != after.canvasClipboard) log.event("objects") {
+            "copied ${after.canvasClipboard.outlines.size} objects"
+        }
+        if (before.canvasClipboard.ink !== after.canvasClipboard.ink && after.canvasClipboard.ink != null)
+            log.event("ink") { "selection copied" }
         if (before.inkTool != after.inkTool) log.event("ink") { "tool ${after.inkTool?.name ?: "Select"}" }
         if (before.eraserMode != after.eraserMode) log.event("ink") { "eraser mode ${after.eraserMode.name}" }
         if (before.drawPlacement != after.drawPlacement) log.event("draw") { "tool ${after.drawPlacement?.name ?: "Select"}" }
@@ -650,6 +665,9 @@ class WorkspaceSession(
                         is com.vivenotes.data.InkEdit.PartialErase ->
                             if (pending.edit.active) "partial erase saved" else "partial erase undone"
                         is com.vivenotes.data.InkEdit.Move -> if (pending.edit.active) "ink move saved" else "ink move undone"
+                        is com.vivenotes.data.InkEdit.SetStrokeColors -> "ink colours saved"
+                        is com.vivenotes.data.InkEdit.SetStrokeGroups -> "ink groups saved"
+                        is com.vivenotes.data.InkEdit.Batch -> "ink selection saved"
                     } }
                 }
             } finally { inkSaveQueued = false }

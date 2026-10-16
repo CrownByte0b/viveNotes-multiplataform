@@ -1,6 +1,7 @@
 package com.vivenotes.ui.shell
 
 import com.vivenotes.ui.canvas.InkSelectionFrame
+import com.vivenotes.ui.canvas.InkSelectionToolkit
 import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.model.ink.InkSelectionChange
 import kotlinx.coroutines.launch
@@ -287,6 +288,9 @@ object WorkspaceTestTags {
     const val ObjectLock = "workspace-object-lock"
     const val ObjectToolkit = "workspace-object-toolkit"
     const val ObjectColor = "workspace-object-color"
+    const val InkGroup = "workspace-ink-group"
+    const val InkMath = "workspace-ink-math"
+    const val InkColorDivider = "workspace-ink-color-divider"
     const val GroupSelectionFrame = "workspace-group-selection-frame"
     const val StructuralUndo = "workspace-structural-undo"
     const val StructuralRedo = "workspace-structural-redo"
@@ -492,7 +496,18 @@ private fun WorkspaceContent(
     var tabTextSelection by remember { mutableStateOf<Pair<String, TextSelection>?>(null) }
     var calculatorOpen by remember { mutableStateOf(false) }
     var mathSource by remember { mutableStateOf("") }
+    var inkMathSelection by remember { mutableStateOf<InkSelection?>(null) }
     val formulaReady = aiModels?.state?.collectAsState()?.value?.formulaReady == true && drawMath != null
+    val inkMathValid = inkMathSelection?.let { selection ->
+        state.inkOnlySelection && state.selectedInk === selection && state.selectedPage?.ink === selection.page && formulaReady
+    } ?: true
+    LaunchedEffect(inkMathValid) {
+        if (!inkMathValid) {
+            inkMathSelection = null
+            if (openPane == DockedPane.Math) openPane = null
+        }
+    }
+    LaunchedEffect(openPane) { if (openPane != DockedPane.Math) inkMathSelection = null }
     LaunchedEffect(formulaReady) { if (!formulaReady) calculatorOpen = false }
     val canvasDark = view.canvasDarkForTheme(themePreference,
         MaterialTheme.colorScheme.background.luminance() < 0.45f)
@@ -697,6 +712,20 @@ private fun WorkspaceContent(
                     onInkEdit = { edit, rendered -> onStateChange { it.applyInkEdit(edit, rendered) } },
                     onSelectInk = { selection -> onStateChange { it.selectInk(selection) } },
                     onInkSelectionChange = { change -> onStateChange { it.applyInkSelectionChange(change) } },
+                    onInkGrouping = { change -> onStateChange { it.applyInkGrouping(change) } },
+                    inkMathAvailable = formulaReady,
+                    onInkMath = { selection ->
+                        if (formulaReady && state.inkOnlySelection && state.selectedInk === selection) {
+                            inkMathSelection = selection
+                            openPane = DockedPane.Math
+                        }
+                    },
+                    onInkRecolor = { source, argb, change -> onStateChange { current ->
+                        if (current.selectedInk !== source) current
+                        else if (change == null) current.colorSelectedObjects(argb)
+                        else current.applyInkSelectionChange(change, recolorOutlinesArgb = argb)
+                    } },
+                    onPreparedPaste = { before, prepared -> onStateChange { it.applyPreparedCanvasPaste(before, prepared) } },
                     onCreateShape = { sx, sy, ex, ey -> onStateChange { it.createShape(sx, sy, ex, ey) } },
                     onStraightenStroke = { line, pen -> onStateChange { it.createStraightLine(line, pen) } },
                     onCreateTextBox = { x, y ->
@@ -817,7 +846,11 @@ private fun WorkspaceContent(
                                     else onStateChange { it.selectPage(hit.unit.pageId) }
                                 }, onClose = { openPane = null }, focusRequest = searchFocusTick)
                         }
-                        DockedPane.Math -> drawMath?.let { MathPane(mathSource, it, onClose = { openPane = null }) }
+                        DockedPane.Math -> drawMath?.let { math ->
+                            val selection = inkMathSelection
+                            if (selection == null) MathPane(mathSource, math, onClose = { openPane = null })
+                            else if (inkMathValid) InkMathPane(selection, math, onClose = { inkMathSelection = null; openPane = null })
+                        }
                         DockedPane.Models -> ModelsPane(aiModels, onClose = { openPane = null })
                     }
                 }
@@ -826,7 +859,9 @@ private fun WorkspaceContent(
     }
     if (calculatorOpen && formulaReady && drawMath != null) FloatingCalculator(state.inkSettings,
         state.activePenIndex.takeIf { state.inkTool == com.vivenotes.workspace.InkTool.Pen } ?: 0,
-        input.drawWithFinger, drawMath, onOpenInPanel = { source -> mathSource = source; openPane = DockedPane.Math },
+        input.drawWithFinger, drawMath, onOpenInPanel = { source ->
+            inkMathSelection = null; mathSource = source; openPane = DockedPane.Math
+        },
         onClose = { calculatorOpen = false }, modifier = Modifier.padding(end = if (openPane != null) ToolPaneWidth else 0.dp))
     NavigationDialogs(state, navigationRequests, navigation)
     linkEditor?.let { request -> LinkEditorDialog(request, onDismiss = { linkEditor = null }) }
@@ -912,6 +947,11 @@ private fun PageCanvas(
     onInkEdit: (com.vivenotes.data.InkEdit, com.vivenotes.model.ink.InkPage) -> Unit,
     onSelectInk: (InkSelection) -> Unit,
     onInkSelectionChange: (InkSelectionChange) -> Unit,
+    onInkGrouping: (InkSelectionChange) -> Unit,
+    inkMathAvailable: Boolean,
+    onInkMath: (InkSelection) -> Unit,
+    onInkRecolor: (InkSelection, Int, InkSelectionChange?) -> Unit,
+    onPreparedPaste: (WorkspaceState, WorkspaceState) -> Unit,
     onCreateShape: (Float, Float, Float, Float) -> Unit,
     onStraightenStroke: (StraightLine, InkPenSettings) -> Unit = { _, _ -> },
     onCreateTextBox: (Float, Float) -> Unit,
@@ -984,9 +1024,13 @@ private fun PageCanvas(
     var lasso by remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
     var inkDragOffset by remember(page?.id, state.selectedInk, zoom) { mutableStateOf(Offset.Zero) }
     var inkMoveBusy by remember(page?.id) { mutableStateOf(false) }
+    var inkToolkitBoundsInView by remember(page?.id) { mutableStateOf<Rect?>(null) }
     val inkMoveScope = rememberCoroutineScope()
     val currentSelectInk by rememberUpdatedState(onSelectInk)
     val currentInkSelectionChange by rememberUpdatedState(onInkSelectionChange)
+    val currentInkGrouping by rememberUpdatedState(onInkGrouping)
+    val currentInkRecolor by rememberUpdatedState(onInkRecolor)
+    val currentPreparedPaste by rememberUpdatedState(onPreparedPaste)
     fun finishInkMove(selection: InkSelection, offset: Offset) {
         if (inkMoveBusy) return
         inkMoveBusy = true
@@ -1201,6 +1245,9 @@ private fun PageCanvas(
 
     /** The selected objects' toolbar, which sits just above their frame. */
     fun hitsSelectionToolbar(point: Offset, snapshot: WorkspaceState, reach: Float): Boolean {
+        if (snapshot.selectedInk != null) return inkToolkitBoundsInView?.contains(Offset(
+            point.x * zoomState.value * density.density - horizontalScroll.value,
+            point.y * zoomState.value * density.density - verticalScroll.value)) == true
         val bounds = selectedCanvasBounds(snapshot.selectedPage?.document?.outlines.orEmpty(),
             snapshot.selectedObjectIds + snapshot.selectedTextOutlineIds, measuredTextHeights, snapshot.selectedInk) ?: return false
         return point.x in bounds.left..(bounds.left + 400f) && point.y in (bounds.top - reach)..bounds.top
@@ -1233,7 +1280,9 @@ private fun PageCanvas(
             val snapshot = currentState
             val point = toPage(position)
             val style = snapshot.selectedPage?.document?.style ?: return
-            if (!snapshot.canvasClipboard.isEmpty && currentExtent?.canPlaceAt(style, point.x, point.y) == true) {
+            if (!snapshot.canvasClipboard.isEmpty && !hitsContent(point, snapshot) &&
+                !hitsSelectedTransform(point, snapshot) && !hitsSelectionToolbar(point, snapshot, reach = 80f) &&
+                currentExtent?.canPlaceAt(style, point.x, point.y) == true) {
                 pastePoint = point
             }
         }
@@ -1387,7 +1436,7 @@ private fun PageCanvas(
                     val shaping = fingerTool && currentState.shapeToolArmed && start.y >= titleFloor &&
                         currentState.selectedPage?.editable == true && !onObjectToolbar &&
                         !hitsSelectedTransform(start, currentState)
-                    val marquee = currentState.drawPlacement == null && inkHit == null && (!finger || (currentDrawWithFinger && currentState.objectLassoArmed)) &&
+                    val marquee = !onObjectToolbar && currentState.drawPlacement == null && inkHit == null && (!finger || (currentDrawWithFinger && currentState.objectLassoArmed)) &&
                         !hitsSelectedTransform(start, currentState) &&
                         (currentState.objectLassoArmed ||
                         (!currentState.textToolArmed && !currentState.shapeToolArmed && start.y >= titleFloor &&
@@ -1887,7 +1936,7 @@ private fun PageCanvas(
                             }
                         }
                     }
-                    if (selected && groupBounds == null && state.selectedTextOutlineIds.isEmpty() &&
+                    if (selected && outline.lockGroup == null && groupBounds == null && state.selectedTextOutlineIds.isEmpty() &&
                         outline is Outline.Shape && outline.kind.hasEnds) {
                         outline.ends().forEach { end ->
                             Box(Modifier.offset((end.x - 7f).dp, (end.y - 7f).dp).size(14.dp)
@@ -1910,7 +1959,7 @@ private fun PageCanvas(
                                 })
                         }
                     }
-                    if (selected && groupBounds == null && state.selectedTextOutlineIds.isEmpty() &&
+                    if (selected && outline.lockGroup == null && groupBounds == null && state.selectedTextOutlineIds.isEmpty() &&
                         (outline !is Outline.Shape || !outline.kind.hasEnds)) {
                         val corners = listOf(
                             x to y, x + width to y, x to y + height, x + width to y + height,
@@ -1986,7 +2035,7 @@ private fun PageCanvas(
                     if (groupBounds != null) InkSelectionFrame(selectedInk, groupBounds, inkDragOffset,
                         enabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy && !inkMoveBusy,
                         zoom = zoom, onFocus = { focusManager.clearFocus(); canvasFocusRequester.requestFocus() },
-                        onOffset = { inkDragOffset = it }, onMove = ::finishInkMove, onDelete = onDeleteObjects)
+                        onOffset = { inkDragOffset = it }, onMove = ::finishInkMove)
                 }
                 if (groupBounds != null && state.selectedInk == null) {
                     val padding = 6.dp
@@ -2070,7 +2119,7 @@ private fun PageCanvas(
                     }
                 }
                 if (state.selectedObjectIds.isNotEmpty() && state.selectedInk == null) {
-                    val selected = page.document.outlines.firstOrNull { it.id in state.selectedObjectIds }
+                    val selected = state.selectedPrimeObjects.firstOrNull()
                     if (selected != null) {
                         var colorMenu by remember(selected.id) { mutableStateOf(false) }
                         Surface(color = Color(0xFF161618), contentColor = Color.White,
@@ -2079,15 +2128,17 @@ private fun PageCanvas(
                                 ((groupBounds?.top ?: selected.y).dp - 52.dp).coerceAtLeast(0.dp))
                                 .testTag(WorkspaceTestTags.ObjectToolkit)) {
                             Row(Modifier.padding(3.dp)) {
-                                if (selected !is Outline.Image && state.selectedTextOutlineIds.isEmpty()) {
+                                val colorSource = state.selectedColorableObject
+                                if (colorSource != null) {
                                     Box {
-                                        val swatch = when (selected) {
-                                            is Outline.Shape -> if (selected.borderFollowsTheme == true ||
-                                                (selected.borderFollowsTheme == null &&
-                                                    selected.borderArgb in setOf(0xFF000000.toInt(), 0xFFFFFFFF.toInt())))
-                                                shapeInk else Color(selected.borderArgb)
-                                            is Outline.Table -> Color(selected.borderArgb)
-                                            is Outline.Equation -> Color(selected.colorArgb ?: 0xFF000000.toInt())
+                                        val swatch = when (colorSource) {
+                                            is Outline.Shape -> if (colorSource.borderFollowsTheme == true ||
+                                                (colorSource.borderFollowsTheme == null &&
+                                                    colorSource.borderArgb in setOf(0xFF000000.toInt(), 0xFFFFFFFF.toInt())))
+                                                shapeInk else Color(colorSource.borderArgb)
+                                            is Outline.Table -> if (colorSource.borderFollowsTheme == true)
+                                                shapeInk else Color(colorSource.borderArgb)
+                                            is Outline.Equation -> colorSource.colorArgb?.let(::Color) ?: shapeInk
                                             else -> Color.Black
                                         }
                                         TooltipIconButton("Change object colour", onClick = { colorMenu = true },
@@ -2113,7 +2164,7 @@ private fun PageCanvas(
                                                     }
                                                 }
                                             }
-                                            if (selected is Outline.Shape) {
+                                            if (colorSource is Outline.Shape) {
                                                 CustomShapeColorField("Border", "object-shape-custom-border") {
                                                     colorMenu = false
                                                     onColorObjects(it)
@@ -2135,7 +2186,7 @@ private fun PageCanvas(
                                     Icon(DocumentSymbols.ContentCopy, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 }
-                                if (state.selectedTextOutlineIds.isEmpty()) {
+                                if (state.canLockSelectedObjects) {
                                     TooltipIconButton(if (state.selectedObjectsLocked) "Unlock selection" else "Lock selection",
                                         onClick = onToggleObjectLock, tooltipPosition = TooltipAnchorPosition.Above,
                                         modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectLock)) {
@@ -2162,7 +2213,17 @@ private fun PageCanvas(
                         modifier = Modifier.offset(point.x.dp, point.y.dp),
                     ) {
                         TextButton(onClick = {
-                            currentPaste(point.x, point.y)
+                            val before = currentState
+                            if (before.canvasClipboard.ink == null) currentPaste(point.x, point.y)
+                            else if (!inkMoveBusy) {
+                                inkMoveBusy = true
+                                inkMoveScope.launch {
+                                    try {
+                                        val prepared = withContext(Dispatchers.Default) { before.pasteCanvasAt(point.x, point.y) }
+                                        currentPreparedPaste(before, prepared)
+                                    } finally { inkMoveBusy = false }
+                                }
+                            }
                             pastePoint = null
                         }, modifier = Modifier.testTag(WorkspaceTestTags.CanvasPaste)) { Text("Paste") }
                     }
@@ -2170,6 +2231,48 @@ private fun PageCanvas(
             }
             }
         }
+        state.selectedInk?.let { selection ->
+            val bounds = selectedCanvasBounds(page.document.outlines, state.selectedObjectIds + state.selectedTextOutlineIds,
+                measuredTextHeights, selection) ?: return@let
+            val scale = zoom * density.density
+            val viewBounds = Rect(
+                (bounds.left + inkDragOffset.x) * scale - horizontalScroll.value,
+                (bounds.top + inkDragOffset.y) * scale - verticalScroll.value,
+                (bounds.right + inkDragOffset.x) * scale - horizontalScroll.value,
+                (bounds.bottom + inkDragOffset.y) * scale - verticalScroll.value)
+            val ink = canvasPalette(page.document.style, canvasDark).ink
+            InkSelectionToolkit(selection, viewBounds, viewportPx, ObjectColors, ink,
+                enabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy && !inkMoveBusy,
+                showColor = state.selectedTextOutlineIds.isEmpty(), onBoundsChange = { inkToolkitBoundsInView = it },
+                showGroup = state.inkOnlySelection && (selection.targetIds.size > 1 || selection.isGrouped),
+                showMath = state.inkOnlySelection && inkMathAvailable,
+                onMath = { onInkMath(selection) },
+                onGroup = {
+                    if (!inkMoveBusy) {
+                        inkMoveBusy = true
+                        inkMoveScope.launch {
+                            try {
+                                val change = withContext(Dispatchers.Default) {
+                                    if (selection.isGrouped) selection.ungroup() else selection.group()
+                                }
+                                if (change != null) currentInkGrouping(change)
+                            } finally { inkMoveBusy = false }
+                        }
+                    }
+                },
+                onCopy = onCopyObjects, onDelete = onDeleteObjects, onColor = { argb ->
+                    if (!inkMoveBusy) {
+                        inkMoveBusy = true
+                        inkMoveScope.launch {
+                            try {
+                                val change = withContext(Dispatchers.Default) { selection.recolor(argb) }
+                                currentInkRecolor(selection, argb, change)
+                            } finally { inkMoveBusy = false }
+                        }
+                    }
+                })
+        }
+        if (state.selectedInk == null) SideEffect { inkToolkitBoundsInView = null }
         if (page.content == PageContent.Unreadable) {
             StatusBanner(
                 UnreadablePageMessage,

@@ -16,6 +16,7 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositories {
+        mavenLocal { content { includeGroup("com.vivenotes.byteink") } }
         google {
             mavenContent {
                 includeGroupAndSubgroups("androidx")
@@ -24,7 +25,6 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
-        mavenLocal { content { includeGroup("com.vivenotes.byteink") } }
         // GitHub Packages rejects anonymous reads, and a repository with a null username fails
         // resolution outright instead of letting Gradle report the module as missing.
         val githubUser = providers.gradleProperty("byteinkGithubUser").orElse(providers.environmentVariable("GITHUB_ACTOR")).orNull
@@ -45,14 +45,9 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-// ByteInk builds from source: -PbyteinkCompositePath, else the sibling ../byteink checkout. Passing
-// -PbyteinkVersion or -PbyteinkComposite=false resolves published Maven artifacts instead.
+// Published ByteInk artifacts are the default. Source development requires an explicit opt-in.
 val byteinkSource = providers.gradleProperty("byteinkCompositePath").orNull
-    ?: file("../byteink").takeIf {
-        it.isDirectory &&
-            providers.gradleProperty("byteinkVersion").orNull == null &&
-            providers.gradleProperty("byteinkComposite").orNull != "false"
-    }?.path
+    ?: if (providers.gradleProperty("byteinkComposite").orNull == "true") file("../byteink").path else null
 byteinkSource?.let { includeBuild(it) }
 
 include(":desktopApp")

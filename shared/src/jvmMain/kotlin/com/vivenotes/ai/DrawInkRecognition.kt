@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.ink.geometry.ImmutableAffineTransform
 import com.vivenotes.byteink.compose.InkPathRenderer
 import com.vivenotes.byteink.kit.PageStroke
+import com.vivenotes.byteink.core.InkMeshes
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.math.MathEngine
@@ -28,7 +29,7 @@ class DesktopDrawMath(private val models: AiModelStore, override val engine: Mat
             renderDrawInk(ink.desktopGeometry().projections, models.state.value.formulaEngine.stemPx)
         }
         return image.use {
-            recognition.recognizeFormula(it).latex.also { log.event("draw") { "calculator formula recognized" } }
+            recognition.recognizeFormula(it).latex.also { log.event("draw") { "ink formula recognized" } }
         }
     }
     override suspend fun holdFormulaModel(): Nothing = recognition.keepFormulaModelLoaded()
@@ -54,12 +55,16 @@ internal fun renderDrawInk(strokes: List<PageStroke>, stemPx: Float): Image {
             val canvas = surface.canvas.asComposeCanvas()
             for (projection in strokes) {
                 val strokeScale = ((abs(projection.scaleX) + abs(projection.scaleY)) / 2f).coerceAtLeast(.001f)
-                val stroke = projection.stroke.copy(projection.stroke.brush.copyWithColorIntArgb(
+                val clipped = (0 until projection.stroke.shape.getRenderGroupCount()).any {
+                    InkMeshes.outlines(projection.stroke.shape, it).isEmpty()
+                }
+                // Rebuilding a cut mesh from its original inputs would restore erased ink.
+                val stroke = if (clipped) projection.stroke else projection.stroke.copy(projection.stroke.brush.copyWithColorIntArgb(
                     colorIntArgb = 0xff000000.toInt(), size = (stem / strokeScale).coerceAtLeast(.05f),
                     epsilon = .1f / (scale * strokeScale)))
                 renderer.draw(canvas, stroke, ImmutableAffineTransform(scale * projection.scaleX, 0f,
                     padding + (projection.offsetX - left) * scale, 0f, scale * projection.scaleY,
-                    padding + (projection.offsetY - top) * scale))
+                    padding + (projection.offsetY - top) * scale), colorArgb = 0xff000000.toInt())
             }
             surface.makeImageSnapshot()
         }

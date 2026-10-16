@@ -5,6 +5,7 @@ import com.vivenotes.model.SpaceCut
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.model.ink.InkSelectionChange
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.isPrimeObject
 
 data class SpaceInsertion(val pageId: String, val document: PageDoc, val ink: InkPage?,
     val cut: SpaceCut, val outlineIds: Set<String>, val change: InkSelectionChange?)
@@ -12,7 +13,9 @@ data class SpaceInsertion(val pageId: String, val document: PageDoc, val ink: In
 internal fun prepareSpaceInsertion(state: WorkspaceState, requested: SpaceCut): SpaceInsertion? {
     if (requested.isEmpty || !requested.at.isFinite() || !requested.amount.isFinite()) return null
     val page = state.selectedPage?.takeIf { it.editable && it.inkReady } ?: return null
-    val outlines = page.document.outlines.filter { requested.moves(it.x, it.y) }
+    val outlines = page.document.outlines.filter {
+        requested.moves(it.x, it.y) && (!it.isPrimeObject() || it.lockGroup == null)
+    }
     val ink = page.ink
     val selected = ink?.geometry?.selectPastLine(ink, requested)
     val near = (outlines.map { requested.nearEdge(it.x, it.y) } +

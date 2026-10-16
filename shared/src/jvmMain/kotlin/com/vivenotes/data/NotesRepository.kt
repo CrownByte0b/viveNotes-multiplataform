@@ -769,6 +769,19 @@ class NotesRepository(
 
     override suspend fun applyInkEdit(pageId: String, edit: InkEdit) {
         when (edit) {
+            is InkEdit.Batch -> db.withTransaction { edit.edits.forEach { applyInkEdit(pageId, it) } }
+            is InkEdit.SetStrokeGroups -> db.withTransaction {
+                val rows = edit.groups.keys.toList().chunked(SQLITE_BIND_CHUNK).flatMap { ink.byIds(it) }
+                require(rows.all { it.pageId == pageId }) { "Group targets must belong to this page" }
+                val live = rows.filter { it.deletedAt == null }.mapTo(HashSet()) { it.id }
+                setInkGroups(edit.groups.filterKeys { it in live })
+            }
+            is InkEdit.SetStrokeColors -> db.withTransaction {
+                val rows = edit.colors.keys.toList().chunked(SQLITE_BIND_CHUNK).flatMap { ink.byIds(it) }
+                require(rows.all { it.pageId == pageId }) { "Colour targets must belong to this page" }
+                val live = rows.filter { it.deletedAt == null }.mapTo(HashSet()) { it.id }
+                setInkColors(edit.colors.filterKeys { it in live })
+            }
             is InkEdit.AddStroke -> {
                 require(edit.row.pageId == pageId) { "Stroke belongs to another page" }
                 addStroke(edit.row)

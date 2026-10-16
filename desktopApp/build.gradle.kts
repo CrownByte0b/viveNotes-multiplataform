@@ -64,6 +64,14 @@ tasks.withType<Test>().configureEach {
     jvmArgs(launchJvmArgs)
 }
 
+tasks.test {
+    val settingsFile = rootProject.file("settings.gradle.kts")
+    inputs.file(settingsFile)
+    systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
+    systemProperty("vivenotes.test.gradleHome", gradle.gradleHomeDir!!.absolutePath)
+    systemProperty("vivenotes.test.gradleUserHome", gradle.gradleUserHomeDir.absolutePath)
+}
+
 // Installed distributions use the production profile. Gradle's everyday run uses a stable,
 // separate development profile rooted at <repository>/devdb.
 tasks.register<JavaExec>("runProduction") {

@@ -28,6 +28,29 @@ import kotlin.test.assertTrue
 class WorkspaceSessionTest {
 
     @Test
+    fun debugLogTracksObjectSelectionLockAndClipboardWithoutObjectIdsOrContents() = runTest {
+        val equation = Outline.Equation("private-equation-id", 100f, 220f, latex = "private equation source")
+        store.storeBody(limits, PageLoad.Loaded(PageDoc(outlines = listOf(equation))))
+        val lines = mutableListOf<String>()
+        val session = WorkspaceSession(store, backgroundScope, { "created $it" },
+            log = DebugLog(enabled = true, output = lines::add))
+        session.start()
+        runCurrent()
+        session.update { it.selectObject(equation.id) }
+        session.update { it.toggleObjectLock() }
+        session.update { it.copySelectedObjects() }
+        session.update { it.toggleObjectLock() }
+        session.update { it.deleteSelectedObjects() }
+
+        assertTrue(lines.any { it.contains("[objects] selected 1 objects") })
+        assertTrue(lines.any { it.contains("[objects] locked 1 objects") })
+        assertTrue(lines.any { it.contains("[objects] unlocked 1 objects") })
+        assertTrue(lines.any { it.contains("[objects] copied 1 objects") })
+        assertTrue(lines.any { it.contains("[objects] deleted 1 objects") })
+        assertTrue(lines.none { it.contains(equation.id) || it.contains(equation.latex) })
+    }
+
+    @Test
     fun debugLogTracksPageLoadSaveAndStorageFailureWithoutDocumentText() = runTest {
         val lines = mutableListOf<String>()
         val session = WorkspaceSession(store, backgroundScope, { "created $it" },

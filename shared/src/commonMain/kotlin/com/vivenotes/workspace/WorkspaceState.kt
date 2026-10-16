@@ -113,7 +113,7 @@ private fun PageDoc.withCurrentTextFrom(current: PageDoc): PageDoc {
 
 private fun PageDoc.textContainer(id: String): Outline.Text? {
     outlines.filterIsInstance<Outline.Text>().firstOrNull { it.id == id }?.let { return it }
-    for (table in outlines.filterIsInstance<Outline.Table>().filterNot { it.inkOnly }) {
+    for (table in outlines.filterIsInstance<Outline.Table>().filter { !it.inkOnly && it.lockGroup == null }) {
         val location = table.locate(id) ?: continue
         val row = table.rows[location.first]
         val cell = row.cells[location.second]
@@ -371,7 +371,7 @@ data class WorkspaceState(
             selectedObjectIds = page.document.outlines.filter { it.id in ids && it.isPrimeObject() }.map { it.id }.toSet())
             .applyInkSelectionChange(change).clearCanvasFocus()
         return editOutlines { outlines -> outlines.map { outline ->
-            if (outline.id !in ids) outline else if (outline is Outline.Text)
+            if (outline.id !in ids || (outline.isPrimeObject() && outline.lockGroup != null)) outline else if (outline is Outline.Text)
                 outline.copy(x = outline.x + insertion.cut.dx, y = outline.y + insertion.cut.dy)
             else outline.movedBy(insertion.cut.dx, insertion.cut.dy)
         } }.clearCanvasFocus()
@@ -397,18 +397,21 @@ data class WorkspaceState(
         if (selection.page !== selectedPage?.ink || inkTool != null || textToolArmed || shapeToolArmed) this
         else clearCanvasFocus().copy(selectedInk = selection)
 
-    fun applyInkSelectionChange(change: com.vivenotes.model.ink.InkSelectionChange, deleteOutlines: Boolean = false): WorkspaceState {
+    fun applyInkSelectionChange(change: com.vivenotes.model.ink.InkSelectionChange, deleteOutlines: Boolean = false,
+                                recolorOutlinesArgb: Int? = null): WorkspaceState {
         val page = editablePage ?: return this
         if (!page.inkReady || notebookTransfer.running || filePane.busy || change.edits.isEmpty() ||
             change.source !== selectedInk || page.ink !== change.before || change.after.pageId != page.id) return this
         val document = page.document.copy(outlines = page.document.outlines.mapNotNull { outline ->
             if (outline.id !in selectedObjectIds && outline.id !in selectedTextOutlineIds) outline
             else if (deleteOutlines) null
+            else if (recolorOutlinesArgb != null) outline.recolored(recolorOutlinesArgb)
             else if (outline is Outline.Text) outline.copy(x = (outline.x + change.dx).coerceAtLeast(0f),
                 y = (outline.y + change.dy).coerceAtLeast(0f))
+            else if (outline.lockGroup != null) outline
             else outline.movedBy(change.dx, change.dy)
         })
-        val history = InkHistoryChange(change.before, change.after, change.undo, change.edits,
+        val history = InkHistoryChange(change.before, change.after, change.undo, change.redo,
             document.takeIf { it != page.document })
         return updatePage(page.id) { it.withDocument(document).copy(ink = change.after) }.copy(
             selectedInk = change.selection,
@@ -426,6 +429,18 @@ data class WorkspaceState(
         return applyInkSelectionChange(change, deleteOutlines = true)
     }
 
+    val inkOnlySelection: Boolean get() = selectedInk != null && selectedObjectIds.isEmpty() && selectedTextOutlineIds.isEmpty()
+
+    fun toggleInkGroup(): WorkspaceState {
+        if (!inkOnlySelection) return this
+        val selection = selectedInk ?: return this
+        val change = (if (selection.isGrouped) selection.ungroup() else selection.group()) ?: return this
+        return applyInkGrouping(change)
+    }
+
+    fun applyInkGrouping(change: com.vivenotes.model.ink.InkSelectionChange): WorkspaceState =
+        if (!inkOnlySelection) this else applyInkSelectionChange(change)
+
     /** The renderer supplies the same immutable snapshot it just displayed. */
     fun applyInkEdit(edit: com.vivenotes.data.InkEdit, rendered: InkPage): WorkspaceState {
         val page = editablePage ?: return this
@@ -440,7 +455,9 @@ data class WorkspaceState(
             is com.vivenotes.data.InkEdit.AddStroke -> com.vivenotes.data.InkEdit.EraseStrokes(setOf(edit.row.id))
             is com.vivenotes.data.InkEdit.EraseStrokes -> com.vivenotes.data.InkEdit.RestoreStrokes(edit.ids, before)
             is com.vivenotes.data.InkEdit.PartialErase -> edit.copy(active = false)
-            is com.vivenotes.data.InkEdit.RestoreStrokes, is com.vivenotes.data.InkEdit.Move -> return this
+            is com.vivenotes.data.InkEdit.RestoreStrokes, is com.vivenotes.data.InkEdit.Move,
+            is com.vivenotes.data.InkEdit.SetStrokeColors, is com.vivenotes.data.InkEdit.SetStrokeGroups,
+            is com.vivenotes.data.InkEdit.Batch -> return this
         }
         val redo = if (edit is com.vivenotes.data.InkEdit.AddStroke)
             com.vivenotes.data.InkEdit.RestoreStrokes(setOf(edit.row.id), rendered) else edit
@@ -612,18 +629,59 @@ data class WorkspaceState(
         selectedTextOutlineIds = selectedTextOutlineIds - id)
 
     fun pasteCanvasAt(x: Float, y: Float): WorkspaceState {
-        if (editablePage == null || canvasClipboard.isEmpty) return this
+        val page = editablePage ?: return this
+        if (canvasClipboard.isEmpty || !x.isFinite() || !y.isFinite()) return this
+        if (canvasClipboard.ink != null && (!page.inkReady || notebookTransfer.running || filePane.busy)) return this
         val sources = canvasClipboard.outlines
-        val left = sources.minOf { it.x }
-        val top = sources.minOf { it.y }
+        val left = (sources.map { it.x } + listOfNotNull(canvasClipboard.ink?.bounds?.left)).min()
+        val top = (sources.map { it.y } + listOfNotNull(canvasClipboard.ink?.bounds?.top)).min()
         val pasted = sources.map { it.duplicateAt(it.x - left + x.coerceAtLeast(0f),
             it.y - top + y.coerceAtLeast(0f)) }
+        canvasClipboard.ink?.let { clipboard ->
+            val change = clipboard.paste(page.ink ?: InkPage(page.id, emptyList()),
+                x.coerceAtLeast(0f) - left, y.coerceAtLeast(0f) - top) ?: return this
+            val document = page.document.copy(outlines = page.document.outlines + pasted)
+            val history = InkHistoryChange(change.before, change.after, change.undo, change.redo,
+                document.takeIf { it != page.document })
+            return updatePage(page.id) { it.withDocument(document).copy(ink = change.after) }.copy(
+                focusedTextOutlineId = null, selectedInk = change.selection,
+                selectedTextOutlineIds = pasted.filterIsInstance<Outline.Text>().map { it.id }.toSet(),
+                selectedObjectIds = pasted.filter { it.isPrimeObject() }.map { it.id }.toSet(),
+                editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null,
+                pendingInkEdits = pendingInkEdits + change.edits.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) },
+                structuralUndo = (structuralUndo + StructuralSnapshot(page.id, page.document, history)).takeLast(100),
+                structuralRedo = emptyList(),
+            )
+        }
         return editOutlines { it + pasted }.copy(
             focusedTextOutlineId = pasted.filterIsInstance<Outline.Text>().firstOrNull()?.id,
             selectedTextOutlineIds = emptySet(),
             selectedObjectIds = pasted.filter { it.isPrimeObject() }.map { it.id }.toSet(),
             selectedInk = null,
             editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null,
+        )
+    }
+
+    fun applyPreparedCanvasPaste(before: WorkspaceState, prepared: WorkspaceState): WorkspaceState {
+        val page = editablePage ?: return this
+        val old = before.selectedPage ?: return this
+        val pasted = prepared.selectedPage ?: return this
+        if (!page.inkReady || notebookTransfer.running || filePane.busy || page.id != old.id || pasted.id != page.id ||
+            page.document !== old.document || page.ink !== old.ink || canvasClipboard != before.canvasClipboard ||
+            selectedInk !== before.selectedInk || selectedObjectIds != before.selectedObjectIds ||
+            selectedTextOutlineIds != before.selectedTextOutlineIds || inkTool != before.inkTool ||
+            drawPlacement != before.drawPlacement || textToolArmed != before.textToolArmed ||
+            shapeToolArmed != before.shapeToolArmed || objectLassoArmed != before.objectLassoArmed ||
+            prepared.structuralUndo.size != (before.structuralUndo.size + 1).coerceAtMost(100)) return this
+        val priorIds = before.pendingInkEdits.mapTo(HashSet()) { it.id }
+        val edits = prepared.pendingInkEdits.filter { it.id !in priorIds }
+        if (edits.isEmpty()) return this
+        return updatePage(page.id) { it.withDocument(pasted.document).copy(ink = pasted.ink) }.copy(
+            focusedTextOutlineId = prepared.focusedTextOutlineId, selectedInk = prepared.selectedInk,
+            selectedObjectIds = prepared.selectedObjectIds, selectedTextOutlineIds = prepared.selectedTextOutlineIds,
+            editorSelection = prepared.editorSelection, typingMarks = prepared.typingMarks, editorComposition = null,
+            pendingInkEdits = pendingInkEdits + edits,
+            structuralUndo = (structuralUndo + prepared.structuralUndo.last()).takeLast(100), structuralRedo = emptyList(),
         )
     }
 
@@ -736,13 +794,20 @@ data class WorkspaceState(
         return cleaned.copy(selectedObjectIds = ids, selectedTextOutlineIds = texts, selectedInk = selected)
     }
 
-    val selectedObjectsLocked: Boolean get() = selectedInk == null && selectedTextOutlineIds.isEmpty() &&
-        selectedObjectIds.isNotEmpty() &&
-        selectedPage?.document?.outlines?.filter { it.id in selectedObjectIds }
-            ?.all { it.lockGroup != null } == true
+    val selectedPrimeObjects: List<Outline> get() = selectedPage?.document?.outlines.orEmpty()
+        .filter { it.id in selectedObjectIds && it.isPrimeObject() }
+
+    val canLockSelectedObjects: Boolean get() = selectedInk == null && selectedTextOutlineIds.isEmpty() &&
+        selectedObjectIds.isNotEmpty() && selectedPrimeObjects.size == selectedObjectIds.size
+
+    val selectedObjectsLocked: Boolean get() = canLockSelectedObjects &&
+        selectedPrimeObjects.all { it.lockGroup != null }
+
+    val selectedColorableObject: Outline? get() = if (selectedInk != null || selectedTextOutlineIds.isNotEmpty()) null
+        else selectedPrimeObjects.firstOrNull { it !is Outline.Image }
 
     fun toggleObjectLock(): WorkspaceState {
-        if (selectedObjectIds.isEmpty() || selectedInk != null) return this
+        if (!canLockSelectedObjects) return this
         val group = if (selectedObjectsLocked) null else newId()
         return editOutlines { outlines -> outlines.map {
             if (it.id in selectedObjectIds && it.isPrimeObject()) it.withLockGroup(group) else it
@@ -756,8 +821,9 @@ data class WorkspaceState(
         }
         val texts = outlines.filterIsInstance<Outline.Text>()
             .filter { it.id in selectedTextOutlineIds }
-        return if (objects.isEmpty() && texts.isEmpty()) this else
-            copy(canvasClipboard = CanvasClipboard(objects = objects, texts = texts))
+        val ink = selectedInk?.copy()
+        return if (objects.isEmpty() && texts.isEmpty() && ink == null) this else
+            copy(canvasClipboard = CanvasClipboard(objects = objects, texts = texts, ink = ink))
     }
 
     private fun deleteSelectedOutlines(): WorkspaceState = editOutlines { outlines ->
@@ -769,7 +835,7 @@ data class WorkspaceState(
         if (selectedObjectsLocked) return this
         return editOutlines(recordHistory) { outlines -> outlines.map {
             when {
-                it.id in selectedObjectIds && it.isPrimeObject() -> it.movedBy(dx, dy)
+                it.id in selectedObjectIds && it.isPrimeObject() && it.lockGroup == null -> it.movedBy(dx, dy)
                 it is Outline.Text && it.id in selectedTextOutlineIds ->
                     it.copy(x = (it.x + dx).coerceAtLeast(0f), y = (it.y + dy).coerceAtLeast(0f))
                 else -> it
@@ -781,7 +847,7 @@ data class WorkspaceState(
                               recordHistory: Boolean = true): WorkspaceState {
         if (selectedObjectsLocked || scaleX <= 0f || scaleY <= 0f) return this
         return editOutlines(recordHistory) { outlines -> outlines.map { outline ->
-            if (outline.id !in selectedObjectIds) outline else when (outline) {
+            if (outline.id !in selectedObjectIds || outline.lockGroup != null) outline else when (outline) {
                 is Outline.Shape -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
                 is Outline.Table -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
                 is Outline.Equation -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
@@ -791,14 +857,13 @@ data class WorkspaceState(
         } }
     }
 
-    fun colorSelectedObjects(argb: Int): WorkspaceState = editOutlines { outlines -> outlines.map {
-        if (it.id !in selectedObjectIds) it else when (it) {
-            is Outline.Shape -> it.copy(borderArgb = argb, borderFollowsTheme = false)
-            is Outline.Table -> it.copy(borderArgb = argb, borderFollowsTheme = false)
-            is Outline.Equation -> it.copy(colorArgb = argb)
-            else -> it
-        }
-    } }
+    fun colorSelectedObjects(argb: Int): WorkspaceState {
+        if (editablePage == null) return this
+        selectedInk?.recolor(argb)?.let { return applyInkSelectionChange(it, recolorOutlinesArgb = argb) }
+        return editOutlines { outlines -> outlines.map {
+            if (it.id in selectedObjectIds) it.recolored(argb) else it
+        } }
+    }
 
     fun selectNotebook(id: String): WorkspaceState {
         val notebook = notebooks.firstOrNull { it.id == id } ?: return this
