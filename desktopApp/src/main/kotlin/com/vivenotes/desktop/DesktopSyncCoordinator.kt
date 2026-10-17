@@ -1,5 +1,6 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.data.sync.ChangeStreamEvent
 import com.vivenotes.data.sync.HierarchySync
 import com.vivenotes.data.sync.SyncAccount
@@ -120,7 +121,7 @@ internal class DesktopSyncCoordinator(
                         accounts.reportStreamFailure(ended.reason.toString())
                         if (!ended.retryable) return
                     }
-                    else -> accounts.reportStreamFailure("Connection interrupted")
+                    else -> accounts.reportStreamFailure(Strings.connection_interrupted)
                 }
                 delay(reconnectDelay)
                 reconnectDelay = (reconnectDelay * 2).coerceAtMost(MAX_RECONNECT_MILLIS)
@@ -131,7 +132,7 @@ internal class DesktopSyncCoordinator(
             throw cancelled
         } catch (failure: Exception) {
             log.failure("sync", "change stream", failure)
-            accounts.reportStreamFailure("Sync failed; try again")
+            accounts.reportStreamFailure(Strings.sync_failed_try_again_092fa9)
         } finally {
             uploader.cancel()
             uploads.cancel()

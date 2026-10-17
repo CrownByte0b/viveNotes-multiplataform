@@ -179,7 +179,7 @@ object PageTiling {
         private fun flow(movable: List<PdfItem>, along: Axis, strips: Axis) {
             movable
                 .groupBy { strips.stripOf(strips.near(placed(it))) }
-                .toSortedMap()
+                .entries.sortedBy { it.key }
                 .forEach { (_, strip) ->
                     var carry = 0f
                     strip

@@ -1,5 +1,6 @@
 package com.vivenotes.data
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.data.db.NotesDatabase
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.data.sync.AttachmentBlobSync
@@ -65,7 +66,7 @@ class NotesLibrary private constructor(
             log: DebugLog = DebugLog(),
         ): NotesLibrary {
             directory.mkdirs()
-            check(directory.isDirectory) { "Cannot create the notes directory $directory" }
+            check(directory.isDirectory) { Strings.cannot_create_the_notes_directory_value(directory) }
             val database = NotesDatabase.create(File(directory, NotesDatabase.FILE_NAME))
             log.event("storage") { "database opened" }
             val attachments = AttachmentStore(File(directory, AttachmentStore.DIRECTORY), database)

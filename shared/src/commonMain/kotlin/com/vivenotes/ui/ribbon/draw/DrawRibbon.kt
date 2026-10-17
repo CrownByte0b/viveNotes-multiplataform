@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -69,7 +70,7 @@ internal fun DrawRibbon(
     RibbonBar(spacing = 2.dp) {
         repeat(3) { index ->
             val pane = DrawRibbonTags.penKit(index)
-            SplitTool("Pen ${index + 1}", DrawSymbols.Pen, state.inkTool == InkTool.Pen && state.activePenIndex == index,
+            SplitTool(Strings.pen_value(index + 1), DrawSymbols.Pen, state.inkTool == InkTool.Pen && state.activePenIndex == index,
                 enabled, DrawRibbonTags.pen(index), pane,
                 onClick = { ink(InkTool.Pen, index, pane) },
                 onKit = { onStateChange { it.selectInkTool(InkTool.Pen, index) }; kit = pane },
@@ -78,25 +79,25 @@ internal fun DrawRibbon(
                 DrawToolkitPopup(kit == pane, { kit = null }) { PenKit(index, state.inkSettings, canvasInk, ::settings) }
             }
         }
-        SplitTool("Highlighter", DrawSymbols.Highlighter, state.inkTool == InkTool.Highlighter,
+        SplitTool(Strings.highlighter, DrawSymbols.Highlighter, state.inkTool == InkTool.Highlighter,
             enabled, DrawRibbonTags.HighlighterTool, DrawRibbonTags.HighlighterKit,
             onClick = { ink(InkTool.Highlighter, pane = DrawRibbonTags.HighlighterKit) },
             onKit = { onStateChange { it.selectInkTool(InkTool.Highlighter) }; kit = DrawRibbonTags.HighlighterKit },
             tip = DrawSymbols.HighlighterTip, inkColor = Color(state.inkSettings.highlighter.colorArgb).copy(alpha = 1f)) {
             ScaledDropdownMenu(kit == DrawRibbonTags.HighlighterKit, { kit = null }) { HighlighterKit(state.inkSettings, ::settings) }
         }
-        SplitTool("Eraser", DrawSymbols.Eraser, state.inkTool == InkTool.Eraser,
+        SplitTool(Strings.eraser, DrawSymbols.Eraser, state.inkTool == InkTool.Eraser,
             enabled, DrawRibbonTags.EraserTool, DrawRibbonTags.EraserModePicker,
             onClick = { ink(InkTool.Eraser, pane = DrawRibbonTags.EraserModePicker) },
             onKit = { onStateChange { it.selectInkTool(InkTool.Eraser) }; kit = DrawRibbonTags.EraserModePicker }) {
             ScaledDropdownMenu(kit == DrawRibbonTags.EraserModePicker, { kit = null }) { EraserKit(state.inkSettings, ::settings) }
         }
-        RibbonIcon(DrawSymbols.Lasso, "Lasso", state.objectLassoArmed, enabled, DrawRibbonTags.ObjectLasso) {
+        RibbonIcon(DrawSymbols.Lasso, Strings.lasso, state.objectLassoArmed, enabled, DrawRibbonTags.ObjectLasso) {
             kit = null; onStateChange { it.toggleObjectLasso() }
         }
-        RibbonIcon(DrawSymbols.InsertSpace, "Insert Space", state.drawPlacement == DrawPlacementTool.InsertSpace,
+        RibbonIcon(DrawSymbols.InsertSpace, Strings.insert_space, state.drawPlacement == DrawPlacementTool.InsertSpace,
             enabled, "draw-insert-space") { kit = null; onStateChange { it.selectDrawPlacement(DrawPlacementTool.InsertSpace) } }
-        SplitTool("Shape", DrawSymbols.Shape, state.shapeToolArmed, enabled, ShapeMenuTags.ShapeTool, DrawRibbonTags.ShapeKit,
+        SplitTool(Strings.shape, DrawSymbols.Shape, state.shapeToolArmed, enabled, ShapeMenuTags.ShapeTool, DrawRibbonTags.ShapeKit,
             onClick = { if (state.shapeToolArmed) kit = DrawRibbonTags.ShapeKit else { kit = null; onStateChange { it.toggleShapeTool() } } },
             onKit = { if (!state.shapeToolArmed) onStateChange { it.toggleShapeTool() }; kit = DrawRibbonTags.ShapeKit }) {
             ShapeMenu(kit == DrawRibbonTags.ShapeKit, state.shapeSettings, { kit = null },
@@ -105,24 +106,24 @@ internal fun DrawRibbon(
                 onStateChange { state -> state.setShapeSettings(it) }; onShapeSettingsChange(it)
             }
         }
-        SplitTool("Table", DrawSymbols.Table, state.drawPlacement == DrawPlacementTool.Table, enabled, TableTags.Tool, TableTags.Kit,
+        SplitTool(Strings.table, DrawSymbols.Table, state.drawPlacement == DrawPlacementTool.Table, enabled, TableTags.Tool, TableTags.Kit,
             onClick = { if (state.drawPlacement == DrawPlacementTool.Table) kit = TableTags.Kit else {
                 kit = null; onStateChange { it.selectDrawPlacement(DrawPlacementTool.Table) }
             } }, onKit = { onStateChange { it.selectDrawPlacement(DrawPlacementTool.Table) }; kit = TableTags.Kit }) {
             DrawToolkitPopup(kit == TableTags.Kit, { kit = null }) { TableKit(state.inkSettings, canvasInk, ::settings) }
         }
-        SplitTool("Equation", DocumentSymbols.Function, state.drawPlacement == DrawPlacementTool.Equation,
+        SplitTool(Strings.equation, DocumentSymbols.Function, state.drawPlacement == DrawPlacementTool.Equation,
             enabled, EquationTags.Tool, EquationTags.Kit, onClick = { kit = EquationTags.Kit }, onKit = { kit = EquationTags.Kit }) {
             ScaledDropdownMenu(kit == EquationTags.Kit, { kit = null }) {
                 EquationKit { equation -> kit = null; onStateChange { it.armEquation(equation) } }
             }
         }
-        SplitTool("Ruler", DrawSymbols.Ruler, state.rulerVisible, enabled, DrawRibbonTags.RulerTool, DrawRibbonTags.RulerKit,
+        SplitTool(Strings.ruler, DrawSymbols.Ruler, state.rulerVisible, enabled, DrawRibbonTags.RulerTool, DrawRibbonTags.RulerKit,
             onClick = { kit = null; onStateChange { it.toggleRuler() } },
             onKit = { onStateChange { it.copy(rulerVisible = true) }; kit = DrawRibbonTags.RulerKit }) {
             ScaledDropdownMenu(kit == DrawRibbonTags.RulerKit, { kit = null }) { RulerKit(state.inkSettings, ::settings) }
         }
-        if (calculatorAvailable) RibbonIcon(DrawSymbols.Calculator, "Calculator", calculatorOpen,
+        if (calculatorAvailable) RibbonIcon(DrawSymbols.Calculator, Strings.calculator, calculatorOpen,
             enabled, "draw-calculator", onClick = { kit = null; onToggleCalculator() })
     }
 }
@@ -157,11 +158,11 @@ private fun SplitTool(label: String, icon: ImageVector, selected: Boolean, enabl
                     }
                 }
             }
-            HoverTooltip("$label settings") {
+            HoverTooltip(Strings.value_settings(label)) {
                 Box(Modifier.size(width = 18.dp, height = 46.dp)
                     .clickable(interactionSource = interaction, indication = null, enabled = enabled,
                         role = Role.DropdownList, onClick = onKit)
-                    .testTag(kitTag).semantics { contentDescription = "$label settings" },
+                    .testTag(kitTag).semantics { contentDescription = Strings.value_settings(label) },
                     contentAlignment = Alignment.Center) {
                     Icon(DocumentSymbols.ArrowDropDown, null, Modifier.size(14.dp), tint = tint)
                 }

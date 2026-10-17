@@ -1,5 +1,6 @@
 package com.vivenotes.ui.shell
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.ui.canvas.InkSelectionFrame
 import com.vivenotes.ui.canvas.InkSelectionToolkit
 import com.vivenotes.model.ink.InkSelection
@@ -256,12 +257,12 @@ import com.vivenotes.model.search.ContentHit
 import com.vivenotes.model.search.ContentKind
 import com.vivenotes.ui.search.SearchPane
 
-private val ObjectColors = listOf(
-    "White" to 0xFFFFFFFF.toInt(), "Black" to 0xFF000000.toInt(),
-    "Gray" to 0xFF6B7280.toInt(), "Red" to 0xFFEF4444.toInt(),
-    "Orange" to 0xFFF59E0B.toInt(), "Green" to 0xFF22C55E.toInt(),
-    "Cyan" to 0xFF06B6D4.toInt(), "Blue" to 0xFF3B82F6.toInt(),
-    "Purple" to 0xFF8B5CF6.toInt(), "Pink" to 0xFFEC4899.toInt(),
+private val ObjectColors get() = listOf(
+    Strings.white to 0xFFFFFFFF.toInt(), Strings.black to 0xFF000000.toInt(),
+    Strings.gray to 0xFF6B7280.toInt(), Strings.red to 0xFFEF4444.toInt(),
+    Strings.orange to 0xFFF59E0B.toInt(), Strings.green to 0xFF22C55E.toInt(),
+    Strings.cyan to 0xFF06B6D4.toInt(), Strings.blue to 0xFF3B82F6.toInt(),
+    Strings.purple to 0xFF8B5CF6.toInt(), Strings.pink to 0xFFEC4899.toInt(),
 )
 
 /** Stable semantics identifiers used by desktop UI tests and future accessibility automation. */
@@ -353,7 +354,7 @@ fun WorkspaceScreen(
     /** This device's recognition models, for Settings → Models; without them it is unavailable. */
     aiModels: AiModels? = null,
     drawMath: DrawMath? = null,
-    appVersion: String = "Development",
+    appVersion: String = Strings.development,
     search: ContentSearchService? = null,
     onOpenSearchPage: ((String, String) -> Unit)? = null,
     debugLog: DebugLog = remember { DebugLog() },
@@ -890,9 +891,9 @@ private fun WorkspaceContent(
     linkEditor?.let { request -> LinkEditorDialog(request, onDismiss = { linkEditor = null }) }
     NotebookTransferDialog(state.notebookTransfer, onDismiss = { fileActions?.dismissTransfer() })
     if (confirmRevision) {
-        FileConfirmDialog("Restore this version?",
-            "The saved version will replace this page. Your current version will be kept in history.",
-            "Restore", onDismiss = { confirmRevision = false }, onConfirm = {
+        FileConfirmDialog(Strings.restore_this_version_16b4be,
+            Strings.the_saved_version_will_replace_this_page_your_current_version_will,
+            Strings.restore, onDismiss = { confirmRevision = false }, onConfirm = {
                 confirmRevision = false
                 fileActions?.restoreRevision()
             }, tag = FilePaneTags.ConfirmRestore)
@@ -905,11 +906,11 @@ private fun WorkspaceContent(
             SideEffect { notebookConfirmation = null }
         } else {
             FileConfirmDialog(
-                title = "${if (operation == "close") "Close" else "Delete"} ${notebook.name}?",
+                title = if (operation == "close") Strings.close_notebook_confirmation(notebook.name) else Strings.delete_notebook_confirmation(notebook.name),
                 detail = if (operation == "close")
-                    "Nothing is deleted. The notebook leaves the panel until you reopen it from Closed Notebooks."
-                else "This notebook, its sections and all of their pages will be deleted. Written pages can be restored from Deleted Items for 7 days.",
-                verb = if (operation == "close") "Close" else "Delete",
+                    Strings.nothing_is_deleted_the_notebook_leaves_the_panel_until_you_reopen
+                else Strings.this_notebook_its_sections_and_all_of_their_pages_will_be_7425e6,
+                verb = if (operation == "close") Strings.close else Strings.delete,
                 destructive = operation == "delete",
                 onDismiss = { notebookConfirmation = null },
                 onConfirm = {
@@ -1565,7 +1566,7 @@ private fun PageCanvas(
             },
     ) {
         if (page == null) {
-            Text("Choose a page to begin", modifier = Modifier.align(Alignment.Center))
+            Text(Strings.choose_a_page_to_begin, modifier = Modifier.align(Alignment.Center))
             return@Box
         }
         // A body still being read: for that instant there is nothing to draw and nothing to edit.
@@ -1634,7 +1635,7 @@ private fun PageCanvas(
                             cursorBrush = SolidColor(palette.ink),
                             decorationBox = { inner ->
                                 Box {
-                                    if (page.title.isEmpty()) Text("Untitled page",
+                                    if (page.title.isEmpty()) Text(Strings.untitled_page,
                                         style = MaterialTheme.typography.headlineMedium,
                                         color = palette.secondaryInk)
                                     inner()
@@ -1679,12 +1680,12 @@ private fun PageCanvas(
                             modifier = Modifier.offset(x, (y - 76.dp).coerceAtLeast(0.dp)),
                         ) {
                             Row(Modifier.padding(3.dp)) {
-                                TooltipIconButton("Copy selected text boxes", onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
+                                TooltipIconButton(Strings.copy_selected_text_boxes, onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
                                     Icon(DocumentSymbols.ContentCopy, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 }
-                                TooltipIconButton("Delete selected text boxes", onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
+                                TooltipIconButton(Strings.delete_selected_text_boxes, onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
                                     Icon(ObjectSymbols.Delete, contentDescription = null,
                                         tint = MaterialTheme.colorScheme.error,
@@ -1698,7 +1699,7 @@ private fun PageCanvas(
                             modifier = Modifier.offset(x, (y - 32.dp).coerceAtLeast(0.dp))
                                 .size(48.dp, 32.dp)
                                 .testTag(WorkspaceTestTags.textGrip(outline.id))
-                                .semantics { contentDescription = "Move text box" }
+                                .semantics { contentDescription = Strings.move_text_box }
                                 .pointerInput(outline.id, lassoSelected) {
                                     var firstChange = true
                                     detectDragGestures(
@@ -1829,7 +1830,7 @@ private fun PageCanvas(
                                         keyboardTextBox = null
                                     }
                                 }
-                                .semantics { contentDescription = "Text box ${index + 1}" }
+                                .semantics { contentDescription = Strings.text_box_value(index + 1) }
                                 .testTag(if (index == 0) WorkspaceTestTags.BodyEditor else WorkspaceTestTags.textBox(outline.id) + "-editor"),
                         )
                         TextContextMenu(
@@ -1847,7 +1848,7 @@ private fun PageCanvas(
                             y + renderedHeight - 12.dp).size(24.dp)
                             .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small)
                             .testTag(WorkspaceTestTags.textResizeHandle(outline.id))
-                            .semantics { contentDescription = "Resize text box" }
+                            .semantics { contentDescription = Strings.resize_text_box }
                             .pointerInput(outline.id) {
                                 var total = Offset.Zero
                                 var startWidth = 0f
@@ -1897,10 +1898,10 @@ private fun PageCanvas(
                     val height = (objectHeight + 2f * visualPad).coerceAtLeast(24f).dp
                     val label = when (outline) {
                         is Outline.Shape -> outline.kind.label
-                        is Outline.Table -> "Table"
-                        is Outline.Equation -> "Equation: ${outline.latex}"
-                        is Outline.Image -> "Picture"
-                        else -> "Object"
+                        is Outline.Table -> Strings.table
+                        is Outline.Equation -> Strings.equation_value(outline.latex)
+                        is Outline.Image -> Strings.picture
+                        else -> Strings.object_label
                     }
                     // A picture sits on the page itself, so its transparent parts show the paper;
                     // only a picture that cannot be drawn gets a plate (see PictureContent).
@@ -1993,7 +1994,7 @@ private fun PageCanvas(
                             Box(Modifier.offset(cx - 7.dp, cy - 7.dp).size(14.dp)
                                 .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
                                 .testTag(WorkspaceTestTags.objectCorner(outline.id, index))
-                                .semantics { contentDescription = "Resize $label" }
+                                .semantics { contentDescription = Strings.resize_value(label) }
                                 .pointerInput(outline.id, index, state.selectedObjectsLocked) {
                                     if (!state.selectedObjectsLocked) {
                                         var total = Offset.Zero
@@ -2102,7 +2103,7 @@ private fun PageCanvas(
                                     .background(MaterialTheme.colorScheme.surface, CircleShape)
                                     .border(1.5.dp, accent, CircleShape)
                                     .testTag(WorkspaceTestTags.groupCorner(index))
-                                    .semantics { contentDescription = "Resize selection" }
+                                    .semantics { contentDescription = Strings.resize_selection }
                                     .pointerInput(index, state.selectedObjectIds, state.selectedObjectsLocked) {
                                         var total = Offset.Zero
                                         var previousScaleX = 1f
@@ -2162,7 +2163,7 @@ private fun PageCanvas(
                                             is Outline.Equation -> colorSource.colorArgb?.let(::Color) ?: shapeInk
                                             else -> Color.Black
                                         }
-                                        TooltipIconButton("Change object colour", onClick = { colorMenu = true },
+                                        TooltipIconButton(Strings.change_object_colour, onClick = { colorMenu = true },
                                             tooltipPosition = TooltipAnchorPosition.Above,
                                             modifier = Modifier.size(40.dp)
                                                 .testTag(WorkspaceTestTags.ObjectColor)) {
@@ -2186,7 +2187,7 @@ private fun PageCanvas(
                                                 }
                                             }
                                             if (colorSource is Outline.Shape) {
-                                                CustomShapeColorField("Border", "object-shape-custom-border") {
+                                                CustomShapeColorField(Strings.border, "object-shape-custom-border") {
                                                     colorMenu = false
                                                     onColorObjects(it)
                                                 }
@@ -2202,13 +2203,13 @@ private fun PageCanvas(
                                     state.selectedTextOutlineIds.isEmpty()) {
                                     ShapeObjectTools(selected, onShapeLineType, onShapeWidth, onShapeFill)
                                 }
-                                TooltipIconButton("Copy selection", onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
+                                TooltipIconButton(Strings.copy_selection, onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
                                     Icon(DocumentSymbols.ContentCopy, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 }
                                 if (state.canLockSelectedObjects) {
-                                    TooltipIconButton(if (state.selectedObjectsLocked) "Unlock selection" else "Lock selection",
+                                    TooltipIconButton(if (state.selectedObjectsLocked) Strings.unlock_selection else Strings.lock_selection,
                                         onClick = onToggleObjectLock, tooltipPosition = TooltipAnchorPosition.Above,
                                         modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectLock)) {
                                         Icon(if (state.selectedObjectsLocked) ObjectSymbols.Lock
@@ -2217,7 +2218,7 @@ private fun PageCanvas(
                                             modifier = Modifier.size(18.dp))
                                     }
                                 }
-                                TooltipIconButton("Delete selection", onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
+                                TooltipIconButton(Strings.delete_selection, onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
                                     Icon(ObjectSymbols.Delete, contentDescription = null,
                                         tint = MaterialTheme.colorScheme.error,
@@ -2246,7 +2247,7 @@ private fun PageCanvas(
                                 }
                             }
                             pastePoint = null
-                        }, modifier = Modifier.testTag(WorkspaceTestTags.CanvasPaste)) { Text("Paste") }
+                        }, modifier = Modifier.testTag(WorkspaceTestTags.CanvasPaste)) { Text(Strings.paste) }
                     }
                 }
             }
@@ -2313,10 +2314,10 @@ private fun PageCanvas(
                         .testTag(WorkspaceTestTags.ZoomIndicator)
                         .semantics {
                             contentDescription = ResetZoomLabel
-                            stateDescription = "Canvas zoom ${(zoom * 100).roundToInt()} percent"
+                            stateDescription = Strings.canvas_zoom_value_percent((zoom * 100).roundToInt())
                         },
                 ) {
-                    Text("${(zoom * 100).roundToInt()}%",
+                    Text(Strings.value((zoom * 100).roundToInt()),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
@@ -2327,14 +2328,14 @@ private fun PageCanvas(
 }
 
 /** The zoom indicator's action, which is also its tooltip. */
-internal const val ResetZoomLabel = "Reset zoom to 100%"
+internal val ResetZoomLabel get() = Strings.reset_zoom_to_100
 
 /** Between a text box's edge and its text. */
 private val TextBoxPadding = 8.dp
 
 /** Android's wording, for a page whose stored body could not be decoded. */
-internal const val UnreadablePageMessage =
-    "This page could not be read, so editing is disabled to protect its contents."
+internal val UnreadablePageMessage =
+    Strings.this_page_could_not_be_read_so_editing_is_disabled_to
 
 /**
  * Tells the user that notes storage failed, for as long as it keeps failing; the next read or

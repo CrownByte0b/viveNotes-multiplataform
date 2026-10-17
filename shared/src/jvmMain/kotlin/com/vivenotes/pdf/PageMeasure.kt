@@ -1,6 +1,7 @@
 // Ported from viveNotes Android pdf/PageMeasure.kt. Text, equations and pictures use desktop adapters.
 package com.vivenotes.pdf
 
+import com.vivenotes.localization.Strings
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.luminance
 import com.vivenotes.data.AttachmentStore
@@ -492,7 +493,7 @@ class PageMeasurer(
         const val SUBTITLE_GAP_DP = 6f
         const val TITLE_MAX_WIDTH_DP = 900f
         const val HEADER_RULE_MAX_WIDTH_DP = 420f
-        const val UNTITLED = "Untitled page"
+        val UNTITLED = Strings.untitled_page
 
         /** 300 dpi over the 160 dp per inch a page is measured in. */
         const val PRINT_PIXELS_PER_DP = 300f / PageStyle.DP_PER_INCH
@@ -514,7 +515,7 @@ class PageMeasurer(
 internal fun formatCreated(timestamp: Long): String {
     if (timestamp == 0L) return ""
     val date = java.util.Date(timestamp)
-    val day = java.text.SimpleDateFormat("EEEE, MMMM d, yyyy", java.util.Locale.getDefault())
-    val time = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+    val day = java.text.SimpleDateFormat(Strings.date_full_pattern, java.util.Locale.getDefault())
+    val time = java.text.SimpleDateFormat(Strings.time_pattern, java.util.Locale.getDefault())
     return "${day.format(date)}    ${time.format(date)}"
 }

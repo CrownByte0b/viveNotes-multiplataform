@@ -1,5 +1,6 @@
 package com.vivenotes.data.sync
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.data.withTransaction
 import com.vivenotes.data.EraserMode
 import com.vivenotes.data.DocumentRevisionPayload
@@ -240,7 +241,7 @@ class HierarchySync(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (badLocalState: Exception) {
-                log.e(TAG, "Hierarchy sync could not apply a streamed change", badLocalState)
+                log.e(TAG, Strings.hierarchy_sync_could_not_apply_a_streamed_change, badLocalState)
                 SyncRunResult.Failed(PermanentSyncFailure.LocalData)
             } finally {
                 publishRemoteInk()
@@ -279,7 +280,7 @@ class HierarchySync(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (badLocalState: Exception) {
-            log.e(TAG, "Hierarchy sync could not push a local change", badLocalState)
+            log.e(TAG, Strings.hierarchy_sync_could_not_push_a_local_change, badLocalState)
             SyncRunResult.Failed(PermanentSyncFailure.LocalData)
         } finally {
             publishRemoteInk()
@@ -391,7 +392,7 @@ class HierarchySync(
             // and this is the one failure whose cause is a stack trace rather than a status code.
             // A run failing here also leaves the cursor where it was, so a silent version of this
             // re-pulls the same delta for ever.
-            log.e(TAG, "Hierarchy sync could not apply a change locally", badLocalState)
+            log.e(TAG, Strings.hierarchy_sync_could_not_apply_a_change_locally, badLocalState)
             SyncRunResult.Failed(PermanentSyncFailure.LocalData)
         } finally {
             // The phases publish as they commit; this is for the paths that leave early — a pull
@@ -1854,16 +1855,16 @@ class HierarchySync(
                 require(raw.requiredString("pageId") == id) { "pageContent id must equal pageId" }
                 require(raw.requiredString("format").isNotEmpty()) { "format must not be empty" }
                 val encoding = raw["enc"]?.jsonPrimitive?.content ?: PLAIN_ENCODING
-                require(encoding == PLAIN_ENCODING) { "unsupported document encoding" }
+                require(encoding == PLAIN_ENCODING) { Strings.unsupported_document_encoding }
 
                 val documentBytes = raw.decodeBase64("doc")
-                require(documentBytes.size <= MAX_DOCUMENT_BYTES) { "document is too large" }
+                require(documentBytes.size <= MAX_DOCUMENT_BYTES) { Strings.document_is_too_large }
                 val claimedDigest = raw.decodeBase64("docSha256")
                 val actualDigest = MessageDigest.getInstance("SHA-256").digest(documentBytes)
                 require(
                     claimedDigest.size == actualDigest.size &&
                         MessageDigest.isEqual(claimedDigest, actualDigest),
-                ) { "document checksum does not match" }
+                ) { Strings.document_checksum_does_not_match }
                 documentJson = Charsets.UTF_8.newDecoder()
                     .onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT)
@@ -2130,7 +2131,7 @@ class HierarchySync(
      */
     private fun JsonObject.decodeInkPoints(): ByteArray {
         val points = decodeBase64("points")
-        require(points.size <= MAX_INK_POINT_BYTES) { "ink points are too large" }
+        require(points.size <= MAX_INK_POINT_BYTES) { Strings.ink_points_are_too_large }
         return points
     }
 
@@ -2215,7 +2216,7 @@ class HierarchySync(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failed: Exception) {
-            log.e(TAG, "Could not evict notebook ${notebook.id} to the cloud", failed)
+            log.e(TAG, Strings.could_not_evict_notebook_value_to_the_cloud(notebook.id), failed)
             return CloudArchiveResult.Failed(SyncRunResult.Failed(PermanentSyncFailure.LocalData))
         }
 
@@ -2385,7 +2386,7 @@ class HierarchySync(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failed: Exception) {
-                log.e(TAG, "Could not write a replayed change for notebook $notebookId", failed)
+                log.e(TAG, Strings.could_not_write_a_replayed_change_for_notebook_value(notebookId), failed)
                 return@withLock CloudArchiveResult.Failed(
                     SyncRunResult.Failed(PermanentSyncFailure.LocalData),
                 )
@@ -2402,7 +2403,7 @@ class HierarchySync(
         } while (hasMore && ++replayed < MAX_REPLAY_PAGES)
 
         if (hasMore) {
-            log.e(TAG, "Replay for notebook $notebookId did not finish in $MAX_REPLAY_PAGES pages")
+            log.e(TAG, Strings.replay_for_notebook_value_did_not_finish_in_value_pages(notebookId, MAX_REPLAY_PAGES))
             return@withLock CloudArchiveResult.Failed(
                 SyncRunResult.Failed(PermanentSyncFailure.InvalidServerResponse),
             )
@@ -2423,7 +2424,7 @@ class HierarchySync(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failed: Exception) {
-            log.e(TAG, "Could not write the pictures replayed for notebook $notebookId", failed)
+            log.e(TAG, Strings.could_not_write_the_pictures_replayed_for_notebook_value(notebookId), failed)
             return@withLock CloudArchiveResult.Failed(
                 SyncRunResult.Failed(PermanentSyncFailure.LocalData),
             )

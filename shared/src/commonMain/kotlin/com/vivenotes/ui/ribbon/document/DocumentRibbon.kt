@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.document
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -95,16 +96,16 @@ internal fun DocumentRibbon(
     }
     val hasRange = editable && (!richText.selection.collapsed || selectionAtPress?.collapsed == false)
     RibbonBar(Modifier.captureSelectionOnPress(richText?.selection) { selectionAtPress = it }) {
-        RibbonIcon(if (textToolArmed) active.insertText else idle.insertText, "Text",
+        RibbonIcon(if (textToolArmed) active.insertText else idle.insertText, Strings.text,
             selected = textToolArmed, tag = DocumentRibbonTags.Text, twoTone = true,
             onClick = commands.toggleTextTool)
         RibbonDivider()
-        RibbonIcon(DocumentSymbols.ContentPaste, "Paste", enabled = editable, tag = DocumentRibbonTags.Paste) { commands.paste(takeSelection()) }
-        RibbonIcon(DocumentSymbols.ContentCut, "Cut", enabled = hasRange, tag = DocumentRibbonTags.Cut) { commands.cut(takeSelection()) }
-        RibbonIcon(DocumentSymbols.ContentCopy, "Copy", enabled = hasRange, tag = DocumentRibbonTags.Copy) { commands.copy(takeSelection()) }
+        RibbonIcon(DocumentSymbols.ContentPaste, Strings.paste, enabled = editable, tag = DocumentRibbonTags.Paste) { commands.paste(takeSelection()) }
+        RibbonIcon(DocumentSymbols.ContentCut, Strings.cut, enabled = hasRange, tag = DocumentRibbonTags.Cut) { commands.cut(takeSelection()) }
+        RibbonIcon(DocumentSymbols.ContentCopy, Strings.copy, enabled = hasRange, tag = DocumentRibbonTags.Copy) { commands.copy(takeSelection()) }
         RibbonDivider()
         RibbonPicker(
-            label = "Font family",
+            label = Strings.font_family,
             current = fontFamily,
             default = defaults.fontFamily,
             choices = FontFamilies,
@@ -115,7 +116,7 @@ internal fun DocumentRibbon(
             onSetDefault = commands.setDefaultFontFamily,
         )
         RibbonPicker(
-            label = "Font size",
+            label = Strings.font_size,
             current = fontSize.toString(),
             default = defaults.fontSize.toString(),
             choices = FontSizes.map { it.toString() to it.toString() },
@@ -126,12 +127,12 @@ internal fun DocumentRibbon(
             onSetDefault = { commands.setDefaultFontSize(it.toInt()) },
         )
         RibbonDivider()
-        MarkButton(DocumentSymbols.FormatBold, "Bold", Mark.Bold, marks, editable) { commands.toggleMark(Mark.Bold, takeSelection()) }
-        MarkButton(DocumentSymbols.FormatItalic, "Italic", Mark.Italic, marks, editable) { commands.toggleMark(Mark.Italic, takeSelection()) }
-        MarkButton(DocumentSymbols.FormatUnderlined, "Underline", Mark.Underline, marks, editable) { commands.toggleMark(Mark.Underline, takeSelection()) }
-        MarkButton(DocumentSymbols.FormatStrikethrough, "Strikethrough", Mark.Strikethrough, marks, editable) { commands.toggleMark(Mark.Strikethrough, takeSelection()) }
+        MarkButton(DocumentSymbols.FormatBold, Strings.bold, Mark.Bold, marks, editable) { commands.toggleMark(Mark.Bold, takeSelection()) }
+        MarkButton(DocumentSymbols.FormatItalic, Strings.italic, Mark.Italic, marks, editable) { commands.toggleMark(Mark.Italic, takeSelection()) }
+        MarkButton(DocumentSymbols.FormatUnderlined, Strings.underline, Mark.Underline, marks, editable) { commands.toggleMark(Mark.Underline, takeSelection()) }
+        MarkButton(DocumentSymbols.FormatStrikethrough, Strings.strikethrough, Mark.Strikethrough, marks, editable) { commands.toggleMark(Mark.Strikethrough, takeSelection()) }
         ColorPicker(
-            label = "Font colour",
+            label = Strings.font_colour,
             colors = TextColors,
             defaultColor = 0xFFE53935.toInt(),
             chosenColor = colorSelection.font,
@@ -144,7 +145,7 @@ internal fun DocumentRibbon(
             onClear = { selection -> commands.clearMark(Mark.TextColor(0), selection) },
         )
         ColorPicker(
-            label = "Highlight",
+            label = Strings.highlight,
             colors = HighlightColors,
             defaultColor = 0x66FFEB3B,
             chosenColor = colorSelection.highlight,
@@ -157,26 +158,26 @@ internal fun DocumentRibbon(
             onClear = { selection -> commands.clearMark(Mark.Highlight(0), selection) },
             rotateIcon = true,
         )
-        MarkButton(if (Mark.Subscript in marks) active.subscript else idle.subscript, "Subscript", Mark.Subscript, marks, editable, twoTone = true) { commands.toggleMark(Mark.Subscript, takeSelection()) }
-        MarkButton(if (Mark.Superscript in marks) active.superscript else idle.superscript, "Superscript", Mark.Superscript, marks, editable, twoTone = true) { commands.toggleMark(Mark.Superscript, takeSelection()) }
-        RibbonIcon(DocumentSymbols.FormatClear, "Clear formatting", enabled = editable, tag = DocumentRibbonTags.ClearFormatting) { commands.clearFormatting(takeSelection()) }
+        MarkButton(if (Mark.Subscript in marks) active.subscript else idle.subscript, Strings.subscript, Mark.Subscript, marks, editable, twoTone = true) { commands.toggleMark(Mark.Subscript, takeSelection()) }
+        MarkButton(if (Mark.Superscript in marks) active.superscript else idle.superscript, Strings.superscript, Mark.Superscript, marks, editable, twoTone = true) { commands.toggleMark(Mark.Superscript, takeSelection()) }
+        RibbonIcon(DocumentSymbols.FormatClear, Strings.clear_formatting, enabled = editable, tag = DocumentRibbonTags.ClearFormatting) { commands.clearFormatting(takeSelection()) }
         RibbonDivider()
-        ListButton(if (block?.type == BlockType.Bullet) active.bulletList else idle.bulletList, "Bulleted list", BlockType.Bullet, block?.type, editable) { commands.setBlockType(BlockType.Bullet, takeSelection()) }
-        ListButton(if (block?.type == BlockType.Numbered) active.numberedList else idle.numberedList, "Numbered list", BlockType.Numbered, block?.type, editable) { commands.setBlockType(BlockType.Numbered, takeSelection()) }
-        ListButton(if (block?.type == BlockType.Todo) active.todoList else idle.todoList, "To-do", BlockType.Todo, block?.type, editable) { commands.setBlockType(BlockType.Todo, takeSelection()) }
-        RibbonIcon(DocumentSymbols.FormatIndentDecrease, "Decrease indent", enabled = editable,
+        ListButton(if (block?.type == BlockType.Bullet) active.bulletList else idle.bulletList, Strings.bulleted_list, BlockType.Bullet, block?.type, editable) { commands.setBlockType(BlockType.Bullet, takeSelection()) }
+        ListButton(if (block?.type == BlockType.Numbered) active.numberedList else idle.numberedList, Strings.numbered_list, BlockType.Numbered, block?.type, editable) { commands.setBlockType(BlockType.Numbered, takeSelection()) }
+        ListButton(if (block?.type == BlockType.Todo) active.todoList else idle.todoList, Strings.to_do, BlockType.Todo, block?.type, editable) { commands.setBlockType(BlockType.Todo, takeSelection()) }
+        RibbonIcon(DocumentSymbols.FormatIndentDecrease, Strings.decrease_indent, enabled = editable,
             tag = DocumentRibbonTags.DecreaseIndent) { commands.indent(-1, takeSelection()) }
-        RibbonIcon(DocumentSymbols.FormatIndentIncrease, "Increase indent", enabled = editable,
+        RibbonIcon(DocumentSymbols.FormatIndentIncrease, Strings.increase_indent, enabled = editable,
             tag = DocumentRibbonTags.IncreaseIndent) { commands.indent(1, takeSelection()) }
         RibbonDivider()
-        AlignButton(DocumentSymbols.FormatAlignLeft, "Align left", Align.Start, block?.align, editable) { commands.align(Align.Start, takeSelection()) }
-        AlignButton(DocumentSymbols.FormatAlignCenter, "Align centre", Align.Center, block?.align, editable) { commands.align(Align.Center, takeSelection()) }
-        AlignButton(DocumentSymbols.FormatAlignRight, "Align right", Align.End, block?.align, editable) { commands.align(Align.End, takeSelection()) }
+        AlignButton(DocumentSymbols.FormatAlignLeft, Strings.align_left, Align.Start, block?.align, editable) { commands.align(Align.Start, takeSelection()) }
+        AlignButton(DocumentSymbols.FormatAlignCenter, Strings.align_centre, Align.Center, block?.align, editable) { commands.align(Align.Center, takeSelection()) }
+        AlignButton(DocumentSymbols.FormatAlignRight, Strings.align_right, Align.End, block?.align, editable) { commands.align(Align.End, takeSelection()) }
         RibbonDivider()
         StylesPicker(block?.type ?: BlockType.Paragraph, idle.styles, editable, richText?.selection, commands.setBlockType)
         RibbonDivider()
         // An inline equation needs a LaTeX renderer on desktop; until then the button stays disabled.
-        RibbonIcon(DocumentSymbols.Function, "Equation", enabled = false, tag = DocumentRibbonTags.Equation) {}
+        RibbonIcon(DocumentSymbols.Function, Strings.equation, enabled = false, tag = DocumentRibbonTags.Equation) {}
         LinkButton(
             enabled = editable,
             onClick = {
@@ -188,7 +189,7 @@ internal fun DocumentRibbon(
                 ))
             },
         )
-        RibbonIcon(DocumentSymbols.Image, "Picture", enabled = commands.insertPicture != null,
+        RibbonIcon(DocumentSymbols.Image, Strings.picture, enabled = commands.insertPicture != null,
             tag = DocumentRibbonTags.Picture) { commands.insertPicture?.invoke() }
     }
 }

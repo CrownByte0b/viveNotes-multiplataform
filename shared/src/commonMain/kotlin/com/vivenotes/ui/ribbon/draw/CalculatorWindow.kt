@@ -1,5 +1,7 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
+import com.vivenotes.localization.MathText
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.foundation.background
@@ -63,7 +65,7 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
     }
     LaunchedEffect(math) {
         try { math.holdFormulaModel() } catch (cancelled: CancellationException) { throw cancelled }
-        catch (error: Exception) { answer = CalculatorAnswer("", error = error.message ?: "Unable to load the formula model") }
+        catch (error: Exception) { answer = CalculatorAnswer("", error = error.message ?: Strings.unable_to_load_the_formula_model) }
     }
     var requestVersion by remember { mutableLongStateOf(0L) }
     var busy by remember { mutableStateOf(false) }
@@ -110,11 +112,11 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
                         Icon(DrawToolkitSymbols.DragIndicator, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Calculator", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(Strings.calculator, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.weight(1f))
-                        HoverTooltip("Close calculator") {
+                        HoverTooltip(Strings.close_calculator) {
                             IconButton(onClose, Modifier.testTag(CalculatorTags.Close)) {
-                                Icon(DrawToolkitSymbols.Close, "Close calculator", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Icon(DrawToolkitSymbols.Close, Strings.close_calculator, tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp))
                             }
                         }
@@ -122,7 +124,7 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
                     BoxWithConstraints(Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(16.dp))
                         .background(if (dark) Color(0xFF1F1F1F) else Color.White)
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-                        .testTag(CalculatorTags.Pad).semantics { contentDescription = "Calculator writing pad" }
+                        .testTag(CalculatorTags.Pad).semantics { contentDescription = Strings.calculator_writing_pad }
                         .pointerInput(allowFinger) {
                             awaitEachGesture {
                                 val down = awaitFirstDown(false, PointerEventPass.Initial)
@@ -141,7 +143,7 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
                                 }
                             }
                         }, contentAlignment = Alignment.Center) {
-                        if (history.size == 1 && !writing) Text("Write a calculation, then press =",
+                        if (history.size == 1 && !writing) Text(Strings.write_a_calculation_then_press,
                             color = if (dark) Color(0xFF9A9A9A) else Color(0xFF6B6B6B),
                             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag(CalculatorTags.Hint))
                         InkLayer(history.last(), DpSize(maxWidth, 200.dp), if (dark) Color.White else Color.Black, tool = InkTool.Pen,
@@ -150,15 +152,15 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
                     }
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        HoverTooltip("Undo stroke") {
+                        HoverTooltip(Strings.undo_stroke) {
                             IconButton({ history = history.dropLast(1) }, enabled = history.size > 1 && !busy,
-                                modifier = Modifier.testTag(CalculatorTags.Undo)) { Icon(DrawToolkitSymbols.Undo, "Undo stroke") }
+                                modifier = Modifier.testTag(CalculatorTags.Undo)) { Icon(DrawToolkitSymbols.Undo, Strings.undo_stroke) }
                         }
                         TextButton({ requestVersion++; job?.cancel(); history = history.take(1); answer = null; busy = false },
                             enabled = history.size > 1 || answer != null || busy,
-                            modifier = Modifier.testTag(CalculatorTags.Clear)) { Text("Clear") }
+                            modifier = Modifier.testTag(CalculatorTags.Clear)) { Text(Strings.clear) }
                         Spacer(Modifier.weight(1f))
-                        HoverTooltip("Show decimal") {
+                        HoverTooltip(Strings.show_decimal) {
                             ToggleButton(decimal, { decimal = it },
                                 shapes = ToggleButtonDefaults.shapesFor(ButtonDefaults.ExtraSmallContainerHeight),
                                 colors = ToggleButtonDefaults.toggleButtonColors(
@@ -168,7 +170,7 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
                                     checkedContentColor = MaterialTheme.colorScheme.onTertiary),
                                 contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.ExtraSmallContainerHeight),
                                 modifier = Modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight)
-                                    .testTag(CalculatorTags.Decimal).semantics { contentDescription = "Show decimal" }) {
+                                    .testTag(CalculatorTags.Decimal).semantics { contentDescription = Strings.show_decimal }) {
                                 Text("≈", style = MaterialTheme.typography.titleMedium)
                             }
                         }
@@ -183,7 +185,7 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
                                     if (version == requestVersion) answer = result
                                 } catch (cancelled: CancellationException) { throw cancelled }
                                 catch (error: Exception) {
-                                    if (version == requestVersion) answer = CalculatorAnswer("", error = error.message ?: "Unable to read this formula")
+                                    if (version == requestVersion) answer = CalculatorAnswer("", error = error.message ?: Strings.unable_to_read_this_formula)
                                 } finally { if (version == requestVersion) busy = false }
                             }
                         }, enabled = history.size > 1 && !busy,
@@ -191,27 +193,27 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
                                 contentColor = MaterialTheme.colorScheme.onTertiary),
                             contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.ExtraSmallContainerHeight),
                             modifier = Modifier.heightIn(min = ButtonDefaults.ExtraSmallContainerHeight)
-                                .testTag(CalculatorTags.Equals).semantics { contentDescription = "Calculate" }) {
+                                .testTag(CalculatorTags.Equals).semantics { contentDescription = Strings.calculate }) {
                             Text("=", style = MaterialTheme.typography.titleMedium)
                         }
                     }
                     if (busy) Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         LoadingIndicator(Modifier.size(32.dp))
-                        Text("Reading handwriting…", style = MaterialTheme.typography.bodyMedium)
+                        Text(Strings.reading_handwriting, style = MaterialTheme.typography.bodyMedium)
                     }
                     answer?.let { value ->
                         Spacer(Modifier.height(8.dp))
                         if (value.latex.isNotBlank()) EquationContent(value.latex, MaterialTheme.colorScheme.onSurface)
                         value.result?.let { result ->
-                            Text(result.title, style = MaterialTheme.typography.labelLarge)
-                            result.latex?.let { latex -> EquationContent(if (decimal) result.decimal ?: latex else latex,
+                            Text(MathText.translate(result.title), style = MaterialTheme.typography.labelLarge)
+                            result.latex?.let { latex -> EquationContent(MathText.translateVerdict(if (decimal) result.decimal ?: latex else latex),
                                 MaterialTheme.colorScheme.onSurface, Modifier.testTag(CalculatorTags.Result)) }
-                            result.message?.let { Text(it) }
+                            result.message?.let { Text(MathText.translate(it)) }
                         }
-                        value.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(CalculatorTags.Error)) }
+                        value.error?.let { Text(MathText.translate(it), color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(CalculatorTags.Error)) }
                         if (value.latex.isNotBlank()) TextButton({ onOpenInPanel(value.latex) }, Modifier.testTag(CalculatorTags.OpenInPanel)) {
-                            Text("Open in panel")
+                            Text(Strings.open_in_panel)
                         }
                     }
                 }

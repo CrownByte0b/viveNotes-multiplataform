@@ -1,5 +1,6 @@
 package com.vivenotes.math
 
+import com.vivenotes.localization.Strings
 import kotlinx.serialization.Serializable
 
 /*
@@ -33,7 +34,7 @@ data class MathGraph(
 
 @Serializable
 data class MathOperationResult(
-    val title: String = "Result",
+    val title: String = Strings.result,
     val latex: String? = null,
     val message: String? = null,
     val graph: MathGraph? = null,

@@ -1,5 +1,6 @@
 package com.vivenotes.ai
 
+import com.vivenotes.localization.Strings
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
@@ -148,7 +149,7 @@ class OnnxInkRecognitionEngine(
 
     private suspend fun recognizeWithFormulaNet(image: Image): FormulaRecognitionResult =
         withContext(inferenceDispatcher) {
-            val files = models.installedFormulaFiles() ?: error("PP-FormulaNet-S is not installed")
+            val files = models.installedFormulaFiles() ?: error(Strings.pp_formulanet_s_is_not_installed)
             val input = preprocessFormula(image)
             val ids = everyLane {
                 val session = session(ModelKind.Formula)
@@ -168,7 +169,7 @@ class OnnxInkRecognitionEngine(
 
     private suspend fun recognizeWithUniMerNet(image: Image, selected: FormulaEngine): FormulaRecognitionResult =
         withContext(inferenceDispatcher) {
-            val files = models.installedUniMerNetFiles(selected) ?: error("${selected.displayName} is not installed")
+            val files = models.installedUniMerNetFiles(selected) ?: error(Strings.value_is_not_installed(selected.displayName))
             val input = preprocessUniMerNet(image)
             val ids = everyLane { decodeUniMerNet(input, selected) }
             FormulaRecognitionResult(latex = FormulaTokenizerDecoder.decode(files.tokenizer, ids))
@@ -415,7 +416,7 @@ class OnnxInkRecognitionEngine(
                 }
                 ModelKind.Formula -> {
                     val file = models.installedFormulaFiles()?.model
-                        ?: error("PP-FormulaNet-S is not installed")
+                        ?: error(Strings.pp_formulanet_s_is_not_installed)
                     environment.createSession(file.absolutePath, options)
                 }
                 ModelKind.UniMerNetEncoder, ModelKind.UniMerNetDecoder,
@@ -423,7 +424,7 @@ class OnnxInkRecognitionEngine(
                     val selected = if (kind.family == ModelFamily.UniMerNetSmall) FormulaEngine.UniMerNetSmall
                         else FormulaEngine.UniMerNetTiny
                     val files = models.installedUniMerNetFiles(selected)
-                        ?: error("${selected.displayName} is not installed")
+                        ?: error(Strings.value_is_not_installed(selected.displayName))
                     val file = if (kind == ModelKind.UniMerNetEncoder || kind == ModelKind.UniMerNetSmallEncoder)
                         files.encoder else files.decoder
                     environment.createSession(file.absolutePath, options)
@@ -517,7 +518,7 @@ internal data class TextTensor(val values: FloatArray, val width: Int)
  * PaddleOCR pads with after its own normalization.
  */
 internal fun preprocessText(image: Image): TextTensor {
-    require(image.width > 0 && image.height > 0) { "Recognition image is empty" }
+    require(image.width > 0 && image.height > 0) { Strings.recognition_image_is_empty }
     val ratio = image.width.toFloat() / image.height
     val width = max(TEXT_BASE_WIDTH_FOR_PREPROCESS, min(TEXT_MAX_WIDTH_FOR_PREPROCESS, ceil(48f * ratio).toInt()))
     val resizedWidth = min(width, ceil(48f * ratio).toInt().coerceAtLeast(1))
@@ -545,7 +546,7 @@ internal fun preprocessText(image: Image): TextTensor {
 
 /** FormulaNet's margin crop, 384-square white pad and one-channel normalization. */
 internal fun preprocessFormula(image: Image): FloatArray {
-    require(image.width > 0 && image.height > 0) { "Recognition image is empty" }
+    require(image.width > 0 && image.height > 0) { Strings.recognition_image_is_empty }
     return withInkCrop(image) { cropped ->
         val scale = FORMULA_SIZE_FOR_PREPROCESS.toFloat() / max(cropped.width, cropped.height)
         val scaledWidth = min(FORMULA_SIZE_FOR_PREPROCESS, (cropped.width * scale).toInt().coerceAtLeast(1))
@@ -581,7 +582,7 @@ internal fun preprocessFormula(image: Image): FloatArray {
  * trained on. UniMERNet's processor pads with `ImageOps.expand`, whose fill is 0.
  */
 internal fun preprocessUniMerNet(image: Image): FloatArray {
-    require(image.width > 0 && image.height > 0) { "Recognition image is empty" }
+    require(image.width > 0 && image.height > 0) { Strings.recognition_image_is_empty }
     return withInkCrop(image) { cropped ->
         val scale = min(
             UNIMERNET_HEIGHT.toFloat() / cropped.height,
@@ -654,7 +655,7 @@ private inline fun <T> withInkCrop(image: Image, block: (Image) -> T): T {
 }
 
 internal fun decodeCtc(logits: Array<FloatArray>, characters: List<String>): TextRecognitionResult {
-    require(logits.all { it.size == characters.size }) { "OCR dictionary does not match model" }
+    require(logits.all { it.size == characters.size }) { Strings.ocr_dictionary_does_not_match_model }
     val result = StringBuilder()
     var previous = 0
     var confidence = 0f

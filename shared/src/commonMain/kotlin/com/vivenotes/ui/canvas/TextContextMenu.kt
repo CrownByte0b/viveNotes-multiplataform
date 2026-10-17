@@ -1,5 +1,6 @@
 package com.vivenotes.ui.canvas
 
+import com.vivenotes.localization.Strings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -80,7 +81,7 @@ internal fun TextContextMenu(
     ) {
         val selection = request?.selection ?: TextSelection(0)
         ContextMenuItem(
-            label = "Cut",
+            label = Strings.cut,
             icon = DocumentSymbols.ContentCut,
             shortcut = bindings.primary(ShortcutAction.Cut)?.label,
             enabled = !selection.collapsed,
@@ -91,7 +92,7 @@ internal fun TextContextMenu(
             modifier = Modifier.testTag(TextMenuTags.Cut),
         )
         ContextMenuItem(
-            label = "Copy",
+            label = Strings.copy,
             icon = DocumentSymbols.ContentCopy,
             shortcut = bindings.primary(ShortcutAction.Copy)?.label,
             enabled = !selection.collapsed,
@@ -102,7 +103,7 @@ internal fun TextContextMenu(
             modifier = Modifier.testTag(TextMenuTags.Copy),
         )
         ContextMenuItem(
-            label = "Paste",
+            label = Strings.paste,
             icon = DocumentSymbols.ContentPaste,
             shortcut = bindings.primary(ShortcutAction.Paste)?.label,
             enabled = canPaste,
@@ -113,7 +114,7 @@ internal fun TextContextMenu(
             modifier = Modifier.testTag(TextMenuTags.Paste),
         )
         ContextMenuItem(
-            label = "Paste as plain text",
+            label = Strings.paste_as_plain_text,
             icon = ContextSymbols.PasteAsText,
             shortcut = bindings.primary(ShortcutAction.PastePlainText)?.label,
             enabled = canPaste,
@@ -126,7 +127,7 @@ internal fun TextContextMenu(
         ContextMenuDivider()
         if (!selection.collapsed) {
             ContextMenuItem(
-                label = "Insert link",
+                label = Strings.insert_link,
                 icon = DocumentSymbols.Link,
                 onClick = {
                     onClose()
@@ -136,7 +137,7 @@ internal fun TextContextMenu(
                 modifier = Modifier.testTag(TextMenuTags.InsertLink),
             )
             ContextMenuItem(
-                label = "Clear formatting",
+                label = Strings.clear_formatting,
                 icon = DocumentSymbols.FormatClear,
                 onClick = {
                     onClose()
@@ -149,7 +150,7 @@ internal fun TextContextMenu(
             ContextMenuDivider()
         }
         ContextMenuItem(
-            label = "Select all",
+            label = Strings.select_all,
             icon = ContextSymbols.SelectAll,
             shortcut = bindings.primary(ShortcutAction.SelectAll)?.label,
             onClick = {
@@ -160,7 +161,7 @@ internal fun TextContextMenu(
         )
         ContextMenuDivider()
         ContextMenuItem(
-            label = "Copy text box",
+            label = Strings.copy_text_box,
             icon = DocumentSymbols.ContentCopy,
             onClick = {
                 onClose()
@@ -169,7 +170,7 @@ internal fun TextContextMenu(
             modifier = Modifier.testTag(TextMenuTags.CopyBox),
         )
         ContextMenuItem(
-            label = "Delete text box",
+            label = Strings.delete_text_box,
             icon = ObjectSymbols.Delete,
             destructive = true,
             onClick = {

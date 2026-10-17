@@ -1,5 +1,6 @@
 package com.vivenotes.ai
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.model.ocr.TextDetection
 import org.jetbrains.skia.Color
 import org.jetbrains.skia.Image
@@ -49,7 +50,7 @@ internal fun preprocessDetection(
     limit: Int = DETECTION_LIMIT,
     channelOrder: DetectionChannelOrder = DetectionChannelOrder.Rgb,
 ): DetectionTensor {
-    require(image.width > 0 && image.height > 0) { "Detection image is empty" }
+    require(image.width > 0 && image.height > 0) { Strings.detection_image_is_empty }
     val longest = max(image.width, image.height)
     val ratio = if (longest > limit) limit.toFloat() / longest else 1f
     val width = alignTo32(image.width * ratio)

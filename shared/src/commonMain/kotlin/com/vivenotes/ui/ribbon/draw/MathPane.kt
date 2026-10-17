@@ -1,5 +1,7 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
+import com.vivenotes.localization.MathText
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,11 +65,11 @@ internal fun MathPane(initial: String, math: DrawMath, showInterpretation: Boole
                 if (version == state.requestVersion) state.result = calculated
             }
         } catch (cancelled: CancellationException) { throw cancelled }
-        catch (failure: Exception) { if (version == state.requestVersion) state.error = failure.message ?: "Unable to calculate" }
+        catch (failure: Exception) { if (version == state.requestVersion) state.error = failure.message ?: Strings.unable_to_calculate }
         finally { if (version == state.requestVersion) state.busy = false }
     }
     MathPaneFrame(onClose) {
-        MathSection("LaTeX") {
+        MathSection(Strings.latex) {
             BasicTextField(state.source, {
                 state.requestVersion++
                 state.source = it; state.copied = false; state.analysis = null; state.result = null; state.error = null; state.busy = it.isNotBlank()
@@ -84,21 +86,21 @@ internal fun MathPane(initial: String, math: DrawMath, showInterpretation: Boole
                     clipboard.setText(AnnotatedString(state.source))
                     state.copied = true
                     log.event("math") { "LaTeX copied" }
-                }, enabled = state.source.isNotBlank(), modifier = Modifier.testTag(MathPaneTags.Copy)) { Text("Copy") }
-                if (state.copied) Text("Copied", style = MaterialTheme.typography.labelMedium,
+                }, enabled = state.source.isNotBlank(), modifier = Modifier.testTag(MathPaneTags.Copy)) { Text(Strings.copy) }
+                if (state.copied) Text(Strings.copied, style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary, modifier = Modifier.testTag(MathPaneTags.Copied))
             }
         }
-        MathSection("Preview") { MathEquationPreview(state.source, MathPaneTags.Preview) }
+        MathSection(Strings.preview) { MathEquationPreview(state.source, MathPaneTags.Preview) }
         state.analysis?.let { current ->
-            if (showInterpretation) MathSection("Understood as") {
+            if (showInterpretation) MathSection(Strings.understood_as) {
                 Text(buildString {
-                    append(current.summary)
-                    if (current.variables.isNotEmpty()) append(" · Variables: ${current.variables.joinToString()}")
+                    append(MathText.translate(current.summary))
+                    if (current.variables.isNotEmpty()) append(Strings.variables_value(current.variables.joinToString()))
                 }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 MathEquationPreview(current.normalizedLatex, MathPaneTags.Interpretation, scale = .85f)
             }
-            MathSection("Actions") {
+            MathSection(Strings.actions) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     current.actions.forEach { action ->
                         MathPanelButton(onClick = {
@@ -116,29 +118,29 @@ internal fun MathPane(initial: String, math: DrawMath, showInterpretation: Boole
                                 } catch (cancelled: CancellationException) { throw cancelled }
                                 catch (failure: Exception) {
                                     if (version == state.requestVersion) {
-                                        state.error = failure.message ?: "Unable to calculate"
+                                        state.error = failure.message ?: Strings.unable_to_calculate
                                         log.event("math") { "action failed" }
                                     }
                                 } finally { if (version == state.requestVersion) state.busy = false }
                             }
                         }, enabled = !state.busy && current.error == null, mathAction = true,
-                            modifier = Modifier.testTag(MathPaneTags.action(action.id))) { Text(action.label) }
+                            modifier = Modifier.testTag(MathPaneTags.action(action.id))) { Text(MathText.translate(action.label)) }
                     }
                 }
             }
         }
         if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 6.dp))
-        state.error?.let { MathSection("Operation failed") { MathError(it) } }
+        state.error?.let { MathSection(Strings.operation_failed) { MathError(it) } }
         state.result?.let { answer ->
-            MathSection(answer.title) {
+            MathSection(MathText.translate(answer.title)) {
                 answer.latex?.takeIf(String::isNotBlank)?.let { latex ->
-                    MathEquationPreview(if (decimal) answer.decimal ?: latex else latex, MathPaneTags.Result)
+                    MathEquationPreview(MathText.translateVerdict(if (decimal) answer.decimal ?: latex else latex), MathPaneTags.Result)
                     if (answer.decimal != null) MathDecimalToggle(decimal, onChange = {
                         decimal = it
                         log.event("math") { "decimal display=$it" }
                     })
                 }
-                answer.message?.takeIf(String::isNotBlank)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                answer.message?.takeIf(String::isNotBlank)?.let { Text(MathText.translate(it), style = MaterialTheme.typography.bodySmall) }
                 answer.error?.let { MathError(it) }
                 answer.graph?.let { graph -> MathGraphPlot(graph) }
             }

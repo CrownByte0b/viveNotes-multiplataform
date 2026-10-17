@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.document
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,26 +46,26 @@ import com.vivenotes.ui.ribbon.RibbonStyle
 /** The Document tab's drop-down controls: font family and size, the two colours, and Styles. */
 
 internal val FontSizes = listOf(8, 9, 10, 11, 12, 14, 15, 16, 18, 20, 24, 28, 36, 48, 72)
-internal val FontFamilies = listOf(
-    "sans-serif" to "System sans",
-    "serif" to "System serif",
-    "monospace" to "System mono",
-    "inter" to "Inter",
-    "lora" to "Lora",
-    "jetbrains_mono" to "JetBrains Mono",
+internal val FontFamilies get() = listOf(
+    "sans-serif" to Strings.system_sans,
+    "serif" to Strings.system_serif,
+    "monospace" to Strings.system_mono,
+    "inter" to Strings.inter,
+    "lora" to Strings.lora,
+    "jetbrains_mono" to Strings.jetbrains_mono,
 )
 
 /** Android's font colour palette, with the names a screen reader and the hover tooltip give them. */
-internal val TextColors = listOf(
-    0xFFFFFFFF to "White", 0xFFE6E6E6 to "Light grey", 0xFF9A9A9A to "Grey", 0xFF000000 to "Black",
-    0xFFE53935 to "Red", 0xFFFB8C00 to "Orange", 0xFFFDD835 to "Yellow", 0xFF43A047 to "Green",
-    0xFF1E88E5 to "Blue", 0xFF8E24AA to "Purple", 0xFF00ACC1 to "Cyan", 0xFFD81B60 to "Pink",
+internal val TextColors get() = listOf(
+    0xFFFFFFFF to Strings.white, 0xFFE6E6E6 to Strings.light_grey, 0xFF9A9A9A to Strings.grey, 0xFF000000 to Strings.black,
+    0xFFE53935 to Strings.red, 0xFFFB8C00 to Strings.orange, 0xFFFDD835 to Strings.yellow, 0xFF43A047 to Strings.green,
+    0xFF1E88E5 to Strings.blue, 0xFF8E24AA to Strings.purple, 0xFF00ACC1 to Strings.cyan, 0xFFD81B60 to Strings.pink,
 ).map { (argb, name) -> argb.toInt() to name }
 
 /** Android's highlight palette. */
-internal val HighlightColors = listOf(
-    0x66FFEB3B to "Yellow", 0x6676FF03 to "Green", 0x6640C4FF to "Blue", 0x66FF4081 to "Pink",
-    0x66FF9100 to "Orange", 0x66B388FF to "Purple", 0x66FFFFFF to "White", 0x00000000 to "Transparent",
+internal val HighlightColors get() = listOf(
+    0x66FFEB3B to Strings.yellow, 0x6676FF03 to Strings.green, 0x6640C4FF to Strings.blue, 0x66FF4081 to Strings.pink,
+    0x66FF9100 to Strings.orange, 0x66B388FF to Strings.purple, 0x66FFFFFF to Strings.white, 0x00000000 to Strings.transparent,
 )
 
 /** The colours last chosen from the two palettes for this workspace window. */
@@ -73,13 +74,13 @@ internal class DocumentColorSelection {
     var highlight by mutableStateOf<Int?>(null)
 }
 
-internal val DocumentStyles = listOf(
-    BlockType.Paragraph to "Normal",
-    BlockType.Heading1 to "Heading 1",
-    BlockType.Heading2 to "Heading 2",
-    BlockType.Heading3 to "Heading 3",
-    BlockType.Quote to "Quote",
-    BlockType.Code to "Code",
+internal val DocumentStyles get() = listOf(
+    BlockType.Paragraph to Strings.normal,
+    BlockType.Heading1 to Strings.heading_1,
+    BlockType.Heading2 to Strings.heading_2,
+    BlockType.Heading3 to Strings.heading_3,
+    BlockType.Quote to Strings.quote,
+    BlockType.Code to Strings.code,
 )
 
 @Composable
@@ -182,7 +183,7 @@ internal fun ColorPicker(
                         modifier = Modifier.size(20.dp).then(if (rotateIcon) Modifier.rotate(180f) else Modifier))
                 }
             }
-            HoverTooltip("Choose $label") {
+            HoverTooltip(Strings.choose_value(label)) {
                 Box(
                     modifier = Modifier.size(width = 24.dp, height = 46.dp)
                         .background(if (menuHovered && enabled) RibbonStyle.hover else Color.Transparent)
@@ -190,7 +191,7 @@ internal fun ColorPicker(
                         .clickable(interactionSource = menuInteraction, indication = null,
                             enabled = enabled, role = Role.Button) { expanded = true }
                         .testTag(DocumentRibbonTags.colorMenu(tag))
-                        .semantics { contentDescription = "Choose $label" },
+                        .semantics { contentDescription = Strings.choose_value(label) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(DocumentSymbols.ArrowDropDown, contentDescription = null,
@@ -225,7 +226,7 @@ internal fun ColorPicker(
                         }
                     }
                 }
-                DropdownMenuItem(text = { Text("None") }, onClick = {
+                DropdownMenuItem(text = { Text(Strings.none) }, onClick = {
                     expanded = false
                     onChooseColor(null)
                     onClear(selectionAtPress ?: selection)
@@ -247,17 +248,17 @@ internal fun StylesPicker(
     var expanded by remember { mutableStateOf(false) }
     var selectionAtOpen by remember { mutableStateOf<TextSelection?>(null) }
     Box {
-        HoverTooltip("Styles") {
+        HoverTooltip(Strings.styles) {
             RibbonCommand(
-                label = if (current == BlockType.Paragraph) "Styles"
-                    else DocumentStyles.firstOrNull { it.first == current }?.second ?: "Styles",
+                label = if (current == BlockType.Paragraph) Strings.styles
+                    else DocumentStyles.firstOrNull { it.first == current }?.second ?: Strings.styles,
                 onClick = {
                         if (selectionAtOpen == null) selectionAtOpen = selection
                         expanded = true
                 },
                 modifier = Modifier.testTag(DocumentRibbonTags.Styles)
                     .captureSelectionOnPress(selection) { selectionAtOpen = it }
-                    .semantics { contentDescription = "Styles" },
+                    .semantics { contentDescription = Strings.styles },
                 active = current != BlockType.Paragraph,
                 enabled = enabled,
                 dropdown = true,

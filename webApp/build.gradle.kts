@@ -23,6 +23,7 @@ kotlin {
             implementation(project(":shared"))
 
             implementation(libs.compose.ui)
+            implementation(libs.kotlinx.coroutinesCore)
         }
     }
 }

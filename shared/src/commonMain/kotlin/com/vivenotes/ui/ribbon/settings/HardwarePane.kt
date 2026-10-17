@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.settings
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,9 +61,11 @@ object HardwareTags {
 }
 
 /** The devices the Hardware pane has settings for, as Android's picker names them. */
-enum class HardwareKind(val label: String) {
-    Stylus("Stylus"),
-    Keyboard("Keyboard"),
+enum class HardwareKind(private val labelText: () -> String) {
+    Stylus({ Strings.stylus }),
+    Keyboard({ Strings.keyboard });
+
+    val label: String get() = labelText()
 }
 
 /**
@@ -82,7 +85,7 @@ internal fun HardwarePane(
     onClose: () -> Unit,
 ) {
     var kind by remember { mutableStateOf(HardwareKind.Keyboard) }
-    ToolPane(title = "Hardware", onClose = onClose) {
+    ToolPane(title = Strings.hardware, onClose = onClose) {
         HardwareKindPicker(selected = kind, onSelect = { kind = it })
         when (kind) {
             HardwareKind.Stylus -> StylusSettings(input, onInputChange)
@@ -97,7 +100,7 @@ internal fun HardwarePane(
  */
 @Composable
 private fun ColumnScope.StylusSettings(input: InputSettings, onInputChange: (InputSettings) -> Unit) {
-    PaneGroup("Touch") {
+    PaneGroup(Strings.touch) {
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                 .toggleable(value = input.drawWithFinger, role = Role.Switch,
@@ -107,9 +110,9 @@ private fun ColumnScope.StylusSettings(input: InputSettings, onInputChange: (Inp
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text("Let a finger draw", style = MaterialTheme.typography.bodyMedium,
+                Text(Strings.let_a_finger_draw, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface)
-                Text("Otherwise a finger moves the page", style = MaterialTheme.typography.bodySmall,
+                Text(Strings.otherwise_a_finger_moves_the_page, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             // The row is the control; the switch only shows its state.
@@ -125,7 +128,7 @@ private fun ColumnScope.KeyboardSettings(
     onReset: (ShortcutAction) -> Unit,
     onResetAll: () -> Unit,
 ) {
-    Text("Click a shortcut to change it.", style = MaterialTheme.typography.bodySmall,
+    Text(Strings.click_a_shortcut_to_change_it, style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 4.dp, top = 12.dp))
     Column(Modifier.fillMaxWidth().testTag(HardwareTags.Shortcuts)) {
@@ -149,7 +152,7 @@ private fun ColumnScope.KeyboardSettings(
         enabled = bindings.isCustomized,
         shape = MaterialTheme.shapes.small,
         modifier = Modifier.align(Alignment.End).padding(top = 16.dp).testTag(HardwareTags.ResetAll),
-    ) { Text("Reset All…") }
+    ) { Text(Strings.reset_all) }
 }
 
 /** Stylus and Keyboard as one linked pair of buttons, the way GTK groups a view switcher. */
@@ -195,7 +198,7 @@ private fun ShortcutRow(
     if (!first) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp)
-            .clickable(role = Role.Button, onClickLabel = "Change shortcut", onClick = onEdit)
+            .clickable(role = Role.Button, onClickLabel = Strings.change_shortcut, onClick = onEdit)
             .testTag(HardwareTags.shortcut(action))
             .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -205,13 +208,13 @@ private fun ShortcutRow(
         if (chord != null) {
             Keycap(chord.label)
         } else {
-            Text("Disabled", style = MaterialTheme.typography.bodySmall,
+            Text(Strings.disabled, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         // The slot stays when empty, so every row's keys line up.
         Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
             if (customized) {
-                TooltipIconButton("Reset ${action.label} shortcut", onClick = onReset,
+                TooltipIconButton(Strings.reset_value_shortcut(action.label), onClick = onReset,
                     modifier = Modifier.size(32.dp).testTag(HardwareTags.reset(action))) {
                     Icon(SettingsSymbols.RestartAlt, contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))

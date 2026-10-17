@@ -1,10 +1,13 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.data.EraserMode
 import com.vivenotes.model.ink.LineType
 
-enum class InkBrush(val label: String) {
-    Marker("Fountain"), PressurePen("Pressure pen"), Calligraphy("Calligraphy"), DashedLine("Dashed line"),
+enum class InkBrush(private val labelText: () -> String) {
+    Marker({ Strings.fountain }), PressurePen({ Strings.pressure_pen }), Calligraphy({ Strings.calligraphy }), DashedLine({ Strings.dashed_line });
+
+    val label: String get() = labelText()
 }
 
 data class InkPenSettings(

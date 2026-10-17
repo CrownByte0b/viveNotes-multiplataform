@@ -1,5 +1,6 @@
 package com.vivenotes.math
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -77,7 +78,7 @@ class SympyMathEngine internal constructor(
     internal suspend fun versions(): Pair<String, String> {
         val versions = Json.parseToJsonElement(call("versions") ?: unexpectedNull("versions")).jsonObject
         fun field(name: String) = versions[name]?.jsonPrimitive?.contentOrNull
-            ?: throw MathEngineUnavailableException("The math engine did not report its $name version.")
+            ?: throw MathEngineUnavailableException(Strings.the_math_engine_did_not_report_its_value_version(name))
         return field("python") to field("sympy")
     }
 
@@ -100,7 +101,7 @@ class SympyMathEngine internal constructor(
     }
 
     private suspend fun call(name: String, vararg args: String): String? = calls.withLock {
-        if (closed) throw MathEngineUnavailableException("The math engine has been shut down.")
+        if (closed) throw MathEngineUnavailableException(Strings.the_math_engine_has_been_shut_down)
         val running = server?.takeIf { it.process.isAlive } ?: start()
         val id = nextId++
         val request = buildJsonObject {
@@ -117,7 +118,7 @@ class SympyMathEngine internal constructor(
         } catch (failure: IOException) {
             end(running, "engine exited (code ${running.exitCode()})")
             throw MathEngineUnavailableException(
-                "The math engine stopped unexpectedly." + running.lastError()?.let { " $it" }.orEmpty(),
+                Strings.the_math_engine_stopped_unexpectedly + running.lastError()?.let { " $it" }.orEmpty(),
                 failure,
             )
         }
@@ -125,14 +126,14 @@ class SympyMathEngine internal constructor(
             Json.parseToJsonElement(line).jsonObject
         } catch (failure: Exception) {
             end(running, "unreadable reply")
-            throw MathEngineUnavailableException("The math engine sent an unreadable reply.", failure)
+            throw MathEngineUnavailableException(Strings.the_math_engine_sent_an_unreadable_reply, failure)
         }
         if (reply["id"]?.jsonPrimitive?.longOrNull != id) {
             end(running, "reply out of order")
-            throw MathEngineUnavailableException("The math engine answered out of order.")
+            throw MathEngineUnavailableException(Strings.the_math_engine_answered_out_of_order)
         }
         reply.stringOrNull("error")?.let { error ->
-            throw MathEngineUnavailableException("The math engine could not run $name: $error")
+            throw MathEngineUnavailableException(Strings.the_math_engine_could_not_run_value_value(name, error))
         }
         reply.stringOrNull("result")
     }
@@ -151,7 +152,7 @@ class SympyMathEngine internal constructor(
                 running.requests.write(request)
                 running.requests.newLine()
                 running.requests.flush()
-                running.replies.readLine() ?: throw IOException("The math engine closed its output")
+                running.replies.readLine() ?: throw IOException(Strings.the_math_engine_closed_its_output)
             }
         }
         try {
@@ -168,7 +169,7 @@ class SympyMathEngine internal constructor(
         } catch (unavailable: MathEngineUnavailableException) {
             throw unavailable
         } catch (failure: Exception) {
-            throw MathEngineUnavailableException("The math engine could not start.", failure)
+            throw MathEngineUnavailableException(Strings.the_math_engine_could_not_start, failure)
         }
         val started = Server(process)
         server = started
@@ -183,7 +184,7 @@ class SympyMathEngine internal constructor(
     }
 
     private fun unexpectedNull(call: String): Nothing =
-        throw MathEngineUnavailableException("The math engine returned nothing for $call.")
+        throw MathEngineUnavailableException(Strings.the_math_engine_returned_nothing_for_value(call))
 
     private fun JsonObject.stringOrNull(name: String): String? =
         this[name]?.takeUnless { it is JsonNull }?.jsonPrimitive?.contentOrNull

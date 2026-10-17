@@ -67,6 +67,8 @@ tasks.withType<Test>().configureEach {
 tasks.test {
     val settingsFile = rootProject.file("settings.gradle.kts")
     inputs.file(settingsFile)
+    inputs.file(rootProject.file("tools/lint/ResourceLint.java"))
+    systemProperty("vivenotes.test.projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
     systemProperty("vivenotes.test.gradleHome", gradle.gradleHomeDir!!.absolutePath)
     systemProperty("vivenotes.test.gradleUserHome", gradle.gradleUserHomeDir.absolutePath)

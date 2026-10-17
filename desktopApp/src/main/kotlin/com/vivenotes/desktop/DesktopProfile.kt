@@ -1,14 +1,17 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.data.AppDirectories
 import java.io.File
 
 internal data class ProfileDirectories(val data: File, val config: File, val cache: File)
 
 /** Separate identities and storage for development runs and the installed app. */
-internal enum class DesktopProfile(val windowClass: String, val windowTitle: String) {
-    PRODUCTION("vivenotes", "Vive Notes"),
-    DEVELOPMENT("vivenotes-dev", "Vive Notes Dev");
+internal enum class DesktopProfile(val windowClass: String, private val titleText: () -> String) {
+    PRODUCTION("vivenotes", { Strings.vive_notes }),
+    DEVELOPMENT("vivenotes-dev", { Strings.vive_notes_dev });
+
+    val windowTitle: String get() = titleText()
 
     val developmentBuild: Boolean get() = this == DEVELOPMENT
 

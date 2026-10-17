@@ -1,5 +1,6 @@
 package com.vivenotes.ai
 
+import com.vivenotes.localization.Strings
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.ColorAlphaType
@@ -68,9 +69,9 @@ internal fun Image.cropped(left: Int, top: Int, width: Int, height: Int): Image 
 internal fun Image.argbPixels(): IntArray {
     val info = ImageInfo(width, height, ColorType.BGRA_8888, ColorAlphaType.UNPREMUL, ColorSpace.sRGB)
     Bitmap().use { bitmap ->
-        check(bitmap.allocPixels(info)) { "Cannot allocate a ${width}×$height raster" }
-        check(readPixels(bitmap, 0, 0)) { "Cannot read the picture's pixels" }
-        val bytes = bitmap.readPixels(info, width * 4, 0, 0) ?: error("Cannot read the picture's pixels")
+        check(bitmap.allocPixels(info)) { Strings.cannot_allocate_a_value_value_raster(width, height) }
+        check(readPixels(bitmap, 0, 0)) { Strings.cannot_read_the_picture_s_pixels }
+        val bytes = bitmap.readPixels(info, width * 4, 0, 0) ?: error(Strings.cannot_read_the_picture_s_pixels)
         return IntArray(width * height) { index ->
             val offset = index * 4
             ((bytes[offset + 3].toInt() and 0xFF) shl 24) or
@@ -111,7 +112,7 @@ internal fun Canvas.drawProjected(image: Image, from: FloatArray, to: FloatArray
  * unknowns directly: `x' = (a·x + b·y + c) / (g·x + h·y + 1)`, and the same for `y'`.
  */
 internal fun projectiveTransform(from: FloatArray, to: FloatArray): Matrix33? {
-    require(from.size == 8 && to.size == 8) { "Four points each" }
+    require(from.size == 8 && to.size == 8) { Strings.four_points_each }
     val rows = Array(8) { DoubleArray(9) }
     for (point in 0 until 4) {
         val x = from[point * 2].toDouble()

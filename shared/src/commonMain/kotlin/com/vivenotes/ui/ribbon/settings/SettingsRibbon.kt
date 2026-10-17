@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.settings
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -61,16 +62,16 @@ internal fun SettingsRibbon(onInterface: () -> Unit, hardwareOpen: Boolean, onHa
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SettingsTab("Interface", icon = { _, _ -> SettingsSymbols.DisplaySettings }, monochrome = true,
+            SettingsTab(Strings.interface_label, icon = { _, _ -> SettingsSymbols.DisplaySettings }, monochrome = true,
                 tag = InterfaceTags.Open, onClick = onInterface)
-            SettingsTab("Link previews", icon = ::linkPreviewGlyph,
+            SettingsTab(Strings.link_previews, icon = ::linkPreviewGlyph,
                 tag = LINK_PREVIEWS_TAG, active = linkPreviews,
                 onClick = { onLinkPreviewsChange(!linkPreviews) })
-            SettingsTab("Hardware", icon = ::hardwareGlyph,
+            SettingsTab(Strings.hardware, icon = ::hardwareGlyph,
                 tag = HardwareTags.Open, active = hardwareOpen, onClick = onHardware)
-            SettingsTab("Models", icon = ::integratedGlyph, tag = ModelsTags.Open, active = modelsOpen,
+            SettingsTab(Strings.models, icon = ::integratedGlyph, tag = ModelsTags.Open, active = modelsOpen,
                 enabled = modelsAvailable, onClick = onModels)
-            SettingsTab("About", icon = ::aboutGlyph, tag = AboutTags.Open, onClick = onAbout)
+            SettingsTab(Strings.about, icon = ::aboutGlyph, tag = AboutTags.Open, onClick = onAbout)
         }
     }
 }
@@ -105,7 +106,7 @@ private fun SettingsTab(label: String, icon: (Color, Color) -> ImageVector,
             verticalAlignment = Alignment.CenterVertically) {
             Icon(image, contentDescription = null,
                 tint = if (monochrome) textColor else Color.Unspecified,
-                modifier = Modifier.size(18.dp).testTag("settings-icon-${label.lowercase().replace(' ', '-')}"))
+                modifier = Modifier.size(18.dp).testTag("settings-icon-${tag.removePrefix("settings-").removeSuffix("-open")}"))
             Text(label, color = textColor, style = TextStyle(fontSize = 13.sp), maxLines = 1)
         }
     }

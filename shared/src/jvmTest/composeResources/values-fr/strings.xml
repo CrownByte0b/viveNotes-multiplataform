@@ -1,0 +1,20 @@
+<resources>
+    <string name="localization_test_close">Fermer</string>
+    <string name="localization_test_settings">Paramètres</string>
+    <string name="localization_test_interface">Interface utilisateur</string>
+    <string name="localization_test_cancel">Annuler</string>
+    <string name="localization_test_size">Format</string>
+    <string name="localization_test_custom">Personnalisé</string>
+    <string name="localization_test_search">Rechercher dans le carnet</string>
+    <string name="localization_test_undo">Annuler l’action</string>
+    <string name="localization_test_ctrl">Contrôle</string>
+    <string name="localization_test_rectangle">Rectangle traduit</string>
+    <string name="localization_test_version">Version de l’application %1$s</string>
+    <string name="localization_test_coupon">Jusqu’au %2$s : %1$s mois ajoutés.</string>
+    <string name="localization_test_derivative">Dérivée par rapport à %1$s</string>
+    <string name="localization_test_solve">Résoudre</string>
+    <string name="localization_test_notebook">Mon carnet</string>
+    <string name="localization_test_getting_started">Prise en main</string>
+    <string name="localization_test_ideas">Idées</string>
+    <string name="localization_test_welcome">Bienvenue</string>
+</resources>

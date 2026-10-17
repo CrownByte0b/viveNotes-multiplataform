@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.settings
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -62,10 +63,10 @@ object ModelsTags {
  */
 @Composable
 internal fun ModelsPane(models: AiModels?, onClose: () -> Unit) {
-    ToolPane(title = "Models", onClose = onClose) {
+    ToolPane(title = Strings.models, onClose = onClose) {
         if (models != null) {
             val state by models.state.collectAsState()
-            PaneGroup("Math") {
+            PaneGroup(Strings.math) {
                 FormulaEngine.entries.forEachIndexed { index, engine ->
                     val install = state.formula(engine)
                     FormulaModelRow(
@@ -79,7 +80,7 @@ internal fun ModelsPane(models: AiModels?, onClose: () -> Unit) {
                     )
                 }
             }
-            PaneGroup("Text") { TextModelRow(state.handwritingText) }
+            PaneGroup(Strings.text) { TextModelRow(state.handwritingText) }
         }
     }
 }
@@ -97,7 +98,7 @@ private fun FormulaModelRow(
 ) {
     ModelRow(
         title = engine.displayName,
-        detail = "${engine.strength} · ${formatModelBytes(AiModelCatalog.downloadBytes(engine))}",
+        detail = Strings.value_value(engine.strength, formatModelBytes(AiModelCatalog.downloadBytes(engine))),
         first = first,
         modifier = Modifier.testTag(ModelsTags.formula(engine)),
     ) {
@@ -118,7 +119,7 @@ private fun FormulaModelRow(
                     ) {
                         Icon(ViewSymbols.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("In use")
+                        Text(Strings.in_use)
                     }
                 } else {
                     FilledTonalButton(
@@ -126,7 +127,7 @@ private fun FormulaModelRow(
                         shape = MaterialTheme.shapes.small,
                         contentPadding = CompactButtonPadding,
                         modifier = Modifier.semantics { selected = false }.testTag(ModelsTags.use(engine)),
-                    ) { Text("Use") }
+                    ) { Text(Strings.use) }
                 }
                 Spacer(Modifier.weight(1f))
                 TextButton(
@@ -138,19 +139,19 @@ private fun FormulaModelRow(
                 ) {
                     Icon(ObjectSymbols.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Delete")
+                    Text(Strings.delete)
                 }
             }
-            AiModelInstallState.NotInstalled -> DownloadButton("Download", ModelsTags.download(engine), onDownload)
-            AiModelInstallState.Verifying -> ProgressLine("Verifying…", fraction = null, ModelsTags.progress(engine))
+            AiModelInstallState.NotInstalled -> DownloadButton(Strings.download, ModelsTags.download(engine), onDownload)
+            AiModelInstallState.Verifying -> ProgressLine(Strings.verifying, fraction = null, ModelsTags.progress(engine))
             is AiModelInstallState.Downloading -> {
                 val fraction = if (install.totalBytes == 0L) 0f
                     else (install.downloadedBytes.toDouble() / install.totalBytes).toFloat().coerceIn(0f, 1f)
-                ProgressLine("Downloading ${(fraction * 100).roundToInt()}%", fraction, ModelsTags.progress(engine))
+                ProgressLine(Strings.downloading_value((fraction * 100).roundToInt()), fraction, ModelsTags.progress(engine))
             }
             is AiModelInstallState.Failed -> {
                 ErrorLine(install.message)
-                DownloadButton("Retry", ModelsTags.download(engine), onDownload)
+                DownloadButton(Strings.retry, ModelsTags.download(engine), onDownload)
             }
         }
     }
@@ -161,13 +162,13 @@ private fun FormulaModelRow(
 private fun TextModelRow(install: AiModelInstallState) {
     ModelRow(
         title = AiModelCatalog.TEXT_MODEL_NAME,
-        detail = "Handwriting and pictures · ${formatModelBytes(AiModelCatalog.bundledTextBytes)} · built in",
+        detail = Strings.handwriting_and_pictures_value_built_in(formatModelBytes(AiModelCatalog.bundledTextBytes)),
         first = true,
         modifier = Modifier.testTag(ModelsTags.TextModel),
     ) {
         when (install) {
             is AiModelInstallState.Failed -> ErrorLine(install.message)
-            AiModelInstallState.Verifying -> ProgressLine("Verifying…", fraction = null, tag = null)
+            AiModelInstallState.Verifying -> ProgressLine(Strings.verifying, fraction = null, tag = null)
             else -> {}
         }
     }

@@ -1,5 +1,6 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.data.AttachmentStore
 import com.vivenotes.data.ImportedPicture
 import com.vivenotes.data.PictureLibrary
@@ -42,7 +43,7 @@ internal val PictureExtensions = listOf("png", "jpg", "jpeg", "webp", "gif", "bm
  * Wayland toolkit alike, and the native dialog on Windows. Null when the user cancels.
  */
 internal fun choosePictureFile(owner: Frame?): File? {
-    val dialog = FileDialog(owner, "Insert picture", FileDialog.LOAD)
+    val dialog = FileDialog(owner, Strings.insert_picture, FileDialog.LOAD)
     dialog.isMultipleMode = false
     dialog.setFilenameFilter { _, name -> name.substringAfterLast('.', "").lowercase() in PictureExtensions }
     // Windows ignores filename filters but reads a pattern list from the file name field.

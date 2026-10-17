@@ -1,6 +1,7 @@
 // Ported from the Android app's `data/NotesRepository.kt`. What differs is listed on the class.
 package com.vivenotes.data
 
+import com.vivenotes.localization.Strings
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
 import kotlinx.coroutines.flow.Flow
@@ -1085,11 +1086,11 @@ class NotesRepository(
     override suspend fun seedIfEmpty() {
         if (notebooks.count() > 0) return
 
-        val notebookId = createNotebook("My Notebook")
-        val gettingStarted = createSection(notebookId, "Getting Started")
-        createSection(notebookId, "Ideas")
+        val notebookId = createNotebook(Strings.my_notebook)
+        val gettingStarted = createSection(notebookId, Strings.getting_started)
+        createSection(notebookId, Strings.ideas)
 
-        createPage(gettingStarted, "Welcome")
+        createPage(gettingStarted, Strings.welcome)
 
         // Written last: all calls above are seed construction, while any later content mutation
         // clears this marker. The UUID lets import remove only this installation's placeholder.

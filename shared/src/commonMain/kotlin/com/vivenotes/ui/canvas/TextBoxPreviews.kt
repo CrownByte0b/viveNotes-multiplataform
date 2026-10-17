@@ -1,5 +1,6 @@
 package com.vivenotes.ui.canvas
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -113,7 +114,7 @@ internal fun TextBoxPreviews(
             InlineTextContent(Placeholder(cardWidth.sp, (cardWidth * 9f / 16f).sp,
                 PlaceholderVerticalAlign.TextCenter)) {
                 Box(Modifier.fillMaxSize().testTag("video-preview-${link.videoId}")) {
-                    Image(image, contentDescription = "YouTube thumbnail", contentScale = ContentScale.Crop,
+                    Image(image, contentDescription = Strings.youtube_thumbnail, contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize())
                     Box(Modifier.align(Alignment.Center).size(48.dp).clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.72f))
@@ -132,7 +133,7 @@ internal fun TextBoxPreviews(
             InlineTextContent(Placeholder(18.sp, 16.sp, PlaceholderVerticalAlign.TextCenter)) {
                 Box(Modifier.fillMaxSize().clickable { onOpenLink(link.href) }
                     .testTag("link-icon-${link.start}"), contentAlignment = Alignment.Center) {
-                    Icon(DocumentSymbols.Link, contentDescription = "Open link",
+                    Icon(DocumentSymbols.Link, contentDescription = Strings.open_link,
                         tint = linkColor, modifier = Modifier.size(14.dp))
                 }
             })

@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -33,24 +34,24 @@ internal fun TableKit(settings: InkSettings, canvasInk: Color = Color.Black, onC
     val table = settings.table
     val color = if (table.colorFollowsTheme) canvasInk else Color(table.borderArgb)
     fun update(next: TableToolSettings) = onChange(settings.copy(table = next.normalized()))
-    ReferenceToolKit("Table") {
+    ReferenceToolKit(Strings.table, "draw-toolkit-table") {
         TablePreview(table, color)
         Spacer(Modifier.height(10.dp))
-        ToolkitToggle("Write in with a pen", table.inkOnly, "draw-table-ink-only", "Off, each cell is a text field you type into.") {
+        ToolkitToggle(Strings.write_in_with_a_pen, table.inkOnly, "draw-table-ink-only", Strings.off_each_cell_is_a_text_field_you_type_into) {
             update(table.copy(inkOnly = it))
         }
-        ToolkitToggle("Header column", table.headerColumn, "draw-table-header-column") { update(table.copy(headerColumn = it)) }
-        ToolkitToggle("Header row", table.headerRow, "draw-table-header-row") { update(table.copy(headerRow = it)) }
-        ToolkitNumberPicker("Column count", table.columns, 1..Outline.Table.MAX_COLUMNS, TableTags.Columns) { update(table.copy(columns = it)) }
-        ToolkitNumberPicker("Row count", table.rows, 1..minOf(Outline.Table.MAX_ROWS, Outline.Table.MAX_CELLS / table.columns), TableTags.Rows) {
+        ToolkitToggle(Strings.header_column, table.headerColumn, "draw-table-header-column") { update(table.copy(headerColumn = it)) }
+        ToolkitToggle(Strings.header_row, table.headerRow, "draw-table-header-row") { update(table.copy(headerRow = it)) }
+        ToolkitNumberPicker(Strings.column_count, table.columns, 1..Outline.Table.MAX_COLUMNS, TableTags.Columns) { update(table.copy(columns = it)) }
+        ToolkitNumberPicker(Strings.row_count, table.rows, 1..minOf(Outline.Table.MAX_ROWS, Outline.Table.MAX_CELLS / table.columns), TableTags.Rows) {
             update(table.copy(rows = it))
         }
         Spacer(Modifier.height(4.dp))
-        ToolkitSlider("Border width", table.borderWidth.toFloat(), 1f..8f, 1f, "draw-table-border-width", color) {
+        ToolkitSlider(Strings.border_width, table.borderWidth.toFloat(), 1f..8f, 1f, "draw-table-border-width", color) {
             update(table.copy(borderWidth = it.roundToInt()))
         }
         Spacer(Modifier.height(2.dp))
-        Text("Border color", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
+        Text(Strings.border_color, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(vertical = 2.dp))
         ToolkitPalette(settings.palette, color.toArgb(), InkControlsTags::color, "draw-table-border-wheel", "draw-table-border-custom",
             onPick = { update(table.copy(borderArgb = it, colorFollowsTheme = false)) },

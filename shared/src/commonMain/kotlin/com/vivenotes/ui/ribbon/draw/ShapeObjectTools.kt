@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -49,23 +50,23 @@ internal fun ShapeObjectTools(shape: Outline.Shape, onLineType: (LineType) -> Un
     }
     Box {
         TextButton(onClick = { widthMenu = true }, modifier = Modifier.testTag(ShapeObjectTags.Width)) {
-            Text("${shape.borderWidth.toInt()} pt")
+            Text(Strings.value_pt(shape.borderWidth.toInt()))
         }
         ScaledDropdownMenu(widthMenu, { widthMenu = false }) {
             (ShapeToolSettings.MIN_BORDER_WIDTH..ShapeToolSettings.MAX_BORDER_WIDTH).forEach { width ->
-                DropdownMenuItem(text = { Text("$width pt") }, onClick = { widthMenu = false; onWidth(width) })
+                DropdownMenuItem(text = { Text(Strings.value_pt(width)) }, onClick = { widthMenu = false; onWidth(width) })
             }
         }
     }
     if (shape.canFill) {
         Box {
             TextButton(onClick = { fillMenu = true }, modifier = Modifier.testTag(ShapeObjectTags.Fill)) {
-                Text("Fill")
+                Text(Strings.fill)
                 Box(Modifier.padding(start = 4.dp).size(14.dp).background(shape.fillArgb?.let(::Color)
                     ?: Color.Transparent))
             }
             ScaledDropdownMenu(fillMenu, { fillMenu = false }) {
-                DropdownMenuItem(text = { Text("No fill") }, onClick = { fillMenu = false; onFill(null) })
+                DropdownMenuItem(text = { Text(Strings.no_fill) }, onClick = { fillMenu = false; onFill(null) })
                 ShapeColors.chunked(4).forEach { row ->
                     Row(Modifier.padding(4.dp)) {
                         row.forEach { argb ->
@@ -75,7 +76,7 @@ internal fun ShapeObjectTools(shape: Outline.Shape, onLineType: (LineType) -> Un
                         }
                     }
                 }
-                CustomShapeColorField("Fill", "object-shape-custom-fill") {
+                CustomShapeColorField(Strings.fill, "object-shape-custom-fill") {
                     fillMenu = false
                     onFill(it)
                 }

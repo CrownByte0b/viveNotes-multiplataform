@@ -1,5 +1,6 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.pdf.PdfExportService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.swing.Swing
@@ -37,7 +38,7 @@ internal fun withPdfExtension(chosen: File): File {
 }
 
 internal fun choosePdfDestination(owner: Frame?, suggestedName: String, directory: File?): File? {
-    val dialog = FileDialog(owner, "Export PDF", FileDialog.SAVE)
+    val dialog = FileDialog(owner, Strings.export_pdf, FileDialog.SAVE)
     dialog.directory = (directory ?: File(System.getProperty("user.home"))).path
     dialog.file = suggestedName
     dialog.setFilenameFilter { _, name -> name.endsWith(".pdf", ignoreCase = true) }

@@ -1,5 +1,6 @@
 package com.vivenotes
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.workspace.InkSettings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -71,7 +72,7 @@ fun App(
     /** The platform's recognition models, for Settings → Models. */
     aiModels: AiModels? = null,
     drawMath: com.vivenotes.ui.ribbon.draw.DrawMath? = null,
-    appVersion: String = "Development",
+    appVersion: String = Strings.development,
     search: com.vivenotes.search.ContentSearchService? = null,
     debugLog: DebugLog = remember { DebugLog() },
     developmentBuild: Boolean = false,
@@ -90,7 +91,7 @@ fun App(
                 contentAlignment = Alignment.Center,
             ) {
                 LoadingIndicator(
-                    Modifier.testTag(AppTestTags.Opening).semantics { contentDescription = "Opening your notebooks" },
+                    Modifier.testTag(AppTestTags.Opening).semantics { contentDescription = Strings.opening_your_notebooks },
                 )
             }
         } else {

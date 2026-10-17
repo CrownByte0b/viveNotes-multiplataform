@@ -1,5 +1,6 @@
 package com.vivenotes.pdf
 
+import com.vivenotes.localization.Strings
 import androidx.compose.ui.graphics.ImageBitmap
 import com.vivenotes.model.*
 
@@ -98,4 +99,4 @@ class PdfExportException(message: String, cause: Throwable? = null) : Exception(
 
 /** A title is whatever the writer typed, and a file name is not. */
 internal fun String.sanitisedForFileName(): String =
-    trim().replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "-").take(80).ifBlank { "Notes" }
+    trim().replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "-").take(80).ifBlank { Strings.notes }

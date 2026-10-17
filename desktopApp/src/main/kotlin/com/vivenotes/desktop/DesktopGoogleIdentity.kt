@@ -1,5 +1,6 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.localization.Strings
 import com.sun.net.httpserver.HttpServer
 import java.awt.Desktop
 import java.net.InetSocketAddress
@@ -41,7 +42,7 @@ internal class DesktopGoogleIdentity(
     private val tokenEndpoint: URI = URI("https://oauth2.googleapis.com/token"),
 ) : GoogleIdTokenProvider {
     override suspend fun requestIdToken(nonce: String): GoogleIdToken? {
-        require(clientId.isNotBlank()) { "Google desktop client ID is missing." }
+        require(clientId.isNotBlank()) { Strings.google_desktop_client_id_is_missing }
         val verifier = randomUrlToken()
         val state = randomUrlToken()
         val challenge = urlBase64(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()))
@@ -53,8 +54,9 @@ internal class DesktopGoogleIdentity(
             val validState = params["state"] == state
             val code = params["code"]
             val accepted = validState && (!code.isNullOrBlank() || params["error"] == "access_denied")
-            val html = if (accepted) "<html><body>You can return to Vive Notes.</body></html>"
-                else "<html><body>Invalid sign-in response.</body></html>"
+            val message = if (accepted) Strings.oauth_return_to_app else Strings.oauth_invalid_response
+            val escaped = message.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            val html = "<html><body>$escaped</body></html>"
             exchange.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
             exchange.sendResponseHeaders(if (accepted) 200 else 400, html.toByteArray().size.toLong())
             exchange.responseBody.use { it.write(html.toByteArray()) }
@@ -76,11 +78,11 @@ internal class DesktopGoogleIdentity(
             val code = withTimeout(5.minutes) { result.await() } ?: return null
             val token = withContext(Dispatchers.IO) { exchangeCode(code, verifier, redirect) }
             val payload = tokenPayload(token)
-            require(payload["nonce"]?.jsonPrimitive?.content == nonce) { "Google nonce did not match." }
-            require(payload["aud"]?.jsonPrimitive?.content == clientId) { "Google client ID did not match." }
-            require(payload["email_verified"]?.jsonPrimitive?.boolean == true) { "Google email is not verified." }
+            require(payload["nonce"]?.jsonPrimitive?.content == nonce) { Strings.google_nonce_did_not_match }
+            require(payload["aud"]?.jsonPrimitive?.content == clientId) { Strings.google_client_id_did_not_match }
+            require(payload["email_verified"]?.jsonPrimitive?.boolean == true) { Strings.google_email_is_not_verified }
             val email = payload["email"]?.jsonPrimitive?.content
-                ?: error("Google did not return an email address.")
+                ?: error(Strings.google_did_not_return_an_email_address)
             return GoogleIdToken(token, email)
         } finally {
             listener.stop(0)
@@ -98,17 +100,17 @@ internal class DesktopGoogleIdentity(
                 "grant_type" to "authorization_code",
             )))).build()
         val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-        require(response.statusCode() == 200) { "Google sign-in could not be completed." }
+        require(response.statusCode() == 200) { Strings.google_sign_in_could_not_be_completed }
         val json = Json.parseToJsonElement(response.body()) as? JsonObject
-            ?: error("Invalid Google token response.")
+            ?: error(Strings.invalid_google_token_response)
         return json["id_token"]?.jsonPrimitive?.content
-            ?: error("Google did not return an ID token.")
+            ?: error(Strings.google_did_not_return_an_id_token)
     }
 }
 
 internal fun browseDesktop(uri: URI) {
     require(Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-        "A system browser is needed for this action."
+        Strings.a_system_browser_is_needed_for_this_action
     }
     Desktop.getDesktop().browse(uri)
 }
@@ -132,8 +134,8 @@ private fun parseQuery(query: String): Map<String, String> = query.split('&').ma
 }.toMap()
 
 private fun tokenPayload(token: String): JsonObject {
-    val encoded = token.split('.').getOrNull(1) ?: error("Invalid Google ID token.")
+    val encoded = token.split('.').getOrNull(1) ?: error(Strings.invalid_google_id_token)
     val bytes = Base64.getUrlDecoder().decode(encoded)
     return Json.parseToJsonElement(bytes.decodeToString()) as? JsonObject
-        ?: error("Invalid Google ID token.")
+        ?: error(Strings.invalid_google_id_token)
 }

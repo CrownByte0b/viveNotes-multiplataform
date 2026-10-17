@@ -1,5 +1,7 @@
 package com.vivenotes.data
 
+import com.vivenotes.localization.Strings
+
 /** A successfully imported notebook copy and where the UI should navigate afterward. */
 data class NotebookImportResult(
     val notebookId: String,
@@ -52,6 +54,6 @@ fun viveFileName(notebookName: String): String {
         .trim()
         .trim('.')
         .take(100)
-        .ifBlank { "Notebook" }
+        .ifBlank { Strings.notebook }
     return "$safe$VIVE_EXTENSION"
 }

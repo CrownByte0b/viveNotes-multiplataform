@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.settings
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -81,7 +82,7 @@ internal fun ShortcutCaptureDialog(
     }
 
     DesktopDialogFrame(
-        title = "Set Shortcut",
+        title = Strings.set_shortcut,
         icon = SettingsSymbols.Keyboard,
         onDismiss = onDismiss,
         maxWidth = 420.dp,
@@ -106,18 +107,18 @@ internal fun ShortcutCaptureDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("Press the new keys for “${action.label}”.", style = MaterialTheme.typography.bodyMedium,
+                Text(Strings.press_the_new_keys_for_value(action.label), style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface)
                 Keycap(held?.label ?: "…", large = true,
                     modifier = Modifier.padding(vertical = 4.dp).testTag(ShortcutDialogTags.Captured))
                 Text(
                     text = when {
                         held != null && !held.usable ->
-                            "${held.label} can’t be a shortcut on its own. Add Ctrl, Alt or Super."
+                            Strings.value_can_t_be_a_shortcut_on_its_own_add_ctrl(held.label)
                         conflict != null ->
-                            "${held?.label} is already used for ${conflict.label}. Replacing it removes it from ${conflict.label}."
-                        else -> "Now: ${bindings.primary(action)?.label ?: "Disabled"}. " +
-                            "Esc cancels; Backspace disables the shortcut."
+                            Strings.value_is_already_used_for_value_replacing_it_removes_it_from(held?.label, conflict.label, conflict.label)
+                        else -> Strings.now_value(bindings.primary(action)?.label ?: Strings.disabled) +
+                            Strings.esc_cancels_backspace_disables_the_shortcut
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = if (held != null && !held.usable) MaterialTheme.colorScheme.error
@@ -129,10 +130,10 @@ internal fun ShortcutCaptureDialog(
         },
         actions = {
             OutlinedButton(onClick = onDismiss, shape = MaterialTheme.shapes.small,
-                modifier = Modifier.testTag(ShortcutDialogTags.Cancel)) { Text("Cancel") }
+                modifier = Modifier.testTag(ShortcutDialogTags.Cancel)) { Text(Strings.cancel) }
             if (conflict != null) {
                 Button(onClick = { onSet(held) }, shape = MaterialTheme.shapes.small,
-                    modifier = Modifier.testTag(ShortcutDialogTags.Replace)) { Text("Replace") }
+                    modifier = Modifier.testTag(ShortcutDialogTags.Replace)) { Text(Strings.replace) }
             }
         },
     )
@@ -144,17 +145,17 @@ internal fun ResetAllShortcutsDialog(onConfirm: () -> Unit, onDismiss: () -> Uni
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     DesktopDialogFrame(
-        title = "Reset All Shortcuts?",
+        title = Strings.reset_all_shortcuts,
         icon = SettingsSymbols.RestartAlt,
         onDismiss = onDismiss,
         modifier = Modifier.testTag(ShortcutDialogTags.ResetAll),
         content = {
-            Text("Every keyboard shortcut goes back to its default, and your changes are lost.",
+            Text(Strings.every_keyboard_shortcut_goes_back_to_its_default_and_your_changes,
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         },
         actions = {
             OutlinedButton(onClick = onDismiss, shape = MaterialTheme.shapes.small,
-                modifier = Modifier.focusRequester(focus).testTag(ShortcutDialogTags.CancelResetAll)) { Text("Cancel") }
+                modifier = Modifier.focusRequester(focus).testTag(ShortcutDialogTags.CancelResetAll)) { Text(Strings.cancel) }
             Button(
                 onClick = onConfirm,
                 shape = MaterialTheme.shapes.small,
@@ -163,7 +164,7 @@ internal fun ResetAllShortcutsDialog(onConfirm: () -> Unit, onDismiss: () -> Uni
                     contentColor = Color.White,
                 ),
                 modifier = Modifier.testTag(ShortcutDialogTags.ConfirmResetAll),
-            ) { Text("Reset All") }
+            ) { Text(Strings.reset_all_58f5fb) }
         },
     )
 }

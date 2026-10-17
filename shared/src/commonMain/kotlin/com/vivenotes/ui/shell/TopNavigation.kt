@@ -1,5 +1,6 @@
 package com.vivenotes.ui.shell
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -62,14 +63,14 @@ internal fun TopNavigation(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             TooltipIconButton(
-                label = if (navigationVisible) "Hide notebook navigation" else "Show notebook navigation",
+                label = if (navigationVisible) Strings.hide_notebook_navigation else Strings.show_notebook_navigation,
                 onClick = onToggleNavigation,
                 modifier = Modifier.testTag(WorkspaceTestTags.NavigationToggle),
             ) {
                 Icon(ShellSymbols.Menu, contentDescription = null, modifier = Modifier.size(18.dp))
             }
             Text(
-                text = "ViveNotes",
+                text = Strings.vivenotes,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(start = 4.dp, end = 12.dp),
             )
@@ -96,7 +97,7 @@ internal fun TopNavigation(
                                 .semantics { selected = isSelected },
                         ) {
                             Text(
-                                tab.name,
+                                tab.label,
                                 style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                             )
@@ -104,19 +105,19 @@ internal fun TopNavigation(
                     }
                 }
             }
-            TooltipIconButton("Search notebook", onClick = onSearch, enabled = searchAvailable,
+            TooltipIconButton(Strings.search_notebook, onClick = onSearch, enabled = searchAvailable,
                 modifier = Modifier.testTag(com.vivenotes.ui.search.SearchTags.Open)) {
                 Icon(ShellSymbols.Search, contentDescription = null, modifier = Modifier.size(20.dp))
             }
-            TooltipIconButton("Undo canvas action", onClick = onUndo, enabled = canUndo,
+            TooltipIconButton(Strings.undo_canvas_action, onClick = onUndo, enabled = canUndo,
                 modifier = Modifier.testTag(WorkspaceTestTags.StructuralUndo)) {
                 Icon(ShellSymbols.Undo, contentDescription = null, modifier = Modifier.size(18.dp))
             }
-            TooltipIconButton("Redo canvas action", onClick = onRedo, enabled = canRedo,
+            TooltipIconButton(Strings.redo_canvas_action, onClick = onRedo, enabled = canRedo,
                 modifier = Modifier.testTag(WorkspaceTestTags.StructuralRedo)) {
                 Icon(ShellSymbols.Redo, contentDescription = null, modifier = Modifier.size(18.dp))
             }
-            TooltipIconButton(if (accountConnected) "Account, signed in" else "Account",
+            TooltipIconButton(if (accountConnected) Strings.account_signed_in else Strings.account,
                 onClick = onOpenAccount, modifier = Modifier.testTag(AccountTags.Open)) {
                 Icon(ShellSymbols.AccountCircle, contentDescription = null, modifier = Modifier.size(20.dp))
             }

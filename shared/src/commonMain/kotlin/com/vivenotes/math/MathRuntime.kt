@@ -1,5 +1,6 @@
 package com.vivenotes.math
 
+import com.vivenotes.localization.Strings
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -25,11 +26,13 @@ sealed interface MathRuntimeState {
 }
 
 /** Where an install is, in the order it happens. */
-enum class MathInstallStep(val label: String) {
-    Preparing("Preparing…"),
-    DownloadingPython("Downloading Python…"),
-    InstallingPackages("Installing SymPy…"),
-    Checking("Checking…"),
+enum class MathInstallStep(private val labelText: () -> String) {
+    Preparing({ Strings.preparing }),
+    DownloadingPython({ Strings.downloading_python }),
+    InstallingPackages({ Strings.installing_sympy }),
+    Checking({ Strings.checking });
+
+    val label: String get() = labelText()
 }
 
 /** What Settings → Models can ask of the math engine's runtime. */

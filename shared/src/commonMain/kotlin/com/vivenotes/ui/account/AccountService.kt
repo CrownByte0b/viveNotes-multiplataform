@@ -1,5 +1,6 @@
 package com.vivenotes.ui.account
 
+import com.vivenotes.localization.Strings
 import kotlinx.coroutines.flow.StateFlow
 
 data class AccountSession(
@@ -39,7 +40,7 @@ data class AccountDevice(
 
 data class AccountSyncStatus(
     val running: Boolean = false,
-    val message: String = "Not synced yet",
+    val message: String = Strings.not_synced_yet,
     val pulled: Int = 0,
     val pushed: Int = 0,
     val pictures: Int = 0,
@@ -58,33 +59,33 @@ interface AccountService {
     suspend fun connect(serverUrl: String, email: String, password: String, create: Boolean)
     suspend fun connectManaged(email: String, password: String, create: Boolean) =
         connect(managedServerUrl, email, password, create)
-    suspend fun requestPasswordReset(email: String) { throw UnsupportedOperationException("Password recovery is unavailable.") }
+    suspend fun requestPasswordReset(email: String) { throw UnsupportedOperationException(Strings.password_recovery_is_unavailable) }
     suspend fun completePasswordReset(email: String, code: String, password: String) {
-        throw UnsupportedOperationException("Password recovery is unavailable.")
+        throw UnsupportedOperationException(Strings.password_recovery_is_unavailable)
     }
     suspend fun signInWithGoogle(): GoogleSignInOutcome {
-        throw UnsupportedOperationException("Google sign-in is not configured.")
+        throw UnsupportedOperationException(Strings.google_sign_in_is_not_configured)
     }
     suspend fun linkGoogleAccount(email: String, password: String) {
-        throw UnsupportedOperationException("Google account linking is unavailable.")
+        throw UnsupportedOperationException(Strings.google_account_linking_is_unavailable)
     }
     fun cancelGoogleLink() {}
     suspend fun refreshSubscription(): AccountSubscription {
-        throw UnsupportedOperationException("Subscription status is unavailable.")
+        throw UnsupportedOperationException(Strings.subscription_status_is_unavailable)
     }
     suspend fun redeemCoupon(code: String): AccountCoupon {
-        throw UnsupportedOperationException("Coupons are unavailable.")
+        throw UnsupportedOperationException(Strings.coupons_are_unavailable)
     }
     suspend fun listDevices(): List<AccountDevice> = emptyList()
     suspend fun renameDevice(id: String, name: String) {
-        throw UnsupportedOperationException("Device renaming is unavailable.")
+        throw UnsupportedOperationException(Strings.device_renaming_is_unavailable)
     }
     suspend fun revokeDevice(id: String) {
-        throw UnsupportedOperationException("Device removal is unavailable.")
+        throw UnsupportedOperationException(Strings.device_removal_is_unavailable)
     }
     fun openPlayManagement() {}
     suspend fun synchronize(): AccountSyncStatus {
-        throw UnsupportedOperationException("Sync is unavailable.")
+        throw UnsupportedOperationException(Strings.sync_is_unavailable)
     }
     suspend fun disconnect()
     suspend fun forget()

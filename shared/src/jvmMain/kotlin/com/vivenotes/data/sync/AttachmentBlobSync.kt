@@ -1,5 +1,6 @@
 package com.vivenotes.data.sync
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.data.db.NotesDatabase
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
@@ -97,7 +98,7 @@ class AttachmentBlobSync(
         if (!isBlobDigest(digest)) {
             // Not a content address, so it can never name a blob. Only a local row written by
             // something other than AttachmentStore could produce one.
-            log.e(TAG, "Attachment id \"$digest\" is not a SHA-256 and cannot be uploaded")
+            log.e(TAG, Strings.attachment_id_value_is_not_a_sha_256_and_cannot_be(digest))
             return BlobPresence.Undeliverable
         }
         if (!force && knownPresent(digest)) return BlobPresence.Present(uploaded = false)
@@ -106,7 +107,7 @@ class AttachmentBlobSync(
         if (!file.isFile) {
             // The picture is broken on this device already. Nothing here can put it on the server,
             // and holding the change back would stop every other change with it.
-            log.w(TAG, "No local bytes for attachment $digest; the change naming it cannot carry it")
+            log.w(TAG, Strings.no_local_bytes_for_attachment_value_the_change_naming_it_cannot(digest))
             return BlobPresence.Undeliverable
         }
 
@@ -134,7 +135,7 @@ class AttachmentBlobSync(
             } else {
                 // A picture the server will not take however many times it is offered: over the
                 // per-attachment cap, or bytes it refuses to hash to their own name.
-                log.e(TAG, "Server permanently refused attachment $digest: ${upload.reason}")
+                log.e(TAG, Strings.server_permanently_refused_attachment_value_value(digest, upload.reason))
                 BlobPresence.Undeliverable
             }
         }
@@ -164,12 +165,12 @@ class AttachmentBlobSync(
                         // picture whose bytes are gone, which is a fact about it rather than a
                         // failure worth repeating every minute.
                         !result.value -> {
-                            log.w(TAG, "Server has no bytes for attachment $id")
+                            log.w(TAG, Strings.server_has_no_bytes_for_attachment_value(id))
                             deferred += id
                         }
                         bytes.publish(staged, id) -> downloaded++
                         else -> {
-                            log.e(TAG, "Downloaded attachment $id could not be published")
+                            log.e(TAG, Strings.downloaded_attachment_value_could_not_be_published(id))
                             deferred += id
                         }
                     }
@@ -179,7 +180,7 @@ class AttachmentBlobSync(
 
                 is ServerResult.Failed -> {
                     if (result.retryable) return BlobDownloads(downloaded, workRemains = true)
-                    log.e(TAG, "Attachment $id could not be downloaded: ${result.reason}")
+                    log.e(TAG, Strings.attachment_value_could_not_be_downloaded_value(id, result.reason))
                     deferred += id
                 }
             }

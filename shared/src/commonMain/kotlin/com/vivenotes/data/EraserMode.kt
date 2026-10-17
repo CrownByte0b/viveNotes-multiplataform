@@ -1,5 +1,6 @@
 package com.vivenotes.data
 
+import com.vivenotes.localization.Strings
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,7 +10,9 @@ import kotlinx.serialization.Serializable
  * `ink_erases.mode` stores its names, and a row written by Android has to read back unchanged.
  */
 @Serializable
-enum class EraserMode(val label: String) {
-    Normal("Normal"),
-    Object("Object"),
+enum class EraserMode(private val labelText: () -> String) {
+    Normal({ Strings.normal }),
+    Object({ Strings.object_label });
+
+    val label: String get() = labelText()
 }

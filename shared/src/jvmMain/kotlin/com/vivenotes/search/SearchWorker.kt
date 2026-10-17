@@ -1,5 +1,6 @@
 package com.vivenotes.search
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.ai.AiModelInstallState
 import com.vivenotes.ai.AiModelStore
 import com.vivenotes.ai.OnnxInkRecognitionEngine
@@ -91,7 +92,7 @@ object SearchWorker {
     private fun project(request: WorkerRequest): WorkerReply {
         val doc = request.body?.let { body ->
             runCatching {
-                val codec = DocumentCodecs.byId(request.codec) ?: error("Unknown document format")
+                val codec = DocumentCodecs.byId(request.codec) ?: error(Strings.unknown_document_format)
                 codec.decode(body.encodeToByteArray()).migrated()
             }.getOrNull()
         }

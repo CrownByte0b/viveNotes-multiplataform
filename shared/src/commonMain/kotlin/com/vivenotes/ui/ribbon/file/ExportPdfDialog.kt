@@ -1,6 +1,11 @@
 // Ported from viveNotes Android ui/editor/ExportPdfDialog.kt; native picker and window adapted.
 package com.vivenotes.ui.ribbon.file
 
+import com.vivenotes.localization.Strings
+import multiplataform_vive.shared.generated.resources.Res
+import multiplataform_vive.shared.generated.resources.pdf_sheet_count
+import org.jetbrains.compose.resources.pluralStringResource
+import com.vivenotes.ui.components.ToolPaneTags
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
@@ -77,6 +82,8 @@ import androidx.compose.foundation.layout.widthIn
 import kotlinx.coroutines.launch
 
 internal object ExportPdfTags {
+    const val FitField = "Fit content to pages"
+    const val RulingField = "Page ruling"
     const val DIALOG = "export-pdf-dialog"
     const val SHEETS = "export-pdf-sheets"
     const val EXPORT = "export-pdf-export"
@@ -127,8 +134,8 @@ internal fun ExportPdfDialog(
     val scope = rememberCoroutineScope()
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    val layoutFailed = "This page could not be laid out for printing."
-    val writeFailed = "The PDF could not be written."
+    val layoutFailed = Strings.this_page_could_not_be_laid_out_for_printing
+    val writeFailed = Strings.the_pdf_could_not_be_written
 
     val name = if (options.scope == PdfExportScope.Section) sectionName else pageTitle
 
@@ -273,14 +280,14 @@ private fun ExportPdfBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onClose, modifier = Modifier.testTag(ExportPdfTags.CLOSE)) {
-            Icon(com.vivenotes.ui.icons.ViewSymbols.Close, contentDescription = "Close")
+            Icon(com.vivenotes.ui.icons.ViewSymbols.Close, contentDescription = Strings.close)
         }
         Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f)) {
-            Text("Export as PDF", style = MaterialTheme.typography.titleMedium)
+            Text(Strings.export_as_pdf, style = MaterialTheme.typography.titleMedium)
             if (sheetCount > 0) {
                 Text(
-                    text = "$sheetCount ${if (sheetCount == 1) "sheet" else "sheets"}",
+                    text = pluralStringResource(Res.plurals.pdf_sheet_count, sheetCount, sheetCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -295,7 +302,7 @@ private fun ExportPdfBar(
             enabled = ready && sheetCount > 0,
             modifier = Modifier.testTag(ExportPdfTags.EXPORT),
         ) {
-            Text("Export")
+            Text(Strings.export)
         }
     }
 }
@@ -329,7 +336,7 @@ private fun SheetStack(
                 LoadingIndicator()
             } else {
                 Text(
-                    text = "Nothing to preview.",
+                    text = Strings.nothing_to_preview,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -407,7 +414,7 @@ private fun Sheet(
             } else {
                 Image(
                     bitmap = sheet,
-                    contentDescription = "Sheet ${index + 1}",
+                    contentDescription = Strings.sheet_value(index + 1),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -415,7 +422,7 @@ private fun Sheet(
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "${index + 1} / ${plan.sheetCount}",
+            text = Strings.pdf_sheet_position(index + 1, plan.sheetCount),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -435,10 +442,10 @@ private fun ExportPdfOptions(
             .padding(horizontal = 20.dp)
             .padding(bottom = 20.dp),
     ) {
-        PaneGroup("What to export") {
-            PaneRow("Range", first = true) {
+        PaneGroup(Strings.what_to_export) {
+            PaneRow(Strings.range, first = true) {
                 PaneChoice(
-                    field = "Range",
+                    field = ToolPaneTags.Range,
                     current = options.scope,
                     options = if (sectionAvailable) {
                         PdfExportScope.entries
@@ -447,19 +454,20 @@ private fun ExportPdfOptions(
                     },
                     label = { scope ->
                         when (scope) {
-                            PdfExportScope.Page -> "This page"
-                            PdfExportScope.Section -> "This section"
+                            PdfExportScope.Page -> Strings.this_page
+                            PdfExportScope.Section -> Strings.this_section
                         }
                     },
                     onPick = { onChange(options.copy(scope = it)) },
+                    optionId = { if (it == PdfExportScope.Page) ToolPaneTags.ScopePage else ToolPaneTags.ScopeSection },
                 )
             }
         }
 
-        PaneGroup("Paper") {
-            PaneRow("Size", first = true) {
+        PaneGroup(Strings.paper) {
+            PaneRow(Strings.size, first = true) {
                 PaneChoice(
-                    field = "Size",
+                    field = ToolPaneTags.Size,
                     current = options.paper,
                     // Auto has no size to cut to, and Custom's dimensions belong to a page rather
                     // than to an export — both are set in the View tab's Paper Size pane, and what
@@ -467,24 +475,26 @@ private fun ExportPdfOptions(
                     options = EXPORT_PAPER_SIZES,
                     label = { it.pdfLabel() },
                     onPick = { onChange(options.copy(paper = it)) },
+                    optionId = { it.name },
                 )
             }
-            PaneRow("Orientation") {
+            PaneRow(Strings.orientation) {
                 PaneChoice(
-                    field = "Orientation",
+                    field = ToolPaneTags.Orientation,
                     current = options.orientation,
                     options = Orientation.entries,
-                    label = { it.name },
+                    label = { com.vivenotes.ui.ribbon.view.orientationLabel(it) },
                     onPick = { onChange(options.copy(orientation = it)) },
+                    optionId = { it.name },
                 )
             }
             // One field for all four sides. The page can be given a different margin per side in the
             // Paper Size pane, and an export that opens on such a page shows the widest of them —
             // but four fields here would be four fields nobody came to this window to fill in, and
             // the question being asked is how much of the sheet the printer cannot reach.
-            PaneRow("Margins") {
+            PaneRow(Strings.margins) {
                 PaneMeasure(
-                    field = "Margins",
+                    field = ToolPaneTags.Margins,
                     value = options.margins.widestInches,
                     onCommit = { onChange(options.copy(margins = PrintMargins.uniform(it))) },
                     range = PdfExportOptions.MARGIN_RANGE,
@@ -492,23 +502,25 @@ private fun ExportPdfOptions(
             }
         }
 
-        PaneGroup("Layout") {
+        PaneGroup(Strings.layout) {
             PdfSetting(
-                label = "Fit content to pages",
-                info = "Wide text boxes wrap to the printable page width. Other content that would be cut by a page edge is moved back onto the page it starts on. Oversized drawings are left where they are.",
+                label = Strings.fit_content_to_pages,
+                field = ExportPdfTags.FitField,
+                info = Strings.wide_text_boxes_wrap_to_the_printable_page_width_other_content,
             ) {
                 PdfToggle(
-                    field = "Fit content to pages",
+                    field = ExportPdfTags.FitField,
                     checked = options.fitContent,
                     onCheckedChange = { onChange(options.copy(fitContent = it)) },
                 )
             }
             PdfSetting(
-                label = "Page ruling",
-                info = "Prints the lines, squares or dots the page is written on.",
+                label = Strings.page_ruling,
+                field = ExportPdfTags.RulingField,
+                info = Strings.prints_the_lines_squares_or_dots_the_page_is_written_on,
             ) {
                 PdfToggle(
-                    field = "Page ruling",
+                    field = ExportPdfTags.RulingField,
                     checked = options.includeRuling,
                     onCheckedChange = { onChange(options.copy(includeRuling = it)) },
                 )
@@ -562,7 +574,7 @@ private val MIN_SHEET_WIDTH = 240.dp
 private val SHEET_PAPER = Color.White
 
 @Composable
-private fun PdfSetting(label: String, info: String, content: @Composable () -> Unit) {
+private fun PdfSetting(label: String, field: String, info: String, content: @Composable () -> Unit) {
     var helpOpen by remember(label) { mutableStateOf(false) }
     val helpColor = MaterialTheme.colorScheme.onSurfaceVariant
     val helpIcon = remember(helpColor) { aboutGlyph(helpColor, helpColor) }
@@ -571,14 +583,14 @@ private fun PdfSetting(label: String, info: String, content: @Composable () -> U
         Box {
             HoverTooltip(info) {
                 IconButton(onClick = { helpOpen = true }, modifier = Modifier.size(28.dp)
-                    .testTag(ExportPdfTags.help(label)).semantics { contentDescription = "About $label" }) {
+                    .testTag(ExportPdfTags.help(field)).semantics { contentDescription = Strings.about_value(label) }) {
                     Icon(helpIcon, contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(18.dp))
                 }
             }
             ScaledDropdownMenu(helpOpen, onDismissRequest = { helpOpen = false },
                 modifier = Modifier.widthIn(max = 280.dp)) {
                 Text(info, style = MaterialTheme.typography.bodySmall, modifier = Modifier
-                    .padding(12.dp).testTag(ExportPdfTags.helpText(label)))
+                    .padding(12.dp).testTag(ExportPdfTags.helpText(field)))
             }
         }
         Spacer(Modifier.width(6.dp))
@@ -592,11 +604,7 @@ private fun PdfToggle(field: String, checked: Boolean, onCheckedChange: (Boolean
         modifier = Modifier.testTag(com.vivenotes.ui.components.ToolPaneTags.field(field)))
 }
 
-private fun PaperSize.pdfLabel(): String = when (this) {
-    PaperSize.Auto -> "Infinite"
-    PaperSize.Custom -> "Custom"
-    else -> name
-}
+private fun PaperSize.pdfLabel(): String = com.vivenotes.ui.ribbon.view.paperSizeLabel(this)
 
 private suspend fun <T> pdfResult(block: suspend () -> T): Result<T> = try {
     Result.success(block())

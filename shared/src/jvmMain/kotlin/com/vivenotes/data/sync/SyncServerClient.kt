@@ -1,5 +1,6 @@
 package com.vivenotes.data.sync
 
+import com.vivenotes.localization.Strings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -1894,11 +1895,10 @@ class SyncServerClient(
          *
          * Spelt as the product is spelt to the user (`R.string.app_name`), because that is where it
          * is read: the account screen shows it back as "Registered as ViveNotes", and it names the
-         * row in the server's own device list. It is a literal rather than a string resource on
-         * purpose — this file is deliberately Android-free so `app/src/test` can drive it against a
-         * real loopback server, and reaching for a `Context` here would end that.
+         * row in the server's own device list. The shared catalog supplies the name without an
+         * Android Context.
          */
-        const val FALLBACK_DEVICE_NAME = "ViveNotes"
+        val FALLBACK_DEVICE_NAME: String get() = Strings.vivenotes
     }
 }
 

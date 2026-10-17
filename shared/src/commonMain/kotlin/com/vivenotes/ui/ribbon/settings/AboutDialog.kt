@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.settings
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +56,7 @@ internal object AboutLinks {
 internal fun AboutDialog(version: String, onDismiss: () -> Unit) {
     val uriHandler = LocalUriHandler.current
     DesktopDialogFrame(
-        title = "About Vive Notes [KMP]",
+        title = Strings.about_vive_notes_kmp,
         onDismiss = onDismiss,
         modifier = Modifier.testTag(AboutTags.Dialog),
         maxWidth = 480.dp,
@@ -67,46 +68,46 @@ internal fun AboutDialog(version: String, onDismiss: () -> Unit) {
             ) {
                 Image(
                     painter = painterResource(Res.drawable.vivenotes_icon),
-                    contentDescription = "Vive Notes [KMP] app icon",
+                    contentDescription = Strings.vive_notes_kmp_app_icon,
                     modifier = Modifier.size(104.dp).testTag(AboutTags.Icon),
                 )
-                Text("Vive Notes [KMP]", style = MaterialTheme.typography.headlineSmall)
+                Text(Strings.vive_notes_kmp, style = MaterialTheme.typography.headlineSmall)
                 Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape) {
-                    Text("Version $version", modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                    Text(Strings.version_value(version), modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
-                Text("Notes, sketches and ideas in one workspace.",
+                Text(Strings.notes_sketches_and_ideas_in_one_workspace,
                     modifier = Modifier.padding(top = 4.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center)
 
                 Column(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                    Text("Project links", modifier = Modifier.padding(bottom = 8.dp),
+                    Text(Strings.project_links, modifier = Modifier.padding(bottom = 8.dp),
                         style = MaterialTheme.typography.titleSmall)
                     Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest,
                         shape = MaterialTheme.shapes.medium) {
                         Column {
-                            AboutLinkRow("GitHub", AboutLinks.GitHub, AboutTags.GitHub,
+                            AboutLinkRow(Strings.github, AboutLinks.GitHub, AboutTags.GitHub,
                                 SettingsSymbols.GitHub, MaterialTheme.colorScheme.onSurface,
                                 AboutTags.GitHubIcon) {
                                 runCatching { uriHandler.openUri(AboutLinks.GitHub) }
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            AboutLinkRow("Website", AboutLinks.Website, AboutTags.Website,
+                            AboutLinkRow(Strings.website, AboutLinks.Website, AboutTags.Website,
                                 DocumentSymbols.Link, MaterialTheme.colorScheme.primary) {
                                 runCatching { uriHandler.openUri(AboutLinks.Website) }
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            AboutLinkRow("Support the project", AboutLinks.Support, AboutTags.Support,
+                            AboutLinkRow(Strings.support_the_project, AboutLinks.Support, AboutTags.Support,
                                 SettingsSymbols.Favorite, Color(0xFFE53935), AboutTags.SupportIcon) {
                                 runCatching { uriHandler.openUri(AboutLinks.Support) }
                             }
                         }
                     }
                 }
-                Text("CROWNBYTE LLC · Source First License 1.1",
+                Text(Strings.crownbyte_llc_source_first_license_1_1,
                     modifier = Modifier.padding(top = 12.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -115,7 +116,7 @@ internal fun AboutDialog(version: String, onDismiss: () -> Unit) {
         },
         actions = {
             Button(onClick = onDismiss, shape = MaterialTheme.shapes.small,
-                modifier = Modifier.testTag(AboutTags.Close)) { Text("Close") }
+                modifier = Modifier.testTag(AboutTags.Close)) { Text(Strings.close) }
         },
     )
 }

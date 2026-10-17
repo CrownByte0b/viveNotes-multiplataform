@@ -1,6 +1,7 @@
 // Ported from viveNotes Android pdf/PdfExporter.kt; the platform file and drawing boundaries differ.
 package com.vivenotes.pdf
 
+import com.vivenotes.localization.Strings
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.vivenotes.data.*
@@ -151,7 +152,7 @@ class PdfExporter(
         onProgress: (done: Int, total: Int) -> Unit,
     ): Int = withContext(dispatcher) {
         mutex.withLock {
-            require(plan.sheetCount > 0) { "Nothing could be written to the chosen file." }
+            require(plan.sheetCount > 0) { Strings.nothing_could_be_written_to_the_chosen_file }
             val chosen = File(destination).absoluteFile
             var staging: java.nio.file.Path? = null
             log.event("pdf") { "writing ${plan.sheetCount} sheets" }

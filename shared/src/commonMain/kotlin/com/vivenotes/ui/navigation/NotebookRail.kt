@@ -1,5 +1,6 @@
 package com.vivenotes.ui.navigation
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -153,7 +154,7 @@ internal fun NotebookPane(
                                     onClick = { onSelectSection(section.id) },
                                 ) {
                                     DragHandle(
-                                        description = "Reorder ${section.name}",
+                                        description = Strings.reorder_value(section.name),
                                         modifier = Modifier
                                             .testTag(NavigationTestTags.sectionDrag(section.id))
                                             .reorderHandle(reorder, section.id) { grabbedNotebookId = notebook.id },
@@ -163,7 +164,7 @@ internal fun NotebookPane(
                         }
                         item(key = "add-section-${notebook.id}") {
                             AddRow(
-                                label = "New Section",
+                                label = Strings.new_section_09100a,
                                 onClick = { requests.creating = NewItem.Section(notebook.id) },
                                 modifier = Modifier.testTag(NavigationTestTags.addSection(notebook.id)),
                             )
@@ -172,7 +173,7 @@ internal fun NotebookPane(
                 }
             }
             AddRow(
-                label = "New Notebook",
+                label = Strings.new_notebook_acb5cb,
                 onClick = { requests.creating = NewItem.Notebook },
                 modifier = Modifier.padding(bottom = 8.dp).testTag(NavigationTestTags.AddNotebook),
             )
@@ -192,8 +193,8 @@ private fun NotebookHeader(
             .fillMaxWidth()
             .height(38.dp)
             .background(rowContainer(selected = false, dragging = false, menuOpen = menuOpen))
-            .clickable(onClickLabel = if (notebook.expanded) "Collapse" else "Expand", onClick = onClick)
-            .semantics { stateDescription = if (notebook.expanded) "Expanded" else "Collapsed" }
+            .clickable(onClickLabel = if (notebook.expanded) Strings.collapse else Strings.expand, onClick = onClick)
+            .semantics { stateDescription = if (notebook.expanded) Strings.expanded else Strings.collapsed }
             .padding(horizontal = 10.dp)
             .testTag(NavigationTestTags.notebook(notebook.id)),
         verticalAlignment = Alignment.CenterVertically,

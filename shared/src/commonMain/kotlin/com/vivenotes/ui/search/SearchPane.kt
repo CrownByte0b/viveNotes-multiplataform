@@ -1,5 +1,6 @@
 package com.vivenotes.ui.search
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -55,34 +56,34 @@ fun SearchPane(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            results = SearchResults(error = "Search could not finish. Try again.")
+            results = SearchResults(error = Strings.search_could_not_finish_try_again)
         }
     }
     Surface(Modifier.width(340.dp).fillMaxHeight().testTag(SearchTags.Pane),
         color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Search", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClose, Modifier.testTag(SearchTags.Close)) { Text("Close") }
+                Text(Strings.search, style = MaterialTheme.typography.titleMedium)
+                TextButton(onClose, Modifier.testTag(SearchTags.Close)) { Text(Strings.close) }
             }
-            Text("In this notebook · text and pictures", style = MaterialTheme.typography.bodySmall)
+            Text(Strings.in_this_notebook_text_and_pictures, style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(query, onQueryChange, singleLine = true,
-                label = { Text("Search notebook") },
+                label = { Text(Strings.search_notebook) },
                 modifier = Modifier.fillMaxWidth().focusRequester(focus).testTag(SearchTags.Query))
             val status = when {
-                query.isBlank() -> "Search page titles, text boxes and text in pictures."
+                query.isBlank() -> Strings.search_page_titles_text_boxes_and_text_in_pictures
                 results.error != null -> results.error!!
-                results.searching && results.imagesTotal == 0 -> "Searching…"
+                results.searching && results.imagesTotal == 0 -> Strings.searching
                 else -> buildString {
-                    append(if (results.truncated) "120+ matches" else "${results.hitCount} matches")
-                    if (results.imagesTotal > 0) append(" · Pictures ${results.imagesDone}/${results.imagesTotal}")
-                    if (results.failedImages > 0) append(" · ${results.failedImages} could not be read")
-                    if (results.unreadablePages > 0) append(" · ${results.unreadablePages} unreadable pages")
+                    append(if (results.truncated) Strings.label_120_matches else Strings.value_matches(results.hitCount))
+                    if (results.imagesTotal > 0) append(Strings.pictures_value_value(results.imagesDone, results.imagesTotal))
+                    if (results.failedImages > 0) append(Strings.value_could_not_be_read(results.failedImages))
+                    if (results.unreadablePages > 0) append(Strings.value_unreadable_pages(results.unreadablePages))
                 }
             }
             Text(status, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag(SearchTags.Status))
             if (results.searching) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (results.error != null) TextButton(onClick = { retry++ }) { Text("Retry search") }
+            if (results.error != null) TextButton(onClick = { retry++ }) { Text(Strings.retry_search) }
             if (results.failedImages > 0) TextButton(onClick = {
                 scope.launch {
                     try {
@@ -91,18 +92,18 @@ fun SearchPane(
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (_: Exception) {
-                        results = results.copy(error = "Pictures could not be queued. Try again.")
+                        results = results.copy(error = Strings.pictures_could_not_be_queued_try_again)
                     }
                 }
-            }) { Text("Retry pictures") }
+            }) { Text(Strings.retry_pictures) }
             if (query.isNotBlank() && !results.searching && results.error == null && results.hitCount == 0) {
-                Text("No matches", style = MaterialTheme.typography.bodyMedium)
+                Text(Strings.no_matches, style = MaterialTheme.typography.bodyMedium)
             }
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 results.pages.forEach { page ->
                     item(key = "page-${page.pageId}") {
                         Column(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp)) {
-                            Text(page.title.ifBlank { "Untitled page" }, fontWeight = FontWeight.SemiBold)
+                            Text(page.title.ifBlank { Strings.untitled_page }, fontWeight = FontWeight.SemiBold)
                             Text(page.sectionName, style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -119,10 +120,10 @@ fun SearchPane(
                                         fontWeight = FontWeight.Bold), it.start, it.end) }
                                 }, style = MaterialTheme.typography.bodyMedium)
                                 Text(when (hit.unit.kind) {
-                                    ContentKind.Title -> "Page title"
-                                    ContentKind.Image -> "Picture text"
-                                    ContentKind.Cell -> "Table cell"
-                                    ContentKind.Text -> "Text box"
+                                    ContentKind.Title -> Strings.page_title
+                                    ContentKind.Image -> Strings.picture_text
+                                    ContentKind.Cell -> Strings.table_cell
+                                    ContentKind.Text -> Strings.text_box
                                 }, style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }

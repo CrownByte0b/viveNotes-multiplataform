@@ -1,5 +1,6 @@
 package com.vivenotes.search
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -28,7 +29,7 @@ class SearchProcessPool internal constructor(
     init { Runtime.getRuntime().addShutdownHook(shutdown) }
 
     internal suspend fun execute(request: WorkerRequest): WorkerReply {
-        check(!closed) { "Search has been closed" }
+        check(!closed) { Strings.search_has_been_closed }
         val slot = available.receive()
         try {
             return withTimeout(timeoutMillis) {
@@ -39,7 +40,7 @@ class SearchProcessPool internal constructor(
                             worker.input.write(Json.encodeToString(request))
                             worker.input.newLine()
                             worker.input.flush()
-                            val line = worker.output.readLine() ?: throw IOException("Search worker exited")
+                            val line = worker.output.readLine() ?: throw IOException(Strings.search_worker_exited)
                             Json.decodeFromString<WorkerReply>(line)
                         }
                     }
@@ -56,7 +57,7 @@ class SearchProcessPool internal constructor(
             if (failure is TimeoutCancellationException) {
                 currentCoroutineContext().ensureActive()
                 log.event("search") { "worker timed out" }
-                throw IOException("Search worker timed out", failure)
+                throw IOException(Strings.search_worker_timed_out, failure)
             }
             // The exception or a worker's stderr can contain document contents: never log either.
             if (failure !is CancellationException) log.event("search") { "worker failed" }
@@ -77,7 +78,7 @@ class SearchProcessPool internal constructor(
     private inner class Slot {
         private var worker: Worker? = null
         @Synchronized fun start(): Worker {
-            check(!closed) { "Search has been closed" }
+            check(!closed) { Strings.search_has_been_closed }
             return worker?.takeIf { it.process.isAlive } ?: Worker(launch()).also {
                 worker = it
                 log.event("search") { "worker started" }

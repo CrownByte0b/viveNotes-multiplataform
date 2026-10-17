@@ -1,5 +1,6 @@
 package com.vivenotes.ui.canvas
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -45,10 +46,10 @@ internal fun rememberPictureAssets(attachmentIds: List<String>, library: Picture
             if (assets[id] is PictureAsset.Ready) return@forEach
             val bytes = library.bytes(id)
             assets[id] = when (bytes) {
-                null -> PictureAsset.Broken("Error: ${id.asFileName()} not found")
+                null -> PictureAsset.Broken(Strings.error_value_not_found(id.asFileName()))
                 else -> withContext(Dispatchers.Default) { runCatching { bytes.decodeToImageBitmap() }.getOrNull() }
                     ?.let(PictureAsset::Ready)
-                    ?: PictureAsset.Broken("Error: ${id.asFileName()} could not be read")
+                    ?: PictureAsset.Broken(Strings.error_value_could_not_be_read(id.asFileName()))
             }
         }
         assets.keys.filterNot { it in attachmentIds }.forEach(assets::remove)
@@ -60,7 +61,7 @@ internal fun rememberPictureAssets(attachmentIds: List<String>, library: Picture
 @Composable
 internal fun PictureContent(asset: PictureAsset?, modifier: Modifier = Modifier) {
     when (asset) {
-        is PictureAsset.Ready -> Image(asset.bitmap, contentDescription = "Picture",
+        is PictureAsset.Ready -> Image(asset.bitmap, contentDescription = Strings.picture,
             contentScale = ContentScale.FillBounds, modifier = modifier.fillMaxSize())
         // Android's broken-picture plate: the frame keeps its fill and only the message is red.
         is PictureAsset.Broken -> Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer)

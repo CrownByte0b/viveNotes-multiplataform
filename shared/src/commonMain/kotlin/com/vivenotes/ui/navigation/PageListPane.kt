@@ -1,5 +1,6 @@
 package com.vivenotes.ui.navigation
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,10 +55,12 @@ import com.vivenotes.workspace.SectionSummary
 private val PagePaneWidth = 260.dp
 
 /** The page pane's orders, with Android's labels. */
-enum class PageSort(val label: String) {
-    Manual("Section order"),
-    Alphabetical("By title"),
-    Recent("By date modified"),
+enum class PageSort(private val labelText: () -> String) {
+    Manual({ Strings.section_order }),
+    Alphabetical({ Strings.by_title }),
+    Recent({ Strings.by_date_modified });
+
+    val label: String get() = labelText()
 }
 
 /** [pages] in [sort]'s order. Untitled pages sort by the name the list gives them. */
@@ -159,7 +162,7 @@ internal fun PageListPane(
                             handle = if (sort == PageSort.Manual) {
                                 {
                                     DragHandle(
-                                        description = "Reorder ${page.title.ifBlank { UntitledPage }}",
+                                        description = Strings.reorder_value(page.title.ifBlank { UntitledPage }),
                                         modifier = Modifier
                                             .testTag(NavigationTestTags.pageDrag(page.id))
                                             .reorderHandle(reorder, page.id),
@@ -194,7 +197,7 @@ private fun AddPageCommand(onClick: () -> Unit) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "Add Page",
+            text = Strings.add_page,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -206,7 +209,7 @@ private fun SortMenu(current: PageSort, onPick: (PageSort) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         TooltipIconButton(
-            label = "Sort pages",
+            label = Strings.sort_pages,
             onClick = { open = true },
             modifier = Modifier.size(30.dp).testTag(NavigationTestTags.SortPages),
         ) {

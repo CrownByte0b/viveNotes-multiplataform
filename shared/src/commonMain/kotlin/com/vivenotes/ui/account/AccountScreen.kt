@@ -1,5 +1,6 @@
 package com.vivenotes.ui.account
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -96,10 +97,10 @@ internal class AccountScreenModel(private val service: AccountService?, private 
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (failure: Exception) {
-                if (label == "Sign in" && failure is AccountRequestException && failure.status == 401) {
+                if (label == Strings.sign_in && failure is AccountRequestException && failure.status == 401) {
                     failedManagedLogins++
                 }
-                error = failure.message?.take(240) ?: "The request failed."
+                error = failure.message?.take(240) ?: Strings.the_request_failed
             } finally {
                 busy = null
             }
@@ -107,20 +108,20 @@ internal class AccountScreenModel(private val service: AccountService?, private 
     }
 
     fun connect(server: String, email: String, password: String, create: Boolean, managed: Boolean) =
-        launchAction(if (create) "Create account" else "Sign in") { target ->
+        launchAction(if (create) Strings.create_account else Strings.sign_in) { target ->
             if (managed) target.connectManaged(email, password, create)
             else target.connect(server, email, password, create)
             failedManagedLogins = 0
-            notice = if (create) "Account created and signed in." else "Signed in."
+            notice = if (create) Strings.account_created_and_signed_in else Strings.signed_in
             refreshDetails(target)
         }
 
-    fun googleSignIn() = launchAction("Google sign-in") { target ->
+    fun googleSignIn() = launchAction(Strings.google_sign_in) { target ->
         when (target.signInWithGoogle()) {
             GoogleSignInOutcome.Connected -> {
                 linkRequired = false
-                notice = if (target.session.value?.createdNow == true) "Account created with Google."
-                    else "Signed in with Google."
+                notice = if (target.session.value?.createdNow == true) Strings.account_created_with_google
+                    else Strings.signed_in_with_google
                 refreshDetails(target)
             }
             GoogleSignInOutcome.LinkRequired -> linkRequired = true
@@ -128,10 +129,10 @@ internal class AccountScreenModel(private val service: AccountService?, private 
         }
     }
 
-    fun linkGoogle(email: String, password: String) = launchAction("Link Google account") { target ->
+    fun linkGoogle(email: String, password: String) = launchAction(Strings.link_google_account) { target ->
         target.linkGoogleAccount(email, password)
         linkRequired = false
-        notice = "Google account linked."
+        notice = Strings.google_account_linked
         refreshDetails(target)
     }
 
@@ -140,22 +141,22 @@ internal class AccountScreenModel(private val service: AccountService?, private 
         linkRequired = false
     }
 
-    fun requestReset(email: String) = launchAction("Request reset") { target ->
+    fun requestReset(email: String) = launchAction(Strings.request_reset) { target ->
         target.requestPasswordReset(email)
         resetRequested = true
-        notice = "If that email is registered, recovery instructions will be sent."
+        notice = Strings.if_that_email_is_registered_recovery_instructions_will_be_sent
     }
 
-    fun completeReset(email: String, code: String, password: String) = launchAction("Reset password") { target ->
+    fun completeReset(email: String, code: String, password: String) = launchAction(Strings.reset_password) { target ->
         target.completePasswordReset(email, code, password)
         resetComplete = true
         failedManagedLogins = 0
-        notice = "Password changed. Sign in with the new password."
+        notice = Strings.password_changed_sign_in_with_the_new_password
     }
 
-    fun refresh() = launchAction("Refresh") { target -> refreshDetails(target) }
+    fun refresh() = launchAction(Strings.refresh) { target -> refreshDetails(target) }
 
-    fun sync() = launchAction("Sync") { target ->
+    fun sync() = launchAction(Strings.sync) { target ->
         val result = target.synchronize()
         notice = result.message
     }
@@ -166,54 +167,54 @@ internal class AccountScreenModel(private val service: AccountService?, private 
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (failure: Exception) {
-            error = "Membership could not be loaded: ${failure.message.orEmpty().take(120)}"
+            error = Strings.membership_could_not_be_loaded_value(failure.message.orEmpty().take(120))
         }
         try {
             devices = target.listDevices()
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (failure: Exception) {
-            error = "Devices could not be loaded: ${failure.message.orEmpty().take(120)}"
+            error = Strings.devices_could_not_be_loaded_value(failure.message.orEmpty().take(120))
         }
     }
 
-    fun redeemCoupon(code: String) = launchAction("Redeem coupon") { target ->
+    fun redeemCoupon(code: String) = launchAction(Strings.redeem_coupon) { target ->
         val grant = target.redeemCoupon(code)
-        notice = "Coupon added ${grant.monthsGranted} month(s) through ${grant.validUntil}."
+        notice = Strings.coupon_added_value_month_s_through_value(grant.monthsGranted, grant.validUntil)
         subscription = target.refreshSubscription()
     }
 
-    fun renameDevice(id: String, name: String) = launchAction("Rename device") { target ->
+    fun renameDevice(id: String, name: String) = launchAction(Strings.rename_device) { target ->
         target.renameDevice(id, name)
         devices = target.listDevices()
-        notice = "Device renamed."
+        notice = Strings.device_renamed
     }
 
-    fun revokeDevice(id: String) = launchAction("Remove device") { target ->
+    fun revokeDevice(id: String) = launchAction(Strings.remove_device) { target ->
         target.revokeDevice(id)
         devices = target.listDevices()
-        notice = "Device removed."
+        notice = Strings.device_removed
     }
 
-    fun disconnect() = launchAction("Disconnect") { target ->
+    fun disconnect() = launchAction(Strings.disconnect) { target ->
         try {
             target.disconnect()
             subscription = null
             devices = emptyList()
             disconnectFailed = false
-            notice = "Device disconnected."
+            notice = Strings.device_disconnected
         } catch (failure: Exception) {
             disconnectFailed = true
             throw failure
         }
     }
 
-    fun forget() = launchAction("Forget locally") { target ->
+    fun forget() = launchAction(Strings.forget_locally) { target ->
         target.forget()
         subscription = null
         devices = emptyList()
         disconnectFailed = false
-        notice = "Forgot this connection. The server may still list this device."
+        notice = Strings.forgot_this_connection_the_server_may_still_list_this_device
     }
 }
 
@@ -246,8 +247,8 @@ internal fun AccountScreen(service: AccountService?, model: AccountScreenModel, 
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextButton(onClick = onBack, modifier = Modifier.testTag(AccountTags.Back)) { Text("← Back") }
-                Text("Account", style = MaterialTheme.typography.titleLarge)
+                TextButton(onClick = onBack, modifier = Modifier.testTag(AccountTags.Back)) { Text(Strings.back) }
+                Text(Strings.account, style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.weight(1f))
                 if (busy) Text(model.busy ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -256,46 +257,46 @@ internal fun AccountScreen(service: AccountService?, model: AccountScreenModel, 
                 Column(Modifier.widthIn(max = 760.dp).fillMaxWidth().verticalScroll(rememberScrollState())
                     .padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (service == null) {
-                        Text("Account connections are unavailable in this preview.")
+                        Text(Strings.account_connections_are_unavailable_in_this_preview)
                     } else if (session == null) {
                         OutlinedCard(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Vive Notes Cloud", style = MaterialTheme.typography.titleMedium)
+                                Text(Strings.vive_notes_cloud, style = MaterialTheme.typography.titleMedium)
                                 Button(onClick = model::googleSignIn, enabled = service.googleAvailable && !busy,
                                     modifier = Modifier.fillMaxWidth().testTag(AccountTags.Google)) {
-                                    Text("Continue with Google")
+                                    Text(Strings.continue_with_google)
                                 }
-                                if (!service.googleAvailable) Text("Google sign-in needs a desktop OAuth client ID.",
+                                if (!service.googleAvailable) Text(Strings.google_sign_in_needs_a_desktop_oauth_client_id,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 if (model.linkRequired) {
-                                    Text("This Google email belongs to a password account. Enter its password to link them.")
-                                    OutlinedTextField(managedEmail, { managedEmail = it }, label = { Text("Email") },
+                                    Text(Strings.this_google_email_belongs_to_a_password_account_enter_its_password)
+                                    OutlinedTextField(managedEmail, { managedEmail = it }, label = { Text(Strings.email) },
                                         modifier = Modifier.fillMaxWidth())
                                     OutlinedTextField(managedPassword, { managedPassword = it },
-                                        label = { Text("Existing account password") },
+                                        label = { Text(Strings.existing_account_password) },
                                         visualTransformation = PasswordVisualTransformation(),
                                         modifier = Modifier.fillMaxWidth())
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedButton(onClick = model::cancelGoogleLink) { Text("Cancel") }
+                                        OutlinedButton(onClick = model::cancelGoogleLink) { Text(Strings.cancel) }
                                         Button(onClick = { model.linkGoogle(managedEmail, managedPassword) },
                                             enabled = !busy, modifier = Modifier.testTag(AccountTags.GoogleLink)) {
-                                            Text("Link account")
+                                            Text(Strings.link_account)
                                         }
                                     }
                                 }
                                 HorizontalDivider()
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    TextButton(onClick = { managedCreate = false }) { Text("Sign in") }
-                                    TextButton(onClick = { managedCreate = true }) { Text("Create account") }
+                                    TextButton(onClick = { managedCreate = false }) { Text(Strings.sign_in) }
+                                    TextButton(onClick = { managedCreate = true }) { Text(Strings.create_account) }
                                 }
-                                OutlinedTextField(managedEmail, { managedEmail = it }, label = { Text("Email") },
+                                OutlinedTextField(managedEmail, { managedEmail = it }, label = { Text(Strings.email) },
                                     singleLine = true, modifier = Modifier.fillMaxWidth().testTag(AccountTags.Email))
                                 OutlinedTextField(managedPassword, { managedPassword = it },
-                                    label = { Text("Password") }, singleLine = true,
+                                    label = { Text(Strings.password) }, singleLine = true,
                                     visualTransformation = PasswordVisualTransformation(),
                                     modifier = Modifier.fillMaxWidth().testTag(AccountTags.Password))
                                 if (managedCreate) OutlinedTextField(managedConfirm, { managedConfirm = it },
-                                    label = { Text("Confirm password") }, singleLine = true,
+                                    label = { Text(Strings.confirm_password) }, singleLine = true,
                                     visualTransformation = PasswordVisualTransformation(),
                                     modifier = Modifier.fillMaxWidth().testTag(AccountTags.CreateConfirm))
                                 Button(onClick = {
@@ -306,25 +307,25 @@ internal fun AccountScreen(service: AccountService?, model: AccountScreenModel, 
                                     (managedPassword.length >= 8 && managedPassword == managedConfirm)),
                                     modifier = Modifier.testTag(
                                     if (managedCreate) AccountTags.Create else AccountTags.SignIn)) {
-                                    Text(if (managedCreate) "Create account" else "Sign in")
+                                    Text(if (managedCreate) Strings.create_account else Strings.sign_in)
                                 }
                                 if (model.failedManagedLogins >= 2 || resetOpen) {
-                                    TextButton(onClick = { resetOpen = !resetOpen }) { Text("Forgot password?") }
+                                    TextButton(onClick = { resetOpen = !resetOpen }) { Text(Strings.forgot_password) }
                                 }
                                 if (resetOpen) {
                                     OutlinedButton(onClick = { model.requestReset(managedEmail) }, enabled = !busy,
                                         modifier = Modifier.testTag(AccountTags.ResetRequest)) {
-                                        Text("Email recovery code")
+                                        Text(Strings.email_recovery_code)
                                     }
                                     if (model.resetRequested) {
                                         OutlinedTextField(resetCode, { resetCode = it },
-                                            label = { Text("8-digit code") }, modifier = Modifier.fillMaxWidth())
+                                            label = { Text(Strings.label_8_digit_code) }, modifier = Modifier.fillMaxWidth())
                                         OutlinedTextField(resetPassword, { resetPassword = it },
-                                            label = { Text("New password") },
+                                            label = { Text(Strings.new_password) },
                                             visualTransformation = PasswordVisualTransformation(),
                                             modifier = Modifier.fillMaxWidth())
                                         OutlinedTextField(resetConfirm, { resetConfirm = it },
-                                            label = { Text("Confirm new password") },
+                                            label = { Text(Strings.confirm_new_password) },
                                             visualTransformation = PasswordVisualTransformation(),
                                             modifier = Modifier.fillMaxWidth().testTag(AccountTags.ResetConfirm))
                                         Button(onClick = {
@@ -334,7 +335,7 @@ internal fun AccountScreen(service: AccountService?, model: AccountScreenModel, 
                                         }, enabled = !busy && resetCode.length == 8 &&
                                             resetPassword.length >= 8 && resetPassword == resetConfirm,
                                             modifier = Modifier.testTag(AccountTags.ResetComplete)) {
-                                            Text("Change password")
+                                            Text(Strings.change_password)
                                         }
                                     }
                                 }
@@ -343,21 +344,21 @@ internal fun AccountScreen(service: AccountService?, model: AccountScreenModel, 
                         OutlinedCard(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 TextButton(onClick = { selfHostOpen = !selfHostOpen }) {
-                                    Text(if (selfHostOpen) "Hide self-hosted server" else "Connect to a self-hosted server")
+                                    Text(if (selfHostOpen) Strings.hide_self_hosted_server else Strings.connect_to_a_self_hosted_server)
                                 }
                                 if (selfHostOpen) {
-                                    OutlinedTextField(server, { server = it }, label = { Text("Server URL") },
+                                    OutlinedTextField(server, { server = it }, label = { Text(Strings.server_url) },
                                         modifier = Modifier.fillMaxWidth().testTag(AccountTags.Server))
-                                    OutlinedTextField(hostEmail, { hostEmail = it }, label = { Text("Email") },
+                                    OutlinedTextField(hostEmail, { hostEmail = it }, label = { Text(Strings.email) },
                                         modifier = Modifier.fillMaxWidth())
                                     OutlinedTextField(hostPassword, { hostPassword = it },
-                                        label = { Text("Password") },
+                                        label = { Text(Strings.password) },
                                         visualTransformation = PasswordVisualTransformation(),
                                         modifier = Modifier.fillMaxWidth())
                                     Button(onClick = {
                                         model.connect(server, hostEmail, hostPassword, false, managed = false)
                                         hostPassword = ""
-                                    }, enabled = !busy) { Text("Connect") }
+                                    }, enabled = !busy) { Text(Strings.connect) }
                                 }
                             }
                         }
@@ -365,84 +366,84 @@ internal fun AccountScreen(service: AccountService?, model: AccountScreenModel, 
                         OutlinedCard(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(session.email, style = MaterialTheme.typography.titleMedium)
-                                Text(if (session.managed) "Vive Notes Cloud" else session.serverUrl)
-                                Text("Signed in with ${session.provider.name}")
-                                if (session.createdNow) Text("Account created")
-                                if (!session.persisted) Text("This sign-in lasts until you close the app. Secure credential storage is unavailable.",
+                                Text(if (session.managed) Strings.vive_notes_cloud else session.serverUrl)
+                                Text(Strings.signed_in_with_value(if (session.provider == AccountProvider.Google) Strings.google_provider else Strings.password_provider))
+                                if (session.createdNow) Text(Strings.account_created)
+                                if (!session.persisted) Text(Strings.this_sign_in_lasts_until_you_close_the_app_secure_credential,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedButton(onClick = model::refresh, enabled = !busy) { Text("Refresh") }
+                                    OutlinedButton(onClick = model::refresh, enabled = !busy) { Text(Strings.refresh) }
                                     OutlinedButton(onClick = model::disconnect, enabled = !busy,
-                                        modifier = Modifier.testTag(AccountTags.Disconnect)) { Text("Disconnect") }
+                                        modifier = Modifier.testTag(AccountTags.Disconnect)) { Text(Strings.disconnect) }
                                 }
                                 if (model.disconnectFailed) TextButton(onClick = model::forget,
-                                    modifier = Modifier.testTag(AccountTags.Forget)) { Text("Forget locally") }
+                                    modifier = Modifier.testTag(AccountTags.Forget)) { Text(Strings.forget_locally) }
                             }
                         }
                         if (session.managed) {
                             OutlinedCard(Modifier.fillMaxWidth().testTag(AccountTags.Subscription)) {
                                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("Cloud storage plan", style = MaterialTheme.typography.titleMedium)
+                                    Text(Strings.cloud_storage_plan, style = MaterialTheme.typography.titleMedium)
                                     val plan = model.subscription
-                                    Text(if (plan == null) "Checking membership…" else
-                                        if (plan.state == "active") "Active membership" else "No active membership")
-                                    plan?.validUntil?.let { Text("Available until $it") }
-                                    plan?.paidState?.let { Text("Google Play: $it") }
-                                    plan?.paidValidUntil?.let { Text("Paid time through $it") }
-                                    plan?.promotionalValidUntil?.let { Text("Promotional time through $it") }
-                                    plan?.staffValidUntil?.let { Text("Staff time through $it") }
-                                    if (plan?.staffRevokedAt != null) Text("Staff access revoked")
-                                    if (plan?.autoRenewing == true) Text("Renews automatically")
+                                    Text(if (plan == null) Strings.checking_membership else
+                                        if (plan.state == "active") Strings.active_membership else Strings.no_active_membership)
+                                    plan?.validUntil?.let { Text(Strings.available_until_value(it)) }
+                                    plan?.paidState?.let { Text(Strings.google_play_value(it)) }
+                                    plan?.paidValidUntil?.let { Text(Strings.paid_time_through_value(it)) }
+                                    plan?.promotionalValidUntil?.let { Text(Strings.promotional_time_through_value(it)) }
+                                    plan?.staffValidUntil?.let { Text(Strings.staff_time_through_value(it)) }
+                                    if (plan?.staffRevokedAt != null) Text(Strings.staff_access_revoked)
+                                    if (plan?.autoRenewing == true) Text(Strings.renews_automatically)
                                     if (plan?.paidState != null) {
                                         TextButton(onClick = service::openPlayManagement) {
-                                            Text("Manage Google Play subscription")
+                                            Text(Strings.manage_google_play_subscription)
                                         }
                                     }
-                                    OutlinedTextField(coupon, { coupon = it }, label = { Text("Coupon code") },
+                                    OutlinedTextField(coupon, { coupon = it }, label = { Text(Strings.coupon_code) },
                                         modifier = Modifier.fillMaxWidth().testTag(AccountTags.Coupon))
                                     Button(onClick = { model.redeemCoupon(coupon) }, enabled = !busy && coupon.isNotBlank(),
                                         modifier = Modifier.testTag(AccountTags.CouponRedeem)) {
-                                        Text("Redeem coupon")
+                                        Text(Strings.redeem_coupon)
                                     }
                                 }
                             }
                         }
                         OutlinedCard(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Synchronization", style = MaterialTheme.typography.titleMedium)
-                                Text(syncStatus?.message ?: "Sync is unavailable in this preview")
+                                Text(Strings.synchronization, style = MaterialTheme.typography.titleMedium)
+                                Text(syncStatus?.message ?: Strings.sync_is_unavailable_in_this_preview)
                                 Button(onClick = model::sync, enabled = !busy && syncStatus?.running != true &&
                                     syncStatus != null, modifier = Modifier.testTag(AccountTags.Sync)) {
-                                    Text(if (syncStatus?.running == true) "Syncing…" else "Sync now")
+                                    Text(if (syncStatus?.running == true) Strings.syncing else Strings.sync_now)
                                 }
                             }
                         }
                         OutlinedCard(Modifier.fillMaxWidth().testTag(AccountTags.Devices)) {
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("Devices", style = MaterialTheme.typography.titleMedium)
+                                Text(Strings.devices, style = MaterialTheme.typography.titleMedium)
                                 model.devices.forEach { device ->
                                     Column(Modifier.fillMaxWidth()) {
-                                        Text("${device.name} · ${device.platform}" +
-                                            if (device.id == session.deviceId) " · This device" else "")
-                                        if (device.revoked) Text("Revoked") else {
+                                        Text(Strings.value_value(device.name, device.platform) +
+                                            if (device.id == session.deviceId) Strings.this_device else "")
+                                        if (device.revoked) Text(Strings.revoked) else {
                                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                 TextButton(onClick = {
                                                     renameId = device.id
                                                     deviceName = device.name
-                                                }) { Text("Rename") }
+                                                }) { Text(Strings.rename) }
                                                 if (device.id != session.deviceId) TextButton(
                                                     onClick = { model.revokeDevice(device.id) }, enabled = !busy) {
-                                                    Text("Remove")
+                                                    Text(Strings.remove)
                                                 }
                                             }
                                         }
                                         if (renameId == device.id) {
                                             OutlinedTextField(deviceName, { deviceName = it },
-                                                label = { Text("Device name") })
+                                                label = { Text(Strings.device_name) })
                                             Button(onClick = {
                                                 model.renameDevice(device.id, deviceName)
                                                 renameId = null
-                                            }, enabled = !busy) { Text("Save") }
+                                            }, enabled = !busy) { Text(Strings.save) }
                                         }
                                     }
                                     HorizontalDivider()

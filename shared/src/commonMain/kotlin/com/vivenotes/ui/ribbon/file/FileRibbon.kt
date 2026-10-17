@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.file
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -67,32 +68,32 @@ internal fun FileRibbon(
     val closedIcon = remember(neutral, accent) { closedNotebooksGlyph(neutral, accent) }
     val pdfIcon = remember(neutral, accent) { exportPdfGlyph(neutral, accent) }
     RibbonBar {
-        FileCommand("Export PDF", pdfIcon, FileRibbonTags.ExportPdf,
+        FileCommand(Strings.export_pdf, pdfIcon, FileRibbonTags.ExportPdf,
             actions?.pdfExporter != null && pageOpen && !transferRunning, twoTone = true, onClick = onExportPdf)
         RibbonDivider()
-        FileCommand("Version History", historyIcon, FileRibbonTags.VersionHistory,
+        FileCommand(Strings.version_history, historyIcon, FileRibbonTags.VersionHistory,
             actions != null && pageOpen && !transferRunning, twoTone = true) { actions?.openPane(FilePane.VersionHistory) }
-        FileCommand("Deleted Items", recoveredIcon, FileRibbonTags.DeletedItems,
+        FileCommand(Strings.deleted_items, recoveredIcon, FileRibbonTags.DeletedItems,
             actions != null && !transferRunning, twoTone = true) { actions?.openPane(FilePane.DeletedItems) }
-        FileCommand("Closed Notebooks", closedIcon, FileRibbonTags.ClosedNotebooks,
+        FileCommand(Strings.closed_notebooks, closedIcon, FileRibbonTags.ClosedNotebooks,
             actions != null && !transferRunning, twoTone = true) { actions?.openPane(FilePane.ClosedNotebooks) }
         RibbonDivider()
-        FileCommand("Close Notebook", closeIcon, FileRibbonTags.CloseNotebook,
+        FileCommand(Strings.close_notebook, closeIcon, FileRibbonTags.CloseNotebook,
             actions != null && notebookOpen && !transferRunning, twoTone = true, onClick = onCloseNotebook)
         RibbonCommand(
-            label = "Export Notebook",
+            label = Strings.export_notebook,
             onClick = { actions?.exportNotebook() },
             enabled = actions != null && notebookOpen && !transferRunning,
             modifier = Modifier.testTag(FileRibbonTags.ExportNotebook),
         ) { TwoToneIcon(exportIcon) }
         RibbonCommand(
-            label = "Import",
+            label = Strings.import,
             onClick = { actions?.importNotebook() },
             enabled = actions != null && !transferRunning,
             modifier = Modifier.testTag(FileRibbonTags.ImportNotebook),
         ) { TwoToneIcon(importIcon) }
         RibbonDivider()
-        FileCommand("Delete Notebook", deleteIcon, FileRibbonTags.DeleteNotebook,
+        FileCommand(Strings.delete_notebook, deleteIcon, FileRibbonTags.DeleteNotebook,
             actions != null && notebookOpen && !transferRunning, twoTone = true, onClick = onDeleteNotebook)
     }
 }

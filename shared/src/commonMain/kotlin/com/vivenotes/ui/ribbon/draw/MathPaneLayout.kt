@@ -1,5 +1,7 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
+import com.vivenotes.localization.MathText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -46,9 +48,9 @@ internal fun MathPaneFrame(onClose: () -> Unit, content: @Composable ColumnScope
             .swipeRight(onClose).testTag(ToolPaneTags.Pane)) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 10.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("Recognition", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface,
+                Text(Strings.recognition, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f))
-                TooltipIconButton("Close Recognition", onClick = onClose, modifier = Modifier.size(34.dp).testTag(ToolPaneTags.Close)) {
+                TooltipIconButton(Strings.close_recognition, onClick = onClose, modifier = Modifier.size(34.dp).testTag(ToolPaneTags.Close)) {
                     Icon(ViewSymbols.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                 }
             }
@@ -87,14 +89,14 @@ internal fun MathDecimalToggle(checked: Boolean, onChange: (Boolean) -> Unit) {
             checkedContentColor = MaterialTheme.colorScheme.onTertiary),
         contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.ExtraSmallContainerHeight),
         modifier = Modifier.padding(top = 8.dp).heightIn(min = ButtonDefaults.ExtraSmallContainerHeight)
-            .testTag(MathPaneTags.Decimal).semantics { contentDescription = "Show decimal" }) {
+            .testTag(MathPaneTags.Decimal).semantics { contentDescription = Strings.show_decimal }) {
         Text("≈", style = MaterialTheme.typography.titleMedium)
     }
 }
 
 @Composable
 internal fun MathError(message: String) {
-    Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+    Text(MathText.translate(message), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
         modifier = Modifier.testTag(MathPaneTags.Error))
 }
 
@@ -115,8 +117,8 @@ internal fun MathEquationPreview(latex: String, tag: String, scale: Float = 1f) 
         Box(Modifier.fillMaxWidth().height(height).background(MaterialTheme.colorScheme.surfaceContainerLow)
             .testTag(tag).semantics { contentDescription = latex }.horizontalScroll(rememberScrollState())) {
             Box(Modifier.width(width).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                if (latex.isBlank()) Text("No formula", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else if (display == null) Text("Unable to render this equation", color = MaterialTheme.colorScheme.error,
+                if (latex.isBlank()) Text(Strings.no_formula, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else if (display == null) Text(Strings.unable_to_render_this_equation, color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp))
                 else RaTeX(displayList = display, fontSize = fontSize * fit)
             }

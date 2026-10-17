@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -173,6 +174,6 @@ internal fun PendingRibbonAction(label: String, icon: @Composable (() -> Unit)? 
 
 @Composable
 internal fun PendingRibbonNote() {
-    Text("Tools unlock as each port phase lands", style = TextStyle(fontSize = 12.sp),
+    Text(Strings.tools_unlock_as_each_port_phase_lands, style = TextStyle(fontSize = 12.sp),
         color = RibbonStyle.disabledText, modifier = Modifier.padding(horizontal = 8.dp))
 }

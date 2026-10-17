@@ -1,5 +1,6 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.ui.account.AccountService
 import com.vivenotes.ui.account.AccountSession
@@ -70,10 +71,10 @@ internal class DesktopAccountService(
         val base = accountServerUrl(serverUrl)
         val normalizedEmail = email.trim().lowercase()
         require(normalizedEmail.isNotBlank() && normalizedEmail.length <= 320 && '@' in normalizedEmail) {
-            "Enter a valid email address."
+            Strings.enter_a_valid_email_address
         }
         require(password.length in (if (create) 8 else 1)..1024) {
-            if (create) "Password must contain 8 to 1024 characters." else "Enter a password."
+            if (create) Strings.password_must_contain_8_to_1024_characters else Strings.enter_a_password
         }
         withContext(Dispatchers.IO) {
             try {
@@ -90,8 +91,8 @@ internal class DesktopAccountService(
                 val newToken = registration.requiredString("token")
                 val accountId = registration.requiredString("accountId")
                 val deviceId = registration.requiredString("deviceId")
-                require(createdId == null || createdId == accountId) { "Server returned mismatched account IDs." }
-                require(newToken.startsWith("vive_") && newToken.length > 5) { "Invalid device token." }
+                require(createdId == null || createdId == accountId) { Strings.server_returned_mismatched_account_ids }
+                require(newToken.startsWith("vive_") && newToken.length > 5) { Strings.invalid_device_token }
                 adopt(newToken, AccountSession(base, normalizedEmail, accountId, deviceId, "unknown",
                     managed = base == accountServerUrl(managedServerUrl)))
                 try { refreshSubscription() } catch (cancel: CancellationException) { throw cancel }
@@ -114,8 +115,8 @@ internal class DesktopAccountService(
 
     override suspend fun completePasswordReset(email: String, code: String, password: String) =
         withContext(Dispatchers.IO) {
-            require(code.length == 8 && code.all(Char::isDigit)) { "Enter the 8-digit recovery code." }
-            require(password.length in 8..1024) { "Password must contain 8 to 1024 characters." }
+            require(code.length == 8 && code.all(Char::isDigit)) { Strings.enter_the_8_digit_recovery_code }
+            require(password.length in 8..1024) { Strings.password_must_contain_8_to_1024_characters }
             request(accountServerUrl(managedServerUrl), "/v1/auth/password/resets", "POST", buildJsonObject {
                 put("email", email.trim().lowercase()); put("code", code); put("password", password)
             })
@@ -124,7 +125,7 @@ internal class DesktopAccountService(
         }
 
     override suspend fun signInWithGoogle(): GoogleSignInOutcome {
-        val identity = googleIdentity ?: error("Google sign-in is not configured.")
+        val identity = googleIdentity ?: error(Strings.google_sign_in_is_not_configured)
         pendingGoogleLink = null
         val base = accountServerUrl(managedServerUrl)
         val challenge = withContext(Dispatchers.IO) {
@@ -148,7 +149,7 @@ internal class DesktopAccountService(
     }
 
     override suspend fun linkGoogleAccount(email: String, password: String) {
-        val pending = pendingGoogleLink ?: error("Start Google sign-in again to link this account.")
+        val pending = pendingGoogleLink ?: error(Strings.start_google_sign_in_again_to_link_this_account)
         val base = accountServerUrl(managedServerUrl)
         val body = googleBody(pending.challengeId, pending.idToken, email.trim().lowercase(), password)
         val result = withContext(Dispatchers.IO) { googleRequest(base, "/v1/auth/google/link", body) }
@@ -211,28 +212,28 @@ internal class DesktopAccountService(
 
     override suspend fun redeemCoupon(code: String): AccountCoupon = withContext(Dispatchers.IO) {
         val connected = requireSession()
-        require(connected.managed) { "Coupons are only available on Vive Notes Cloud." }
+        require(connected.managed) { Strings.coupons_are_only_available_on_vive_notes_cloud }
         val result = request(connected.serverUrl, "/v1/coupons/redeem", "POST", buildJsonObject {
             put("code", code.trim())
         }, bearer = requireToken())
         log.event("account") { "coupon redeemed" }
         AccountCoupon(result["monthsGranted"]?.jsonPrimitive?.int
-            ?: error("Invalid coupon response."), result.requiredString("validUntil"))
+            ?: error(Strings.invalid_coupon_response), result.requiredString("validUntil"))
     }
 
     override suspend fun listDevices(): List<AccountDevice> = withContext(Dispatchers.IO) {
         val connected = requireSession()
         val response = request(connected.serverUrl, "/v1/devices", "GET", bearer = requireToken())
-        val entries = response["devices"] as? JsonArray ?: error("Invalid device list response.")
+        val entries = response["devices"] as? JsonArray ?: error(Strings.invalid_device_list_response)
         entries.map { item ->
-            val device = item as? JsonObject ?: error("Invalid device response.")
+            val device = item as? JsonObject ?: error(Strings.invalid_device_response)
             AccountDevice(device.requiredString("deviceId"), device.requiredString("name"),
                 device.requiredString("platform"), device["revokedAt"] != null && device["revokedAt"] != JsonNull)
         }
     }
 
     override suspend fun renameDevice(id: String, name: String) = withContext(Dispatchers.IO) {
-        require(name.trim().length in 1..128) { "Device name must contain 1 to 128 characters." }
+        require(name.trim().length in 1..128) { Strings.device_name_must_contain_1_to_128_characters }
         request(requireSession().serverUrl, "/v1/devices/${UUID.fromString(id)}", "PATCH",
             buildJsonObject { put("name", name.trim()) }, bearer = requireToken())
         log.event("account") { "device renamed" }
@@ -253,8 +254,8 @@ internal class DesktopAccountService(
             "?sku=$productId&package=com.vivenotes"))
     }
 
-    private fun requireSession(): AccountSession = current.value ?: error("Sign in first.")
-    private fun requireToken(): String = token ?: error("Sign in first.")
+    private fun requireSession(): AccountSession = current.value ?: error(Strings.sign_in_first)
+    private fun requireToken(): String = token ?: error(Strings.sign_in_first)
 
     internal fun currentSyncAccount(): SyncAccount? = current.value?.let { connected ->
         token?.let { credential -> SyncAccount(connected.serverUrl, connected.accountId,
@@ -264,21 +265,21 @@ internal class DesktopAccountService(
     internal fun reportBackgroundSync(result: SyncRunResult) {
         mutableSyncStatus.value = when (result) {
             is SyncRunResult.Succeeded -> AccountSyncStatus(
-                message = "Synced: ${result.summary.pulled} received, ${result.summary.pushed} uploaded",
+                message = Strings.synced_value_received_value_uploaded(result.summary.pulled, result.summary.pushed),
                 pulled = result.summary.pulled, pushed = result.summary.pushed,
                 pictures = result.summary.pictures)
-            is SyncRunResult.Retryable -> AccountSyncStatus(message = "Sync will retry: ${result.reason}")
-            is SyncRunResult.Failed -> AccountSyncStatus(message = "Sync stopped: ${result.reason}")
-            SyncRunResult.Revoked -> AccountSyncStatus(message = "Device access was revoked. Sign in again.")
+            is SyncRunResult.Retryable -> AccountSyncStatus(message = Strings.sync_will_retry_value(result.reason))
+            is SyncRunResult.Failed -> AccountSyncStatus(message = Strings.sync_stopped_value(result.reason))
+            SyncRunResult.Revoked -> AccountSyncStatus(message = Strings.device_access_was_revoked_sign_in_again)
         }
     }
 
     internal fun reportStreamFailure(reason: String) {
-        mutableSyncStatus.value = AccountSyncStatus(message = "Sync stream: $reason")
+        mutableSyncStatus.value = AccountSyncStatus(message = Strings.sync_stream_value(reason))
     }
 
     override suspend fun synchronize(): AccountSyncStatus {
-        val engine = syncEngine ?: error("Sync is unavailable.")
+        val engine = syncEngine ?: error(Strings.sync_is_unavailable)
         val connected = requireSession()
         val account = SyncAccount(connected.serverUrl, connected.accountId, connected.deviceId, requireToken())
         if (mutableSyncStatus.value.running) return mutableSyncStatus.value
@@ -290,23 +291,23 @@ internal class DesktopAccountService(
                 (result.summary.pulled > 0 || result.summary.conflictsResolved > 0)) afterSync()
             val status = when (result) {
                 is SyncRunResult.Succeeded -> AccountSyncStatus(
-                    message = "Synced: ${result.summary.pulled} received, ${result.summary.pushed} uploaded" +
-                        if (result.summary.pictures > 0) ", ${result.summary.pictures} pictures" else "",
+                    message = Strings.synced_value_received_value_uploaded(result.summary.pulled, result.summary.pushed) +
+                        if (result.summary.pictures > 0) Strings.value_pictures(result.summary.pictures) else "",
                     pulled = result.summary.pulled, pushed = result.summary.pushed,
                     pictures = result.summary.pictures,
                 )
-                is SyncRunResult.Retryable -> AccountSyncStatus(message = "Sync will retry: ${result.reason}")
-                is SyncRunResult.Failed -> AccountSyncStatus(message = "Sync stopped: ${result.reason}")
+                is SyncRunResult.Retryable -> AccountSyncStatus(message = Strings.sync_will_retry_value(result.reason))
+                is SyncRunResult.Failed -> AccountSyncStatus(message = Strings.sync_stopped_value(result.reason))
                 SyncRunResult.Revoked -> {
                     forget()
-                    AccountSyncStatus(message = "Device access was revoked. Sign in again.")
+                    AccountSyncStatus(message = Strings.device_access_was_revoked_sign_in_again)
                 }
             }
             mutableSyncStatus.value = status
             log.event("sync") { status.message }
             status
         } catch (failure: Exception) {
-            val status = AccountSyncStatus(message = "Sync failed; try again.")
+            val status = AccountSyncStatus(message = Strings.sync_failed_try_again)
             mutableSyncStatus.value = status
             log.event("sync") { "sync failed (${failure::class.simpleName})" }
             throw failure
@@ -358,12 +359,12 @@ internal class DesktopAccountService(
         if (response.statusCode() !in 200..299) {
             val error = runCatching { Json.parseToJsonElement(response.body()) as? JsonObject }.getOrNull()
             val message = error?.get("message")?.jsonPrimitive?.content
-                ?: "Server returned HTTP ${response.statusCode()}."
+                ?: Strings.server_returned_http_value_cca0db(response.statusCode())
             throw AccountApiException(response.statusCode(), error?.optionalString("error"), message.take(240))
         }
         if (response.statusCode() == 204) return JsonObject(emptyMap())
         return (Json.parseToJsonElement(response.body()) as? JsonObject)
-            ?: throw IllegalStateException("Invalid server response.")
+            ?: throw IllegalStateException(Strings.invalid_server_response)
     }
 }
 
@@ -372,26 +373,26 @@ internal class AccountApiException(status: Int, code: String?, message: String) 
 
 internal fun accountServerUrl(value: String): String {
     val uri = runCatching { URI(value.trim()) }.getOrNull()
-        ?: throw IllegalArgumentException("Enter a server URL.")
+        ?: throw IllegalArgumentException(Strings.enter_a_server_url)
     require(uri.scheme?.lowercase() in setOf("http", "https") && !uri.host.isNullOrBlank() &&
         uri.userInfo == null && uri.query == null && uri.fragment == null &&
         (uri.path.isNullOrEmpty() || uri.path == "/")) {
-        "Enter a server URL such as https://notes.example.com."
+        Strings.enter_a_server_url_such_as_https_notes_example_com
     }
     require(uri.scheme.equals("https", ignoreCase = true) ||
         uri.host.equals("localhost", ignoreCase = true) || uri.host == "127.0.0.1" || uri.host == "[::1]") {
-        "Use HTTPS for servers outside this computer."
+        Strings.use_https_for_servers_outside_this_computer
     }
     return URI(uri.scheme.lowercase(), null, uri.host, uri.port, null, null, null).toString()
 }
 
 private fun JsonObject.requiredString(key: String): String =
     this[key]?.jsonPrimitive?.content?.takeIf(String::isNotBlank)
-        ?: throw IllegalStateException("Server response is missing $key.")
+        ?: throw IllegalStateException(Strings.server_response_is_missing_value(key))
 
 private fun JsonObject.optionalString(key: String): String? =
     this[key]?.takeUnless { it is JsonNull }?.jsonPrimitive?.content
 
-private fun desktopDeviceName(): String =
-    (System.getenv("COMPUTERNAME") ?: System.getenv("HOSTNAME") ?: "Desktop").trim().take(128)
-        .ifBlank { "Desktop" }
+internal fun desktopDeviceName(environment: (String) -> String? = System::getenv): String =
+    (environment("COMPUTERNAME") ?: environment("HOSTNAME") ?: Strings.desktop_device_name).trim().take(128)
+        .ifBlank { Strings.desktop_device_name }

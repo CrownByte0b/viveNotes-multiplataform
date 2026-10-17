@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
@@ -74,11 +75,11 @@ internal fun CustomShapeColorField(label: String, tag: String, onColor: (Int) ->
     var hex by remember { mutableStateOf("") }
     Row(verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(hex, onValueChange = { if (it.length <= 9) hex = it },
-            label = { Text("$label hex") }, singleLine = true,
+            label = { Text(Strings.value_hex(label)) }, singleLine = true,
             modifier = Modifier.size(width = 140.dp, height = 58.dp).testTag(tag))
         TextButton(onClick = { parseShapeColor(hex)?.let(onColor) },
             enabled = parseShapeColor(hex) != null,
-            modifier = Modifier.testTag("$tag-apply")) { Text("Apply") }
+            modifier = Modifier.testTag("$tag-apply")) { Text(Strings.apply) }
     }
 }
 
@@ -94,7 +95,7 @@ internal fun ShapeKit(settings: ShapeToolSettings, palette: List<Int>, canvasInk
                       onPaletteColor: (Int) -> Unit, onChange: (ShapeToolSettings) -> Unit) {
     var page by remember { mutableIntStateOf(settings.kind.page) }
     val color = if (settings.colorFollowsTheme) canvasInk else Color(settings.borderArgb)
-    ReferenceToolKit("Shape") {
+    ReferenceToolKit(Strings.shape, "draw-toolkit-shape") {
         ShapePreview(settings, color)
         Spacer(Modifier.height(10.dp))
         val currentPage by rememberUpdatedState(page)
@@ -115,24 +116,24 @@ internal fun ShapeKit(settings: ShapeToolSettings, palette: List<Int>, canvasInk
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             repeat(ShapeKind.PAGE_COUNT) { index ->
                 val active = page == index
-                HoverTooltip("Shape page ${index + 1}") {
+                HoverTooltip(Strings.shape_page_value(index + 1)) {
                     Box(Modifier.padding(horizontal = 5.dp).size(if (active) 9.dp else 8.dp)
                         .clip(RoundedCornerShape(50))
                         .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
                         .clickable { page = index }.testTag("draw-shape-page-$index")
-                        .semantics { contentDescription = "Shape page ${index + 1}"; selected = active })
+                        .semantics { contentDescription = Strings.shape_page_value(index + 1); selected = active })
                 }
             }
         }
         Spacer(Modifier.height(8.dp))
         ToolkitLineTypes(settings.lineType, ShapeMenuTags::lineType) { onChange(settings.copy(lineType = it)) }
         Spacer(Modifier.height(4.dp))
-        ToolkitSlider("Border width", settings.borderWidth.toFloat(), ShapeToolSettings.MIN_BORDER_WIDTH.toFloat()..
+        ToolkitSlider(Strings.border_width, settings.borderWidth.toFloat(), ShapeToolSettings.MIN_BORDER_WIDTH.toFloat()..
             ShapeToolSettings.MAX_BORDER_WIDTH.toFloat(), 1f, ShapeMenuTags.Width, color) {
             onChange(settings.copy(borderWidth = it.toInt()))
         }
         Spacer(Modifier.height(2.dp))
-        Text("Border color", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
+        Text(Strings.border_color, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(vertical = 2.dp))
         ToolkitPalette(palette, color.toArgb(), ShapeMenuTags::border, ShapeMenuTags.BorderWheel, "draw-shape-custom-border",
             onPick = { onChange(settings.copy(borderArgb = it, colorFollowsTheme = it == canvasInk.toArgb())) },

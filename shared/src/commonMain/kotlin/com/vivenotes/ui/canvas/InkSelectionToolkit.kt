@@ -1,5 +1,6 @@
 package com.vivenotes.ui.canvas
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -70,7 +71,7 @@ internal fun InkSelectionToolkit(selection: InkSelection, boundsInView: Rect, vi
             horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             if (showColor) Box {
                 val swatch = if (selection.colorFollowsTheme) canvasInk else selection.colorArgb?.let(::Color) ?: canvasInk
-                TooltipIconButton("Change object colour", onClick = { paletteOpen = true }, enabled = enabled,
+                TooltipIconButton(Strings.change_object_colour, onClick = { paletteOpen = true }, enabled = enabled,
                     tooltipPosition = TooltipAnchorPosition.Above, colors = buttonColors,
                     modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectColor)) {
                     Box(Modifier.size(18.dp).clip(CircleShape).background(swatch))
@@ -87,17 +88,17 @@ internal fun InkSelectionToolkit(selection: InkSelection, boundsInView: Rect, vi
                             }
                         }
                     }
-                    CustomShapeColorField("Colour", "object-ink-custom-color") { paletteOpen = false; onColor(it) }
+                    CustomShapeColorField(Strings.colour, "object-ink-custom-color") { paletteOpen = false; onColor(it) }
                 }
             }
             if (showColor) Spacer(Modifier.padding(horizontal = 4.dp).width(1.dp).height(22.dp)
                 .background(Color(0xff5f6368)).testTag(WorkspaceTestTags.InkColorDivider))
-            TooltipIconButton("Copy selection", onClick = onCopy, enabled = enabled,
+            TooltipIconButton(Strings.copy_selection, onClick = onCopy, enabled = enabled,
                 tooltipPosition = TooltipAnchorPosition.Above, colors = buttonColors,
                 modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
                 Icon(DocumentSymbols.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
             }
-            if (showMath) HoverTooltip("Math", position = TooltipAnchorPosition.Above) {
+            if (showMath) HoverTooltip(Strings.math, position = TooltipAnchorPosition.Above) {
                 TextButton(onClick = onMath, enabled = enabled,
                     colors = ButtonDefaults.textButtonColors(contentColor = foreground,
                         disabledContentColor = foreground.copy(alpha = .38f)),
@@ -105,11 +106,11 @@ internal fun InkSelectionToolkit(selection: InkSelection, boundsInView: Rect, vi
                     modifier = Modifier.height(32.dp).testTag(WorkspaceTestTags.InkMath)) {
                     Icon(ObjectSymbols.Functions, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(5.dp))
-                    Text("Math", style = MaterialTheme.typography.labelSmall)
+                    Text(Strings.math, style = MaterialTheme.typography.labelSmall)
                 }
             }
             if (showGroup) {
-                val label = if (selection.isGrouped) "Ungroup" else "Group"
+                val label = if (selection.isGrouped) Strings.ungroup else Strings.group
                 HoverTooltip(label, position = TooltipAnchorPosition.Above) {
                     TextButton(onClick = onGroup, enabled = enabled,
                         colors = ButtonDefaults.textButtonColors(contentColor = foreground,
@@ -120,7 +121,7 @@ internal fun InkSelectionToolkit(selection: InkSelection, boundsInView: Rect, vi
                     }
                 }
             }
-            TooltipIconButton("Delete selection", onClick = onDelete, enabled = enabled,
+            TooltipIconButton(Strings.delete_selection, onClick = onDelete, enabled = enabled,
                 tooltipPosition = TooltipAnchorPosition.Above, colors = buttonColors,
                 modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
                 Icon(ObjectSymbols.Delete, contentDescription = null, tint = Color(0xffffa8a8),

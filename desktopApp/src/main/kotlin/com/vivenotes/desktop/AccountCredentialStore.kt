@@ -1,5 +1,7 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.localization.Strings
+
 import com.vivenotes.ui.account.AccountProvider
 import com.vivenotes.ui.account.AccountSession
 import java.io.File
@@ -32,7 +34,7 @@ internal class SecretServiceAccountStore(
         ?.takeIf(String::isNotBlank)?.let(::decodeCredential)
 
     override fun save(credential: StoredAccountCredential): Boolean =
-        run(listOf("secret-tool", "store", "--label=Vive Notes account") + attributes,
+        run(listOf("secret-tool", "store", "--label=${Strings.account_credential_label}") + attributes,
             encodeCredential(credential)) != null
 
     override fun clear() { run(listOf("secret-tool", "clear") + attributes, null) }
