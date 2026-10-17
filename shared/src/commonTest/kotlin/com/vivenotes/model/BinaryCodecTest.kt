@@ -89,7 +89,7 @@ class BinaryCodecTest {
         val cbor = CborDocumentCodec.encode(doc).size
 
         assertTrue(cbor < json, "cbor=$cbor json=$json — expected the binary form to be smaller")
-        println("CODEC_SIZE json=$json cbor=$cbor ratio=${"%.2f".format(cbor.toDouble() / json)}")
+        println("CODEC_SIZE json=$json cbor=$cbor ratio=${cbor.toDouble() / json}")
     }
 
     /**

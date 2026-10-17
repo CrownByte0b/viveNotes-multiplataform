@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import javax.xml.parsers.DocumentBuilderFactory
 
@@ -121,14 +122,33 @@ kotlin {
         }
     }
 
+    @OptIn(ExperimentalJsTestDsl::class)
     js {
-        browser()
+        browser {
+            test {
+                chromium()
+            }
+        }
         binaries.executable()
     }
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
-        browser()
+        browser {
+            testTask {
+                // Kotlin 2.4's managed browser runner supports JS only; Karma reuses its Chromium.
+                dependsOn("kotlinInstallPlaywrightBrowsers")
+                environment("VIVE_PLAYWRIGHT_MODULE",
+                    rootProject.layout.buildDirectory.dir("js/node_modules/playwright").get().asFile.absolutePath)
+                providers.gradleProperty("kotlin.gradle.playwright.browsers.path").orNull?.let {
+                    environment("PLAYWRIGHT_BROWSERS_PATH", it)
+                }
+                useKarma {
+                    useChromeHeadless()
+                    useConfigDirectory(rootProject.file("gradle/karma"))
+                }
+            }
+        }
         binaries.executable()
     }
 
@@ -182,8 +202,13 @@ kotlin {
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
         }
+        jsTest.dependencies {
+            implementation(npm("mocha", libs.versions.mocha.get()))
+        }
     }
 }
+
+apply(from = rootProject.file("gradle/browser-test-page.gradle.kts"))
 
 dependencies {
     add("kspJvm", libs.androidx.room.compiler)

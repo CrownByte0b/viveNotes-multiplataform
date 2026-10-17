@@ -67,6 +67,10 @@ tasks.withType<Test>().configureEach {
 tasks.test {
     val settingsFile = rootProject.file("settings.gradle.kts")
     inputs.file(settingsFile)
+    inputs.files(rootProject.files("build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
+        "shared/build.gradle.kts", "webApp/build.gradle.kts", "desktopApp/build.gradle.kts",
+        "gradle/karma/managed-chromium.js", "gradle/browser-test-page.gradle.kts",
+        "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js"))
     inputs.file(rootProject.file("tools/lint/ResourceLint.java"))
     systemProperty("vivenotes.test.projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
