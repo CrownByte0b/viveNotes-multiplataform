@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -40,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.vivenotes.ui.components.swipeLeft
 import com.vivenotes.ui.icons.NavigationSymbols
 import com.vivenotes.ui.shell.WorkspaceTestTags
@@ -73,6 +75,7 @@ internal fun NotebookPane(
     onSelectSection: (String) -> Unit,
     /** A finger swiped the pane away to the left. */
     onSwipeAway: () -> Unit = {},
+    width: Dp = NotebookPaneWidth,
 ) {
     /** Whose section is being dragged. Set before the drag starts, so the key set is ready for it. */
     var grabbedNotebookId by remember { mutableStateOf<String?>(null) }
@@ -117,7 +120,8 @@ internal fun NotebookPane(
 
     Surface(
         modifier = Modifier
-            .width(NotebookPaneWidth)
+            .width(width)
+            .clipToBounds()
             .fillMaxHeight()
             .testTag(WorkspaceTestTags.NotebookPane)
             .swipeLeft(onSwipeAway),

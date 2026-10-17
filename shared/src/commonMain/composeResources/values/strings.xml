@@ -547,6 +547,8 @@
     <string name="text_box">Text box</string>
     <string name="hide_notebook_navigation">Hide notebook navigation</string>
     <string name="show_notebook_navigation">Show notebook navigation</string>
+    <string name="resize_notebook_panel">Resize notebook panel</string>
+    <string name="resize_pages_panel">Resize pages panel</string>
     <string name="vivenotes">ViveNotes</string>
     <string name="undo_canvas_action">Undo canvas action</string>
     <string name="redo_canvas_action">Redo canvas action</string>

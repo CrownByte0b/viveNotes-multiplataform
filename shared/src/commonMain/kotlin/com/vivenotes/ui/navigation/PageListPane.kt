@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.selected
@@ -40,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.TooltipIconButton
 import com.vivenotes.ui.components.swipeLeft
@@ -87,6 +89,7 @@ internal fun PageListPane(
     onSelectPage: (String) -> Unit,
     /** A finger swiped the pane away to the left, taking the notebook pane with it. */
     onSwipeAway: () -> Unit = {},
+    width: Dp = PagePaneWidth,
 ) {
     var sort by remember { mutableStateOf(PageSort.Manual) }
     val pages = section?.pages.orEmpty()
@@ -127,7 +130,8 @@ internal fun PageListPane(
 
     Surface(
         modifier = Modifier
-            .width(PagePaneWidth)
+            .width(width)
+            .clipToBounds()
             .fillMaxHeight()
             .testTag(WorkspaceTestTags.PagePane)
             .swipeLeft(onSwipeAway),

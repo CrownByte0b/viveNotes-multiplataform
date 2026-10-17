@@ -1,15 +1,27 @@
 package com.vivenotes.workspace
 
-/**
- * The top bar's navigation button. After a swipe has put the page list away it brings both panes
- * back, as Android's does; otherwise it shows or hides the notebook pane, as it always has here.
- */
+/** Closing notebooks closes their page list; reopening restores both at their last usable widths. */
 fun WorkspaceState.toggleNavigation(): WorkspaceState =
-    if (!pageListVisible) copy(navigationVisible = true, pageListVisible = true)
-    else copy(navigationVisible = !navigationVisible)
+    if (navigationVisible) hideNavigation()
+    else copy(navigationVisible = true, pageListVisible = true)
 
-/** A swipe left across the notebook pane: Android's `hideNotebookRail`. The page list stays. */
-fun WorkspaceState.hideNotebookPane(): WorkspaceState = copy(navigationVisible = false)
+fun WorkspaceState.hideNotebookPane(): WorkspaceState = hideNavigation()
 
 /** A swipe left across the page list: Android's `hideNavigation`, which puts both panes away. */
 fun WorkspaceState.hideNavigation(): WorkspaceState = copy(navigationVisible = false, pageListVisible = false)
+
+/** Zero closes the pane without losing the width used when it is opened again. */
+fun WorkspaceState.resizeNotebookPane(width: Float, restoreWidth: Float = notebookPaneWidth): WorkspaceState = when {
+    !width.isFinite() -> this
+    width <= 0f -> hideNotebookPane().copy(
+        notebookPaneWidth = restoreWidth.takeIf { it.isFinite() && it > 0f } ?: notebookPaneWidth,
+    )
+    else -> copy(notebookPaneWidth = width)
+}
+
+fun WorkspaceState.resizePagePane(width: Float, restoreWidth: Float = pagePaneWidth): WorkspaceState = when {
+    !width.isFinite() -> this
+    width <= 0f -> copy(pageListVisible = false,
+        pagePaneWidth = restoreWidth.takeIf { it.isFinite() && it > 0f } ?: pagePaneWidth)
+    else -> copy(pagePaneWidth = width)
+}

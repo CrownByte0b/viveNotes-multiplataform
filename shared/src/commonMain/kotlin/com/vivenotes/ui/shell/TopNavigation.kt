@@ -65,9 +65,12 @@ internal fun TopNavigation(
             TooltipIconButton(
                 label = if (navigationVisible) Strings.hide_notebook_navigation else Strings.show_notebook_navigation,
                 onClick = onToggleNavigation,
-                modifier = Modifier.testTag(WorkspaceTestTags.NavigationToggle),
+                modifier = Modifier.testTag(WorkspaceTestTags.NavigationToggle)
+                    .semantics { selected = navigationVisible },
             ) {
-                Icon(ShellSymbols.Menu, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(if (navigationVisible) ShellSymbols.MenuOpen else ShellSymbols.Menu,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp).testTag(WorkspaceTestTags.NavigationIcon))
             }
             Text(
                 text = Strings.vivenotes,

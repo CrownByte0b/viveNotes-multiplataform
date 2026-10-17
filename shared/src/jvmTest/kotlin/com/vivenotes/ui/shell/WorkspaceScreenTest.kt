@@ -335,7 +335,12 @@ class WorkspaceScreenTest {
 
         onNodeWithTag(WorkspaceTestTags.NavigationToggle).performClick()
 
-        runOnIdle { assertFalse(observed.navigationVisible) }
+        runOnIdle {
+            assertFalse(observed.navigationVisible)
+            assertFalse(observed.pageListVisible)
+        }
+        onNodeWithTag(WorkspaceTestTags.NotebookPane).assertDoesNotExist()
+        onNodeWithTag(WorkspaceTestTags.PagePane).assertDoesNotExist()
     }
 
     @Test

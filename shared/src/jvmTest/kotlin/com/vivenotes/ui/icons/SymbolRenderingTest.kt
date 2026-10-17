@@ -40,7 +40,7 @@ class SymbolRenderingTest {
             symbolsOf(SettingsSymbols).mapKeys { "Settings.${it.key}" }
         assertTrue(symbols.size >= 26, "found only ${symbols.keys}")
         assertTrue(symbols.keys.containsAll(listOf("Context.Edit", "Context.SelectAll", "Context.PasteAsText",
-            "Object.ExpandContent", "Shell.Menu", "Shell.Undo", "Shell.Redo",
+            "Object.ExpandContent", "Shell.Menu", "Shell.MenuOpen", "Shell.Undo", "Shell.Redo",
             "Settings.Keyboard", "Settings.Stylus", "Settings.RestartAlt")))
         setContent {
             // A grid, so every symbol is inside the test window and can be captured.

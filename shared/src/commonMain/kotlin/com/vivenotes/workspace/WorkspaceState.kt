@@ -169,8 +169,10 @@ data class WorkspaceState(
     val activeTab: RibbonTab = RibbonTab.Document,
     /** The notebook pane: the top bar's navigation button and a swipe left across it. */
     val navigationVisible: Boolean = true,
-    /** The page list, which only a swipe puts away; the navigation button brings it back. */
+    /** The page list can also be closed by collapsing its divider. */
     val pageListVisible: Boolean = true,
+    val notebookPaneWidth: Float = 232f,
+    val pagePaneWidth: Float = 260f,
     val editorSelection: TextSelection = TextSelection(0),
     val typingMarks: Set<Mark> = emptySet(),
     val editorDefaults: EditorDefaults = EditorDefaults(),

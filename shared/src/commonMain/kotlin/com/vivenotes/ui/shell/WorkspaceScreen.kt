@@ -210,6 +210,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
 import com.vivenotes.ui.ribbon.settings.AboutDialog
 import com.vivenotes.ui.theme.ViveNotesTheme
+import com.vivenotes.ui.theme.LocalDesktopColors
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.ribbon.view.PaperSizePane
 import com.vivenotes.ui.ribbon.view.ViewTab
@@ -234,6 +235,9 @@ import com.vivenotes.ui.navigation.NavigationDialogs
 import com.vivenotes.ui.navigation.NavigationRequests
 import com.vivenotes.ui.navigation.NotebookPane
 import com.vivenotes.ui.navigation.PageListPane
+import com.vivenotes.ui.navigation.NavigationDivider
+import com.vivenotes.ui.navigation.NavigationDividerWidth
+import com.vivenotes.ui.navigation.navigationPaneWidths
 import com.vivenotes.workspace.InMemoryNavigation
 import com.vivenotes.workspace.NavigationActions
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -247,6 +251,8 @@ import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.hideNavigation
 import com.vivenotes.workspace.hideNotebookPane
 import com.vivenotes.workspace.toggleNavigation
+import com.vivenotes.workspace.resizeNotebookPane
+import com.vivenotes.workspace.resizePagePane
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.workspace.ShortcutScope
@@ -270,8 +276,11 @@ object WorkspaceTestTags {
     const val HeaderBar = "workspace-header-bar"
     const val RibbonBar = "workspace-ribbon-bar"
     const val NavigationToggle = "workspace-navigation-toggle"
+    const val NavigationIcon = "workspace-navigation-icon"
     const val NotebookPane = "workspace-notebook-pane"
     const val PagePane = "workspace-page-pane"
+    const val NotebookDivider = "workspace-notebook-divider"
+    const val PageDivider = "workspace-page-divider"
     const val PageCanvas = "workspace-page-canvas"
     const val CanvasBackground = "workspace-canvas-background"
     /** Everything that can be scrolled to; on an infinite page it grows as it is scrolled. */
@@ -565,7 +574,11 @@ private fun WorkspaceContent(
             openPane = DockedPane.Search
             searchFocusTick++
         } })
-    Box(modifier.fillMaxSize()) {
+    LaunchedEffect(state.navigationVisible, state.pageListVisible) {
+        debugLog.event("navigation") { "visibility notebooks=${state.navigationVisible} pages=${state.pageListVisible}" }
+    }
+    BoxWithConstraints(modifier.fillMaxSize()) {
+    val notebookNavigationAvailable = horizontalTabs || maxWidth >= 1040.dp
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -594,7 +607,7 @@ private fun WorkspaceContent(
     ) {
         TopNavigation(
             activeTab = state.activeTab,
-            navigationVisible = state.navigationVisible,
+            navigationVisible = state.navigationVisible && notebookNavigationAvailable,
             onToggleNavigation = { onStateChange { it.toggleNavigation() } },
             onTabPress = { tabTextSelection = state.focusedTextOutlineId?.let { it to state.editorSelection } },
             onSelectTab = { tab ->
@@ -656,6 +669,18 @@ private fun WorkspaceContent(
             val showNotebookPane = maxWidth >= 1040.dp && state.navigationVisible && !horizontalTabs
             val showPagePane = maxWidth >= 760.dp && state.pageListVisible
             val paneMotion = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
+            val dockedWidth = when {
+                state.filePane.pane != null && fileActions != null -> ToolPaneWidth + 1.dp
+                openPane == DockedPane.Math -> MathPaneWidth + 1.dp
+                openPane != null -> ToolPaneWidth + 1.dp
+                else -> 0.dp
+            }
+            val widths = navigationPaneWidths(
+                available = (maxWidth - dockedWidth - 240.dp).value,
+                notebook = if (showNotebookPane) state.notebookPaneWidth else 0f,
+                pages = if (showPagePane) state.pagePaneWidth else 0f,
+                dividerWidth = NavigationDividerWidth.value,
+            )
 
             Row(
                 modifier = Modifier
@@ -667,19 +692,27 @@ private fun WorkspaceContent(
                     enter = expandHorizontally(animationSpec = paneMotion),
                     exit = shrinkHorizontally(animationSpec = paneMotion),
                 ) {
-                    NotebookPane(
-                        state = state,
-                        requests = navigationRequests,
-                        navigation = navigation,
-                        onSelectSection = { id -> onStateChange { it.selectSection(id) } },
-                        onSwipeAway = { onStateChange { it.hideNotebookPane() } },
-                    )
-                }
-                if (showNotebookPane) {
-                    VerticalDivider(
-                        modifier = Modifier.fillMaxHeight(),
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                    )
+                    Row {
+                        NotebookPane(
+                            state = state,
+                            requests = navigationRequests,
+                            navigation = navigation,
+                            onSelectSection = { id -> onStateChange { it.selectSection(id) } },
+                            onSwipeAway = { onStateChange { it.hideNotebookPane() } },
+                            width = widths.notebook.dp,
+                        )
+                        NavigationDivider(
+                            width = widths.notebook,
+                            maxWidth = widths.maxNotebook,
+                            background = LocalDesktopColors.current.sidebar,
+                            label = Strings.resize_notebook_panel,
+                            tag = WorkspaceTestTags.NotebookDivider,
+                            onResize = { width, restore -> onStateChange { it.resizeNotebookPane(width, restore) } },
+                            onResizeFinished = {
+                                debugLog.event("navigation") { "notebooks resized width=${currentState.notebookPaneWidth} open=${currentState.navigationVisible}" }
+                            },
+                        )
+                    }
                 }
                 AnimatedVisibility(
                     visible = showPagePane,
@@ -694,10 +727,18 @@ private fun WorkspaceContent(
                             navigation = navigation,
                             onSelectPage = { id -> onStateChange { it.selectPage(id) } },
                             onSwipeAway = { onStateChange { it.hideNavigation() } },
+                            width = widths.pages.dp,
                         )
-                        VerticalDivider(
-                            modifier = Modifier.fillMaxHeight(),
-                            color = MaterialTheme.colorScheme.outlineVariant,
+                        NavigationDivider(
+                            width = widths.pages,
+                            maxWidth = widths.maxPages,
+                            background = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            label = Strings.resize_pages_panel,
+                            tag = WorkspaceTestTags.PageDivider,
+                            onResize = { width, restore -> onStateChange { it.resizePagePane(width, restore) } },
+                            onResizeFinished = {
+                                debugLog.event("navigation") { "pages resized width=${currentState.pagePaneWidth} open=${currentState.pageListVisible}" }
+                            },
                         )
                     }
                 }
