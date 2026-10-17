@@ -75,9 +75,12 @@ fun App(
     search: com.vivenotes.search.ContentSearchService? = null,
     debugLog: DebugLog = remember { DebugLog() },
     developmentBuild: Boolean = false,
+    pdfExporter: com.vivenotes.pdf.PdfExportService? = null,
 ) {
     val state by session.state.collectAsState()
-    val fileActions = remember(session, notebookFiles) { notebookFiles?.let(session::fileActions) }
+    val fileActions = remember(session, notebookFiles, pdfExporter) {
+        notebookFiles?.let { session.fileActions(it, pdfExporter) }
+    }
     val systemDarkTheme = isSystemInDarkTheme()
     ViveNotesTheme(darkTheme = interfaceSettings.darkTheme ?: systemDarkTheme) {
         val workspace = state

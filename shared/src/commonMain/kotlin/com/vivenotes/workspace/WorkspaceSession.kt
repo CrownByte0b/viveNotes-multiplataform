@@ -281,7 +281,15 @@ class WorkspaceSession(
     }
 
     /** The File tab's `.vive` commands, over one window's file dialogs. */
-    fun fileActions(files: NotebookFiles): FileActions = object : FileActions {
+    fun fileActions(files: NotebookFiles, exporter: com.vivenotes.pdf.PdfExportService? = null): FileActions = object : FileActions {
+        override val pdfExporter = exporter
+        override suspend fun preparePdfExport() {
+            flush()
+            if (openPageHasUnsavedChanges()) {
+                log.event("pdf") { "export stopped: changes could not be saved" }
+                throw com.vivenotes.pdf.PdfExportException("Changes could not be saved; PDF export was stopped.")
+            }
+        }
         override fun openPane(pane: FilePane) = this@WorkspaceSession.openFilePane(pane)
         override fun closePane() = update { it.copy(filePane = FilePaneState()) }
         override fun selectRevision(id: String) = this@WorkspaceSession.selectRevision(id)

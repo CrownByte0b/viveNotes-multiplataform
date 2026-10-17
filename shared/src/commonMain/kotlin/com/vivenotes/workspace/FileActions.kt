@@ -25,6 +25,8 @@ data class FilePaneState(
 
 /** What the File tab asks of whoever holds the workspace. */
 interface FileActions {
+    val pdfExporter: com.vivenotes.pdf.PdfExportService? get() = null
+    suspend fun preparePdfExport() {}
     fun openPane(pane: FilePane)
     fun closePane()
     fun selectRevision(id: String)

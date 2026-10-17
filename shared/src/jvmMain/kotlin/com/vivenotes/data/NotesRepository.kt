@@ -194,6 +194,9 @@ class NotesRepository(
     /** One page's metadata — its title and its created stamp — without its body. */
     override suspend fun pageById(id: String): PageEntity? = pages.byId(id)
 
+    /** Android's value query used by section PDF export, in stored page order. */
+    suspend fun pagesInSection(sectionId: String): List<PageEntity> = pages.inSection(sectionId)
+
     suspend fun pagesInNotebook(notebookId: String): List<PageEntity> {
         val notebook = notebooks.byId(notebookId) ?: return emptyList()
         if (notebook.deletedAt != null || !notebook.holdsItsOwnContents()) return emptyList()

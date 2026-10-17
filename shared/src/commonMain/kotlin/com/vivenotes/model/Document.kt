@@ -321,6 +321,7 @@ sealed interface Outline {
         override val width: Float = Text.DEFAULT_WIDTH,
         val attachmentId: String,
         val height: Float,
+        val backgroundArgb: Int? = null,
         override val lockGroup: String? = null,
     ) : Outline {
 

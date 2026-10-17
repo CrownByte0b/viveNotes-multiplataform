@@ -8,12 +8,14 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ui.shell.WorkspaceScreen
@@ -82,6 +84,44 @@ class FileTabTest {
             FileRibbonTags.CloseNotebook, FileRibbonTags.DeleteNotebook).forEach {
             onNodeWithTag(it).assertIsEnabled()
         }
+    }
+
+    @Test
+    fun pdfOpensFromTheFileTabAndEscapeReturnsToTheSamePage() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        val exporter = object : com.vivenotes.pdf.PdfExportService {
+            override suspend fun defaultOptionsFor(pageId: String?) = com.vivenotes.pdf.PdfExportOptions()
+            override suspend fun plan(request: com.vivenotes.pdf.PdfExportRequest): com.vivenotes.pdf.PdfExportPlan {
+                val paper = com.vivenotes.pdf.PdfPaper.of(request.options.paper, request.options.orientation)
+                val tile = com.vivenotes.pdf.PdfTile(0, 0, com.vivenotes.pdf.PdfBounds(0f, 0f, 1000f, 1000f))
+                return com.vivenotes.pdf.PdfExportPlan(request.options, paper,
+                    listOf(com.vivenotes.pdf.PlannedPage(request.pageId!!, "Draft",
+                        com.vivenotes.pdf.PdfPagePlan(listOf(tile), emptyMap()))),
+                    listOf(com.vivenotes.pdf.PdfSheetRef(0, 0)), "Draft.pdf")
+            }
+            override suspend fun preview(plan: com.vivenotes.pdf.PdfExportPlan, sheetIndex: Int, maxWidthPx: Int) =
+                androidx.compose.ui.graphics.ImageBitmap(20, 30)
+            override suspend fun chooseDestination(suggestedName: String): String? = null
+            override suspend fun write(plan: com.vivenotes.pdf.PdfExportPlan, destination: String, onProgress: (Int, Int) -> Unit) = 0
+            override suspend fun release() {}
+        }
+        val pdfActions = object : FileActions by actions { override val pdfExporter = exporter }
+        setWorkspace(fileActions = pdfActions)
+        val page = shown.selectedPageId
+        onNodeWithTag(FileRibbonTags.ExportPdf).assertIsEnabled().performClick()
+        onNodeWithTag(ExportPdfTags.DIALOG).fetchSemanticsNode()
+        onRoot().performKeyInput { keyDown(Key.Escape); keyUp(Key.Escape) }
+        onNodeWithTag(FileRibbonTags.ExportPdf).assertIsEnabled()
+        runOnIdle { assertEquals(page, shown.selectedPageId) }
+    }
+
+    @Test
+    fun pdfIsInertWithoutAnOpenPageEvenWhenTheExporterIsAvailable() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        val exporter = ExportPdfDialogTest.Exporter()
+        val pdfActions = object : FileActions by actions { override val pdfExporter = exporter }
+        setWorkspace(WorkspaceState(emptyList(), "", "", "", activeTab = RibbonTab.File), fileActions = pdfActions)
+        onNodeWithTag(FileRibbonTags.ExportPdf).assertIsNotEnabled().performTouchInput { click() }
+        onNodeWithTag(ExportPdfTags.DIALOG).assertDoesNotExist()
+        assertTrue(exporter.requests.isEmpty())
     }
 
     @Test

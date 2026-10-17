@@ -79,6 +79,8 @@ kotlin {
             implementation(libs.compose.uiTest)
         }
         jvmMain.dependencies {
+            // Skiko supplies the Android renderer's vector canvas; FOP writes those paths to PDF.
+            implementation("org.apache.xmlgraphics:fop-core:2.11")
             val byteinkVersion = providers.gradleProperty("byteinkVersion").orElse("0.1.0-SNAPSHOT").get()
             implementation("com.vivenotes.byteink:byteink-compose:$byteinkVersion")
             implementation("com.vivenotes.byteink:byteink-kit:$byteinkVersion")
@@ -95,6 +97,7 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(compose.desktop.currentOs)
+            implementation("org.apache.pdfbox:pdfbox:3.0.7")
         }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)

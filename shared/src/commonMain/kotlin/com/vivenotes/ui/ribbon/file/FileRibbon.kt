@@ -17,7 +17,7 @@ import com.vivenotes.ui.icons.deletedItemsGlyph
 import com.vivenotes.ui.icons.deleteNotebookGlyph
 import com.vivenotes.ui.icons.closeNotebookGlyph
 import com.vivenotes.ui.icons.closedNotebooksGlyph
-import com.vivenotes.ui.ribbon.PendingRibbonAction
+import com.vivenotes.ui.icons.exportPdfGlyph
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonCommand
 import com.vivenotes.ui.ribbon.RibbonDivider
@@ -27,6 +27,7 @@ import com.vivenotes.workspace.FilePane
 
 /** Android's `FileTags`, for the commands that are ported. */
 object FileRibbonTags {
+    const val ExportPdf = "file-export-pdf"
     const val ExportNotebook = "file-export-notebook"
     const val ImportNotebook = "file-import-notebook"
     const val TransferDialog = "file-transfer-dialog"
@@ -41,7 +42,7 @@ object FileRibbonTags {
 }
 
 /**
- * The File tab in Android's order. PDF output will be added with the renderer later.
+ * The File tab in Android's order.
  */
 @Composable
 internal fun FileRibbon(
@@ -53,6 +54,7 @@ internal fun FileRibbon(
     actions: FileActions?,
     onCloseNotebook: () -> Unit,
     onDeleteNotebook: () -> Unit,
+    onExportPdf: () -> Unit = {},
 ) {
     val accent = RibbonStyle.accent
     val neutral = RibbonStyle.normalText
@@ -63,8 +65,10 @@ internal fun FileRibbon(
     val deleteIcon = remember(neutral) { deleteNotebookGlyph(neutral, Color(0xFFE94C4F)) }
     val closeIcon = remember(neutral, accent) { closeNotebookGlyph(neutral, accent) }
     val closedIcon = remember(neutral, accent) { closedNotebooksGlyph(neutral, accent) }
+    val pdfIcon = remember(neutral, accent) { exportPdfGlyph(neutral, accent) }
     RibbonBar {
-        PendingRibbonAction("Export PDF")
+        FileCommand("Export PDF", pdfIcon, FileRibbonTags.ExportPdf,
+            actions?.pdfExporter != null && pageOpen && !transferRunning, twoTone = true, onClick = onExportPdf)
         RibbonDivider()
         FileCommand("Version History", historyIcon, FileRibbonTags.VersionHistory,
             actions != null && pageOpen && !transferRunning, twoTone = true) { actions?.openPane(FilePane.VersionHistory) }

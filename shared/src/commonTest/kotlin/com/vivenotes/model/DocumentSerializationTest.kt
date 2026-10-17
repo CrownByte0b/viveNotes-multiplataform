@@ -18,7 +18,7 @@ class DocumentSerializationTest {
         val doc = PageDoc(
             outlines = listOf(
                 Outline.Text(id = "text", blocks = listOf(Block.of("body"))),
-                Outline.Image(id = "image", attachmentId = "sha256", height = 90f, lockGroup = "locked"),
+                Outline.Image(id = "image", attachmentId = "sha256", height = 90f, backgroundArgb = 0xFF224466.toInt(), lockGroup = "locked"),
                 Outline.Shape(
                     id = "shape",
                     height = 80f,

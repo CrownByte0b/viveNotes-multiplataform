@@ -90,6 +90,7 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
                 notes.keyBindings, notes::updateKeyBindings,
                 inputSettings = notes.inputSettings, onInputSettingsChange = notes::updateInputSettings,
                 notebookFiles = remember(window) { notes.notebookFiles(window) }, thumbnails = notes.thumbnails,
+                pdfExporter = remember(window) { notes.pdfExporter(window) },
                 onEditorDefaultsChange = notes::updateEditorDefaults,
                 onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
                 accountService = notes.accountService,

@@ -43,7 +43,8 @@ internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: De
         frame.size = initialSize
         frame.setLocation(monitor.workArea.x + (monitor.workArea.width - initialSize.width) / 2,
             monitor.workArea.y + (monitor.workArea.height - initialSize.height) / 2)
-        frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame), notes.notebookFiles(frame), log, profile))
+        frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame), notes.notebookFiles(frame),
+            notes.pdfExporter(frame), log, profile))
         frame.isVisible = true
     }
 }
@@ -56,7 +57,8 @@ internal fun requireNativeWaylandToolkit(toolkitClassName: String) {
 
 /** The Compose panel inside the [PopupLayerHost] its popups open in. */
 @OptIn(ExperimentalComposeUiApi::class)
-private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, notebookFiles: NotebookFiles, log: DebugLog,
+private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, notebookFiles: NotebookFiles,
+                                 pdfExporter: com.vivenotes.pdf.PdfExportService, log: DebugLog,
                                  profile: DesktopProfile): PopupLayerHost {
     val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
     val host = PopupLayerHost(panel)
@@ -77,6 +79,7 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
             notes.viewSettings, notes::updateViewSettings, notes.keyBindings, notes::updateKeyBindings,
             inputSettings = notes.inputSettings, onInputSettingsChange = notes::updateInputSettings,
             notebookFiles = notebookFiles, thumbnails = notes.thumbnails,
+            pdfExporter = pdfExporter,
             onEditorDefaultsChange = notes::updateEditorDefaults,
             onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
             accountService = notes.accountService,

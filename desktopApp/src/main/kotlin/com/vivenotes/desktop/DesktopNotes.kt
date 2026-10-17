@@ -176,6 +176,12 @@ internal class DesktopNotes(
         chooseSave = { name, directory -> chooseNotebookDestination(owner, name, directory) },
         chooseOpen = { directory -> chooseNotebookSource(owner, directory) },
     )
+
+    fun pdfExporter(owner: Frame?): com.vivenotes.pdf.PdfExportService = DesktopPdfExport(
+        com.vivenotes.pdf.PdfExporter(library.repository, library.attachments, log = log),
+        chooseSave = { name, directory -> choosePdfDestination(owner, name, directory) },
+        onUpdate = { owner?.repaint() },
+    )
     private var closing: Job? = null
 
     /** Starts reading the notes, and the upkeep. Only once AWT's toolkit has been chosen. */

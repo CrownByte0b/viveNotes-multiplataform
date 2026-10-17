@@ -1,0 +1,471 @@
+// Android PdfExportTest compatibility cases, adapted to ByteInk, SQLite and the independent PDFBox reader.
+package com.vivenotes.pdf
+
+import androidx.ink.brush.InputToolType
+import androidx.ink.strokes.MutableStrokeInputBatch
+import androidx.ink.strokes.Stroke
+import com.vivenotes.data.NotesRepository
+import com.vivenotes.data.PageLoad
+import com.vivenotes.data.db.NotesDatabase
+import com.vivenotes.model.Block
+import com.vivenotes.model.Mark
+import com.vivenotes.model.OBJECT_REPLACEMENT_CHARACTER
+import com.vivenotes.model.Orientation
+import com.vivenotes.model.Outline
+import com.vivenotes.model.PageDoc
+import com.vivenotes.model.PageStyle
+import com.vivenotes.model.PaperSize
+import com.vivenotes.model.PrintMargins
+import com.vivenotes.model.Run
+import com.vivenotes.model.RuleLines
+import com.vivenotes.model.newId
+import java.io.File
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import com.vivenotes.byteink.kit.ViveInkTool
+import com.vivenotes.ink.desktopGeometry
+import com.vivenotes.ink.toEntity
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.toPixelMap
+import org.apache.pdfbox.Loader
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.rendering.PDFRenderer
+import java.nio.file.Files
+import java.awt.image.BufferedImage
+
+/**
+ * Export as PDF, end to end.
+ *
+ * The tiling and the fit are pinned by JVM tests (`PageTilingTest`); what needs a device is
+ * everything they hand off to. A `PageStroke` is a native mesh, a `StaticLayout` needs a real
+ * `Paint`, and `PdfDocument` is a platform encoder — so the only honest check that this produces a
+ * *document* is to write one and open it with the platform's own reader.
+ */
+class PdfExportTest {
+
+    private lateinit var db: NotesDatabase
+    private lateinit var repository: NotesRepository
+    private lateinit var exporter: PdfExporter
+    private lateinit var dbFile: File
+    private lateinit var out: File
+    private lateinit var sectionId: String
+    private lateinit var pageId: String
+
+    private lateinit var directory: File
+
+    @Before
+    fun setUp() = runBlocking<Unit> {
+        directory = Files.createTempDirectory("vive-pdf-test").toFile()
+        dbFile = File(directory, "pdf-export.db")
+        listOf("", "-wal", "-shm").forEach { File(dbFile.path + it).delete() }
+        out = File(directory, "pdf-export.pdf").apply { delete() }
+        db = NotesDatabase.create(dbFile)
+        repository = NotesRepository(db)
+        exporter = PdfExporter(repository)
+        val notebookId = repository.createNotebook("Notebook")
+        sectionId = repository.createSection(notebookId, "Section")
+        pageId = repository.createPage(sectionId, "First page")
+        repository.saveDoc(pageId, docWithText("The quick brown fox.", y = 120f))
+        repository.addStroke(inkAt("stroke-1", 40f, 400f))
+    }
+
+    @After
+    fun tearDown() {
+        db.close()
+        listOf("", "-wal", "-shm").forEach { File(dbFile.path + it).delete() }
+        directory.deleteRecursively()
+    }
+
+    /** One page of writing is one sheet, and it is a PDF the platform can open. */
+    @Test
+    fun onePageExportsToOneReadableSheet() = runBlocking {
+        val plan = exporter.plan(PdfExportRequest(pageId, sectionId, PdfExportOptions()))
+        assertEquals(1, plan.sheetCount)
+        assertEquals("First page.pdf", plan.suggestedName)
+
+        assertEquals(1, write(plan))
+        openPdf { renderer ->
+            assertEquals(1, renderer.pageCount)
+            renderer.openPage(0).use { page ->
+                // A4 at 72 points to the inch, which is the size every other reader will report.
+                assertEquals(595, page.width)
+                assertEquals(842, page.height)
+            }
+        }
+    }
+
+    @Test
+    fun linkedTextIsVisibleInTheSavedPdf() = runBlocking {
+        val linkedPage = repository.createPage(sectionId, "Linked text")
+        repository.saveDoc(
+            linkedPage,
+            PageDoc(
+                outlines = listOf(
+                    Outline.Text(
+                        id = newId(),
+                        x = 0f,
+                        y = 120f,
+                        blocks = listOf(Block(id = newId(), runs = listOf(
+                            Run("And some link", setOf(Mark.Link("https://example.com"))),
+                        ))),
+                    ),
+                ),
+                style = PageStyle(hideTitle = true, ruleLines = RuleLines.None),
+            ),
+        )
+        val plan = exporter.plan(PdfExportRequest(
+            linkedPage, sectionId, PdfExportOptions(includeRuling = false),
+        ))
+        write(plan)
+        openPdf { pdf ->
+            pdf.openPage(0).use { page ->
+                val bitmap = page.render()
+                val bluePixels = (0 until bitmap.width).sumOf { x ->
+                    (0 until bitmap.height).count { y ->
+                        val pixel = bitmap.getRGB(x, y)
+                        blue(pixel) > red(pixel) + 40 &&
+                            blue(pixel) > green(pixel) + 30
+                    }
+                }
+                assertTrue("linked text disappeared from the PDF", bluePixels > 20)
+            }
+        }
+    }
+
+    /**
+     * The reference drawing's whole subject: content spread across the canvas comes out as several
+     * sheets, in the order the drawing gives — down a column, then right.
+     */
+    @Test
+    fun aSpreadOutCanvasIsCutIntoSeveralSheets() = runBlocking {
+        repository.saveDoc(
+            pageId,
+            PageDoc(
+                outlines = listOf(
+                    textOutline("near the origin", x = 0f, y = 120f),
+                    textOutline("far down the page", x = 0f, y = 2600f),
+                    textOutline("off to the right", x = 1400f, y = 120f),
+                ),
+            ),
+        )
+        val plan = exporter.plan(PdfExportRequest(pageId, sectionId, PdfExportOptions()))
+        assertEquals(3, plan.sheetCount)
+        val tiles = plan.pages.single().plan.tiles
+        assertEquals(listOf(0 to 0, 0 to 1, 1 to 0), tiles.map { it.column to it.row })
+        assertEquals(3, write(plan))
+    }
+
+    /**
+     * The margin is the export's to set, and it is not a border: the canvas is cut *inside*
+     * it, so the same two blocks of writing are one sheet at a quarter of an inch and two at one
+     * inch. The page itself is untouched either way.
+     */
+    @Test
+    fun theExportsOwnMarginDecidesHowMuchOfTheCanvasASheetHolds() = runBlocking {
+        repository.saveDoc(
+            pageId,
+            PageDoc(
+                outlines = listOf(
+                    textOutline("at the top", x = 0f, y = 120f),
+                    textOutline("most of a page down", x = 0f, y = 1700f),
+                ),
+            ),
+        )
+
+        val narrow = exporter.plan(
+            PdfExportRequest(pageId, sectionId, PdfExportOptions(margins = PrintMargins.uniform(0.25f))),
+        )
+        val wide = exporter.plan(
+            PdfExportRequest(pageId, sectionId, PdfExportOptions(margins = PrintMargins.uniform(1f))),
+        )
+
+        assertEquals(1, narrow.sheetCount)
+        assertEquals(2, wide.sheetCount)
+        // The sheet is A4 in both: it is the printable area inside it that moved.
+        assertEquals(595, narrow.paper.widthPoints)
+        assertEquals(595, wide.paper.widthPoints)
+    }
+
+    /** A section is its pages in order, concatenated. */
+    @Test
+    fun aSectionExportsEveryPage() = runBlocking {
+        val second = repository.createPage(sectionId, "Second page")
+        repository.saveDoc(second, docWithText("Another page.", y = 120f))
+
+        val plan = exporter.plan(
+            PdfExportRequest(
+                pageId = pageId,
+                sectionId = sectionId,
+                options = PdfExportOptions(scope = PdfExportScope.Section),
+                name = "Section",
+            ),
+        )
+        assertEquals(2, plan.pages.size)
+        assertEquals(2, plan.sheetCount)
+        assertEquals("Section.pdf", plan.suggestedName)
+        assertEquals(2, write(plan))
+    }
+
+    /**
+     * A page already bound to the paper it is exported onto is one sheet at its own origin — the
+     * exception, and the case where the writer's own layout must not be re-anchored.
+     */
+    @Test
+    fun aBoundPageKeepsItsOwnLayout() = runBlocking {
+        repository.saveDoc(
+            pageId,
+            PageDoc(
+                outlines = listOf(textOutline("on an A4 sheet", x = 200f, y = 300f)),
+                style = PageStyle(paper = PaperSize.A4),
+            ),
+        )
+        val plan = exporter.plan(PdfExportRequest(pageId, sectionId, PdfExportOptions()))
+        assertEquals(1, plan.sheetCount)
+        assertTrue(plan.pages.single().plan.bound)
+        assertEquals(0f, plan.pages.single().plan.tiles.single().area.left, 0.01f)
+    }
+
+    /**
+     * A page names its parts the same way every time it is measured.
+     *
+     * **This is a regression test with a scar.** A plan is made against one measurement of a page
+     * and drawn against the next, so a name that changes between them takes its group's shift with
+     * it — and the failure is silent: the right number of sheets, the right tiles, and one formula
+     * missing the half the fit was supposed to pull back onto the page. It was
+     * `PageStroke.projection` in a group id, which that class documents as process-local and never
+     * stored.
+     */
+    @Test
+    fun measuringAPageTwiceNamesItsGroupsTheSame() = runBlocking {
+        val paper = PdfPaper.of(PaperSize.A4, Orientation.Portrait)
+        val measurer = PageMeasurer()
+        val doc = (repository.loadDoc(pageId) as PageLoad.Loaded).doc
+
+        fun ids(strokes: List<com.vivenotes.byteink.kit.PageStroke>) = runBlocking {
+            measurer.measure(
+                pageId = pageId,
+                title = "First page",
+                createdAt = 0L,
+                doc = doc,
+                strokes = strokes,
+                paper = paper,
+                loadPictures = false,
+            ).groups.map { it.id }.sorted()
+        }
+
+        val loader: suspend (String) -> List<com.vivenotes.byteink.kit.PageStroke> = { repository.loadInk(it).desktopGeometry().projections }
+        val first = ids(loader(pageId))
+        val second = ids(loader(pageId))
+        assertTrue("the page has ink to name", first.isNotEmpty())
+        assertEquals(first, second)
+    }
+
+    /** The preview and the file come off one renderer, so a rendered sheet has ink on it. */
+    @Test
+    fun aPreviewRendersTheSheet() = runBlocking {
+        val plan = exporter.plan(PdfExportRequest(pageId, sectionId, PdfExportOptions()))
+        val bitmap = requireNotNull(exporter.preview(plan, sheetIndex = 0, maxWidthPx = 600)).let { image ->
+            val pixels = image.toPixelMap()
+            BufferedImage(image.width, image.height, BufferedImage.TYPE_INT_ARGB).apply {
+                for (x in 0 until width) for (y in 0 until height) setRGB(x, y, pixels[x, y].toArgb())
+            }
+        }
+        assertEquals(600, bitmap.width)
+        // Something was drawn: a sheet of nothing but background is one colour, and this one is not.
+        val corner = bitmap.getRGB(2, 2)
+        assertEquals(0xffffffff.toInt(), corner)
+        val marked = (0 until bitmap.width step 3).any { x ->
+            (0 until bitmap.height step 3).any { y -> bitmap.getRGB(x, y) != corner }
+        }
+        assertTrue("the preview drew nothing but its background", marked)
+    }
+
+    @Test
+    fun placedLatexEquationIsVisibleInSavedPdf() = runBlocking {
+        assertEquationExports(
+            Outline.Equation(
+                id = newId(),
+                x = 40f,
+                y = 80f,
+                width = 240f,
+                height = 70f,
+                latex = "{\\displaystyle \\int _{a}^{b}f'(t)\\,dt=f(b)-f(a)}",
+            ),
+        )
+    }
+
+    @Test
+    fun inlineLatexEquationIsVisibleInSavedPdf() = runBlocking {
+        assertEquationExports(
+            Outline.Text(
+                id = newId(),
+                x = 40f,
+                y = 80f,
+                blocks = listOf(
+                    Block(
+                        id = newId(),
+                        runs = listOf(
+                            Run(
+                                OBJECT_REPLACEMENT_CHARACTER.toString(),
+                                setOf(Mark.Equation("{\\displaystyle \\int _{a}^{b}f'(t)\\,dt=f(b)-f(a)}")),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun dollarDelimitedRichTextEquationIsVisibleInSavedPdf() = runBlocking {
+        assertEquationExports(
+            Outline.Text(
+                id = newId(),
+                x = 40f,
+                y = 80f,
+                blocks = listOf(Block(id = newId(), runs = listOf(Run("\$\$ \\int\$\$")))),
+            ),
+            expectedAutoLatex = "{\\displaystyle \\int}",
+        )
+    }
+
+    @Test
+    fun multilineRichTextEquationHidesItsSourceInSavedPdf() = runBlocking {
+        assertEquationExports(
+            Outline.Text(
+                id = newId(),
+                x = 40f,
+                y = 80f,
+                blocks = listOf(Block(id = newId(), runs = listOf(Run("\$\$\n\\int\n\$\$")))),
+            ),
+            expectedAutoLatex = "{\\displaystyle \\int}",
+            expectHiddenSource = true,
+        )
+    }
+
+    private suspend fun assertEquationExports(
+        equation: Outline,
+        expectedAutoLatex: String? = null,
+        expectHiddenSource: Boolean = false,
+    ) {
+        val equationPage = repository.createPage(sectionId, "Equation only")
+        val doc = PageDoc(outlines = listOf(equation), style = PageStyle(hideTitle = true))
+        repository.saveDoc(equationPage, doc)
+        if (expectedAutoLatex != null) {
+            val measured = PageMeasurer().measure(
+                pageId = equationPage,
+                title = "Equation only",
+                createdAt = 0L,
+                doc = doc,
+                strokes = emptyList(),
+                paper = PdfPaper.of(PaperSize.A4, Orientation.Portrait),
+            )
+            val layoutText = measured.texts.values.single().layout
+            assertEquals(listOf(expectedAutoLatex), layoutText.equations.map { it.latex })
+            if (expectHiddenSource) {
+                assertTrue("multiline equation source is hidden", !layoutText.text.contains("\\int") && !layoutText.text.contains("$$"))
+            }
+        }
+        val plan = exporter.plan(PdfExportRequest(equationPage, sectionId, PdfExportOptions()))
+        assertEquals(1, plan.sheetCount)
+        write(plan)
+        openPdf { pdf ->
+            pdf.openPage(0).use { page ->
+                val bitmap = page.render()
+                val hasInk = (0 until bitmap.width).any { x ->
+                    (0 until bitmap.height).any { y -> red(bitmap.getRGB(x, y)) < 128 }
+                }
+                assertTrue("${equation.javaClass.simpleName} disappeared from the saved PDF", hasInk)
+            }
+        }
+    }
+
+    /**
+     * Automatic ink captured on a dark canvas has white in its brush, but white is not its intent.
+     * The flag must make the PDF renderer resolve it against its light paper and paint it black.
+     */
+    @Test
+    fun automaticWhiteInkFromADarkCanvasExportsBlack() = runBlocking {
+        val automaticPage = repository.createPage(sectionId, "Automatic ink")
+        repository.saveDoc(automaticPage, PageDoc(style = PageStyle(hideTitle = true)))
+        // Wide enough to leave fully covered pixels when the 160-dp page is rasterized at PDF's
+        // 72 points per inch; the default 1.5 dp pen is intentionally sub-pixel at this scale.
+        val darkCanvasPen = ViveInkTool(sizeDp = 8f, colorArgb = 0xffffffff.toInt(), colorFollowsTheme = true)
+        repository.addStroke(
+            inkAt(
+                id = "automatic-white",
+                x = 40f,
+                y = 80f,
+                targetPageId = automaticPage,
+                pen = darkCanvasPen,
+            ),
+        )
+
+        val plan = exporter.plan(
+            PdfExportRequest(automaticPage, sectionId, PdfExportOptions()),
+        )
+        write(plan)
+
+        openPdf { renderer ->
+            renderer.openPage(0).use { page ->
+                val rendered = page.render()
+                val containsBlackInk = (0 until rendered.width).any { x ->
+                    (0 until rendered.height).any { y ->
+                        val pixel = rendered.getRGB(x, y)
+                        red(pixel) < 64 && green(pixel) < 64 && blue(pixel) < 64
+                    }
+                }
+                assertTrue("automatic white ink disappeared on PDF paper", containsBlackInk)
+            }
+        }
+    }
+
+    // --- helpers -------------------------------------------------------------------------------
+
+    private suspend fun write(plan: PdfExportPlan): Int =
+        exporter.write(plan, out.path).also { assertTrue(out.length() > 0L) }
+
+    private fun openPdf(block: (TestPdf) -> Unit) {
+        Loader.loadPDF(out).use { block(TestPdf(it)) }
+    }
+
+    private class TestPdf(val doc: PDDocument) {
+        val pageCount get() = doc.numberOfPages
+        fun openPage(index: Int) = TestPage(doc, index)
+    }
+    private class TestPage(val doc: PDDocument, val index: Int) : AutoCloseable {
+        val width get() = doc.getPage(index).mediaBox.width.toInt()
+        val height get() = doc.getPage(index).mediaBox.height.toInt()
+        fun render(): BufferedImage = PDFRenderer(doc).renderImageWithDPI(index, 72f)
+        override fun close() {}
+    }
+    private fun red(color: Int) = (color ushr 16) and 255
+    private fun green(color: Int) = (color ushr 8) and 255
+    private fun blue(color: Int) = color and 255
+
+    private fun docWithText(text: String, y: Float) = PageDoc(outlines = listOf(textOutline(text, 0f, y)))
+
+    private fun textOutline(text: String, x: Float, y: Float) = Outline.Text(
+        id = newId(),
+        x = x,
+        y = y,
+        blocks = listOf(Block(id = newId(), runs = listOf(Run(text)))),
+    )
+
+    private fun inkAt(id: String, x: Float, y: Float, targetPageId: String = pageId,
+        pen: ViveInkTool = PEN) = pen.complete(
+            Stroke(pen.brush, MutableStrokeInputBatch().apply {
+                add(InputToolType.UNKNOWN, x, y, 0L)
+                add(InputToolType.UNKNOWN, x + 40f, y + 30f, 8L)
+                add(InputToolType.UNKNOWN, x + 80f, y, 16L)
+            }), id, targetPageId, 0, 1L).row.toEntity()
+
+    private companion object {
+        val PEN = ViveInkTool(colorArgb = 0xFF111111.toInt(), colorFollowsTheme = false)
+    }
+}
+

@@ -366,6 +366,7 @@ fun WorkspaceScreen(
     var input by remember(inputSettings) { mutableStateOf(inputSettings) }
     var accountOpen by remember { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
+    var pdfExportOpen by remember { mutableStateOf(false) }
     val accountScope = rememberCoroutineScope()
     val accountModel = remember(accountService) { AccountScreenModel(accountService, accountScope) }
     val accountSession = accountService?.session?.collectAsState()?.value
@@ -379,8 +380,8 @@ fun WorkspaceScreen(
     val tooltipDismissals = remember(debugLog) { TooltipDismissals(debugLog) }
     val shortcutKeys = remember { ShortcutKeys() }
     var workspaceHasFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(workspaceHasFocus, tooltipDismissals.hasOpenPopup) {
-        if (workspaceHasFocus || tooltipDismissals.hasOpenPopup) return@LaunchedEffect
+    LaunchedEffect(workspaceHasFocus, tooltipDismissals.hasOpenPopup, pdfExportOpen) {
+        if (pdfExportOpen || workspaceHasFocus || tooltipDismissals.hasOpenPopup) return@LaunchedEffect
         withFrameNanos { }
         if (!workspaceHasFocus && !tooltipDismissals.hasOpenPopup) canvasFocusRequester.requestFocus()
     }
@@ -397,7 +398,16 @@ fun WorkspaceScreen(
                     LocalPopupLayerDensity provides baseDensity,
                     LocalKeyBindings provides bindings,
                 ) {
-                    WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
+                    if (pdfExportOpen && fileActions?.pdfExporter != null) {
+                        com.vivenotes.ui.ribbon.file.ExportPdfDialog(
+                            exporter = fileActions.pdfExporter!!,
+                            pageId = state.selectedPage?.id,
+                            sectionId = state.selectedSection?.id,
+                            pageTitle = state.selectedPage?.title.orEmpty(),
+                            sectionName = state.selectedSection?.name.orEmpty(),
+                            onDismiss = { pdfExportOpen = false }, prepare = fileActions::preparePdfExport,
+                        )
+                    } else WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
                         onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
                         view = view, themePreference = effectiveSettings.darkTheme, onViewChange = { next ->
                             view = next
@@ -414,6 +424,7 @@ fun WorkspaceScreen(
                         onInkSettingsChange = onInkSettingsChange,
                         accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
                         onAbout = { aboutOpen = true }, aiModels = aiModels, drawMath = drawMath,
+                        onExportPdf = { pdfExportOpen = true },
                         search = search, onOpenSearchPage = onOpenSearchPage, shortcutKeys = shortcutKeys,
                         developmentBuild = developmentBuild, debugLog = debugLog)
                 }
@@ -467,6 +478,7 @@ private fun WorkspaceContent(
     accountConnected: Boolean,
     onOpenAccount: () -> Unit,
     onAbout: () -> Unit,
+    onExportPdf: () -> Unit,
     aiModels: AiModels?,
     drawMath: DrawMath?,
     developmentBuild: Boolean,
@@ -608,7 +620,7 @@ private fun WorkspaceContent(
                 pageOpen = state.selectedPage != null,
                 transferRunning = state.notebookTransfer.running, actions = fileActions,
                 onCloseNotebook = { notebookConfirmation = "close" },
-                onDeleteNotebook = { notebookConfirmation = "delete" })
+                onDeleteNotebook = { notebookConfirmation = "delete" }, onExportPdf = onExportPdf)
             RibbonTab.Draw -> DrawRibbon(state, onStateChange, onShapeSettingsChange, onInkSettingsChange,
                 state.selectedPage?.let { if (canvasPalette(it.document.style, canvasDark).background.luminance() < .45f) Color.White else Color.Black } ?: Color.Black,
                 calculatorAvailable = formulaReady, calculatorOpen = calculatorOpen, onToggleCalculator = { calculatorOpen = !calculatorOpen })
