@@ -15,7 +15,7 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class ExportPdfDialogTest {
-    private val fitInfo = "Content that would be cut by a page edge is moved back onto the page it starts on. Anything larger than a page is left where it is."
+    private val fitInfo = "Wide text boxes wrap to the printable page width. Other content that would be cut by a page edge is moved back onto the page it starts on. Oversized drawings are left where they are."
     private val rulingInfo = "Prints the lines, squares or dots the page is written on."
     internal class Exporter : PdfExportService {
         var defaults = PdfExportOptions(paper = PaperSize.A5, orientation = Orientation.Landscape,

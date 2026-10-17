@@ -233,8 +233,10 @@ internal class PdfTextMeasurer {
                 append(source.subSequence(offset, source.length))
             }
             val width = (widthDp - leading).toInt().coerceAtLeast(1)
+            val lineFontSize = projected.spanStyles.maxOfOrNull { it.item.fontSize.value } ?: (15f * heading)
             val layout = measurer.measure(projected, TextStyle(color = Color(colors.textArgb), fontSize = (15f * heading).sp,
-                lineHeight = (15f * heading * PageMeasurer.LINE_SPACING_MULTIPLIER).sp,
+                lineHeight = (lineFontSize * PageMeasurer.LINE_SPACING_MULTIPLIER).sp,
+                lineHeightStyle = LineHeightStyle.Default.copy(mode = LineHeightStyle.Mode.Minimum),
                 textAlign = when (block.align) { Align.Start -> TextAlign.Start; Align.Center -> TextAlign.Center; Align.End -> TextAlign.End }),
                 placeholders = placeholders, constraints = Constraints(maxWidth = width))
             PdfParagraph(block, layout, top, leading, number.takeIf { it > 0 }, replacements.map { it.equation })

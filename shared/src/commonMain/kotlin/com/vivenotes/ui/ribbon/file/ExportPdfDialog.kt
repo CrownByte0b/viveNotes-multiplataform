@@ -495,7 +495,7 @@ private fun ExportPdfOptions(
         PaneGroup("Layout") {
             PdfSetting(
                 label = "Fit content to pages",
-                info = "Content that would be cut by a page edge is moved back onto the page it starts on. Anything larger than a page is left where it is.",
+                info = "Wide text boxes wrap to the printable page width. Other content that would be cut by a page edge is moved back onto the page it starts on. Oversized drawings are left where they are.",
             ) {
                 PdfToggle(
                     field = "Fit content to pages",

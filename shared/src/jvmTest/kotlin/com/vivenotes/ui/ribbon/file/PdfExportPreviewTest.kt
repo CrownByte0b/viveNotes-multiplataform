@@ -9,6 +9,7 @@ import com.vivenotes.data.db.NotesDatabase
 import com.vivenotes.model.*
 import com.vivenotes.model.ink.*
 import com.vivenotes.pdf.*
+import com.vivenotes.ui.components.ToolPaneTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import kotlinx.coroutines.runBlocking
 import java.awt.image.BufferedImage
@@ -18,6 +19,47 @@ import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
 class PdfExportPreviewTest {
+    @Test
+    fun wideStoredTextWrapsAndTheFitSwitchUpdatesTheRealPreview() = runBlocking {
+        val db = NotesDatabase.inMemory()
+        val repository = NotesRepository(db)
+        val exporter = PdfExporter(repository)
+        try {
+            val section = repository.createSection(repository.createNotebook("Book"), "Section")
+            val page = repository.createPage(section, "Test")
+            repository.saveDoc(page, oversizedPdfTextDoc())
+            val request = PdfExportRequest(page, section, PdfExportOptions(includeRuling = false))
+            exporter.write(exporter.plan(request), File(System.getProperty("java.io.tmpdir"), "vive-pdf-wrapped-text.pdf").path)
+            runDesktopComposeUiTest(width = 1100, height = 800) {
+                setContent { ViveNotesTheme(darkTheme = true) {
+                    ExportPdfDialog(exporter, page, section, "Test", "Section", {})
+                } }
+                waitUntil(timeoutMillis = 15_000) {
+                    onAllNodesWithText("1 sheet").fetchSemanticsNodes().isNotEmpty() &&
+                        onAllNodesWithContentDescription("Sheet 1").fetchSemanticsNodes().isNotEmpty()
+                }
+                onNodeWithContentDescription("Sheet 1").assertIsDisplayed()
+                onNodeWithTag(ToolPaneTags.field("Fit content to pages")).assertIsOn()
+                val capture = onRoot().captureToImage()
+                val pixels = capture.toPixelMap()
+                val image = BufferedImage(capture.width, capture.height, BufferedImage.TYPE_INT_ARGB)
+                for (x in 0 until image.width) for (y in 0 until image.height) image.setRGB(x, y, pixels[x, y].toArgb())
+                ImageIO.write(image, "png", File(System.getProperty("java.io.tmpdir"), "vive-pdf-wrapped-text-preview.png"))
+
+                onNodeWithTag(ToolPaneTags.field("Fit content to pages")).performClick()
+                waitUntil(timeoutMillis = 15_000) { onAllNodesWithText("2 sheets").fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithTag(ExportPdfTags.SHEETS).performScrollToIndex(1)
+                waitUntil(timeoutMillis = 15_000) { onAllNodesWithContentDescription("Sheet 2").fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithContentDescription("Sheet 2").assertIsDisplayed()
+                onNodeWithTag(ToolPaneTags.field("Fit content to pages")).performClick()
+                waitUntil(timeoutMillis = 15_000) { onAllNodesWithText("1 sheet").fetchSemanticsNodes().isNotEmpty() }
+                onNodeWithTag(ExportPdfTags.sheet(1)).assertDoesNotExist()
+                onNodeWithTag(ToolPaneTags.field("Fit content to pages")).assertIsOn()
+                onNodeWithTag(ExportPdfTags.EXPORT).assertIsEnabled()
+            }
+        } finally { exporter.release(); db.close() }
+    }
+
     @Test
     fun storedRichTextEquationsShapesAndTablesAppearInTheRealPreview() = runBlocking {
         val db = NotesDatabase.inMemory()

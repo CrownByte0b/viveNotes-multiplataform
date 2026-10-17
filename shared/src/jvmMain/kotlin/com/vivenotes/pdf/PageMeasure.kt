@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.luminance
 import com.vivenotes.data.AttachmentStore
 import com.vivenotes.byteink.kit.PageStroke
+import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.pdf.PdfBounds as InkBounds
 import com.vivenotes.model.*
 import kotlin.math.roundToInt
@@ -67,9 +68,9 @@ class PdfTableGrid(
  * Everything one page needs to be drawn, measured once.
  *
  * The document does not know how tall a text container or a table is — only a canvas does, which is
- * `PageSpace`'s "a far edge is a number the model does not have". The exporter is a second canvas,
- * so it measures the same text with the same engine at the same width, and hands the result to both
- * the tiling (which needs rectangles) and the renderer (which needs the layouts).
+ * `PageSpace`'s "a far edge is a number the model does not have". The exporter measures at the stored
+ * width, or at the printable width when fitting a wide text box, and hands the result to both the
+ * tiling (which needs rectangles) and the renderer (which needs the layouts).
  */
 class MeasuredPage(
     val pageId: String,
@@ -168,7 +169,10 @@ class PdfPageHeader(
  * inside it. Measuring at the device's density and scaling the *drawing* by `1/density` is what
  * makes the exported line breaks the same line breaks the writer saw.
  */
-class PageMeasurer(private val attachments: AttachmentStore? = null) {
+class PageMeasurer(
+    private val attachments: AttachmentStore? = null,
+    private val log: DebugLog = DebugLog(),
+) {
     private val density = 1f
     private val text = PdfTextMeasurer()
 
@@ -187,29 +191,32 @@ class PageMeasurer(private val attachments: AttachmentStore? = null) {
          * lets a fifty-page section be planned without fifty pages of print-resolution bitmaps.
          */
         loadPictures: Boolean = true,
+        fitContent: Boolean = true,
     ): MeasuredPage {
         val colors = PdfCanvasColors.forPage(doc.style)
         val items = mutableListOf<PdfItem>()
         val atoms = mutableListOf<PdfAtom>()
 
         val texts = mutableMapOf<String, PdfTextBlock>()
-        doc.outlines.filterIsInstance<Outline.Text>().forEach { outline ->
-            val layout = layoutFor(outline.blocks, outline.width - TEXT_PADDING_DP * 2, colors)
+        suspend fun measureText(outline: Outline.Text, width: Float): PdfAtom {
+            val layout = layoutFor(outline.blocks, width - TEXT_PADDING_DP * 2, colors)
             val left = outline.x + TEXT_PADDING_DP
             val top = outline.y + GRIP_HEIGHT_DP + TEXT_PADDING_DP
-            texts[outline.id] = PdfTextBlock(layout, left, top)
+            texts.put(outline.id, PdfTextBlock(layout, left, top))?.layout?.equations?.forEach { it.close() }
             val height = maxOf(layout.height / density, outline.minHeight)
-            atoms += PdfAtom(
+            return PdfAtom(
                 id = outline.id,
                 outlineId = outline.id,
                 bounds = InkBounds(
                     left = outline.x,
                     top = outline.y + GRIP_HEIGHT_DP,
-                    right = outline.x + outline.width,
+                    right = outline.x + width,
                     bottom = top + height + TEXT_PADDING_DP,
                 ),
             )
         }
+        val textOutlines = doc.outlines.filterIsInstance<Outline.Text>()
+        textOutlines.forEach { outline -> atoms += measureText(outline, outline.width) }
 
         val tables = mutableMapOf<String, PdfTableGrid>()
         doc.outlines.filterIsInstance<Outline.Table>().forEach { table ->
@@ -289,6 +296,17 @@ class PageMeasurer(private val attachments: AttachmentStore? = null) {
 
         atoms += inkAtoms(strokes)
 
+        // Determine the bound-sheet exception from the original canvas, before any export reflow.
+        val boundSheet = boundSheetFor(doc.style, paper, atoms.map(PdfAtom::bounds).unionOrNull())
+        if (fitContent && boundSheet == null) {
+            val wideTexts = textOutlines.filter { it.width > paper.tileWidthDp }
+            wideTexts.forEach { outline ->
+                val index = atoms.indexOfFirst { it.outlineId == outline.id }
+                atoms[index] = measureText(outline, paper.tileWidthDp)
+            }
+            if (wideTexts.isNotEmpty()) log.event("pdf") { "wrapped ${wideTexts.size} wide text boxes" }
+        }
+
         // The whole correction: objects and ink are gathered into entities *together*, by the empty
         // page between them, rather than each outline standing alone with ink clustered separately.
         // A sum written beside a paragraph is part of it, and now travels with it.
@@ -296,7 +314,6 @@ class PageMeasurer(private val attachments: AttachmentStore? = null) {
         groups.forEach { group -> items += PdfItem(group.id, PdfItemKind.Content, group.bounds) }
 
         val content = groups.map(PdfGroup::bounds).unionOrNull()
-        val boundSheet = boundSheetFor(doc.style, paper, content)
         val header = if (doc.style.hideTitle) {
             null
         } else {

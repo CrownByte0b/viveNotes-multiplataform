@@ -34,7 +34,7 @@ class PdfExporter(
     private val log: DebugLog = DebugLog(),
     private val chooseSave: suspend (String) -> String? = { null },
 ) : PdfExportService {
-    private val measurer = PageMeasurer(attachments)
+    private val measurer = PageMeasurer(attachments, log)
     private val renderer = PageRenderer()
 
     override suspend fun chooseDestination(suggestedName: String): String? = chooseSave(suggestedName)
@@ -79,7 +79,7 @@ class PdfExporter(
             val paper = paperFor(request.options, sources.firstOrNull()?.style)
             val planned = sources.map { source ->
                 coroutineContext.ensureActive()
-                val page = measure(source, paper, loadPictures = false)
+                val page = measure(source, paper, loadPictures = false, fitContent = request.options.fitContent)
                 PlannedPage(
                     pageId = source.id,
                     title = source.title,
@@ -240,7 +240,7 @@ class PdfExporter(
         )
     }
 
-    private suspend fun measure(source: SourcePage, paper: PdfPaper, loadPictures: Boolean) =
+    private suspend fun measure(source: SourcePage, paper: PdfPaper, loadPictures: Boolean, fitContent: Boolean) =
         measurer.measure(
             pageId = source.id,
             title = source.title,
@@ -249,6 +249,7 @@ class PdfExporter(
             strokes = source.strokes,
             paper = paper,
             loadPictures = loadPictures,
+            fitContent = fitContent,
         )
 
     /**
@@ -289,7 +290,7 @@ class PdfExporter(
             }
             ?.let { return it }
         val source = load(pageId) ?: SourcePage(pageId, "", 0L, PageDoc(), emptyList())
-        val page = measure(source, exportPlan.paper, loadPictures = true)
+        val page = measure(source, exportPlan.paper, loadPictures = true, fitContent = exportPlan.options.fitContent)
         val target = RenderTarget(
             page = page,
             plan = PageTiling.plan(
