@@ -5,7 +5,7 @@ jvmTarget = "25"
 androidx-lifecycle = "2.11.0"
 composeMultiplatform = "1.12.1"
 junit = "4.13.2"
-kotlin = "2.4.20"
+kotlin = "2.4.21"
 # KSP2 versions independently of Kotlin; 2.3.10 is the first release that handles Kotlin 2.4.
 ksp = "2.3.12"
 kotlin-wrappers = "2026.9.2"
