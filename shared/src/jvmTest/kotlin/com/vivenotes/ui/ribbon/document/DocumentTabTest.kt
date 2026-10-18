@@ -279,7 +279,9 @@ class DocumentTabTest {
         var observed = initial
         setWorkspace(initial, pictures = library) { observed = it }
 
+        // Android 35e7147: the button opens a menu of sources, and "On device" is the file dialog.
         onNodeWithTag(DocumentRibbonTags.Picture).performScrollTo().assertIsEnabled().performClick()
+        onNodeWithTag(DocumentRibbonTags.PictureDevice).performClick()
         waitUntil(timeoutMillis = 5_000) { observed.selectedPage!!.document.outlines.any { it is Outline.Image } }
         val image = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Image>().single()
         assertEquals(id, image.attachmentId)
@@ -345,6 +347,7 @@ class DocumentTabTest {
         setWorkspace(document, pictures = library) { observed = it }
 
         onNodeWithTag(DocumentRibbonTags.Picture).performScrollTo().performClick()
+        onNodeWithTag(DocumentRibbonTags.PictureDevice).performClick()
         waitUntil(timeoutMillis = 5_000) { library.chosen == 1 }
         runOnIdle { assertEquals(document.selectedPage!!.document, observed.selectedPage!!.document) }
     }
@@ -352,6 +355,7 @@ class DocumentTabTest {
     private class FakePictures(private val next: ImportedPicture?, private val files: Map<String, ByteArray>) : PictureLibrary {
         var chosen = 0
         override suspend fun choose(): ImportedPicture? = next.also { chosen++ }
+        override suspend fun import(bytes: ByteArray): ImportedPicture? = next
         override suspend fun bytes(attachmentId: String): ByteArray? = files[attachmentId]
     }
 

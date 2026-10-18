@@ -179,6 +179,8 @@ import com.vivenotes.ui.canvas.contentEdge
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.ribbon.document.LinkEditorDialog
 import com.vivenotes.ui.ribbon.document.LinkEditorRequest
+import com.vivenotes.ui.ribbon.document.PictureDialog
+import com.vivenotes.ui.ribbon.document.PictureDialogHost
 import com.vivenotes.ui.canvas.asAnnotatedString
 import com.vivenotes.ui.canvas.drawBlockDecorations
 import com.vivenotes.ui.canvas.linkAtPoint
@@ -512,6 +514,7 @@ private fun WorkspaceContent(
     }
     var editingShortcut by remember { mutableStateOf<ShortcutAction?>(null) }
     var linkEditor by remember { mutableStateOf<LinkEditorRequest?>(null) }
+    var pictureDialog by remember { mutableStateOf<PictureDialog?>(null) }
     var confirmResetShortcuts by remember { mutableStateOf(false) }
     val currentView by rememberUpdatedState(view)
     val currentThemePreference by rememberUpdatedState(themePreference)
@@ -642,7 +645,8 @@ private fun WorkspaceContent(
                 calculatorAvailable = formulaReady, calculatorOpen = calculatorOpen, onToggleCalculator = { calculatorOpen = !calculatorOpen })
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
                 { canvasOrigin.read() }, documentColorSelection, onLinkRequest = { linkEditor = it },
-                onEditorDefaultsChange = onEditorDefaultsChange)
+                onEditorDefaultsChange = onEditorDefaultsChange, onPictureDialog = { pictureDialog = it },
+                log = debugLog)
             RibbonTab.View -> ViewTab(state, view, canvasDark, viewActions,
                 onDefaultRuleLines = { rule ->
                     val next = state.editorDefaults.copy(ruleLines = rule)
@@ -934,6 +938,7 @@ private fun WorkspaceContent(
         }))
     NavigationDialogs(state, navigationRequests, navigation)
     linkEditor?.let { request -> LinkEditorDialog(request, onDismiss = { linkEditor = null }) }
+    pictureDialog?.let { dialog -> PictureDialogHost(dialog, onDismiss = { pictureDialog = null }) }
     NotebookTransferDialog(state.notebookTransfer, onDismiss = { fileActions?.dismissTransfer() })
     if (confirmRevision) {
         FileConfirmDialog(Strings.restore_this_version_16b4be,

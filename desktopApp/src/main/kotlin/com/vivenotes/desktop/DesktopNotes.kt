@@ -5,7 +5,11 @@ import com.vivenotes.data.NotebookFiles
 import com.vivenotes.math.UvMathRuntime
 import com.vivenotes.data.InkSource
 import com.vivenotes.data.NotesLibrary
+import com.vivenotes.data.OnlineImages
+import com.vivenotes.data.PictureCamera
 import com.vivenotes.data.PictureLibrary
+import com.vivenotes.data.onlineImageSearch
+import com.vivenotes.desktop.camera.desktopCamera
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
@@ -166,9 +170,18 @@ internal class DesktopNotes(
     }
     private var maintenance: Job? = null
 
+    /**
+     * The Picture menu's "Search online": one for the process, so every window shares its preview
+     * cache. Building it opens no connection; only a search does.
+     */
+    private val onlineImages: OnlineImages by lazy { onlineImageSearch(DesktopBuildInfo.version, log) }
+
+    /** The Picture menu's "Camera"; null where the desktop has no way to drive one. */
+    private val camera: PictureCamera? by lazy { desktopCamera(log) }
+
     /** Pictures for a window: its file dialog opens over [owner]. */
     fun pictures(owner: Frame?): PictureLibrary =
-        DesktopPictures(library.attachments) { choosePictureFile(owner) }
+        DesktopPictures(library.attachments, onlineImages, camera) { choosePictureFile(owner) }
 
     /** `.vive` export and import for a window: their file dialogs open over [owner]. */
     fun notebookFiles(owner: Frame?): NotebookFiles = DesktopNotebookFiles(

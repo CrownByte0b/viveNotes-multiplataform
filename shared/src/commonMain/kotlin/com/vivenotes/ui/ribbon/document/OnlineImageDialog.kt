@@ -1,0 +1,456 @@
+// Ported from viveNotes Android ui/editor/OnlineImageDialog.kt (commit 35e7147); shown in the window
+// like the desktop's other dialogs rather than as a platform dialog.
+package com.vivenotes.ui.ribbon.document
+
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.vivenotes.data.ImageSource
+import com.vivenotes.data.OnlineImage
+import com.vivenotes.data.OnlineImageSearchResult
+import com.vivenotes.data.OnlineImages
+import com.vivenotes.data.SearchCursor
+import com.vivenotes.localization.Strings
+import com.vivenotes.ui.components.DesktopDialogPanel
+import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.components.LocalTooltipDismissals
+import com.vivenotes.ui.icons.DocumentSymbols
+import com.vivenotes.ui.icons.ShellSymbols
+import com.vivenotes.ui.icons.ViewSymbols
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
+
+internal object OnlineImageTags {
+    const val DIALOG = "online-image-dialog"
+    const val BACKDROP = "online-image-backdrop"
+    const val QUERY = "online-image-query"
+    const val CLOSE = "online-image-close"
+    const val CLEAR = "online-image-clear"
+    const val GRID = "online-image-grid"
+    const val RESULT = "online-image-result"
+    const val MESSAGE = "online-image-message"
+
+    /** Where Openverse's results begin, after Wikimedia Commons'. */
+    const val SOURCE_HEADER = "online-image-source-header"
+
+    /** On a tile whose preview could not be fetched at all. It can still be inserted. */
+    const val NO_PREVIEW = "online-image-no-preview"
+}
+
+/**
+ * The Picture menu's "Search online": a query, a grid of results, and a click to insert. The
+ * results are Wikimedia Commons' and then Openverse's — `OnlineImageSearch` decides where one hands
+ * over to the other.
+ *
+ * The dialog downloads the picked picture itself and closes only once it has the bytes, so a slow
+ * or failed download shows on the tile that was clicked rather than vanishing into the page.
+ *
+ * Further pages load as the grid nears its end. Openverse allows twenty anonymous searches a
+ * minute, so a page is fetched only when the last one has landed and nothing has failed.
+ *
+ * The opt-in is for [LoadingIndicator] and [ContainedLoadingIndicator] — the same one
+ * `ExportPdfDialog` takes.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+internal fun OnlineImageDialog(
+    images: OnlineImages,
+    onInsert: (ByteArray) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    /** The term the grid is showing results for, which the field may since have moved on from. */
+    var searched by remember { mutableStateOf<String?>(null) }
+    val results = remember { mutableStateListOf<OnlineImage>() }
+    /** Where the next page starts; null when there is none, or before the first search. */
+    var next by remember { mutableStateOf<SearchCursor?>(null) }
+    var loading by remember { mutableStateOf(false) }
+    /** A failure to show. Also what stops further pages loading until the next search. */
+    var message by remember { mutableStateOf<String?>(null) }
+    /** The id of the picture being fetched for insertion. One at a time; the grid waits on it. */
+    var downloading by remember { mutableStateOf<String?>(null) }
+    var searchJob by remember { mutableStateOf<Job?>(null) }
+    val scope = rememberCoroutineScope()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = remember { FocusRequester() }
+    val grid = rememberLazyStaggeredGridState()
+    val rateLimited = Strings.online_image_rate_limited
+    val unreachable = Strings.online_image_unreachable
+    val downloadFailed = Strings.online_image_download_failed
+
+    fun load(term: String, from: SearchCursor?) {
+        loading = true
+        searchJob = scope.launch {
+            val result = images.search(term, from)
+            loading = false
+            when (result) {
+                is OnlineImageSearchResult.Found -> {
+                    // Search pages are not snapshots: a file added between two requests shifts the
+                    // next page by one and repeats a hit, and a repeated key would crash the grid.
+                    val known = results.mapTo(HashSet()) { it.id }
+                    results += result.images.filter { known.add(it.id) }
+                    next = result.next
+                    message = null
+                }
+                OnlineImageSearchResult.RateLimited -> {
+                    next = null
+                    message = rateLimited
+                }
+                OnlineImageSearchResult.Unreachable -> {
+                    next = null
+                    message = unreachable
+                }
+            }
+        }
+    }
+
+    fun search() {
+        val term = query.trim()
+        if (term.isEmpty() || downloading != null) return
+        keyboard?.hide()
+        searchJob?.cancel()
+        results.clear()
+        searched = term
+        next = null
+        message = null
+        load(term, from = null)
+        scope.launch { grid.scrollToItem(0) }
+    }
+
+    fun pick(image: OnlineImage) {
+        if (downloading != null) return
+        downloading = image.id
+        message = null
+        scope.launch {
+            val bytes = images.download(image)
+            downloading = null
+            if (bytes == null) {
+                message = downloadFailed
+            } else {
+                onInsert(bytes)
+                onDismiss()
+            }
+        }
+    }
+
+    // A tile scrolled out from under a pointer that did not move gets no hover exit on the desktop,
+    // and its title would stay up over whichever tile took its place: titles go whenever it moves.
+    val tooltips = LocalTooltipDismissals.current
+    LaunchedEffect(grid, tooltips) {
+        val hints = tooltips ?: return@LaunchedEffect
+        snapshotFlow { grid.firstVisibleItemIndex to grid.firstVisibleItemScrollOffset }
+            .drop(1)
+            .collect { hints.dismiss() }
+    }
+
+    // Distinct values only, so a page is requested on each false → true edge: one when the grid
+    // first nears its end, and again after each page lands if the grid is still short of the bottom.
+    LaunchedEffect(grid) {
+        snapshotFlow {
+            val last = grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            next != null && !loading && message == null && last >= results.size - PREFETCH_DISTANCE
+        }.collect { wanted ->
+            val term = searched
+            val from = next
+            if (wanted && term != null && from != null) load(term, from)
+        }
+    }
+
+    DesktopDialogPanel(
+        title = Strings.online_image_title,
+        onDismiss = onDismiss,
+        modifier = Modifier.testTag(OnlineImageTags.DIALOG),
+        maxWidth = MAX_WIDTH,
+        maxHeight = MAX_HEIGHT,
+        backdropTag = OnlineImageTags.BACKDROP,
+    ) {
+        // Here rather than beside the panel, whose content is composed only as it is measured.
+        LaunchedEffect(Unit) { focus.requestFocus() }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 24.dp, top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onDismiss, modifier = Modifier.testTag(OnlineImageTags.CLOSE)) {
+                Icon(ViewSymbols.Close, contentDescription = Strings.online_image_close)
+            }
+            Spacer(Modifier.width(4.dp))
+            Column(Modifier.weight(1f)) {
+                Text(Strings.online_image_title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = Strings.online_image_subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = { Text(Strings.online_image_search_hint) },
+            leadingIcon = { Icon(ShellSymbols.Search, contentDescription = null) },
+            trailingIcon = if (query.isNotEmpty()) {
+                {
+                    // A click focuses what it lands on here, where Android's tap does not: the field
+                    // takes the keyboard back, so the next words go into it.
+                    IconButton(onClick = { query = ""; focus.requestFocus() },
+                        modifier = Modifier.testTag(OnlineImageTags.CLEAR)) {
+                        Icon(ViewSymbols.Close, contentDescription = Strings.online_image_clear)
+                    }
+                }
+            } else {
+                null
+            },
+            singleLine = true,
+            shape = MaterialTheme.shapes.extraLarge,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { search() }),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 12.dp)
+                .focusRequester(focus)
+                .testTag(OnlineImageTags.QUERY),
+        )
+
+        if (results.isNotEmpty()) {
+            message?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .testTag(OnlineImageTags.MESSAGE),
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                results.isNotEmpty() -> LazyVerticalStaggeredGrid(
+                    columns = StaggeredGridCells.Adaptive(TILE_MIN_WIDTH),
+                    state = grid,
+                    contentPadding = PaddingValues(16.dp),
+                    verticalItemSpacing = TILE_SPACING,
+                    horizontalArrangement = Arrangement.spacedBy(TILE_SPACING),
+                    modifier = Modifier.fillMaxSize().testTag(OnlineImageTags.GRID),
+                ) {
+                    // Commons comes first; where Openverse takes over is marked, so a change in
+                    // what the pictures are like has an explanation on screen.
+                    val handOver = results.indexOfFirst { it.source == ImageSource.Openverse }
+                    val tiles: (List<OnlineImage>) -> Unit = { slice ->
+                        items(slice, key = { it.id }) { image ->
+                            ResultTile(
+                                images = images,
+                                image = image,
+                                downloading = downloading == image.id,
+                                enabled = downloading == null,
+                                onPick = { pick(image) },
+                            )
+                        }
+                    }
+                    if (handOver <= 0) {
+                        tiles(results.toList())
+                    } else {
+                        tiles(results.take(handOver))
+                        item(key = SOURCE_HEADER_KEY, span = StaggeredGridItemSpan.FullLine) {
+                            Text(
+                                text = Strings.online_image_more_openverse,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .padding(top = 16.dp, bottom = 4.dp)
+                                    .semantics { heading() }
+                                    .testTag(OnlineImageTags.SOURCE_HEADER),
+                            )
+                        }
+                        tiles(results.drop(handOver))
+                    }
+                    if (loading) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                LoadingIndicator()
+                            }
+                        }
+                    }
+                }
+                loading -> LoadingIndicator()
+                else -> Text(
+                    text = message
+                        ?: searched?.let { Strings.online_image_no_results(it) }
+                        ?: Strings.online_image_empty,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (message != null) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .padding(32.dp)
+                        .testTag(OnlineImageTags.MESSAGE),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One result, at its own aspect ratio so the grid reads like a page of pictures rather than a page
+ * of crops. The ratio is clamped: a panorama would otherwise be a sliver nobody could click. Its
+ * title shows on hover, as an icon button's name does on this desktop.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ResultTile(
+    images: OnlineImages,
+    image: OnlineImage,
+    downloading: Boolean,
+    enabled: Boolean,
+    onPick: () -> Unit,
+) {
+    val preview by produceState<Preview>(Preview.Loading, image.id) {
+        value = images.thumbnail(image)?.let { Preview.Shown(it) } ?: Preview.Missing
+    }
+    val shown by animateFloatAsState(
+        targetValue = if (preview is Preview.Shown) 1f else 0f,
+        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+    )
+    val ratio = if (image.width > 0 && image.height > 0) {
+        (image.width.toFloat() / image.height).coerceIn(MIN_RATIO, MAX_RATIO)
+    } else {
+        1f
+    }
+    val description = image.title.ifBlank { Strings.online_image_untitled }
+    HoverTooltip(description) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(ratio)
+                .clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable(enabled = enabled, onClickLabel = Strings.online_image_insert, role = Role.Button,
+                    onClick = onPick)
+                .semantics { contentDescription = description }
+                .testTag(OnlineImageTags.RESULT),
+            contentAlignment = Alignment.Center,
+        ) {
+            when (val current = preview) {
+                is Preview.Shown -> Image(
+                    bitmap = current.bitmap,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = shown },
+                )
+                // Said outright, or a tile with no preview looks like one still loading — forever.
+                Preview.Missing -> Icon(
+                    imageVector = DocumentSymbols.Image,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(NO_PREVIEW_ICON)
+                        .testTag(OnlineImageTags.NO_PREVIEW),
+                )
+                Preview.Loading -> Unit
+            }
+            if (downloading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = SCRIM_ALPHA)),
+                )
+                ContainedLoadingIndicator()
+            }
+        }
+    }
+}
+
+private sealed interface Preview {
+    data object Loading : Preview
+    data class Shown(val bitmap: ImageBitmap) : Preview
+    data object Missing : Preview
+}
+
+/** Load the next page this many tiles before the end, so scrolling rarely meets the spinner. */
+private const val PREFETCH_DISTANCE = 6
+private const val SOURCE_HEADER_KEY = "source-header"
+private const val MIN_RATIO = 0.5f
+private const val MAX_RATIO = 2f
+private const val SCRIM_ALPHA = 0.32f
+private val TILE_MIN_WIDTH = 160.dp
+private val TILE_SPACING = 8.dp
+private val NO_PREVIEW_ICON = 32.dp
+private val MAX_WIDTH = 900.dp
+private val MAX_HEIGHT = 760.dp

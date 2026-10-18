@@ -75,6 +75,13 @@ internal fun RibbonIcon(
     enabled: Boolean = true,
     tag: String = "document-${label.lowercase().replace(' ', '-')}",
     twoTone: Boolean = false,
+    /**
+     * Marks a button that opens a menu rather than acting — Android's `RibbonButtonSlot`. It adds
+     * the small triangle [RibbonCommand] and the Styles picker carry, so an icon that opens a menu
+     * reads differently from one that acts the moment it is pressed. The slot widens to fit it
+     * rather than shrinking the icon.
+     */
+    dropdown: Boolean = false,
     onClick: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -87,20 +94,38 @@ internal fun RibbonIcon(
     }
     HoverTooltip(label) {
         Box(
-            Modifier.size(width = 40.dp, height = 46.dp)
+            Modifier.then(if (dropdown) Modifier.height(46.dp) else Modifier.size(width = 40.dp, height = 46.dp))
                 .background(if (hovered && enabled) RibbonStyle.hover else Color.Transparent)
                 .ribbonActiveIndicator(selected)
                 .hoverable(interaction, enabled = enabled)
                 .clickable(interactionSource = interaction, indication = null, enabled = enabled,
-                    role = Role.Button, onClick = onClick)
+                    role = if (dropdown) Role.DropdownList else Role.Button, onClick = onClick)
                 .testTag(tag)
                 .semantics { contentDescription = label; this.selected = selected },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = if (twoTone) Color.Unspecified else tint,
-                modifier = Modifier.size(18.dp).alpha(if (enabled || !twoTone) 1f else 0.72f))
+            val glyph = @Composable {
+                Icon(icon, contentDescription = null, tint = if (twoTone) Color.Unspecified else tint,
+                    modifier = Modifier.size(18.dp).alpha(if (enabled || !twoTone) 1f else 0.72f))
+            }
+            if (dropdown) {
+                // The icon keeps the plain button's 11 dp lead, so it sits where its neighbours' do.
+                Row(Modifier.padding(start = 11.dp, end = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    glyph()
+                    Icon(DocumentSymbols.ArrowDropDown, contentDescription = null, tint = tint,
+                        modifier = Modifier.size(16.dp).testTag(RibbonIconTags.dropdown(tag)))
+                }
+            } else {
+                glyph()
+            }
         }
     }
+}
+
+/** Semantics identifiers for parts of a [RibbonIcon]. */
+internal object RibbonIconTags {
+    /** The triangle a [RibbonIcon] with `dropdown` carries. */
+    fun dropdown(tag: String): String = "$tag-dropdown"
 }
 
 /** A labelled ribbon control, with an optional icon and active underline. */

@@ -2,9 +2,12 @@ package com.vivenotes.desktop
 
 import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.ImportedPicture
+import com.vivenotes.desktop.camera.V4l2
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -88,5 +91,36 @@ class DesktopPicturesTest {
     @Test
     fun theDialogOffersOnlyPicturesSkiaCanRead() {
         listOf("png", "jpg", "jpeg", "webp", "gif", "bmp").forEach { assertTrue(it in PictureExtensions, it) }
+    }
+
+    /** Android's `AttachmentStore.import(bytes)`: a downloaded picture is stored as a chosen one is. */
+    @Test
+    fun aDownloadedOrPhotographedPictureIsStoredLikeAChosenOne() = runBlocking {
+        val bytes = Surface.makeRasterN32Premul(24, 12).use {
+            it.makeImageSnapshot().encodeToData(EncodedImageFormat.JPEG)!!.bytes
+        }
+        val pictures = DesktopPictures(library.attachments) { error("no dialog for bytes in hand") }
+
+        val imported = assertNotNull(pictures.import(bytes))
+
+        assertEquals(24 to 12, imported.pixelWidth to imported.pixelHeight)
+        assertTrue(File(library.directory, "attachments/${imported.attachmentId}").isFile)
+        assertNull(pictures.import("<html>gone</html>".encodeToByteArray()), "a page is not a picture")
+    }
+
+    @Test
+    fun searchAndCameraAreTheOnesTheNotesWereGiven() {
+        val ui = CoroutineScope(SupervisorJob())
+        val notes = DesktopNotes(library, ui)
+        try {
+            val pictures = notes.pictures(null)
+            assertNotNull(pictures.online, "every desktop searches online")
+            // Linux webcams are driven directly; other systems have no camera backend yet.
+            assertEquals(V4l2.supported, pictures.camera != null)
+            assertTrue(pictures.online === notes.pictures(null).online, "windows share one search and its cache")
+        } finally {
+            notes.search.close()
+            ui.cancel()
+        }
     }
 }

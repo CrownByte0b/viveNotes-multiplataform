@@ -3,6 +3,8 @@ package com.vivenotes.desktop
 import com.vivenotes.localization.Strings
 import com.vivenotes.data.AttachmentStore
 import com.vivenotes.data.ImportedPicture
+import com.vivenotes.data.OnlineImages
+import com.vivenotes.data.PictureCamera
 import com.vivenotes.data.PictureLibrary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.swing.Swing
@@ -12,8 +14,9 @@ import java.awt.Frame
 import java.io.File
 
 /**
- * Pictures on desktop: the platform's file dialog to choose one, and the attachment store to keep
- * it. Reading and re-encoding the file happen off the UI thread.
+ * Pictures on desktop: the platform's file dialog to choose one, [online] search and the [camera]
+ * as the Picture menu's other sources, and the attachment store to keep whatever comes from any of
+ * them. Reading and re-encoding happen off the UI thread.
  *
  * [chooseFile] shows a modal dialog, which runs an event loop of its own until it closes, so it is
  * started as its own Swing event. A coroutine launched from a click resumes on Compose's frame
@@ -23,6 +26,8 @@ import java.io.File
  */
 internal class DesktopPictures(
     private val store: AttachmentStore,
+    override val online: OnlineImages? = null,
+    override val camera: PictureCamera? = null,
     private val chooseFile: () -> File?,
 ) : PictureLibrary {
 
@@ -31,6 +36,8 @@ internal class DesktopPictures(
         val bytes = withContext(Dispatchers.IO) { runCatching { file.readBytes() }.getOrNull() } ?: return null
         return store.import(bytes)
     }
+
+    override suspend fun import(bytes: ByteArray): ImportedPicture? = store.import(bytes)
 
     override suspend fun bytes(attachmentId: String): ByteArray? = store.bytes(attachmentId)
 }

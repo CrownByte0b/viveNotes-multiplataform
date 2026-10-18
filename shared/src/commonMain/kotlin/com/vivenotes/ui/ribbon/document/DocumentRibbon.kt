@@ -51,6 +51,9 @@ internal object DocumentRibbonTags {
     const val LinkSubmit = "document-link-submit"
     const val LinkCancel = "document-link-cancel"
     const val Picture = "document-picture"
+    const val PictureDevice = "document-picture-device"
+    const val PictureOnline = "document-picture-online"
+    const val PictureCamera = "document-picture-camera"
 
     fun blockType(type: BlockType): String = "workspace-document-block-${type.name}"
     fun alignment(align: Align): String = "workspace-document-align-${align.name}"
@@ -189,8 +192,9 @@ internal fun DocumentRibbon(
                 ))
             },
         )
-        RibbonIcon(DocumentSymbols.Image, Strings.picture, enabled = commands.insertPicture != null,
-            tag = DocumentRibbonTags.Picture) { commands.insertPicture?.invoke() }
+        PictureButton(enabled = commands.insertPicture != null, sources = commands.pictureSources) { source ->
+            commands.insertPicture?.invoke(source)
+        }
     }
 }
 
@@ -203,7 +207,7 @@ private fun MarkButton(
     enabled: Boolean,
     twoTone: Boolean = false,
     onClick: () -> Unit,
-) = RibbonIcon(icon, label, mark in active, enabled, DocumentRibbonTags.mark(mark), twoTone, onClick)
+) = RibbonIcon(icon, label, mark in active, enabled, DocumentRibbonTags.mark(mark), twoTone, onClick = onClick)
 
 @Composable
 private fun ListButton(

@@ -1211,4 +1211,30 @@
         <item quantity="one">%1$d day ago</item>
         <item quantity="other">%1$d days ago</item>
     </plurals>
+    <!-- The Picture menu and Search online: the Android app's strings, under the same names. -->
+    <string name="ribbon_picture_device">On device</string>
+    <string name="ribbon_picture_online">Search online</string>
+    <string name="ribbon_picture_camera">Camera</string>
+    <string name="online_image_title">Search online</string>
+    <string name="online_image_subtitle">Openly licensed pictures from Wikimedia Commons and Openverse</string>
+    <string name="online_image_close">Close</string>
+    <string name="online_image_search_hint">Search pictures</string>
+    <string name="online_image_clear">Clear search</string>
+    <string name="online_image_more_openverse">More from Openverse</string>
+    <!-- %1$s = the words searched for -->
+    <string name="online_image_no_results">No pictures found for “%1$s”.</string>
+    <string name="online_image_empty">Search for photos and illustrations you can put on the page.</string>
+    <string name="online_image_untitled">Untitled picture</string>
+    <string name="online_image_insert">Insert</string>
+    <string name="online_image_rate_limited">Too many searches from this connection. Try again in a minute.</string>
+    <string name="online_image_unreachable">Couldn’t reach the picture search. Check the connection and try again.</string>
+    <string name="online_image_download_failed">That picture couldn’t be downloaded. Try another one.</string>
+    <!-- Desktop only: a computer has no camera app to hand the photo to, so the app shows the camera itself. -->
+    <string name="camera_take_photo">Take photo</string>
+    <string name="camera_switch">Switch camera</string>
+    <string name="camera_starting">Starting the camera…</string>
+    <string name="camera_busy">The camera is being used by another app. Close it there and try again.</string>
+    <string name="camera_failed">The camera couldn’t be opened.</string>
+    <string name="camera_stopped">The camera stopped sending pictures. Check that it is still connected.</string>
+    <string name="camera_photo_failed">The photo couldn’t be taken. Try again.</string>
 </resources>
