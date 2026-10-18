@@ -3,6 +3,8 @@ package com.vivenotes.ui.shell
 import com.vivenotes.localization.Strings
 import com.vivenotes.ui.canvas.InkSelectionFrame
 import com.vivenotes.ui.canvas.InkSelectionToolkit
+import com.vivenotes.ui.canvas.primeResizePointer
+import com.vivenotes.ui.canvas.primeResizeCursorProviders
 import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.model.ink.InkSelectionChange
 import kotlinx.coroutines.launch
@@ -398,7 +400,7 @@ fun WorkspaceScreen(
     val darkTheme = effectiveSettings.darkTheme ?: systemDarkTheme ?:
         (MaterialTheme.colorScheme.background.luminance() < 0.45f)
     ViveNotesTheme(darkTheme = darkTheme) {
-        CompositionLocalProvider(LocalTooltipDismissals provides tooltipDismissals) {
+        CompositionLocalProvider(LocalTooltipDismissals provides tooltipDismissals, *primeResizeCursorProviders()) {
             Box(modifier.fillMaxSize().onFocusChanged { workspaceHasFocus = it.hasFocus }.focusGroup()
                 .onPreviewKeyEvent { event ->
                     shortcutKeys.observe(event) || shortcutKeys.dismiss(event, tooltipDismissals::dismiss)
@@ -1301,9 +1303,12 @@ private fun PageCanvas(
                 point.y in (text.y - 32f).coerceAtLeast(0f)..text.y
         }
         val primeBounds = outlines.any { outline ->
+            val margin = if (outline is Outline.Shape && outline.segments.isNotEmpty())
+                maxOf(10f, outline.borderWidth / 2f + 9f) else 10f
+            val height = measuredTextHeights[outline.id] ?: outline.primeHeight()
             outline.id in snapshot.selectedObjectIds && outline.isPrimeObject() &&
-                point.x in (outline.x - 10f)..(outline.x + outline.width + 10f) &&
-                point.y in (outline.y - 10f)..(outline.y + outline.primeHeight() + 10f)
+                point.x in (outline.x - margin)..(outline.x + outline.width + margin) &&
+                point.y in (outline.y - margin)..(outline.y + height + margin)
         }
         return groupBody || groupCorner || textGrip || primeBounds
     }
@@ -2033,9 +2038,11 @@ private fun PageCanvas(
                             val anchorX = if (index % 2 == 0) outline.x + outline.width else outline.x
                             val anchorY = if (index < 2) outline.y + outline.primeHeight() else outline.y
                             Box(Modifier.offset(cx - 7.dp, cy - 7.dp).size(14.dp)
+                                .zIndex(1f)
                                 .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
                                 .testTag(WorkspaceTestTags.objectCorner(outline.id, index))
                                 .semantics { contentDescription = Strings.resize_value(label) }
+                                .primeResizePointer(index)
                                 .pointerInput(outline.id, index, state.selectedObjectsLocked) {
                                     if (!state.selectedObjectsLocked) {
                                         var total = Offset.Zero
@@ -2141,10 +2148,12 @@ private fun PageCanvas(
                         listOf(left to top, right to top, left to bottom, right to bottom)
                             .forEachIndexed { index, (cx, cy) ->
                                 Box(Modifier.offset(cx - 7.dp, cy - 7.dp).size(14.dp)
+                                    .zIndex(1f)
                                     .background(MaterialTheme.colorScheme.surface, CircleShape)
                                     .border(1.5.dp, accent, CircleShape)
                                     .testTag(WorkspaceTestTags.groupCorner(index))
                                     .semantics { contentDescription = Strings.resize_selection }
+                                    .primeResizePointer(index)
                                     .pointerInput(index, state.selectedObjectIds, state.selectedObjectsLocked) {
                                         var total = Offset.Zero
                                         var previousScaleX = 1f
