@@ -66,7 +66,9 @@ class SelectionColorPickerTest {
             val white = onNodeWithContentDescription("White").fetchSemanticsNode().boundsInRoot
             val black = onNodeWithContentDescription("Black").fetchSemanticsNode().boundsInRoot
             assertTrue(white.left < black.left && white.top == black.top)
-            onNodeWithTag(SelectionColorTags.Custom).performMouseInput { click(center) }
+            onNodeWithTag(SelectionColorTags.Custom).assertDoesNotExist()
+            onNodeWithTag(SelectionColorTags.Rainbow).performMouseInput { click(center) }
+            onNodeWithTag(SelectionColorTags.Custom).performScrollTo().performMouseInput { click(center) }
             onNodeWithTag(SelectionColorTags.Custom).typeCharacters("#345678")
             onNodeWithTag("${SelectionColorTags.Custom}-apply").performMouseInput { click(center) }
             waitUntil(timeoutMillis = 5000) { state.value.structuralUndo.size == 1 }
@@ -131,9 +133,9 @@ class SelectionColorPickerTest {
             val menu = onNodeWithTag(SelectionColorTags.Menu).fetchSemanticsNode().boundsInWindow
             assertTrue(menu.bottom <= anchor.fetchSemanticsNode().boundsInWindow.top)
             onNodeWithContentDescription("Red").performMouseInput { click(center) }
-            runOnIdle { assertEquals(0xffef4444.toInt(), (state.value.selectedPage!!.document.outlines.first() as Outline.Shape).borderArgb) }
+            runOnIdle { assertEquals(0xffe53935.toInt(), (state.value.selectedPage!!.document.outlines.first() as Outline.Shape).borderArgb) }
             anchor.performClick()
-            onNodeWithTag(SelectionColorTags.Menu).performKeyInput { pressKey(Key.DirectionDown) }
+            onNodeWithTag(SelectionColorTags.Menu).performKeyInput { pressKey(Key.DirectionDown); pressKey(Key.DirectionDown) }
             onNodeWithContentDescription("White").assertIsFocused().performKeyInput { pressKey(Key.Escape) }
             onNodeWithTag(SelectionColorTags.Menu).assertDoesNotExist()
         }
@@ -144,7 +146,8 @@ class SelectionColorPickerTest {
         val state = mutableStateOf(workspace().selectObject(shape.id))
         setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
         onNodeWithTag(ShapeObjectTags.Fill).performClick()
-        onNodeWithTag(SelectionColorTags.Custom).assertExists()
+        onNodeWithTag(SelectionColorTags.Custom).assertDoesNotExist()
+        onNodeWithTag(SelectionColorTags.Rainbow).assertExists()
         onNodeWithContentDescription("White").performClick()
         runOnIdle { assertEquals(-1, (state.value.selectedPage!!.document.outlines.first() as Outline.Shape).fillArgb) }
         onNodeWithTag(ShapeObjectTags.Fill).performClick()
@@ -163,6 +166,7 @@ class SelectionColorPickerTest {
         button.performClick()
         val menu = onNodeWithTag(SelectionColorTags.Menu).fetchSemanticsNode().boundsInWindow
         assertTrue(menu.top >= 0 && menu.bottom <= button.fetchSemanticsNode().boundsInWindow.top)
+        onNodeWithTag(SelectionColorTags.Rainbow).performClick()
         onNodeWithTag(SelectionColorTags.Custom).performScrollTo().performTextReplacement("#123456")
         onNodeWithTag("${SelectionColorTags.Custom}-apply").performScrollTo().performClick()
         runOnIdle { assertEquals(0xff123456.toInt(), (state.value.selectedPage!!.document.outlines.single() as Outline.Shape).borderArgb) }

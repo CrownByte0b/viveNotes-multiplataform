@@ -118,7 +118,8 @@ class WorkspaceScreenTest {
             onNodeWithTag(ShapeObjectTags.Fill).performClick()
             onNodeWithText("No fill").performClick()
             onNodeWithTag(WorkspaceTestTags.ObjectColor).performClick()
-            onNodeWithTag(com.vivenotes.ui.canvas.SelectionColorTags.Custom).performTextReplacement("#345678")
+            onNodeWithTag(com.vivenotes.ui.canvas.SelectionColorTags.Rainbow).performClick()
+            onNodeWithTag(com.vivenotes.ui.canvas.SelectionColorTags.Custom).performScrollTo().performTextReplacement("#345678")
             onNodeWithTag("${com.vivenotes.ui.canvas.SelectionColorTags.Custom}-apply").performClick()
             runOnIdle {
                 val shape = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
@@ -701,7 +702,7 @@ class WorkspaceScreenTest {
             assertEquals(0xFF161618.toInt(), toolkit[toolkit.width / 2, 1].toArgb())
             onNodeWithTag(WorkspaceTestTags.ObjectColor).performClick()
             onNodeWithContentDescription("Red").performClick()
-            runOnIdle { assertEquals(0xFFEF4444.toInt(),
+            runOnIdle { assertEquals(0xFFE53935.toInt(),
                 (observed.selectedPage!!.document.outlines.first { it.id == shape.id } as Outline.Shape).borderArgb) }
             onNodeWithTag(WorkspaceTestTags.ObjectLock).performClick()
             runOnIdle { assertTrue(observed.selectedObjectsLocked) }

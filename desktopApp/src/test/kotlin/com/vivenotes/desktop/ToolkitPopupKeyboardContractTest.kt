@@ -55,6 +55,7 @@ class ToolkitPopupKeyboardContractTest {
         }
         try {
             click(panel, "workspace-object-color")
+            click(panel, "selection-color-custom")
             click(panel, "selection-custom-color")
             Thread.sleep(200)
             for (char in "#345678") key(KeyEvent.getExtendedKeyCodeForChar(char.uppercaseChar().code), char)
@@ -67,9 +68,9 @@ class ToolkitPopupKeyboardContractTest {
             }
             waitFor("the palette closing after Apply") { node(panel, "selection-custom-color") == null }
             click(panel, "workspace-object-color")
-            waitFor("the reopened selection palette") { node(panel, "selection-custom-color") != null }
+            waitFor("the reopened selection palette") { node(panel, "selection-color-menu") != null }
             key(KeyEvent.VK_ESCAPE)
-            waitFor("Escape dismissing the selection palette") { node(panel, "selection-custom-color") == null }
+            waitFor("Escape dismissing the selection palette") { node(panel, "selection-color-menu") == null }
             assertEquals(setOf(shape.id), state.value.selectedObjectIds)
             key(KeyEvent.VK_EQUALS, '=', KeyEvent.CTRL_DOWN_MASK)
             waitFor("workspace shortcuts after the selection palette closes") {

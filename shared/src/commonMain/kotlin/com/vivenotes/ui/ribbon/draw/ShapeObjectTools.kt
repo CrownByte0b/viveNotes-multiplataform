@@ -61,7 +61,7 @@ internal fun ShapeObjectTools(shape: Outline.Shape, onLineType: (LineType) -> Un
         }
     }
     if (shape.canFill) {
-        SelectionColorPicker(onColor = onFill, onNoFill = { onFill(null) }) { open ->
+        SelectionColorPicker(onColor = onFill, onNoFill = { onFill(null) }, selectedColor = shape.fillArgb) { open ->
             TextButton(onClick = open, contentPadding = PaddingValues(horizontal = 8.dp),
                 modifier = Modifier.height(32.dp).testTag(ShapeObjectTags.Fill)) {
                 Text(Strings.fill)

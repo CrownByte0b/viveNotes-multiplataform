@@ -257,7 +257,7 @@ internal fun ToolkitPalette(palette: List<Int>, current: Int, colorTag: (Int) ->
 }
 
 @Composable
-private fun ToolkitSwatch(selected: Boolean, tag: String, label: String, onClick: () -> Unit, fill: DrawScope.() -> Unit) {
+internal fun ToolkitSwatch(selected: Boolean, tag: String, label: String, onClick: () -> Unit, fill: DrawScope.() -> Unit) {
     HoverTooltip(label) {
         Box(Modifier.size(26.dp).selectable(selected, onClick = onClick).testTag(tag)
             .semantics { contentDescription = label }
