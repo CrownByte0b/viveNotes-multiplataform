@@ -1044,6 +1044,24 @@ data class WorkspaceState(
         return editOutlines { it + image }.copy(textToolArmed = false, objectLassoArmed = false)
     }
 
+    /** Android `CanvasSelection.isImageOnly`: the selected pictures, when nothing else is selected. */
+    val selectedImages: List<Outline.Image> get() =
+        if (selectedInk != null || selectedTextOutlineIds.isNotEmpty() ||
+            selectedPrimeObjects.any { it !is Outline.Image }) emptyList()
+        else selectedPrimeObjects.filterIsInstance<Outline.Image>()
+
+    /**
+     * Android's `setImageBackground`. Null is no background, not a transparent one — the value
+     * "No background" restores. A locked picture takes it too: lock means stays put.
+     */
+    fun setSelectedImageBackground(argb: Int?): WorkspaceState {
+        val ids = selectedImages.map { it.id }.toSet()
+        if (ids.isEmpty()) return this
+        return editOutlines { outlines ->
+            outlines.map { if (it is Outline.Image && it.id in ids) it.copy(backgroundArgb = argb) else it }
+        }
+    }
+
     internal fun withRichText(buffer: RichTextBuffer): WorkspaceState {
         val page = editablePage ?: return this
         val oldText = focusedTextOutline ?: return this

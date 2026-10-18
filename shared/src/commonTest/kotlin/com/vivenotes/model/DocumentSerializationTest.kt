@@ -101,11 +101,31 @@ class DocumentSerializationTest {
                     ),
                 ),
                 Outline.Image(id = "img-1", attachmentId = "att-1", height = 200f),
+                Outline.Image(
+                    id = "img-2",
+                    attachmentId = "att-1",
+                    height = 200f,
+                    backgroundArgb = 0xFFFFEB3B.toInt(),
+                ),
                 Outline.Ink(id = "ink-1", height = 120f),
             ),
         )
 
         assertEquals(doc, decodePageDoc(doc.encode()))
+    }
+
+    @Test
+    fun `a picture writes its background after its lock group, in Android's field order`() {
+        // Both apps store and sync this JSON, so the same picture must encode to the same bytes.
+        val doc = PageDoc(outlines = listOf(Outline.Image(id = "img", attachmentId = "att", height = 200f,
+            backgroundArgb = 0xFF3B82F6.toInt(), lockGroup = "group")))
+
+        assertTrue(doc.encode().endsWith(""""lockGroup":"group","backgroundArgb":${0xFF3B82F6.toInt()}}]}"""),
+            doc.encode())
+        // Earlier desktop builds wrote the two the other way round; those pages read the same.
+        val earlier = """{"outlines":[{"t":"image","id":"img","attachmentId":"att","height":200.0,""" +
+            """"backgroundArgb":${0xFF3B82F6.toInt()},"lockGroup":"group"}]}"""
+        assertEquals(doc, decodePageDoc(earlier))
     }
 
     @Test

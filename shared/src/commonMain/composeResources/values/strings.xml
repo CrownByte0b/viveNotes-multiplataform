@@ -340,6 +340,8 @@
     <string name="value_pt">%1$s pt</string>
     <string name="fill">Fill</string>
     <string name="no_fill">No fill</string>
+    <string name="change_background_color">Change background color</string>
+    <string name="no_background">No background</string>
     <string name="write_in_with_a_pen">Write in with a pen</string>
     <string name="off_each_cell_is_a_text_field_you_type_into">Off, each cell is a text field you type into.</string>
     <string name="column_count">Column count</string>

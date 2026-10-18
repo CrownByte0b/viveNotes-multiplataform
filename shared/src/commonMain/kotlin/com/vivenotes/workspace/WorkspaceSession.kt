@@ -204,6 +204,12 @@ class WorkspaceSession(
             if (lockChanges.isNotEmpty()) log.event("objects") {
                 "${if (lockChanges.all { it.lockGroup == null }) "unlocked" else "locked"} ${lockChanges.size} objects"
             }
+            val backgroundChanges = newObjects.filterIsInstance<com.vivenotes.model.Outline.Image>().filter { picture ->
+                (oldObjects[picture.id] as? com.vivenotes.model.Outline.Image)?.let { it.backgroundArgb != picture.backgroundArgb } == true
+            }
+            if (backgroundChanges.isNotEmpty()) log.event("objects") {
+                "${if (backgroundChanges.all { it.backgroundArgb == null }) "cleared" else "set"} background of ${backgroundChanges.size} pictures"
+            }
         }
         if (before.selectedObjectIds != after.selectedObjectIds) log.event("objects") {
             if (after.selectedObjectIds.isEmpty()) "selection cleared" else "selected ${after.selectedObjectIds.size} objects"

@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -46,6 +47,7 @@ internal object SelectionColorTags {
     const val Rainbow = "selection-color-custom"
     const val Add = "selection-color-add"
     const val Swatches = "selection-color-swatches"
+    const val NoFill = "selection-color-none"
     fun color(argb: Int) = "selection-color-$argb"
 }
 
@@ -80,10 +82,13 @@ internal fun SelectionColorButton(swatch: Color, canvasInk: Color, onColor: (Int
     }
 }
 
-/** One palette for selected ink, outline borders, equations and shape fills. */
+/**
+ * One palette for selected ink, outline borders, equations, shape fills and picture backgrounds.
+ * A picture words the [onNoFill] row in its own terms: [noFillLabel], led by [noFillIcon].
+ */
 @Composable
 internal fun SelectionColorPicker(onColor: (Int) -> Unit, onNoFill: (() -> Unit)? = null,
-    selectedColor: Int? = null,
+    selectedColor: Int? = null, noFillLabel: String = Strings.no_fill, noFillIcon: ImageVector? = null,
     content: @Composable (open: () -> Unit) -> Unit) {
     var open by remember { mutableStateOf(false) }
     var customOpen by remember { mutableStateOf(false) }
@@ -151,7 +156,13 @@ internal fun SelectionColorPicker(onColor: (Int) -> Unit, onNoFill: (() -> Unit)
                                         }
                                         onNoFill?.let { noFill ->
                                             TextButton(onClick = { close(); noFill() }, contentPadding = PaddingValues(horizontal = 4.dp),
-                                                modifier = Modifier.height(28.dp)) { Text(Strings.no_fill) }
+                                                modifier = Modifier.height(28.dp).testTag(SelectionColorTags.NoFill)) {
+                                                noFillIcon?.let {
+                                                    Icon(it, null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                                                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                                                }
+                                                Text(noFillLabel)
+                                            }
                                         }
                                         Spacer(Modifier.height(8.dp))
                                     }

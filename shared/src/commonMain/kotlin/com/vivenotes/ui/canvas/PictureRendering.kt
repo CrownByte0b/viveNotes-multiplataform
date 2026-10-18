@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
@@ -57,12 +58,17 @@ internal fun rememberPictureAssets(attachmentIds: List<String>, library: Picture
     return assets
 }
 
-/** A picture drawn at its outline's size; the frame keeps that size even when the file is missing. */
+/**
+ * A picture drawn at its outline's size; the frame keeps that size even when the file is missing.
+ * [background] (`Outline.Image.backgroundArgb`) fills the frame behind a picture that can be drawn,
+ * on the box the bitmap fills, so no sliver of colour shows past an opaque picture's edge.
+ */
 @Composable
-internal fun PictureContent(asset: PictureAsset?, modifier: Modifier = Modifier) {
+internal fun PictureContent(asset: PictureAsset?, background: Int? = null, modifier: Modifier = Modifier) {
     when (asset) {
         is PictureAsset.Ready -> Image(asset.bitmap, contentDescription = Strings.picture,
-            contentScale = ContentScale.FillBounds, modifier = modifier.fillMaxSize())
+            contentScale = ContentScale.FillBounds, modifier = modifier.fillMaxSize()
+                .then(background?.let { Modifier.background(Color(it)) } ?: Modifier))
         // Android's broken-picture plate: the frame keeps its fill and only the message is red.
         is PictureAsset.Broken -> Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(8.dp), contentAlignment = Alignment.Center) {

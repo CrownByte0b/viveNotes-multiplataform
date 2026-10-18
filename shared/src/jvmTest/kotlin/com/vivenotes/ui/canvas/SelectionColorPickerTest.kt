@@ -19,6 +19,7 @@ import com.vivenotes.model.*
 import com.vivenotes.model.ink.ShapeKind
 import com.vivenotes.model.ink.seedSegments
 import com.vivenotes.ui.components.LocalPopupLayerDensity
+import com.vivenotes.ui.ribbon.document.PictureObjectTags
 import com.vivenotes.ui.ribbon.draw.ShapeObjectTags
 import com.vivenotes.ui.ribbon.view.ViewRibbonTags
 import com.vivenotes.ui.shell.*
@@ -153,6 +154,45 @@ class SelectionColorPickerTest {
         onNodeWithTag(ShapeObjectTags.Fill).performClick()
         onNodeWithText("No fill").performClick()
         runOnIdle { assertNull((state.value.selectedPage!!.document.outlines.first() as Outline.Shape).fillArgb) }
+    }
+
+    /** Android `ShapeToolTest.aPictureBackgroundIsTheSameControlInItsOwnWords`, on the shared palette. */
+    @Test
+    fun aPictureBackgroundIsTheSameControlInItsOwnWords() = runDesktopComposeUiTest(width = 1500, height = 1000) {
+        val picture = Outline.Image(id = "picture", x = 180f, y = 520f, width = 120f, height = 80f, attachmentId = "fixture")
+        val second = Outline.Image(id = "second", x = 380f, y = 520f, width = 120f, height = 80f, attachmentId = "fixture")
+        val base = workspace().let { state -> state.updatePage(state.selectedPageId) {
+            it.copy(document = it.document.copy(outlines = it.document.outlines + listOf(picture, second)))
+        } }
+        val state = mutableStateOf(base.selectObject(picture.id))
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
+        fun background(id: String) = (state.value.selectedPage!!.document.outlines.first { it.id == id } as Outline.Image).backgroundArgb
+        val blue = 0xff2962ff.toInt()
+
+        // A picture has no colour of its own to change: no base swatch, a background control instead.
+        onNodeWithTag(WorkspaceTestTags.ObjectColor).assertDoesNotExist()
+        onNodeWithContentDescription("Change background color").assertHeightIsEqualTo(32.dp).performClick()
+        val menu = onNodeWithTag(SelectionColorTags.Menu).fetchSemanticsNode().boundsInWindow
+        assertTrue(menu.bottom <= onNodeWithTag(PictureObjectTags.Background).fetchSemanticsNode().boundsInWindow.top)
+        onNodeWithContentDescription("Blue").performClick()
+        runOnIdle { assertEquals(blue, background(picture.id)); assertNull(background(second.id)) }
+
+        onNodeWithTag(PictureObjectTags.Background).performClick()
+        onNodeWithTag(SelectionColorTags.color(blue)).assertIsSelected()
+        onNodeWithTag(SelectionColorTags.NoFill).assertTextEquals("No background")
+        onNodeWithTag(WorkspaceTestTags.ObjectToolkit).saveImage("picture-background-toolkit.png")
+        onNodeWithTag(SelectionColorTags.Menu).saveImage("picture-background-palette.png")
+        onNodeWithText("No background").performClick()
+        runOnIdle { assertNull(background(picture.id)) }
+
+        // Several pictures share the one control; held with anything else there is none.
+        runOnIdle { state.value = base.selectObjectsInRect(170f, 510f, 510f, 610f) }
+        onNodeWithTag(PictureObjectTags.Background).performClick()
+        onNodeWithContentDescription("Red").performClick()
+        runOnIdle { assertEquals(0xffe53935.toInt(), background(picture.id)); assertEquals(0xffe53935.toInt(), background(second.id)) }
+        runOnIdle { state.value = base.selectObjectsInRect(170f, 340f, 510f, 610f) }
+        onNodeWithTag(WorkspaceTestTags.ObjectColor).assertExists()
+        onNodeWithTag(PictureObjectTags.Background).assertDoesNotExist()
     }
 
     @Test

@@ -147,6 +147,7 @@ import com.vivenotes.model.ink.arms
 import com.vivenotes.model.ink.ends
 import com.vivenotes.ui.canvas.drawDocumentShape
 import com.vivenotes.ui.ribbon.draw.ShapeObjectTools
+import com.vivenotes.ui.ribbon.document.PictureObjectTools
 import com.vivenotes.ui.canvas.SelectionColorButton
 import com.vivenotes.model.PageStyle
 import com.vivenotes.workspace.primeHeight
@@ -829,6 +830,7 @@ private fun WorkspaceContent(
                     onSpaceInsertion = { insertion -> onStateChange { it.applySpaceInsertion(insertion) } },
                     onTableAction = { action -> onStateChange { it.editSelectedTable(action) } },
                     onEquationChange = { equation -> onStateChange { it.updateSelectedEquation(equation.latex, equation.width, equation.height) } },
+                    onImageBackground = { argb -> onStateChange { it.setSelectedImageBackground(argb) } },
                     onSelectObjectsInLasso = { path, heights -> onStateChange { it.selectObjectsInLasso(path, heights) } },
                     onSelectObjectsInRect = { l, t, r, b ->
                         onStateChange { it.selectObjectsInRect(l, t, r, b) }
@@ -1045,6 +1047,7 @@ private fun PageCanvas(
     onSpaceInsertion: (SpaceInsertion) -> Unit = {},
     onTableAction: (String) -> Unit = {},
     onEquationChange: (com.vivenotes.workspace.PendingDrawEquation) -> Unit = {},
+    onImageBackground: (Int?) -> Unit = {},
     onToggleTodo: (outlineId: String, blockId: String) -> Unit,
     /** Applies a text command and gives the keyboard back to the text box. */
     onTextCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
@@ -1989,7 +1992,7 @@ private fun PageCanvas(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             if (outline is Outline.Image && pictures != null) {
-                                PictureContent(pictureAssets[outline.attachmentId])
+                                PictureContent(pictureAssets[outline.attachmentId], outline.backgroundArgb)
                             } else if (outline is Outline.Table) {
                                 TableContent(outline, tableRows, shapeInk, state, richColors, editorFocusRequester,
                                     onFocusTextBox, onBodyChange, onTextShortcut)
@@ -2221,6 +2224,9 @@ private fun PageCanvas(
                                 if (selected is Outline.Shape && state.selectedObjectIds.size == 1 &&
                                     state.selectedTextOutlineIds.isEmpty()) {
                                     ShapeObjectTools(selected, onShapeLineType, onShapeWidth, onShapeFill)
+                                }
+                                state.selectedImages.takeIf { it.isNotEmpty() }?.let { images ->
+                                    PictureObjectTools(images.map { it.backgroundArgb }.distinct().singleOrNull(), onImageBackground)
                                 }
                                 TooltipIconButton(Strings.copy_selection, onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectCopy)) {

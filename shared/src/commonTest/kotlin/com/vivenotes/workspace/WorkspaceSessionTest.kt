@@ -54,6 +54,32 @@ class WorkspaceSessionTest {
     }
 
     @Test
+    fun pictureBackgroundIsSavedAndLoggedWithoutItsColourOrIds() = runTest {
+        val picture = Outline.Image("private-picture-id", 100f, 220f, 80f, attachmentId = "private-attachment", height = 60f)
+        store.storeBody(limits, PageLoad.Loaded(PageDoc(outlines = listOf(picture))))
+        val lines = mutableListOf<String>()
+        val session = WorkspaceSession(store, backgroundScope, { "created $it" },
+            log = DebugLog(enabled = true, output = lines::add))
+        session.start()
+        runCurrent()
+        val blue = 0xFF2962FF.toInt()
+        fun saved() = store.saves.last().second.outlines.filterIsInstance<Outline.Image>().single()
+
+        session.update { it.selectObject(picture.id).setSelectedImageBackground(blue) }
+        advanceTimeBy(WorkspaceSession.AUTOSAVE_DELAY_MILLIS + 1)
+        runCurrent()
+        assertEquals(picture.copy(backgroundArgb = blue), saved())
+        session.update { it.setSelectedImageBackground(null) }
+        session.flush()
+        assertEquals(picture, saved())
+
+        assertTrue(lines.any { it.contains("[objects] set background of 1 pictures") })
+        assertTrue(lines.any { it.contains("[objects] cleared background of 1 pictures") })
+        assertTrue(lines.none { line -> listOf(picture.id, picture.attachmentId, blue.toString(), "2962")
+            .any { line.contains(it, ignoreCase = true) } })
+    }
+
+    @Test
     fun debugLogTracksPageLoadSaveAndStorageFailureWithoutDocumentText() = runTest {
         val lines = mutableListOf<String>()
         val session = WorkspaceSession(store, backgroundScope, { "created $it" },

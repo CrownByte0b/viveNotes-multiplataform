@@ -64,6 +64,52 @@ class WorkspaceStateTest {
     }
 
     @Test
+    fun pictureOnlySelectionsSetAndClearTheirBackgroundAsOneUndoStep() {
+        val initial = WorkspaceState.demo()
+        val first = Outline.Image(id = "picture-a", x = 100f, y = 400f, width = 80f, height = 80f, attachmentId = "fixture")
+        val second = Outline.Image(id = "picture-b", x = 250f, y = 400f, width = 80f, height = 80f, attachmentId = "fixture")
+        val pinned = Outline.Image(id = "picture-pinned", x = 100f, y = 600f, width = 80f, height = 80f,
+            attachmentId = "fixture", lockGroup = "group")
+        val shape = Outline.Shape(id = "shape", x = 400f, y = 400f,
+            segments = listOf(ShapeSegment("segment", 400f, 400f, 480f, 480f)))
+        val withObjects = initial.updatePage(initial.selectedPageId) {
+            it.copy(document = it.document.copy(outlines = it.document.outlines + listOf(first, second, pinned, shape)))
+        }
+        fun WorkspaceState.background(id: String) =
+            (selectedPage!!.document.outlines.first { it.id == id } as Outline.Image).backgroundArgb
+        val blue = 0xFF2962FF.toInt()
+
+        val pictures = withObjects.selectObjectsInRect(90f, 390f, 340f, 490f)
+        assertEquals(setOf(first.id, second.id), pictures.selectedImages.map { it.id }.toSet())
+        val colored = pictures.setSelectedImageBackground(blue)
+        assertEquals(blue, colored.background(first.id))
+        assertEquals(blue, colored.background(second.id))
+        assertEquals(null, colored.background(pinned.id))
+        assertEquals(pictures.structuralUndo.size + 1, colored.structuralUndo.size)
+        assertEquals(colored, colored.setSelectedImageBackground(blue), "the same colour again is not an edit")
+        val cleared = colored.setSelectedImageBackground(null)
+        assertEquals(withObjects.selectedPage!!.document, cleared.selectedPage!!.document)
+        assertEquals(colored.selectedPage!!.document, cleared.undoStructure().selectedPage!!.document)
+        assertEquals(cleared.selectedPage!!.document, cleared.undoStructure().redoStructure().selectedPage!!.document)
+
+        // Lock means stays put, not protected: a pinned picture still takes a background.
+        assertEquals(blue, withObjects.selectObject(pinned.id).setSelectedImageBackground(blue).background(pinned.id))
+
+        // Held with anything else there is no picture-only half to act on.
+        val mixed = withObjects.selectObjectsInRect(90f, 390f, 490f, 490f)
+        assertEquals(setOf(first.id, second.id, shape.id), mixed.selectedObjectIds)
+        assertTrue(mixed.selectedImages.isEmpty())
+        assertEquals(mixed, mixed.setSelectedImageBackground(blue))
+        val withText = pictures.copy(selectedTextOutlineIds = setOf(withObjects.bodyTextOutline!!.id))
+        assertTrue(withText.selectedImages.isEmpty())
+        assertEquals(withText, withText.setSelectedImageBackground(blue))
+
+        // A copy is the whole picture, background included.
+        val pasted = colored.selectObject(first.id).copySelectedObjects().pasteCanvasAt(600f, 700f)
+        assertEquals(blue, pasted.background(pasted.selectedObjectIds.single()))
+    }
+
+    @Test
     fun lineEndsAndLArmsRemainEditableAfterPlacement() {
         val line = WorkspaceState.demo().setShapeSettings(ShapeToolSettings(kind = ShapeKind.Arrow))
             .toggleShapeTool().createShape(200f, 300f, 350f, 350f)
