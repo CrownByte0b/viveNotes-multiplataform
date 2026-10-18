@@ -1,3 +1,4 @@
+// Copied from the Android app's `data/sync/RemoteInkSignal.kt`; only Android-only imports differ.
 package com.vivenotes.data.sync
 
 import kotlinx.coroutines.flow.MutableStateFlow

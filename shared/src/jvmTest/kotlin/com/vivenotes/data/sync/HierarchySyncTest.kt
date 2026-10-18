@@ -1,5 +1,14 @@
+// Ported from the Android app's instrumented `data/sync/HierarchySyncTest.kt`. The cases are Android's;
+// only the harness differs: a file-backed desktop `NotesDatabase` for Room's in-memory Android
+// builder, and a counting SQLite driver for the query callback Room offers only on Android.
 package com.vivenotes.data.sync
 
+import androidx.room.Room
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.SQLiteStatement
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.vivenotes.data.AttachmentSweep
 import com.vivenotes.data.EraserMode
 import com.vivenotes.data.NotesRepository
 import com.vivenotes.data.db.AttachmentEntity
@@ -36,6 +45,7 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.Base64
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 class HierarchySyncTest {
 
@@ -242,6 +252,73 @@ class HierarchySyncTest {
         // The cursor stays put: the next run asks for the same delta instead of advancing past a row
         // this device could not place.
         assertEquals(0L, db.syncDao().state()!!.cursor)
+    }
+
+    @Test
+    fun aHeldRowIsNotLookedUpAgainOnEveryPage() = runBlocking {
+        val pageLookups = AtomicInteger()
+        val counted = Room.databaseBuilder<NotesDatabase>(name = File(attachmentDirectory, "counted.db").absolutePath)
+            .setDriver(CountingDriver(BundledSQLiteDriver()) { sql -> if (sql == PAGE_LOOKUP) pageLookups.incrementAndGet() })
+            .setQueryCoroutineContext(kotlinx.coroutines.Dispatchers.IO)
+            .addCallback(NotesDatabase.SYNC_TRIGGER_CALLBACK)
+            .build()
+        try {
+            val changedAt = System.currentTimeMillis()
+            server.seed(notebookChange("n", "Notebook", changedAt))
+            server.seed(sectionChange("s", "n", "Section", changedAt))
+            // One stroke per page of the delta, every one waiting for a page that never comes.
+            repeat(HELD_STROKES) { index ->
+                server.seed(inkStrokeChange("stroke-$index", "absent-page", index, changedAt))
+            }
+            server.pageLimit = 1
+            val counting = HierarchySync(
+                counted,
+                server,
+                RemoteInkSignal(),
+                AttachmentBlobSync(counted, server, pictures),
+            )
+
+            val result = counting.run(account())
+
+            // Refused like any delta whose parent never arrives. What matters is the cost of
+            // getting there: Room is asked about the page once per page of the delta, not once for
+            // every stroke still waiting on it, which made a first pull quadratic in held rows.
+            assertTrue(result is SyncRunResult.Failed)
+            assertTrue(
+                "${pageLookups.get()} page lookups across $HELD_STROKES pages",
+                pageLookups.get() <= HELD_STROKES,
+            )
+        } finally {
+            counted.close()
+        }
+    }
+
+    @Test
+    fun aRowHeldOnTheStreamIsReleasedByALaterStreamPage() = runBlocking {
+        val changedAt = System.currentTimeMillis()
+        server.seed(sectionChange("s", "n", "Remote section", changedAt))
+        server.seed(pageChange("p", "s", "Remote page", changedAt))
+        server.seed(notebookChange("n", "Renamed last", changedAt + 1_000))
+        server.pageLimit = 1
+        val since = hierarchy.beginChangeStream(account().accountId)
+        val first = (server.pullChanges("", "", since, 512) as ServerResult.Success<PullChangesPage>).value
+        val second = (server.pullChanges("", "", first.cursor, 512) as ServerResult.Success<PullChangesPage>).value
+        val third = (server.pullChanges("", "", second.cursor, 512) as ServerResult.Success<PullChangesPage>).value
+
+        hierarchy.applyStreamPage(account(), first)
+        hierarchy.applyStreamPage(account(), second)
+
+        // Both waiting on the notebook: nothing written, and no cursor promising they were.
+        assertNull(db.sectionDao().byId("s"))
+        assertNull(db.pageDao().byId("p"))
+        assertEquals(0L, db.syncDao().state()!!.cursor)
+
+        val result = hierarchy.applyStreamPage(account(), third) as SyncRunResult.Succeeded
+
+        assertEquals(3, result.summary.pulled)
+        assertEquals("n", db.sectionDao().byId("s")!!.notebookId)
+        assertEquals("s", db.pageDao().byId("p")!!.sectionId)
+        assertEquals(3L, db.syncDao().state()!!.cursor)
     }
 
     @Test
@@ -925,6 +1002,104 @@ class HierarchySyncTest {
     }
 
     @Test
+    fun aReleasedPictureIsPushedAsATombstoneAndNoBytesTravel() = runBlocking {
+        val bytes = "a photograph".toByteArray()
+        val digest = sha256(bytes)
+        pictures.write(digest, bytes)
+        val pageId = seedPageWithPicture(digest)
+        hierarchy.run(account())
+        server.blobCalls.clear()
+
+        // The picture leaves the page, and with nothing else placing it the sweep releases it.
+        repository.saveDoc(pageId, PageDoc.empty())
+        AttachmentSweep(db, pictures, { emptySet() }, clock = { now + AttachmentSweep.FRESH_IMPORT_MILLIS }).sweep()
+        hierarchy.run(account()) as SyncRunResult.Succeeded
+
+        // A release names no bytes: uploading them would put back the copy it exists to free.
+        assertEquals(emptyList<String>(), server.blobCalls)
+        val stored = server.current("attachment", digest)!!
+        assertTrue("the server must learn of the release", stored.getValue("deletedAt") !is JsonNull)
+        assertTrue(db.syncDao().outbox(512).isEmpty())
+        // The file stays on this device until the release has aged a day.
+        assertTrue(pictures.fileFor(digest).exists())
+    }
+
+    @Test
+    fun aFullAccountKeepsThePictureAndItsPageQueuedUntilThereIsRoom() = runBlocking {
+        val bytes = "a photograph".toByteArray()
+        val digest = sha256(bytes)
+        pictures.write(digest, bytes)
+        val pageId = seedPageWithPicture(digest)
+        server.storageFull = true
+
+        val full = hierarchy.run(account())
+
+        // Not "undeliverable": that would drop the picture from the page and from the queue for
+        // good, and it would never reach the server even after the account freed space.
+        assertEquals(SyncRunResult.Failed(PermanentSyncFailure.StorageFull), full)
+        val queued = db.syncDao().outbox(512).map { it.kind to it.entityId }
+        assertTrue(("attachment" to digest) in queued)
+        assertTrue(("pageContent" to pageId) in queued)
+
+        server.storageFull = false
+        hierarchy.run(account()) as SyncRunResult.Succeeded
+
+        assertArrayEquals(bytes, server.blobs.getValue(digest))
+        assertEquals(
+            listOf(digest),
+            (server.current("pageContent", pageId)!!.getValue("blobRefs") as JsonArray)
+                .map { it.jsonPrimitive.content },
+        )
+    }
+
+    @Test
+    fun aFullAccountStillPushesADeleteQueuedBesideAPictureThatDoesNotFit() = runBlocking {
+        val notebookId = repository.createNotebook("Notebook")
+        val sectionId = repository.createSection(notebookId, "Section")
+        val doomedId = repository.createPage(sectionId, "Doomed")
+        val pageId = repository.createPage(sectionId, "Page")
+        hierarchy.run(account()) as SyncRunResult.Succeeded
+
+        val bytes = "a photograph".toByteArray()
+        val digest = sha256(bytes)
+        pictures.write(digest, bytes)
+        placePicture(pageId, digest)
+        repository.deletePage(doomedId)
+        server.storageFull = true
+        server.blobCalls.clear()
+
+        val full = hierarchy.run(account())
+
+        assertEquals(SyncRunResult.Failed(PermanentSyncFailure.StorageFull), full)
+        // Deleting is how a full account makes room, so a picture with none must not hold it back.
+        assertTrue(server.current("page", doomedId)!!.getValue("deletedAt") !is JsonNull)
+        val queued = db.syncDao().outbox(512).map { it.kind to it.entityId }
+        assertEquals(setOf("attachment" to digest, "pageContent" to pageId), queued.toSet())
+        assertEquals(listOf("HEAD $digest", "PUT $digest"), server.blobCalls)
+
+        server.storageFull = false
+        hierarchy.run(account()) as SyncRunResult.Succeeded
+        assertArrayEquals(bytes, server.blobs.getValue(digest))
+        assertTrue(db.syncDao().outbox(512).isEmpty())
+    }
+
+    @Test
+    fun aChangeAFullAccountRefusesStaysQueued() = runBlocking {
+        hierarchy.run(account())
+        server.storageFull = true
+        val notebookId = repository.createNotebook("Notebook")
+
+        val full = hierarchy.run(account())
+
+        assertEquals(SyncRunResult.Failed(PermanentSyncFailure.StorageFull), full)
+        assertTrue(("notebook" to notebookId) in db.syncDao().outbox(512).map { it.kind to it.entityId })
+
+        server.storageFull = false
+        hierarchy.run(account()) as SyncRunResult.Succeeded
+        assertNotNull(server.current("notebook", notebookId))
+    }
+
+    @Test
     fun aSecondRunUploadsNothingBecauseTheAcceptedRowIsProofTheServerHasTheBytes() = runBlocking {
         val bytes = "a photograph".toByteArray()
         val digest = sha256(bytes)
@@ -1432,6 +1607,12 @@ class HierarchySyncTest {
         val notebookId = repository.createNotebook("Notebook")
         val sectionId = repository.createSection(notebookId, "Section")
         val pageId = repository.createPage(sectionId, "Page")
+        placePicture(pageId, digest)
+        return pageId
+    }
+
+    /** Puts one picture on an existing page, with its metadata row. */
+    private suspend fun placePicture(pageId: String, digest: String) {
         db.attachmentDao().insert(
             AttachmentEntity(
                 id = digest,
@@ -1446,7 +1627,6 @@ class HierarchySyncTest {
         )
         db.attachmentDao().retain(digest)
         repository.saveDoc(pageId, docWithPicture(digest))
-        return pageId
     }
 
     private fun docWithPicture(digest: String, x: Float = 0f) = PageDoc(
@@ -1594,6 +1774,7 @@ class HierarchySyncTest {
         accountId = "account",
         deviceId = "device",
         token = "vive_test",
+        deviceName = "Test",
     )
 
     private class InMemorySyncServer : SyncTransport {
@@ -1628,6 +1809,13 @@ class HierarchySyncTest {
          * because that is precisely what repairs it.
          */
         val lostBlobs = mutableSetOf<String>()
+
+        /**
+         * The account's storage quota is full: a new live row is refused `quota_exceeded`, and so is
+         * an upload, exactly as the managed server answers. Changes that do not grow the account —
+         * edits and tombstones of rows it holds — still go through.
+         */
+        var storageFull = false
 
         fun seed(vararg changes: JsonObject) {
             cursor++
@@ -1799,6 +1987,14 @@ class HierarchySyncTest {
                         null,
                         current,
                     )
+                } else if (storageFull && current == null && incoming["deletedAt"].let { it == null || it is JsonNull }) {
+                    rejected += RejectedServerChange(
+                        key.first,
+                        key.second,
+                        "quota_exceeded",
+                        "this account's storage is full",
+                        null,
+                    )
                 } else {
                     accepted += incoming to (currentVersion + 1)
                     acceptedKeys += key
@@ -1842,6 +2038,7 @@ class HierarchySyncTest {
             file: File,
         ): ServerResult<Boolean> {
             blobCalls += "PUT $digest"
+            if (storageFull) return ServerResult.Failed(ConnectFailure.StorageFull, retryable = false)
             val bytes = file.readBytes()
             // The real server hashes what arrives and refuses a body that does not match its name.
             if (sha256(bytes) != digest) {
@@ -1885,6 +2082,12 @@ class HierarchySyncTest {
         }
     }
 }
+
+/** `PageDao.byId` as Room hands it to SQLite, which is how a parent check reaches the database. */
+private const val PAGE_LOOKUP = "SELECT * FROM pages WHERE id = ?"
+
+/** Enough held rows that re-checking each on every page shows: 50 pages would cost 1,275 lookups. */
+private const val HELD_STROKES = 50
 
 private fun sha256(bytes: ByteArray): String =
     MessageDigest.getInstance("SHA-256").digest(bytes)
@@ -2061,3 +2264,22 @@ private fun attachmentChange(id: String, byteCount: Long, updatedAt: Long): Json
 
 private fun decodeDocument(change: JsonObject): String =
     Base64.getDecoder().decode(change.getValue("doc").jsonPrimitive.content).decodeToString()
+
+/**
+ * Counts the statements Room prepares, the desktop stand-in for Android's `setQueryCallback`: with a
+ * driver Room prepares every query it runs, so a statement count is a query count.
+ */
+private class CountingDriver(
+    private val driver: SQLiteDriver,
+    private val onPrepare: (String) -> Unit,
+) : SQLiteDriver by driver {
+    override fun open(fileName: String): SQLiteConnection {
+        val connection = driver.open(fileName)
+        return object : SQLiteConnection by connection {
+            override fun prepare(sql: String): SQLiteStatement {
+                onPrepare(sql)
+                return connection.prepare(sql)
+            }
+        }
+    }
+}

@@ -89,6 +89,13 @@ interface NotesStore {
     /** Never an empty stand-in for content that failed to decode — see [PageLoad.Unreadable]. */
     suspend fun loadDoc(pageId: String): PageLoad
 
+    /**
+     * [pageId]'s stored body, re-emitted whenever it is replaced — including by sync, which writes
+     * bodies straight into storage. Distinct by stored row, so another page's save does not re-emit
+     * this one's.
+     */
+    fun observeDoc(pageId: String): Flow<PageLoad>
+
     /** Writes the body and its preview; a body identical to the stored one writes nothing. */
     suspend fun saveDoc(pageId: String, doc: PageDoc)
 }

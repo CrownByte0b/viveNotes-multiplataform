@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -58,6 +60,19 @@ class WorkspaceSession(
     private val shapeSettings: ShapeToolSettings = ShapeToolSettings(),
     private val log: DebugLog = DebugLog(),
     private val inkSettings: InkSettings = InkSettings(),
+    /**
+     * Android's `SyncAccounts.maySeedStarter`: false while this installation is joining an account it
+     * has not pulled yet, which must not grow a second starter notebook nobody created. Asked once,
+     * before the first read; null on a build with no account feature.
+     */
+    private val maySeedStarter: (suspend () -> Boolean)? = null,
+    /**
+     * Android's `SyncAccounts.remoteInk`: the pages sync has written ink into, by generation, so the
+     * open page can take strokes another device drew. Null on a build with no account feature.
+     */
+    private val remoteInk: StateFlow<Map<String, Long>>? = null,
+    /** Moving closed notebooks to the cloud and back; null when there is no account feature. */
+    private val notebookCloud: NotebookCloud? = null,
 ) : NavigationActions {
     private val current = MutableStateFlow<WorkspaceState?>(null)
 
@@ -86,6 +101,36 @@ class WorkspaceSession(
     /** Imports finished so far. A page edit queued before one must not be written after it. */
     private var restores = 0
 
+    /**
+     * Bodies sync replaced underneath an open page, per page. A save queued before the replacement
+     * was made against the older body and is dropped: the server's version wins, as on Android.
+     */
+    private val remoteReplacements = mutableMapOf<String, Int>()
+
+    /**
+     * For each open page, the bodies storage holds or held because of this session: the one it read
+     * when the page opened and the ones it has written since. Storage reports each of them back, the
+     * first possibly late — after typing has moved on — so a body that comes back is this session's
+     * own unless it is none of these.
+     */
+    private val ownBodies = mutableMapOf<String, ArrayDeque<PageDoc>>()
+
+    private fun rememberOwnBody(pageId: String, doc: PageDoc) {
+        val bodies = ownBodies.getOrPut(pageId) { ArrayDeque() }
+        if (doc in bodies) return
+        bodies.addLast(doc)
+        while (bodies.size > OWN_BODIES_KEPT) bodies.removeFirst()
+    }
+
+    /**
+     * The [remoteInk] generation the open page's strokes were read at. Taken before the read, so a
+     * pull committing during it is absorbed by the next signal rather than counted as shown.
+     */
+    private var absorbedInkGeneration = 0L
+
+    /** Remote ink that arrived while the page had ink of its own in flight or selected. */
+    private var deferredInkAbsorption = false
+
     @OptIn(ExperimentalCoroutinesApi::class)
     fun start() {
         check(!started) { "A session starts once" }
@@ -95,11 +140,37 @@ class WorkspaceSession(
         scope.launch {
             // Nothing observes the tree until seeding is done: a seeded page's row is written before
             // its body, and a page opened in between would read as empty.
-            attempt(Strings.your_notebooks_could_not_be_opened) { store.seedIfEmpty() }
+            attempt(Strings.your_notebooks_could_not_be_opened) {
+                // Evaluated once rather than watched, as on Android: a device registered but not yet
+                // pulled simply does not seed on this launch; waiting would leave it on a spinner.
+                if (maySeedStarter?.invoke() != false) store.seedIfEmpty()
+            }
             launch {
                 store.observeTree()
                     .catch { fail(Strings.your_notebooks_could_not_be_read, it) }
                     .collect(::acceptTree)
+            }
+            // The page list already follows sync, so a pulled preview could say "xw" while the open
+            // canvas stayed blank. The open body is observed on its own and taken over only when it
+            // is not this session's own write coming back.
+            launch {
+                current.map { it?.selectedPageId.orEmpty() }
+                    .distinctUntilChanged()
+                    .flatMapLatest { pageId ->
+                        if (pageId.isEmpty()) emptyFlow() else store.observeDoc(pageId).map { pageId to it }
+                    }
+                    .catch { log.failure("sync", "open page observation", it) }
+                    .collect { (pageId, load) -> acceptStoredDocument(pageId, load) }
+            }
+            // The same for the page's ink, which storage cannot report without also reporting every
+            // stroke drawn here: sync says which pages it wrote ink into instead.
+            remoteInk?.let { signal ->
+                launch {
+                    signal.collect { pages ->
+                        val pageId = current.value?.selectedPageId?.takeIf { it.isNotEmpty() } ?: return@collect
+                        absorbRemoteInk(pageId, pages[pageId] ?: 0L)
+                    }
+                }
             }
             openSection.filterNotNull()
                 .flatMapLatest { sectionId -> store.observePages(sectionId).map { sectionId to it } }
@@ -297,6 +368,9 @@ class WorkspaceSession(
         override fun restoreRevision() = this@WorkspaceSession.restoreSelectedRevision()
         override fun restoreDeletedItem(item: DeletedItem) = this@WorkspaceSession.restoreDeleted(item)
         override fun reopenNotebook(id: String) = this@WorkspaceSession.reopenNotebook(id)
+        override val cloudConnected: StateFlow<Boolean>? get() = notebookCloud?.connected
+        override fun moveNotebookToCloud(id: String) = runCloudArchive(id, move = true)
+        override fun bringNotebookBack(id: String) = runCloudArchive(id, move = false)
         override fun closeNotebook() {
             val notebook = currentNotebook() ?: return
             saveOpenPage()
@@ -598,25 +672,141 @@ class WorkspaceSession(
         log.event("session") { "flush complete" }
     }
 
-    /** Reloads an open page after a remote sync commit, preserving edits made during the reload. */
-    fun refreshOpenPageFromStorage() {
-        val page = current.value?.selectedPage ?: return
-        if (!page.editable || openPageHasUnsavedChanges() ||
-            current.value?.pendingInkEdits?.any { it.pageId == page.id } == true) return
-        val pageId = page.id
-        val shown = page.document
+    /**
+     * Pictures the editor can still put back on a page — the open page's, every undo and redo step's,
+     * and the canvas clipboard's — for Android's `AttachmentSweep`, which must not let them go.
+     * Read on the session's thread, like everything else here.
+     */
+    fun heldPictures(): Set<String> {
+        val state = current.value ?: return emptySet()
+        fun images(doc: PageDoc?) = doc?.outlines.orEmpty().filterIsInstance<com.vivenotes.model.Outline.Image>()
+            .map { it.attachmentId }
+        return buildSet {
+            addAll(images(state.selectedPage?.document))
+            (state.structuralUndo + state.structuralRedo).forEach { snapshot ->
+                addAll(images(snapshot.document))
+                addAll(images(snapshot.ink?.afterDocument))
+            }
+            state.canvasClipboard.outlines.filterIsInstance<com.vivenotes.model.Outline.Image>()
+                .forEach { add(it.attachmentId) }
+        }
+    }
+
+    /**
+     * Android's `acceptStoredDocument`: makes a body replaced underneath the editor authoritative on
+     * the canvas as well as in storage.
+     *
+     * Sync writes bodies straight into storage. Without this the open page keeps its older blocks, and
+     * its next save writes them back as a fresh edit — resurrecting what another device removed. The
+     * server's version wins, as plain OCC has it on Android, including over a save of this page
+     * still queued: that one was made against the body being replaced, so it is dropped.
+     *
+     * This session's own reads and writes come back through the same observation, and are recognised
+     * as such ([ownBodies]) rather than compared with the editor, so typing that happened while a
+     * save was being written is never rolled back.
+     */
+    private fun acceptStoredDocument(pageId: String, load: PageLoad) {
+        val state = current.value ?: return
+        val page = state.selectedPage ?: return
+        if (page.id != pageId || page.content == PageContent.Unloaded) return
+        when (load) {
+            is PageLoad.Loaded -> {
+                if (page.content == PageContent.Loaded && ownBodies[pageId]?.contains(load.doc) == true) return
+                remoteReplacements[pageId] = (remoteReplacements[pageId] ?: 0) + 1
+                autosave?.cancel()
+                stored[pageId] = load.doc
+                ownBodies[pageId] = ArrayDeque(listOf(load.doc))
+                log.event("sync") { "open page replaced by a synced body" }
+                // A fresh selection, as Android's `showDocument` gives: a caret or a selected object
+                // in the old body need not exist in the new one. Undo keeps its steps, which is the
+                // trade Android makes too.
+                current.value = state.updatePage(pageId) {
+                    it.copy(document = load.doc, content = PageContent.Loaded)
+                }.copy(
+                    editorSelection = TextSelection(0),
+                    typingMarks = emptySet(),
+                    editorComposition = null,
+                    focusedTextOutlineId = null,
+                    selectedTextOutlineIds = emptySet(),
+                    selectedObjectIds = emptySet(),
+                )
+            }
+            is PageLoad.Unreadable -> {
+                // Preserve the stored bytes and block every save, as an unreadable first read does.
+                log.failure("sync", "synced page decode", load.cause)
+                remoteReplacements[pageId] = (remoteReplacements[pageId] ?: 0) + 1
+                autosave?.cancel()
+                stored.remove(pageId)
+                ownBodies.remove(pageId)
+                current.value = state.updatePage(pageId) { it.copy(content = PageContent.Unreadable) }
+            }
+        }
+    }
+
+    /** The generation of remote ink [pageId] has received, or zero on a build with no account. */
+    private fun remoteInkGeneration(pageId: String): Long = remoteInk?.value?.get(pageId) ?: 0L
+
+    /**
+     * Android's `absorbRemoteInk`: puts ink the server wrote into the open page onto the open page.
+     *
+     * A re-read, not a delta: erases and lasso moves replay in order and do not commute, so pulled
+     * operations cannot be replayed against the new strokes alone. It waits while this page has ink of
+     * its own in flight or a selection made from the strokes it would replace, and is tried again
+     * once neither holds; the read itself queues behind every earlier ink write.
+     */
+    private fun absorbRemoteInk(pageId: String, generation: Long) {
+        if (generation == absorbedInkGeneration) return
+        val state = current.value ?: return
+        val page = state.selectedPage ?: return
+        if (page.id != pageId || page.content != PageContent.Loaded || !page.inkReady) return
+        val source = inkSource ?: return
+        if (state.selectedInk != null || state.pendingInkEdits.any { it.pageId == pageId }) {
+            deferredInkAbsorption = true
+            return
+        }
+        deferredInkAbsorption = false
         enqueue {
-            val loaded = attempt(Strings.this_page_could_not_be_refreshed) { store.loadDoc(pageId) }
-            val open = current.value?.selectedPage
-            if (loaded is PageLoad.Loaded && open?.id == pageId &&
-                open.document == shown && !openPageHasUnsavedChanges()) {
-                stored[pageId] = loaded.doc
-                current.value = current.value?.updatePage(pageId) {
-                    it.copy(document = loaded.doc, content = PageContent.Loaded)
-                }
-                if (inkSource != null) {
-                    attempt(Strings.this_page_s_ink_could_not_be_read) { inkSource.loadInk(pageId) }
-                        ?.let { acceptInk(pageId, it) }
+            val seen = remoteInkGeneration(pageId)
+            val ink = attempt(Strings.this_page_s_ink_could_not_be_read) { source.loadInk(pageId) } ?: return@enqueue
+            val now = current.value ?: return@enqueue
+            if (now.selectedPageId != pageId) return@enqueue
+            if (now.selectedInk != null || now.pendingInkEdits.any { it.pageId == pageId }) {
+                deferredInkAbsorption = true
+                return@enqueue
+            }
+            acceptInk(pageId, ink)
+            absorbedInkGeneration = seen
+            log.event("sync") { "open page took synced ink" }
+        }
+    }
+
+    /**
+     * Android's `runCloudArchive`: moves a closed notebook's contents to the server, or brings them
+     * back, one notebook at a time. It runs in the session's scope rather than the pane's, so closing
+     * the pane part-way through — the window where rows are deleted — does not cancel it.
+     */
+    private fun runCloudArchive(notebookId: String, move: Boolean) {
+        val cloud = notebookCloud ?: return
+        val pane = current.value?.filePane ?: return
+        if (pane.pane != FilePane.ClosedNotebooks || pane.cloudBusyNotebookId != null || pane.busy) return
+        update { it.copy(filePane = it.filePane.copy(cloudBusyNotebookId = notebookId, error = null, message = null)) }
+        scope.launch {
+            val failure = try {
+                cloud.move(notebookId, toCloud = move)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                log.failure("sync", if (move) "move notebook to cloud" else "bring notebook back", error)
+                if (move) Strings.closed_notebook_failed else Strings.closed_notebook_restore_failed
+            }
+            log.event("sync") { if (move) "notebook moved to cloud: ${failure == null}" else "notebook brought back: ${failure == null}" }
+            val rows = attempt(Strings.closed_notebooks_could_not_be_read) { store.observeClosedNotebooks().first() }
+            update { state ->
+                if (state.filePane.pane != FilePane.ClosedNotebooks) {
+                    state.copy(filePane = state.filePane.copy(cloudBusyNotebookId = null))
+                } else {
+                    state.copy(filePane = state.filePane.copy(cloudBusyNotebookId = null,
+                        closedNotebooks = rows ?: state.filePane.closedNotebooks, error = failure))
                 }
             }
         }
@@ -624,6 +814,10 @@ class WorkspaceSession(
 
     private fun react(before: WorkspaceState, after: WorkspaceState) {
         if (after.pendingInkEdits != before.pendingInkEdits || after.selectedPageId != before.selectedPageId) saveInk()
+        if (deferredInkAbsorption && after.selectedInk == null &&
+            after.pendingInkEdits.none { it.pageId == after.selectedPageId }) {
+            after.selectedPageId.takeIf { it.isNotEmpty() }?.let { absorbRemoteInk(it, remoteInkGeneration(it)) }
+        }
         if (after.selectedSectionId != before.selectedSectionId) {
             openSection.value = after.selectedSectionId.ifEmpty { null }
         }
@@ -703,11 +897,15 @@ class WorkspaceSession(
         val previous = stored[page.id]
         if (previous == doc) return
         stored[page.id] = doc
+        rememberOwnBody(page.id, doc)
         val generation = restores
+        val replaced = remoteReplacements[page.id]
         enqueue {
             // An import finished since this was asked for: the archive replaced the page, and this
             // edit — made while the import ran — must not be written over it.
             if (generation != restores) return@enqueue
+            // Likewise a body sync stored since: the server's version wins over this older edit.
+            if (replaced != remoteReplacements[page.id]) return@enqueue
             log.event("storage") { "saving page" }
             val saved = attempt(Strings.changes_to_value_could_not_be_saved(page.title.ifBlank { Strings.untitled_page })) {
                 store.saveDoc(page.id, doc)
@@ -730,8 +928,12 @@ class WorkspaceSession(
                 if (load is PageLoad.Unreadable) log.failure("storage", "page decode", load.cause)
                 accept(pageId, load)
                 if (load is PageLoad.Loaded && inkSource != null) {
+                    val seen = remoteInkGeneration(pageId)
                     attempt(Strings.this_page_s_ink_could_not_be_read) { inkSource.loadInk(pageId) }
-                        ?.let { acceptInk(pageId, it) }
+                        ?.let {
+                            acceptInk(pageId, it)
+                            if (current.value?.selectedPageId == pageId) absorbedInkGeneration = seen
+                        }
                 }
             }
         }
@@ -756,6 +958,7 @@ class WorkspaceSession(
             when (load) {
                 is PageLoad.Loaded -> {
                     stored[pageId] = load.doc
+                    ownBodies[pageId] = ArrayDeque(listOf(load.doc))
                     it.copy(document = load.doc, content = PageContent.Loaded, inkReady = inkSource == null)
                 }
                 is PageLoad.Unreadable -> it.copy(content = PageContent.Unreadable)
@@ -766,6 +969,7 @@ class WorkspaceSession(
     /** A page that is no longer open gives up its body; the next opening reads storage again. */
     private fun unload(pageId: String) {
         stored.remove(pageId)
+        ownBodies.remove(pageId)
         val state = current.value ?: return
         if (state.page(pageId)?.content == PageContent.Unloaded) return
         current.value = state.updatePage(pageId) {
@@ -907,6 +1111,9 @@ class WorkspaceSession(
     companion object {
         /** Android's `NotesViewModel.AUTOSAVE_DELAY_MS`: a burst of typing is one write. */
         const val AUTOSAVE_DELAY_MILLIS = 400L
+
+        /** How many of a page's own written bodies are recognised when storage reports them back. */
+        private const val OWN_BODIES_KEPT = 8
 
         /** What an unopened page holds in place of its body — nothing that could be edited. */
         private val UNREAD_DOCUMENT = PageDoc(outlines = emptyList())

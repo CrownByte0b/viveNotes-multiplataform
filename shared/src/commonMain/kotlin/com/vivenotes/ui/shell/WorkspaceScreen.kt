@@ -202,9 +202,7 @@ import com.vivenotes.workspace.FilePane
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
 import com.vivenotes.ui.ribbon.settings.ModelsPane
 import com.vivenotes.ai.AiModels
-import com.vivenotes.ui.account.AccountScreen
-import com.vivenotes.ui.account.AccountScreenModel
-import com.vivenotes.ui.account.AccountService
+import com.vivenotes.ui.account.AccountHost
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
@@ -266,6 +264,10 @@ import com.vivenotes.ui.search.SearchPane
 /** Stable semantics identifiers used by desktop UI tests and future accessibility automation. */
 object WorkspaceTestTags {
     const val HeaderBar = "workspace-header-bar"
+    /** The top bar's account button, and the two badges Android's ribbon puts on it. */
+    const val Account = "account-open"
+    const val AccountConnected = "account-open-connected"
+    const val AccountOffline = "account-open-offline"
     const val RibbonBar = "workspace-ribbon-bar"
     const val NavigationToggle = "workspace-navigation-toggle"
     const val NavigationIcon = "workspace-navigation-icon"
@@ -351,7 +353,8 @@ fun WorkspaceScreen(
     onInputSettingsChange: (InputSettings) -> Unit = {},
     /** The File tab's `.vive` export and import; without it those commands are unavailable. */
     fileActions: FileActions? = null,
-    accountService: AccountService? = null,
+    /** The account feature: the top bar's account button and the Account destination it opens. */
+    accountHost: AccountHost? = null,
     /** This device's recognition models, for Settings → Models; without them it is unavailable. */
     aiModels: AiModels? = null,
     drawMath: DrawMath? = null,
@@ -369,21 +372,22 @@ fun WorkspaceScreen(
     var accountOpen by remember { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
     var pdfExportOpen by remember { mutableStateOf(false) }
-    val accountScope = rememberCoroutineScope()
-    val accountModel = remember(accountService) { AccountScreenModel(accountService, accountScope) }
-    val accountSession = accountService?.session?.collectAsState()?.value
+    val accountConnected = accountHost?.connected?.collectAsState()?.value == true
+    val accountUnreachable = accountHost?.serverUnreachable?.collectAsState()?.value == true
     val baseDensity = LocalDensity.current
     val effectiveSettings = previewSettings ?: interfaceSettings
     val pageDensity = effectiveSettings.documentDensity(baseDensity)
     // Keys reach only the focused element and what contains it, so the workspace is never left
     // without one: at launch, and whenever the focused element goes (a discarded text box, a
-    // closed dialog), the canvas takes the focus and the keyboard shortcuts keep working.
+    // closed dialog), the canvas takes the focus and the keyboard shortcuts keep working. Not while
+    // the Account destination covers the page: it keeps the focus itself, and a canvas nobody can
+    // see must not take Escape or the shortcuts.
     val canvasFocusRequester = remember { FocusRequester() }
     val tooltipDismissals = remember(debugLog) { TooltipDismissals(debugLog) }
     val shortcutKeys = remember { ShortcutKeys() }
     var workspaceHasFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(workspaceHasFocus, tooltipDismissals.hasOpenPopup, pdfExportOpen) {
-        if (pdfExportOpen || workspaceHasFocus || tooltipDismissals.hasOpenPopup) return@LaunchedEffect
+    LaunchedEffect(workspaceHasFocus, tooltipDismissals.hasOpenPopup, pdfExportOpen, accountOpen) {
+        if (pdfExportOpen || accountOpen || workspaceHasFocus || tooltipDismissals.hasOpenPopup) return@LaunchedEffect
         withFrameNanos { }
         if (!workspaceHasFocus && !tooltipDismissals.hasOpenPopup) canvasFocusRequester.requestFocus()
     }
@@ -424,13 +428,16 @@ fun WorkspaceScreen(
                         onEditorDefaultsChange = onEditorDefaultsChange,
                         onShapeSettingsChange = onShapeSettingsChange,
                         onInkSettingsChange = onInkSettingsChange,
-                        accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
+                        accountConnected = accountConnected, serverUnreachable = accountUnreachable,
+                        onOpenAccount = { accountOpen = true },
                         onAbout = { aboutOpen = true }, aiModels = aiModels, drawMath = drawMath,
                         onExportPdf = { pdfExportOpen = true },
                         search = search, onOpenSearchPage = onOpenSearchPage, shortcutKeys = shortcutKeys,
                         developmentBuild = developmentBuild, debugLog = debugLog)
                 }
-                if (accountOpen) AccountScreen(accountService, accountModel, onBack = { accountOpen = false })
+                // Composed while closed as well: it holds the state Android keeps above its Account
+                // destination, so a sign-in in flight outlives the screen it was started from.
+                accountHost?.Destination(visible = accountOpen, onBack = { accountOpen = false })
                 if (aboutOpen) AboutDialog(appVersion, onDismiss = { aboutOpen = false })
                 previewSettings?.let { draft ->
                     InterfaceDialog(
@@ -478,6 +485,7 @@ private fun WorkspaceContent(
     onShapeSettingsChange: (ShapeToolSettings) -> Unit,
     onInkSettingsChange: (InkSettings) -> Unit,
     accountConnected: Boolean,
+    serverUnreachable: Boolean,
     onOpenAccount: () -> Unit,
     onAbout: () -> Unit,
     onExportPdf: () -> Unit,
@@ -616,6 +624,7 @@ private fun WorkspaceContent(
             onUndo = { onStateChange { it.undoStructure() } },
             onRedo = { onStateChange { it.redoStructure() } },
             accountConnected = accountConnected,
+            serverUnreachable = serverUnreachable,
             onOpenAccount = onOpenAccount,
             searchAvailable = search != null,
             onSearch = { fileActions?.closePane(); togglePane(DockedPane.Search) },

@@ -186,6 +186,8 @@ kotlin {
             implementation("com.vivenotes.byteink:byteink-kit:$byteinkVersion")
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
+            // The sync account record, in the same Preferences file format Android keeps it in.
+            implementation(libs.androidx.datastore.preferences.core)
             implementation(libs.onnxruntime)
             runtimeOnly("io.github.darriousliu:ratex-native-linux-x86-64:0.1.14")
             runtimeOnly("io.github.darriousliu:ratex-native-linux-aarch64:0.1.14")

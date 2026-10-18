@@ -52,6 +52,8 @@ internal data class DesktopColors(
     val dialog: Color,
     val selection: Color,
     val destructive: Color,
+    /** Libadwaita's success colour: "working", where the Android app uses its green icon accent. */
+    val success: Color,
 )
 
 private val DarkDesktopColors = DesktopColors(
@@ -61,6 +63,7 @@ private val DarkDesktopColors = DesktopColors(
     dialog = Color(0xFF2E2E32),
     selection = Color(0xFF45454A),
     destructive = Color(0xFFC01C28),
+    success = Color(0xFF78E9AB),
 )
 
 private val LightDesktopColors = DesktopColors(
@@ -70,6 +73,7 @@ private val LightDesktopColors = DesktopColors(
     dialog = Color.White,
     selection = Color(0xFFDCDCE0),
     destructive = Color(0xFFE01B24),
+    success = Color(0xFF1B8553),
 )
 
 internal val LocalDesktopColors = staticCompositionLocalOf { DarkDesktopColors }

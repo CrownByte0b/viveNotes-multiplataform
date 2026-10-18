@@ -2,17 +2,30 @@ package com.vivenotes.ui.ribbon.file
 
 import com.vivenotes.localization.Strings
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.vivenotes.data.db.ClosedNotebook
+import com.vivenotes.ui.icons.AccountSymbols
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -40,6 +53,11 @@ object FilePaneTags {
     fun restoreDeleted(id: String) = "file-deleted-restore-$id"
     fun closed(id: String) = "file-closed-$id"
     fun reopen(id: String) = "file-closed-reopen-$id"
+    const val OnDeviceHeading = "file-closed-on-device"
+    const val InCloudHeading = "file-closed-in-cloud"
+    fun moveToCloud(id: String) = "file-closed-to-cloud-$id"
+    fun bringBack(id: String) = "file-closed-back-$id"
+    fun cloudBusy(id: String) = "file-closed-busy-$id"
 }
 
 @Composable
@@ -109,21 +127,94 @@ internal fun FilePaneContent(state: FilePaneState, actions: FileActions, onResto
                 when {
                     state.loading -> Status(Strings.loading_closed_notebooks)
                     state.closedNotebooks.isEmpty() && state.error == null -> Status(Strings.no_closed_notebooks, FilePaneTags.Empty)
-                    else -> state.closedNotebooks.forEach { row ->
-                        Entry(row.notebook.name, Strings.value_sections_value_pages_closed_value(row.sectionCount, row.pageCount, row.notebook.closedAt?.let { state.dateLabels[it] }.orEmpty()),
-                            false, false, FilePaneTags.closed(row.notebook.id)) { }
-                        OutlinedButton(onClick = { actions.reopenNotebook(row.notebook.id) },
-                            enabled = !state.busy && row.contentOnDevice,
-                            modifier = Modifier.fillMaxWidth().testTag(FilePaneTags.reopen(row.notebook.id))) {
-                            Text(if (row.contentOnDevice) Strings.reopen else Strings.content_unavailable_on_this_device)
-                        }
-                    }
+                    else -> ClosedNotebookGroups(state, actions)
                 }
             }
         }
         state.message?.let { Status(it, FilePaneTags.Status) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(top = 8.dp).testTag(FilePaneTags.Status)) }
+    }
+}
+
+/**
+ * Android's Closed Notebooks screen in the pane: two groups rather than one list with a badge,
+ * because the two states differ in what they can do — a notebook on the device opens at once, while
+ * one in the cloud has to be downloaded first. One cloud operation runs at a time, so every other
+ * row's buttons wait while one row shows it is busy.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ClosedNotebookGroups(state: FilePaneState, actions: FileActions) {
+    val connected = actions.cloudConnected?.collectAsState()?.value == true
+    val busyId = state.cloudBusyNotebookId
+    val anyBusy = busyId != null || state.busy
+    val onDevice = state.closedNotebooks.filter { it.contentOnDevice }
+    val inCloud = state.closedNotebooks.filterNot { it.contentOnDevice }
+
+    fun detail(row: ClosedNotebook) = Strings.value_sections_value_pages_closed_value(row.sectionCount, row.pageCount,
+        row.notebook.closedAt?.let { state.dateLabels[it] }.orEmpty())
+
+    if (onDevice.isNotEmpty()) {
+        Heading(Strings.closed_notebooks_on_device, FilePaneTags.OnDeviceHeading)
+        onDevice.forEach { row ->
+            val id = row.notebook.id
+            Entry(row.notebook.name, detail(row), false, false, FilePaneTags.closed(id)) { }
+            if (busyId == id) {
+                LoadingIndicator(Modifier.padding(vertical = 4.dp).size(24.dp).testTag(FilePaneTags.cloudBusy(id)))
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { actions.reopenNotebook(id) }, enabled = !anyBusy,
+                        modifier = Modifier.weight(1f).testTag(FilePaneTags.reopen(id))) {
+                        Text(Strings.reopen)
+                    }
+                    // Only with a server: without one there is nowhere to put the contents.
+                    if (actions.cloudConnected != null) {
+                        Button(onClick = { actions.moveNotebookToCloud(id) }, enabled = connected && !anyBusy,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary,
+                                contentColor = MaterialTheme.colorScheme.onTertiary),
+                            modifier = Modifier.weight(1f).testTag(FilePaneTags.moveToCloud(id))) {
+                            Text(Strings.closed_notebook_move_to_cloud)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (inCloud.isNotEmpty()) {
+        Spacer(Modifier.height(6.dp))
+        // The one place the pane explains itself, and only when there is something under it to
+        // explain. Without a server the sentence changes rather than the buttons quietly doing nothing.
+        Heading(Strings.closed_notebooks_in_cloud, FilePaneTags.InCloudHeading,
+            supporting = if (connected) Strings.closed_notebooks_in_cloud_supporting else Strings.closed_notebooks_no_account)
+        inCloud.forEach { row ->
+            val id = row.notebook.id
+            Entry(row.notebook.name, detail(row), false, false, FilePaneTags.closed(id)) { }
+            if (busyId == id) {
+                LoadingIndicator(Modifier.padding(vertical = 4.dp).size(24.dp).testTag(FilePaneTags.cloudBusy(id)))
+            } else {
+                FilledTonalButton(onClick = { actions.bringNotebookBack(id) }, enabled = connected && !anyBusy,
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
+                    modifier = Modifier.fillMaxWidth().testTag(FilePaneTags.bringBack(id))) {
+                    Icon(AccountSymbols.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(Strings.closed_notebook_bring_back)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Heading(text: String, tag: String, supporting: String? = null) {
+    Column(Modifier.padding(top = 8.dp, bottom = 2.dp)) {
+        Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag(tag))
+        supporting?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp))
+        }
     }
 }
 

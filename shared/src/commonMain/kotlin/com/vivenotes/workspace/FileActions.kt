@@ -21,6 +21,8 @@ data class FilePaneState(
     val dateLabels: Map<Long, String> = emptyMap(),
     val message: String? = null,
     val error: String? = null,
+    /** The one closed notebook a move to the cloud, or back, is running for. */
+    val cloudBusyNotebookId: String? = null,
 )
 
 /** What the File tab asks of whoever holds the workspace. */
@@ -33,6 +35,15 @@ interface FileActions {
     fun restoreRevision()
     fun restoreDeletedItem(item: DeletedItem)
     fun reopenNotebook(id: String)
+
+    /** Whether a server is connected, which moving notebooks to the cloud needs; null without accounts. */
+    val cloudConnected: kotlinx.coroutines.flow.StateFlow<Boolean>? get() = null
+
+    /** Moves a closed notebook's contents to the server, and removes them from this device. */
+    fun moveNotebookToCloud(id: String) {}
+
+    /** Downloads a closed notebook this device does not hold, and puts it back on the rail. */
+    fun bringNotebookBack(id: String) {}
     fun closeNotebook()
     fun deleteNotebook()
 

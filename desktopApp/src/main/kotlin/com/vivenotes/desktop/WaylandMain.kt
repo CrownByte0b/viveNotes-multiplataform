@@ -82,7 +82,7 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
             pdfExporter = pdfExporter,
             onEditorDefaultsChange = notes::updateEditorDefaults,
             onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
-            accountService = notes.accountService,
+            accountHost = notes.sync?.accountHost,
             aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
             appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild)
     }

@@ -98,7 +98,7 @@ class NotesRepository(
      * `page_content` changes. Without this guard, saving another page could re-emit the selected
      * page's older stored body while its editor still has unsaved typing and roll that typing back.
      */
-    fun observeDoc(pageId: String): Flow<PageLoad> = contents.observeById(pageId)
+    override fun observeDoc(pageId: String): Flow<PageLoad> = contents.observeById(pageId)
         .distinctUntilChanged()
         .map(::decodeDoc)
 

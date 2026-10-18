@@ -27,7 +27,7 @@ import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.ui.shell.WorkspaceScreen
-import com.vivenotes.ui.account.AccountService
+import com.vivenotes.ui.account.AccountHost
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.KeyBindings
@@ -68,7 +68,8 @@ fun App(
     /** The platform's `.vive` file dialogs; without them notebooks cannot be exported or imported. */
     notebookFiles: NotebookFiles? = null,
     thumbnails: VideoThumbnailSource? = null,
-    accountService: AccountService? = null,
+    /** The platform's account and sync feature; without it the account button opens nothing. */
+    accountHost: AccountHost? = null,
     /** The platform's recognition models, for Settings → Models. */
     aiModels: AiModels? = null,
     drawMath: com.vivenotes.ui.ribbon.draw.DrawMath? = null,
@@ -105,7 +106,7 @@ fun App(
                 onInkSettingsChange = onInkSettingsChange,
                 keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange,
                 inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange, fileActions = fileActions,
-                accountService = accountService, aiModels = aiModels, drawMath = drawMath,
+                accountHost = accountHost, aiModels = aiModels, drawMath = drawMath,
                 appVersion = appVersion, search = search, onOpenSearchPage = session::openSearchPage,
                 debugLog = debugLog, developmentBuild = developmentBuild)
         }

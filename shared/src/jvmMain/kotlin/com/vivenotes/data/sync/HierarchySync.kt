@@ -1,9 +1,11 @@
+// Copied from the Android app's `data/sync/HierarchySync.kt`; only Android-only imports differ.
 package com.vivenotes.data.sync
 
-import com.vivenotes.localization.Strings
+import com.vivenotes.data.Log
 import com.vivenotes.data.withTransaction
+import com.vivenotes.data.DebugLog
+import com.vivenotes.data.DocumentPictures
 import com.vivenotes.data.EraserMode
-import com.vivenotes.data.DocumentRevisionPayload
 import com.vivenotes.data.NotesRepository
 import com.vivenotes.data.db.AttachmentEntity
 import com.vivenotes.data.db.InkEraseEntity
@@ -16,22 +18,21 @@ import com.vivenotes.data.db.NotebookEntity
 import com.vivenotes.data.db.NotesDatabase
 import com.vivenotes.data.db.PageContentEntity
 import com.vivenotes.data.db.PageEntity
-import com.vivenotes.data.db.PageRevisionEntity
 import com.vivenotes.data.db.SectionEntity
 import com.vivenotes.data.db.SyncEntityStateEntity
 import com.vivenotes.data.db.SyncOutboxEntity
 import com.vivenotes.data.db.SyncStateEntity
 import com.vivenotes.data.db.deferredNotebookContentKey
-import com.vivenotes.model.DocumentCodecs
-import com.vivenotes.model.Outline
-import com.vivenotes.model.migrated
 import com.vivenotes.model.newId
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -72,6 +73,12 @@ enum class PermanentSyncFailure {
     MembershipRequired,
 
     /**
+     * The account's storage quota is full. What could not be stored stays queued and goes through
+     * once there is room; deletes still sync, because they never grow the account.
+     */
+    StorageFull,
+
+    /**
      * The server holds a change of a kind this build cannot store, so the cursor cannot advance past
      * it without losing it. Only an upgrade clears this.
      */
@@ -110,7 +117,15 @@ class HierarchySync(
      * like a working sync from the outside.
      */
     private val blobs: AttachmentBlobSync,
-    private val log: SyncDebugLog = SyncDebugLog(),
+    /**
+     * Where every entry point runs, whoever calls it.
+     *
+     * Not the caller's thread, because the caller is often the main one: the account screen's Sync
+     * button launches from a composition scope. A pull decodes, validates and sorts each page on
+     * the thread it runs on and resumes there after every Room call, so on the main thread a first
+     * sync's work, and the garbage collection it causes, lands on the UI.
+     */
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
 
     private val sync = db.syncDao()
@@ -155,13 +170,27 @@ class HierarchySync(
     private val repairedBlobs = mutableSetOf<String>()
 
     /**
+     * Digests the account had no room for this run. Every change naming one is left queued and out
+     * of the batch, so it cannot hold back the rest — deletes above all, which are what free room.
+     *
+     * Cleared at the start of every run, because only the server knows when room comes back.
+     */
+    private val noRoomBlobs = mutableSetOf<String>()
+
+    /** The smallest of [noRoomBlobs], in bytes: a picture at least this large is not offered. */
+    private var smallestNoRoom = Long.MAX_VALUE
+
+    /** Queued rows passed over for naming one of [noRoomBlobs], by the generation that did. */
+    private val waitingForRoom = mutableMapOf<Pair<String, String>, Long>()
+
+    /**
      * Bodies written by this transaction whose pictures have still to be counted. A plain list for
      * the reason [remoteInkPages] is a plain set.
      */
     private val pictureRecounts = mutableListOf<PictureRecount>()
 
-    /** Orphans carried between bounded pages on the currently open server-pushed stream. */
-    private var streamCarried: List<RemoteChange> = emptyList()
+    /** Rows held between bounded pages on the currently open server-pushed stream. */
+    private var streamHeld = HeldBack()
     private var streamAccountId: String? = null
 
     /**
@@ -174,16 +203,20 @@ class HierarchySync(
      */
     private var downloadsOutstanding = true
 
+    /** Runs [block] on [dispatcher], serialized against every other entry point by [mutex]. */
+    private suspend inline fun <T> serialized(crossinline block: suspend () -> T): T =
+        withContext(dispatcher) { mutex.withLock { block() } }
+
     /** Makes [accountId] the owner of this database's one hierarchy corpus. */
-    suspend fun activate(accountId: String) = mutex.withLock {
+    suspend fun activate(accountId: String) = serialized {
         activateLocked(accountId)
     }
 
     /** Starts one streamed catch-up and returns the last cursor already committed in Room. */
-    suspend fun beginChangeStream(accountId: String): Long = mutex.withLock {
+    suspend fun beginChangeStream(accountId: String): Long = serialized {
         activateLocked(accountId)
         streamAccountId = accountId
-        streamCarried = emptyList()
+        streamHeld = HeldBack()
         sync.state()?.cursor ?: error("sync state disappeared after activation")
     }
 
@@ -194,22 +227,21 @@ class HierarchySync(
      * delivery, not conflict handling, cursor transactions, purge semantics, or attachment rules.
      */
     suspend fun applyStreamPage(account: SyncAccount, page: PullChangesPage): SyncRunResult =
-        mutex.withLock {
+        serialized {
             try {
                 activateLocked(account.accountId)
                 if (streamAccountId != account.accountId) {
                     streamAccountId = account.accountId
-                    streamCarried = emptyList()
+                    streamHeld = HeldBack()
                 }
 
-                when (val applied = applyIncomingPage(page, streamCarried)) {
+                when (val applied = applyIncomingPage(page, streamHeld)) {
                     is IncomingPageResult.Stopped ->
                         SyncRunResult.Failed(applied.reason)
 
                     is IncomingPageResult.Applied -> {
-                        streamCarried = applied.carried
-                        if (!page.hasMore && streamCarried.isNotEmpty()) {
-                            return@withLock SyncRunResult.Failed(
+                        if (!page.hasMore && !streamHeld.isEmpty()) {
+                            return@serialized SyncRunResult.Failed(
                                 PermanentSyncFailure.InvalidServerResponse,
                             )
                         }
@@ -241,7 +273,7 @@ class HierarchySync(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (badLocalState: Exception) {
-                log.e(TAG, Strings.hierarchy_sync_could_not_apply_a_streamed_change, badLocalState)
+                Log.e(TAG, "Hierarchy sync could not apply a streamed change", badLocalState)
                 SyncRunResult.Failed(PermanentSyncFailure.LocalData)
             } finally {
                 publishRemoteInk()
@@ -255,15 +287,14 @@ class HierarchySync(
      * push response is enough to acknowledge the exact outbox generations and record their server
      * versions; concurrent remote commits arrive through that already-open stream.
      */
-    suspend fun pushPending(account: SyncAccount): SyncRunResult = mutex.withLock {
+    suspend fun pushPending(account: SyncAccount): SyncRunResult = serialized {
         try {
             activateLocked(account.accountId)
             if (!hasCaughtUp(account.accountId)) {
-                return@withLock SyncRunResult.Succeeded(SyncSummary(0, 0, 0, 0))
+                return@serialized SyncRunResult.Succeeded(SyncSummary(0, 0, 0, 0))
             }
 
-            undeliverableBlobs.clear()
-            repairedBlobs.clear()
+            forgetBlobVerdicts()
             dropStarterSupersededByAccount()
             when (val pushed = pushOutbox(account)) {
                 is PhaseResult.Done -> SyncRunResult.Succeeded(
@@ -280,7 +311,7 @@ class HierarchySync(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (badLocalState: Exception) {
-            log.e(TAG, Strings.hierarchy_sync_could_not_push_a_local_change, badLocalState)
+            Log.e(TAG, "Hierarchy sync could not push a local change", badLocalState)
             SyncRunResult.Failed(PermanentSyncFailure.LocalData)
         } finally {
             publishRemoteInk()
@@ -288,7 +319,7 @@ class HierarchySync(
     }
 
     /** Clears account-specific versions and queued work after the credential is intentionally gone. */
-    suspend fun deactivate(accountId: String) = mutex.withLock {
+    suspend fun deactivate(accountId: String) = serialized {
         db.withTransaction {
             if (sync.state()?.accountId != accountId) return@withTransaction
             // Turn the triggers off first; clearing their own tables never touches the hierarchy,
@@ -299,7 +330,8 @@ class HierarchySync(
             metadata.delete(PENDING_BATCH_KEY)
             metadata.delete(CAUGHT_UP_KEY)
             streamAccountId = null
-            streamCarried = emptyList()
+            streamHeld = HeldBack()
+            DebugLog.i(DebugLog.DB) { "Sync: cleared state, outbox and versions for account $accountId" }
         }
     }
 
@@ -312,11 +344,10 @@ class HierarchySync(
      */
     suspend fun hasCaughtUp(accountId: String): Boolean = metadata.value(CAUGHT_UP_KEY) == accountId
 
-    suspend fun run(account: SyncAccount): SyncRunResult = mutex.withLock {
+    suspend fun run(account: SyncAccount): SyncRunResult = serialized {
         try {
             activateLocked(account.accountId)
-            undeliverableBlobs.clear()
-            repairedBlobs.clear()
+            forgetBlobVerdicts()
 
             var pulled = 0
             var pushed = 0
@@ -326,7 +357,7 @@ class HierarchySync(
             when (val firstPull = pullIfNeeded(account)) {
                 is PhaseResult.Done -> pulled += firstPull.count
                 is PhaseResult.ConflictDone -> error("pull cannot return conflict count")
-                is PhaseResult.Stop -> return@withLock firstPull.result
+                is PhaseResult.Stop -> return@serialized firstPull.result
             }
             markCaughtUp(account.accountId)
             dropStarterSupersededByAccount()
@@ -338,7 +369,7 @@ class HierarchySync(
                     conflicts += push.conflicts
                     pictures += push.pictures
                 }
-                is PhaseResult.Stop -> return@withLock push.result
+                is PhaseResult.Stop -> return@serialized push.result
             }
 
             // The push cursor is explicitly not a pull cursor. Pull this device's accepted writes
@@ -352,7 +383,7 @@ class HierarchySync(
                 when (val finalPull = pullIfNeeded(account)) {
                     is PhaseResult.Done -> pulled += finalPull.count
                     is PhaseResult.ConflictDone -> error("pull cannot return conflict count")
-                    is PhaseResult.Stop -> return@withLock finalPull.result
+                    is PhaseResult.Stop -> return@serialized finalPull.result
                 }
             }
 
@@ -392,7 +423,7 @@ class HierarchySync(
             // and this is the one failure whose cause is a stack trace rather than a status code.
             // A run failing here also leaves the cursor where it was, so a silent version of this
             // re-pulls the same delta for ever.
-            log.e(TAG, Strings.hierarchy_sync_could_not_apply_a_change_locally, badLocalState)
+            Log.e(TAG, "Hierarchy sync could not apply a change locally", badLocalState)
             SyncRunResult.Failed(PermanentSyncFailure.LocalData)
         } finally {
             // The phases publish as they commit; this is for the paths that leave early — a pull
@@ -400,6 +431,14 @@ class HierarchySync(
             // looking at, and a set left full here would announce it on the next run instead.
             publishRemoteInk()
         }
+    }
+
+    private fun forgetBlobVerdicts() {
+        undeliverableBlobs.clear()
+        repairedBlobs.clear()
+        noRoomBlobs.clear()
+        smallestNoRoom = Long.MAX_VALUE
+        waitingForRoom.clear()
     }
 
     private suspend fun activateLocked(accountId: String) {
@@ -435,6 +474,9 @@ class HierarchySync(
             // Metadata rows only. Their bytes are offered to the server by the push that names
             // them, one `HEAD` and at most one `PUT` per picture, however many pages show it.
             sync.enqueueAllAttachments()
+            DebugLog.i(DebugLog.DB) {
+                "Sync: activated account $accountId and queued ${sync.outboxSize()} local row(s)"
+            }
         }
     }
 
@@ -481,12 +523,15 @@ class HierarchySync(
             metadata.delete(NotesRepository.REPLACEABLE_STARTER_KEY)
             sync.setApplyingRemote(false)
         }
+        DebugLog.i(DebugLog.DB) {
+            "Sync: dropped untouched starter notebook $starterId; the account has its own"
+        }
     }
 
     /** Applies one bounded pull-shaped page, whether HTTP pull or the live stream delivered it. */
     private suspend fun applyIncomingPage(
         page: PullChangesPage,
-        carried: List<RemoteChange>,
+        held: HeldBack,
     ): IncomingPageResult {
         val parsed = try {
             page.changes.mapNotNull(::parseRemoteChange)
@@ -501,7 +546,7 @@ class HierarchySync(
             return IncomingPageResult.Stopped(PermanentSyncFailure.InvalidServerResponse)
         }
         if (parsed.size != page.changes.size) {
-            log.e(
+            Log.e(
                 TAG,
                 "Pull carried ${page.changes.size - parsed.size} change(s) of a kind this " +
                     "build cannot store; the cursor stays put until this device is upgraded",
@@ -513,19 +558,8 @@ class HierarchySync(
         }
 
         // Parent depth outranks sequence order locally. Rows whose parents are in a later bounded
-        // page stay in [carried] and the cursor does not move until they can be placed.
-        val ordered = (carried + parsed).sortedBy { change -> change.kind.rank }
-        val applicable = mutableListOf<RemoteChange>()
-        val orphans = mutableListOf<RemoteChange>()
-        val applying = HashSet<String>()
-        for (change in ordered) {
-            if (parentIsAvailable(change, applying)) {
-                applicable += change
-                applying += change.kind.wire + ":" + change.id
-            } else {
-                orphans += change
-            }
-        }
+        // page wait in [held] and the cursor does not move until they can be placed.
+        val applicable = admit(parsed, held)
 
         val discardedPictures = mutableListOf<String>()
         db.withTransaction {
@@ -534,13 +568,14 @@ class HierarchySync(
             invalidateInkText(remoteInkPages)
             applyPictureCounts()
             purged.forEach { (kind, id) -> discardedPictures += applyPurgeOrRemap(kind, id) }
-            if (orphans.isEmpty()) sync.setCursor(page.cursor)
+            if (held.isEmpty()) sync.setCursor(page.cursor)
             sync.setApplyingRemote(false)
         }
+        logApplied("streamed", applicable, purged.size, held.size, page.cursor)
         if (discardedPictures.isNotEmpty()) blobs.discard(discardedPictures)
         publishRemoteInk()
 
-        return IncomingPageResult.Applied(applicable.size, orphans)
+        return IncomingPageResult.Applied(applicable.size)
     }
 
     private suspend fun pullIfNeeded(account: SyncAccount): PhaseResult {
@@ -556,8 +591,8 @@ class HierarchySync(
         var cursor = localCursor
         var pulled = 0
         var hasMore: Boolean
-        // Changes whose parent has not arrived yet, carried into the next page rather than applied.
-        var carried: List<RemoteChange> = emptyList()
+        // Changes whose parent has not arrived yet, waiting for it rather than applied.
+        val held = HeldBack()
         do {
             val page = when (
                 val result = client.pullChanges(account.serverUrl, account.token, cursor)
@@ -589,7 +624,7 @@ class HierarchySync(
                 )
             }
             if (purged.isNotEmpty()) {
-                log.i(TAG, "Pull carried ${purged.size} purge(s) the account erased for good")
+                Log.i(TAG, "Pull carried ${purged.size} purge(s) the account erased for good")
             }
 
             // A kind this build does not know stops the run, and stops it before the cursor moves.
@@ -603,7 +638,7 @@ class HierarchySync(
             // Refusing to advance turns that into a device that stops syncing until it is upgraded,
             // which is recoverable where losing the rows is not.
             if (parsed.size != page.changes.size) {
-                log.e(
+                Log.e(
                     TAG,
                     "Pull carried ${page.changes.size - parsed.size} change(s) of a kind this " +
                         "build cannot store; the cursor stays at $cursor until this device is upgraded",
@@ -611,38 +646,7 @@ class HierarchySync(
                 return PhaseResult.Stop(SyncRunResult.Failed(PermanentSyncFailure.UnsupportedKind))
             }
 
-            // Parents before children, which the stream order does not give.
-            //
-            // The server orders a delta by `(change_seq, kind_rank, id)`, but a row's `change_seq`
-            // is the seq of its last write, not of its creation. Rename a notebook after its
-            // sections were created and it moves above its own children, so a client pulling from
-            // below both receives the sections first and Room refuses them with a FOREIGN KEY
-            // failure — aborting the transaction, leaving the cursor uncommitted, and re-pulling the
-            // same delta for ever.
-            //
-            // A stable sort by kind is enough for a two-level hierarchy.
-            val ordered = (carried + parsed).sortedBy { change -> change.kind.rank }
-
-            // Sorting cannot help when a parent lands in a *later page* than its child, which needs
-            // more than a page of changes between the two writes but is not impossible. Such a row
-            // is held back rather than applied: Room would refuse it, and refusing it inside the
-            // transaction that commits the cursor is what turns one straddling row into a device
-            // that re-pulls the same delta for ever.
-            val applicable = mutableListOf<RemoteChange>()
-            val orphans = mutableListOf<RemoteChange>()
-            // Held back transitively: a page whose section is itself waiting for its notebook has to
-            // wait with it, or the page is written against a section Room does not have either.
-            // One pass is enough because the batch is already sorted parents-first.
-            val applying = HashSet<String>()
-            for (change in ordered) {
-                if (parentIsAvailable(change, applying)) {
-                    applicable += change
-                    applying += change.kind.wire + ":" + change.id
-                } else {
-                    orphans += change
-                }
-            }
-            carried = orphans
+            val applicable = admit(parsed, held)
 
             val discardedPictures = mutableListOf<String>()
             db.withTransaction {
@@ -658,9 +662,10 @@ class HierarchySync(
                 // Only when nothing is being held. The cursor is a promise that everything below it
                 // has been applied, so advancing it past a row still waiting for its parent would
                 // lose that row for good — the next pull starts above it.
-                if (orphans.isEmpty()) sync.setCursor(page.cursor)
+                if (held.isEmpty()) sync.setCursor(page.cursor)
                 sync.setApplyingRemote(false)
             }
+            logApplied("pulled", applicable, purged.size, held.size, page.cursor)
             // Once the transaction has committed, for the reason the push phase discards there.
             if (discardedPictures.isNotEmpty()) blobs.discard(discardedPictures)
             // Per page of the delta rather than at the end of the run: a first reconcile can carry
@@ -678,7 +683,7 @@ class HierarchySync(
             }
         } while (hasMore)
 
-        if (carried.isNotEmpty()) {
+        if (!held.isEmpty()) {
             // The delta ended and a child's parent never arrived. The server rejects a push whose
             // parent it does not hold, so this cannot happen to a well-behaved pair — and leaving
             // the cursor where it is means the next run tries the same delta rather than skipping
@@ -690,49 +695,94 @@ class HierarchySync(
     }
 
     /**
-     * Whether a change can be written now: its parent is already in Room, or is one of the rows
-     * [applying] is about to write in the same transaction. A notebook has no parent and is
-     * therefore always applicable.
+     * Splits one page of the delta into the rows that can be written now, in the order to write
+     * them, and files the rest in [held] under the parent each one is waiting for.
+     *
+     * Parents before children, which the stream order does not give. The server orders a delta by
+     * `(change_seq, kind_rank, id)`, but a row's `change_seq` is the seq of its last write, not of
+     * its creation. Rename a notebook after its sections were created and it moves above its own
+     * children, so a client pulling from below both receives the sections first and Room refuses
+     * them with a FOREIGN KEY failure — aborting the transaction, leaving the cursor uncommitted,
+     * and re-pulling the same delta for ever. Within a page, a stable sort by kind is enough for a
+     * two-level hierarchy.
+     *
+     * Sorting cannot help when a parent lands in a *later page* than its child. Such a row is held
+     * back rather than applied: Room would refuse it, and refusing it inside the transaction that
+     * commits the cursor is what turns one straddling row into a device that re-pulls the same
+     * delta for ever. Held transitively — a page whose section is itself waiting for its notebook
+     * waits with it — and released breadth-first the moment its parent is admitted, in this page or
+     * a later one, so a section lands before its pages and they before their ink.
+     *
+     * Filed under the parent rather than kept in a list because of what a first pull into an empty
+     * device can hold: everything under a notebook, section or page last written after its ink. One
+     * account held 49,331 strokes across 97 pages of its delta that way, and checking every held row
+     * against Room again on each of them came to 2.4 million lookups about 58 notebook pages. A held
+     * row now costs nothing until its parent arrives, and Room is asked about each parent once per
+     * page of the delta.
      */
-    private suspend fun parentIsAvailable(change: RemoteChange, applying: Set<String>): Boolean {
-        val parentKind = when (change.kind) {
-            // Neither has a parent: a notebook is the root, and a picture belongs to no one page.
-            SyncKind.Notebook, SyncKind.Attachment -> return true
-            SyncKind.Section -> SyncKind.Notebook
-            SyncKind.Page -> SyncKind.Section
-            SyncKind.PageContent,
-            SyncKind.InkStroke,
-            SyncKind.InkErase,
-            SyncKind.InkMove,
-            -> SyncKind.Page
+    private suspend fun admit(parsed: List<RemoteChange>, held: HeldBack): List<RemoteChange> {
+        val admitted = mutableListOf<RemoteChange>()
+        val admittedKeys = HashSet<String>()
+        val stored = HashMap<String, Boolean>()
+        for (change in parsed.sortedBy { it.kind.rank }) {
+            val parent = parentOf(change)
+            if (parent != null) {
+                val (parentKind, parentId) = parent
+                val parentKey = keyOf(parentKind, parentId)
+                val available = parentKey in admittedKeys ||
+                    stored.getOrPut(parentKey) { isStored(parentKind, parentId) }
+                if (!available) {
+                    held.hold(parentKey, change)
+                    continue
+                }
+            }
+            val ready = ArrayDeque(listOf(change))
+            while (ready.isNotEmpty()) {
+                val next = ready.removeFirst()
+                admitted += next
+                val key = keyOf(next.kind, next.id)
+                admittedKeys += key
+                ready += held.release(key)
+            }
         }
-        val parentID = when (change.kind) {
-            SyncKind.Notebook, SyncKind.Attachment -> return true
-            SyncKind.Section -> change.raw.requiredString("notebookId")
-            SyncKind.Page -> change.raw.requiredString("sectionId")
-            SyncKind.PageContent,
-            SyncKind.InkStroke,
-            SyncKind.InkErase,
-            SyncKind.InkMove,
-            -> change.raw.requiredString("pageId")
-        }
-        if (applying.contains(parentKind.wire + ":" + parentID)) return true
-        return when (parentKind) {
-            SyncKind.Notebook -> notebooks.byId(parentID) != null
-            SyncKind.Section -> sections.byId(parentID) != null
-            SyncKind.Page -> pages.byId(parentID) != null
-            // A stroke is never a parent. An operation's targets are ids it replays against, and one
-            // naming nothing stored is normal: the stroke may arrive later, or have been purged
-            // after seven days on the device that made the operation. Waiting for it would stall the
-            // cursor on a row that can never come.
-            SyncKind.PageContent,
-            SyncKind.InkStroke,
-            SyncKind.InkErase,
-            SyncKind.InkMove,
-            SyncKind.Attachment,
-            -> false
-        }
+        return admitted
     }
+
+    /**
+     * The row [change] cannot be written without, or null for the two kinds that hang from
+     * nothing: a notebook is the root, and a picture belongs to no one page.
+     *
+     * A stroke is never a parent. An operation's targets are ids it replays against, and one naming
+     * nothing stored is normal: the stroke may arrive later, or have been purged after seven days on
+     * the device that made the operation. Waiting for it would stall the cursor on a row that can
+     * never come.
+     */
+    private fun parentOf(change: RemoteChange): Pair<SyncKind, String>? = when (change.kind) {
+        SyncKind.Notebook, SyncKind.Attachment -> null
+        SyncKind.Section -> SyncKind.Notebook to change.raw.requiredString("notebookId")
+        SyncKind.Page -> SyncKind.Section to change.raw.requiredString("sectionId")
+        SyncKind.PageContent,
+        SyncKind.InkStroke,
+        SyncKind.InkErase,
+        SyncKind.InkMove,
+        -> SyncKind.Page to change.raw.requiredString("pageId")
+    }
+
+    /** Whether Room already holds the [kind] row [id]; only ever asked of a kind [parentOf] names. */
+    private suspend fun isStored(kind: SyncKind, id: String): Boolean = when (kind) {
+        SyncKind.Notebook -> notebooks.byId(id) != null
+        SyncKind.Section -> sections.byId(id) != null
+        SyncKind.Page -> pages.byId(id) != null
+        SyncKind.PageContent,
+        SyncKind.InkStroke,
+        SyncKind.InkErase,
+        SyncKind.InkMove,
+        SyncKind.Attachment,
+        -> false
+    }
+
+    /** How [admit] names a row. The kind is part of it because a page and its body share an id. */
+    private fun keyOf(kind: SyncKind, id: String): String = kind.wire + ":" + id
 
     private suspend fun applyPulledChange(remote: RemoteChange) {
         sync.putEntityState(remote.asEntityState())
@@ -798,7 +848,7 @@ class HierarchySync(
             // this build knows how to take apart. A kind a later server purges still gets the half
             // that is always right — the queued work goes, so the push stops repeating a verdict
             // this build cannot act on — and says so, rather than silently doing nothing.
-            log.w(TAG, "Purge names \"$kind\", which this build cannot cascade; dropping only its queued work")
+            Log.w(TAG, "Purge names \"$kind\", which this build cannot cascade; dropping only its queued work")
             sync.deleteOutbox(kind, id)
             sync.deleteEntityState(kind, id)
             return emptyList()
@@ -823,7 +873,7 @@ class HierarchySync(
         sync.pruneOrphanedOutbox()
         sync.pruneOrphanedEntityStates()
 
-        log.i(TAG, "Notebook $id was erased for good by the account; removed it and its ${pageIds.size} page(s)")
+        Log.i(TAG, "Notebook $id was erased for good by the account; removed it and its ${pageIds.size} page(s)")
         return orphaned
     }
 
@@ -902,7 +952,7 @@ class HierarchySync(
         metadata.repointValues(NotesRepository.IMPORT_REMAP_KEY_PREFIX, id, replacementId)
         metadata.put(LocalMetadataEntity(NotesRepository.importRemapKey(id), replacementId))
 
-        log.i(
+        Log.i(
             TAG,
             "Notebook $id was erased for good by the account, but was imported since; " +
                 "moved the imported copy to $replacementId and queued it",
@@ -918,7 +968,13 @@ class HierarchySync(
 
         while (batchCount++ < MAX_BATCHES_PER_RUN) {
             val pending = loadOrCreatePendingBatch()
-                ?: return PhaseResult.ConflictDone(pushed, conflicts, pictures)
+                ?: return if (noRoomBlobs.isEmpty()) {
+                    PhaseResult.ConflictDone(pushed, conflicts, pictures)
+                } else {
+                    // Everything that could go has gone. What is left names a picture the account
+                    // has no room for, and the screen has to say so.
+                    PhaseResult.Stop(SyncRunResult.Failed(PermanentSyncFailure.StorageFull))
+                }
 
             // The bytes go up before the change that names them. The server refuses it otherwise —
             // that refusal is what makes reachability knowable to it at all — so this is not an
@@ -926,9 +982,10 @@ class HierarchySync(
             when (val preflight = uploadBlobsFor(account, pending.changes)) {
                 is BlobPhase.Ready -> pictures += preflight.uploaded
                 BlobPhase.Rebuild -> {
-                    // A digest in this batch cannot be delivered. The batch was serialized naming
-                    // it, so it is thrown away and built again without it rather than sent to be
-                    // rejected: the durable batch is what a retry re-sends byte for byte.
+                    // A digest in this batch cannot be delivered, or not until the account has
+                    // room. The batch was serialized naming it, so it is thrown away and built again
+                    // without it rather than sent to be rejected: the durable batch is what a retry
+                    // re-sends byte for byte.
                     metadata.delete(PENDING_BATCH_KEY)
                     continue
                 }
@@ -1013,6 +1070,10 @@ class HierarchySync(
                         // same answer for ever. Standing still here is the failure this clears.
                         "purged" -> purged += rejected.kind to rejected.id
                         "too_large" -> permanent = PermanentSyncFailure.ChangeTooLarge
+                        // The account's storage is full. The change stays queued, exactly as it is:
+                        // it is valid, and it goes through once the account deletes something or
+                        // moves to a larger plan. Dropping it would lose the edit.
+                        "quota_exceeded" -> permanent = PermanentSyncFailure.StorageFull
                         "malformed" -> permanent = PermanentSyncFailure.MalformedChange
                         // A reason no build this old has a branch for, which is what a server newer
                         // than this app looks like. The whole run stops rather than the entity being
@@ -1036,6 +1097,12 @@ class HierarchySync(
                 purged.forEach { (kind, id) -> discardedPictures += applyPurgeOrRemap(kind, id) }
                 metadata.delete(PENDING_BATCH_KEY)
                 sync.setApplyingRemote(false)
+            }
+            DebugLog.i(DebugLog.DB) {
+                val rejections = response.rejected.groupingBy { it.reason }.eachCount()
+                "Sync: push batch ${pending.batchId} recorded ${response.applied.size} accepted, " +
+                    "${response.rejected.size} rejected" +
+                    if (rejections.isEmpty()) "" else " ($rejections)"
             }
             // A conflict the server won writes its row over this device's, ink included.
             publishRemoteInk()
@@ -1085,10 +1152,14 @@ class HierarchySync(
                 rebuild = true
                 return@forEach
             }
-            when (val presence = blobs.ensureUploaded(account, digest)) {
+            when (val presence = blobs.ensureUploaded(account, digest, noRoomFrom = smallestNoRoom)) {
                 is BlobPresence.Present -> if (presence.uploaded) uploaded++
                 BlobPresence.Undeliverable -> {
                     markUndeliverable(digest)
+                    rebuild = true
+                }
+                is BlobPresence.NoRoom -> {
+                    markNoRoom(digest, presence.bytes)
                     rebuild = true
                 }
                 is BlobPresence.Stopped -> return BlobPhase.Stop(presence.result)
@@ -1116,13 +1187,22 @@ class HierarchySync(
         rejected.flatMap(::digestsNamedBy).distinct().forEach { digest ->
             if (digest in undeliverableBlobs) return@forEach
             if (!repairedBlobs.add(digest)) {
-                log.e(TAG, "Attachment $digest was uploaded and still rejected; dropping the reference")
+                Log.e(TAG, "Attachment $digest was uploaded and still rejected; dropping the reference")
                 markUndeliverable(digest)
                 return@forEach
             }
-            when (val presence = blobs.ensureUploaded(account, digest, force = true)) {
+            when (
+                val presence = blobs.ensureUploaded(
+                    account,
+                    digest,
+                    force = true,
+                    noRoomFrom = smallestNoRoom,
+                )
+            ) {
                 is BlobPresence.Present -> if (presence.uploaded) uploaded++
                 BlobPresence.Undeliverable -> markUndeliverable(digest)
+                // The rejected change is still queued, and the next batch is built without it.
+                is BlobPresence.NoRoom -> markNoRoom(digest, presence.bytes)
                 is BlobPresence.Stopped -> return BlobPhase.Stop(presence.result)
             }
         }
@@ -1143,13 +1223,28 @@ class HierarchySync(
      */
     private suspend fun markUndeliverable(digest: String) {
         if (!undeliverableBlobs.add(digest)) return
-        log.e(TAG, "Attachment $digest cannot be delivered; pages will be pushed without it")
+        Log.e(TAG, "Attachment $digest cannot be delivered; pages will be pushed without it")
         sync.deleteOutbox(SyncKind.Attachment.wire, digest)
+    }
+
+    /**
+     * Holds back, for the rest of this run, every change that names [digest].
+     *
+     * Unlike [markUndeliverable] this drops nothing: the picture and the pages showing it stay
+     * queued exactly as they are, and go through on a later run once the account has room.
+     */
+    private fun markNoRoom(digest: String, bytes: Long) {
+        if (!noRoomBlobs.add(digest)) return
+        smallestNoRoom = minOf(smallestNoRoom, bytes)
+        Log.w(TAG, "No room on the account for attachment $digest; changes naming it stay queued")
     }
 
     /** The attachment digests one queued change will name on the wire. */
     private fun digestsNamedBy(change: PendingChange): List<String> = when (change.kind) {
-        SyncKind.Attachment.wire -> listOf(change.id)
+        // A release names no bytes to carry: uploading them would put back on the server the very
+        // copy the release exists to free.
+        SyncKind.Attachment.wire ->
+            if (change.payload["deletedAt"].let { it == null || it is JsonNull }) listOf(change.id) else emptyList()
         SyncKind.PageContent.wire ->
             (change.payload[BLOB_REFS] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }
                 .orEmpty()
@@ -1195,8 +1290,6 @@ class HierarchySync(
             return@withTransaction hierarchyJson.decodeFromString(PendingBatch.serializer(), encoded)
         }
 
-        val rows = sync.outbox(MAX_PUSH_CHANGES)
-        if (rows.isEmpty()) return@withTransaction null
         val batchId = UUID.randomUUID().toString()
         val changes = mutableListOf<PendingChange>()
         // A row-count cap stopped bounding the request once pageContent joined the protocol, so the
@@ -1208,16 +1301,31 @@ class HierarchySync(
         // envelope is `{"batchId":"…","changes":[…]}`, so its length is the empty envelope plus each
         // element's length plus one comma between elements.
         var encodedSize = encodedPushSize(batchId, emptyList())
-        for (row in rows) {
-            val change = snapshot(row)
-            val addition = change.payload.toString().encodeToByteArray().size +
-                if (changes.isEmpty()) 0 else 1
-            // A first row is still admitted so the transport/server can return the permanent size
-            // verdict instead of leaving it queued behind an empty batch.
-            if (changes.isNotEmpty() && encodedSize + addition > MAX_SYNC_PUSH_BYTES) break
-            changes += change
-            encodedSize += addition
-        }
+        // Rows waiting for room are passed over, and the read reaches that many rows further so they
+        // never crowd out what is queued behind them. A read that turns up nothing but newly found
+        // ones reads again, further; one that reaches the end of the queue stops.
+        do {
+            val limit = MAX_PUSH_CHANGES + waitingForRoom.size
+            val rows = sync.outbox(limit)
+            for (row in rows) {
+                if (changes.size == MAX_PUSH_CHANGES) break
+                val key = row.kind to row.entityId
+                if (waitingForRoom[key] == row.generation) continue
+                val change = snapshot(row)
+                if (digestsNamedBy(change).any(noRoomBlobs::contains)) {
+                    waitingForRoom[key] = row.generation
+                    continue
+                }
+                val addition = change.payload.toString().encodeToByteArray().size +
+                    if (changes.isEmpty()) 0 else 1
+                // A first row is still admitted so the transport/server can return the permanent
+                // size verdict instead of leaving it queued behind an empty batch.
+                if (changes.isNotEmpty() && encodedSize + addition > MAX_SYNC_PUSH_BYTES) break
+                changes += change
+                encodedSize += addition
+            }
+        } while (changes.isEmpty() && rows.size == limit)
+        if (changes.isEmpty()) return@withTransaction null
         val pending = PendingBatch(
             batchId = batchId,
             changes = changes,
@@ -1314,7 +1422,7 @@ class HierarchySync(
                 // push replaces the whole set. Always written, never inherited from the stored
                 // server row: a stale set would keep bytes alive this page no longer draws.
                 base[BLOB_REFS] = JsonArray(
-                    pictureIdsIn(row.docJson, row.format)
+                    DocumentPictures.idsIn(row.docJson, row.format)
                         .asSequence()
                         .filter(::isBlobDigest)
                         .filterNot(undeliverableBlobs::contains)
@@ -1392,10 +1500,10 @@ class HierarchySync(
             SyncKind.Attachment -> {
                 val row = attachments.byId(outbox.entityId)
                     ?: throw IllegalStateException("dirty attachment disappeared")
-                // No `deletedAt` to send and no `updatedAt` column to send it from: an attachment is
-                // immutable in every field the protocol carries, so its creation time is the only
-                // honest stamp and the envelope's display value is the same number.
-                base.putEnvelope(null, maxOf(row.createdAt, outbox.changedAt), row.createdAt)
+                // `deletedAt` is this device's release: nothing here places the picture any more,
+                // which is what lets the server free the bytes. The row has no `updatedAt` column,
+                // so the queue's own stamp is the newest honest one and creation is the display.
+                base.putEnvelope(row.releasedAt, maxOf(row.createdAt, outbox.changedAt), row.createdAt)
                 base["mimeType"] = JsonPrimitive(row.mimeType)
                 base["pixelWidth"] = JsonPrimitive(row.pixelWidth)
                 base["pixelHeight"] = JsonPrimitive(row.pixelHeight)
@@ -1661,10 +1769,10 @@ class HierarchySync(
              * carrying the pulled row's zero would overwrite it. `AttachmentDao.insert` ignores a
              * conflict, so a row already here keeps the count this device computed.
              *
-             * A tombstone is applied by doing nothing. No build produces one, but one from a future
-             * build would mean "the device that sent it has no outline pointing here any more",
-             * which says nothing about this device. When local sweeping exists this becomes a
-             * release of one reference rather than a delete.
+             * A tombstone is applied by doing nothing. It means "the device that sent it no longer
+             * places this picture", which says nothing about this device: `AttachmentSweep` decides
+             * from this device's own documents, saved versions and undo history whether to release
+             * it here too.
              */
             SyncKind.Attachment -> if (change.deletedAt == null) {
                 attachments.insert(attachmentEntity(change, refCount = 0))
@@ -1696,7 +1804,7 @@ class HierarchySync(
     private suspend fun materializeReferencedRemoteAttachments(): Int {
         val referenceCounts = linkedMapOf<String, Int>()
         contents.picturePlacingBodies().forEach { body ->
-            pictureIdsIn(body.docJson, body.format).forEach { id ->
+            DocumentPictures.idsIn(body.docJson, body.format).forEach { id ->
                 referenceCounts[id] = referenceCounts.getOrDefault(id, 0) + 1
             }
         }
@@ -1727,6 +1835,9 @@ class HierarchySync(
             }
             sync.setApplyingRemote(false)
         }
+        if (inserted > 0) {
+            DebugLog.i(DebugLog.DB) { "Sync: stored metadata for $inserted pulled picture(s)" }
+        }
         return inserted
     }
 
@@ -1756,11 +1867,11 @@ class HierarchySync(
         val deltas = linkedMapOf<String, Int>()
         pictureRecounts.forEach { recount ->
             recount.before?.let { row ->
-                pictureIdsIn(row.docJson, row.format)
+                DocumentPictures.idsIn(row.docJson, row.format)
                     .forEach { id -> deltas[id] = deltas.getOrDefault(id, 0) - 1 }
             }
             recount.after?.let { row ->
-                pictureIdsIn(row.docJson, row.format)
+                DocumentPictures.idsIn(row.docJson, row.format)
                     .forEach { id -> deltas[id] = deltas.getOrDefault(id, 0) + 1 }
             }
         }
@@ -1769,31 +1880,6 @@ class HierarchySync(
             repeat(delta.coerceAtLeast(0)) { attachments.retain(id) }
             repeat((-delta).coerceAtLeast(0)) { attachments.release(id) }
         }
-    }
-
-    /**
-     * The attachments a stored document places, in the order it places them.
-     *
-     * The document is the only record of which pictures a page shows, which is why `blobRefs`
-     * exists: the server cannot read `docJson`, so it cannot know what to keep.
-     *
-     * Guarded by a substring test before the decode. A body is decoded twice per pulled row — the
-     * one being replaced and the one replacing it — and most pages have no picture at all, so a full
-     * parse per page of a first sync would be the most expensive thing in the pull. `attachmentId`
-     * is a field name of [Outline.Image] and of nothing else, and survives both codecs. A page whose
-     * text happens to contain the word costs one wasted decode.
-     *
-     * An undecodable body yields nothing rather than throwing: the editor already refuses to write
-     * to a page it cannot read.
-     */
-    private fun pictureIdsIn(docJson: String, format: String): List<String> {
-        if (!docJson.contains(IMAGE_FIELD_HINT)) return emptyList()
-        val codec = DocumentCodecs.byId(format) ?: return emptyList()
-        return runCatching {
-            codec.decode(docJson.encodeToByteArray()).migrated().outlines
-                .filterIsInstance<Outline.Image>()
-                .map { it.attachmentId }
-        }.getOrDefault(emptyList())
     }
 
     /**
@@ -1807,7 +1893,7 @@ class HierarchySync(
      */
     private fun eraserModeOf(mode: String): EraserMode =
         EraserMode.entries.firstOrNull { it.name == mode } ?: run {
-            log.w(TAG, "Unknown eraser mode \"$mode\" replayed as Normal; upgrade this device")
+            Log.w(TAG, "Unknown eraser mode \"$mode\" replayed as Normal; upgrade this device")
             EraserMode.Normal
         }
 
@@ -1855,16 +1941,16 @@ class HierarchySync(
                 require(raw.requiredString("pageId") == id) { "pageContent id must equal pageId" }
                 require(raw.requiredString("format").isNotEmpty()) { "format must not be empty" }
                 val encoding = raw["enc"]?.jsonPrimitive?.content ?: PLAIN_ENCODING
-                require(encoding == PLAIN_ENCODING) { Strings.unsupported_document_encoding }
+                require(encoding == PLAIN_ENCODING) { "unsupported document encoding" }
 
                 val documentBytes = raw.decodeBase64("doc")
-                require(documentBytes.size <= MAX_DOCUMENT_BYTES) { Strings.document_is_too_large }
+                require(documentBytes.size <= MAX_DOCUMENT_BYTES) { "document is too large" }
                 val claimedDigest = raw.decodeBase64("docSha256")
                 val actualDigest = MessageDigest.getInstance("SHA-256").digest(documentBytes)
                 require(
                     claimedDigest.size == actualDigest.size &&
                         MessageDigest.isEqual(claimedDigest, actualDigest),
-                ) { Strings.document_checksum_does_not_match }
+                ) { "document checksum does not match" }
                 documentJson = Charsets.UTF_8.newDecoder()
                     .onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT)
@@ -1925,7 +2011,7 @@ class HierarchySync(
             documentJson = documentJson,
             inkPoints = inkPoints,
             targetIds = targetIds,
-            raw = raw,
+            raw = if (inkPoints == null) raw else JsonObject(raw - "points"),
         )
     }
 
@@ -1942,15 +2028,14 @@ class HierarchySync(
         val inkPoints: ByteArray?,
         /** The ids an ink operation names, empty for every other kind. */
         val targetIds: List<String>,
+        /**
+         * The server's row, less `points` for the three ink kinds: those are [inkPoints], decoded.
+         *
+         * In memory, because a row can wait in [HeldBack] for the rest of a pull, and the base64
+         * would hold its points a second time for all of that wait.
+         */
         val raw: JsonObject,
     ) {
-        fun asEntityState() = SyncEntityStateEntity(
-            kind = kind.wire,
-            entityId = id,
-            serverVersion = version,
-            serverJson = strippedServerJson(),
-        )
-
         /**
          * The stored copy of the server's row, without the one field that would double the size of
          * the database.
@@ -1961,11 +2046,12 @@ class HierarchySync(
          * as base64 would store every stroke twice at a third again the size — on a page of 9,553
          * strokes that is 7 MB of duplicate, and a notebook may hold 500,000.
          */
-        private fun strippedServerJson(): String = when (kind) {
-            SyncKind.InkStroke, SyncKind.InkErase, SyncKind.InkMove ->
-                JsonObject(raw.filterKeys { it != "points" }).toString()
-            else -> raw.toString()
-        }
+        fun asEntityState() = SyncEntityStateEntity(
+            kind = kind.wire,
+            entityId = id,
+            serverVersion = version,
+            serverJson = raw.toString(),
+        )
     }
 
     @Serializable
@@ -2031,19 +2117,45 @@ class HierarchySync(
     }
 
     private sealed interface IncomingPageResult {
-        data class Applied(
-            val count: Int,
-            val carried: List<RemoteChange>,
-        ) : IncomingPageResult
+        data class Applied(val count: Int) : IncomingPageResult
 
         data class Stopped(val reason: PermanentSyncFailure) : IncomingPageResult
+    }
+
+    /**
+     * Pulled rows whose parent has not reached Room yet, filed under the parent each one waits for,
+     * so a waiting row costs nothing until that parent is admitted — see [admit].
+     */
+    private class HeldBack {
+        private val byParent = HashMap<String, MutableList<RemoteChange>>()
+
+        /** How many rows are waiting. */
+        var size = 0
+            private set
+
+        fun isEmpty(): Boolean = size == 0
+
+        fun hold(parentKey: String, change: RemoteChange) {
+            byParent.getOrPut(parentKey) { mutableListOf() } += change
+            size++
+        }
+
+        /** Takes out every row waiting for [parentKey], in the order they were held. */
+        fun release(parentKey: String): List<RemoteChange> {
+            val released = byParent.remove(parentKey) ?: return emptyList()
+            size -= released.size
+            return released
+        }
     }
 
     /** What making the server hold this batch's pictures did to the batch. */
     private sealed interface BlobPhase {
         data class Ready(val uploaded: Int) : BlobPhase
 
-        /** A digest cannot be delivered, so what named it has to be snapshotted again without it. */
+        /**
+         * A digest cannot be delivered, or the account has no room for it, so the batch has to be
+         * built again without what named it.
+         */
         data object Rebuild : BlobPhase
         data class Stop(val result: SyncRunResult) : BlobPhase
     }
@@ -2051,6 +2163,7 @@ class HierarchySync(
     private fun ServerResult.Failed.asSyncResult(): SyncRunResult = when {
         reason == ConnectFailure.MembershipRequired ->
             SyncRunResult.Failed(PermanentSyncFailure.MembershipRequired)
+        reason == ConnectFailure.StorageFull -> SyncRunResult.Failed(PermanentSyncFailure.StorageFull)
         retryable -> SyncRunResult.Retryable(reason)
         else -> SyncRunResult.Failed(PermanentSyncFailure.InvalidServerResponse)
     }
@@ -2131,7 +2244,7 @@ class HierarchySync(
      */
     private fun JsonObject.decodeInkPoints(): ByteArray {
         val points = decodeBase64("points")
-        require(points.size <= MAX_INK_POINT_BYTES) { Strings.ink_points_are_too_large }
+        require(points.size <= MAX_INK_POINT_BYTES) { "ink points are too large" }
         return points
     }
 
@@ -2153,7 +2266,7 @@ class HierarchySync(
      *
      * What goes: `page_content`, `page_revisions`, the three ink tables, the derived handwriting
      * cache, and the `attachments` rows and files nothing else on this device reaches. What stays:
-     * the notebook, its sections and its pages — [parentIsAvailable] holds back a pulled row whose
+     * the notebook, its sections and its pages — [admit] holds back a pulled row whose
      * parent is missing and [pullIfNeeded] will not advance the cursor while anything is held, so a
      * deleted `sections` row would stop this device syncing at all, silently. The payload is
      * effectively all of the bytes anyway.
@@ -2167,9 +2280,9 @@ class HierarchySync(
      * devices learn. Second, so the eviction is free to fail without leaving a notebook claiming its
      * bytes are somewhere they are not.
      */
-    suspend fun evictToCloud(notebookId: String): CloudArchiveResult = mutex.withLock {
+    suspend fun evictToCloud(notebookId: String): CloudArchiveResult = serialized {
         val notebook = notebooks.byId(notebookId)
-            ?: return@withLock CloudArchiveResult.UnknownNotebook
+            ?: return@serialized CloudArchiveResult.UnknownNotebook
         evictToCloudLocked(notebook)
     }
 
@@ -2216,7 +2329,7 @@ class HierarchySync(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failed: Exception) {
-            log.e(TAG, Strings.could_not_evict_notebook_value_to_the_cloud(notebook.id), failed)
+            Log.e(TAG, "Could not evict notebook ${notebook.id} to the cloud", failed)
             return CloudArchiveResult.Failed(SyncRunResult.Failed(PermanentSyncFailure.LocalData))
         }
 
@@ -2232,6 +2345,10 @@ class HierarchySync(
         db.withTransaction {
             if (notebook.closedAt == null) notebooks.setClosed(notebook.id, now, now)
             if (notebook.cloudOnlyAt == null) notebooks.setCloudOnly(notebook.id, now, now)
+        }
+        DebugLog.i(DebugLog.DB) {
+            "Sync: removed notebook ${notebook.id}'s contents from this device, " +
+                "${evicted.size} picture(s) with them; the account keeps them"
         }
         return CloudArchiveResult.Moved
     }
@@ -2257,8 +2374,8 @@ class HierarchySync(
     private suspend fun picturesReachedOnlyBy(pageIds: List<String>): List<String> {
         val leaving = buildSet {
             pageIds.chunked(SQLITE_BIND_CHUNK).forEach { chunk ->
-                contents.byIds(chunk).forEach { addAll(pictureIdsIn(it.docJson, it.format)) }
-                revisions.byPageIds(chunk).forEach { addAll(picturesIn(it)) }
+                contents.byIds(chunk).forEach { addAll(DocumentPictures.idsIn(it.docJson, it.format)) }
+                revisions.byPageIds(chunk).forEach { addAll(DocumentPictures.idsIn(it)) }
             }
         }
         if (leaving.isEmpty()) return emptyList()
@@ -2266,18 +2383,11 @@ class HierarchySync(
         val evicting = pageIds.toSet()
         val staying = buildSet {
             contents.picturePlacingBodies().forEach { row ->
-                if (row.pageId !in evicting) addAll(pictureIdsIn(row.docJson, row.format))
+                if (row.pageId !in evicting) addAll(DocumentPictures.idsIn(row.docJson, row.format))
             }
         }
         return (leaving - staying).toList()
     }
-
-    /** The pictures a saved version places, or none if its payload cannot be read. */
-    private fun picturesIn(revision: PageRevisionEntity): List<String> = runCatching {
-        DocumentRevisionPayload.unpack(revision).outlines
-            .filterIsInstance<Outline.Image>()
-            .map { it.attachmentId }
-    }.getOrDefault(emptyList())
 
     /**
      * Downloads a notebook whose contents are absent here and puts it back on this device.
@@ -2309,15 +2419,15 @@ class HierarchySync(
     suspend fun restoreFromCloud(
         account: SyncAccount,
         notebookId: String,
-    ): CloudArchiveResult = mutex.withLock {
+    ): CloudArchiveResult = serialized {
         val notebook = notebooks.byId(notebookId)
-            ?: return@withLock CloudArchiveResult.UnknownNotebook
-        if (notebook.deletedAt != null) return@withLock CloudArchiveResult.UnknownNotebook
+            ?: return@serialized CloudArchiveResult.UnknownNotebook
+        if (notebook.deletedAt != null) return@serialized CloudArchiveResult.UnknownNotebook
         val deferredLocally = metadata.value(deferredNotebookContentKey(notebookId)) != null
         if (notebook.cloudOnlyAt == null && !deferredLocally) {
-            return@withLock CloudArchiveResult.AlreadyDone
+            return@serialized CloudArchiveResult.AlreadyDone
         }
-        if (sync.state() == null) return@withLock CloudArchiveResult.NoAccount
+        if (sync.state() == null) return@serialized CloudArchiveResult.NoAccount
 
         val wanted = pages.allInNotebook(notebookId).map { it.id }.toSet()
         val pictureRows = mutableMapOf<String, RemoteChange>()
@@ -2326,15 +2436,16 @@ class HierarchySync(
         var cursor = 0L
         var hasMore: Boolean
         var replayed = 0
+        var applied = 0
         do {
             val page = when (
                 val result = client.pullChanges(account.serverUrl, account.token, cursor)
             ) {
                 is ServerResult.Success -> result.value
                 ServerResult.Unauthorized ->
-                    return@withLock CloudArchiveResult.Failed(SyncRunResult.Revoked)
+                    return@serialized CloudArchiveResult.Failed(SyncRunResult.Revoked)
                 is ServerResult.Failed ->
-                    return@withLock CloudArchiveResult.Failed(result.asSyncResult())
+                    return@serialized CloudArchiveResult.Failed(result.asSyncResult())
             }
 
             val parsed = try {
@@ -2344,7 +2455,7 @@ class HierarchySync(
                 // nothing. The next ordinary run still refuses to advance past it, loudly.
                 page.changes.mapNotNull(::parseRemoteChange)
             } catch (malformed: IllegalArgumentException) {
-                return@withLock CloudArchiveResult.Failed(
+                return@serialized CloudArchiveResult.Failed(
                     SyncRunResult.Failed(PermanentSyncFailure.InvalidServerResponse),
                 )
             }
@@ -2383,11 +2494,12 @@ class HierarchySync(
                     applyPictureCounts()
                     sync.setApplyingRemote(false)
                 }
+                applied += mine.size
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failed: Exception) {
-                log.e(TAG, Strings.could_not_write_a_replayed_change_for_notebook_value(notebookId), failed)
-                return@withLock CloudArchiveResult.Failed(
+                Log.e(TAG, "Could not write a replayed change for notebook $notebookId", failed)
+                return@serialized CloudArchiveResult.Failed(
                     SyncRunResult.Failed(PermanentSyncFailure.LocalData),
                 )
             }
@@ -2396,21 +2508,21 @@ class HierarchySync(
             cursor = page.cursor
             hasMore = page.hasMore
             if (hasMore && page.changes.isEmpty()) {
-                return@withLock CloudArchiveResult.Failed(
+                return@serialized CloudArchiveResult.Failed(
                     SyncRunResult.Failed(PermanentSyncFailure.InvalidServerResponse),
                 )
             }
         } while (hasMore && ++replayed < MAX_REPLAY_PAGES)
 
         if (hasMore) {
-            log.e(TAG, Strings.replay_for_notebook_value_did_not_finish_in_value_pages(notebookId, MAX_REPLAY_PAGES))
-            return@withLock CloudArchiveResult.Failed(
+            Log.e(TAG, "Replay for notebook $notebookId did not finish in $MAX_REPLAY_PAGES pages")
+            return@serialized CloudArchiveResult.Failed(
                 SyncRunResult.Failed(PermanentSyncFailure.InvalidServerResponse),
             )
         }
 
         val needed = restored.flatMapTo(mutableSetOf()) { (json, format) ->
-            pictureIdsIn(json, format)
+            DocumentPictures.idsIn(json, format)
         }
         try {
             db.withTransaction {
@@ -2424,8 +2536,8 @@ class HierarchySync(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failed: Exception) {
-            log.e(TAG, Strings.could_not_write_the_pictures_replayed_for_notebook_value(notebookId), failed)
-            return@withLock CloudArchiveResult.Failed(
+            Log.e(TAG, "Could not write the pictures replayed for notebook $notebookId", failed)
+            return@serialized CloudArchiveResult.Failed(
                 SyncRunResult.Failed(PermanentSyncFailure.LocalData),
             )
         }
@@ -2438,10 +2550,30 @@ class HierarchySync(
             notebooks.setClosed(notebookId, null, now)
             metadata.delete(deferredNotebookContentKey(notebookId))
         }
+        DebugLog.i(DebugLog.DB) {
+            "Sync: brought notebook $notebookId back from the cloud, $applied replayed change(s) " +
+                "and ${needed.size} picture(s)"
+        }
 
         val downloads = blobs.downloadMissing(account)
         downloadsOutstanding = downloads.workRemains
         CloudArchiveResult.BroughtBack
+    }
+
+    /** Debug builds only: one line per committed page of remote changes, by kind. */
+    private fun logApplied(
+        source: String,
+        applied: List<RemoteChange>,
+        purges: Int,
+        heldBack: Int,
+        cursor: Long,
+    ) {
+        if (applied.isEmpty() && purges == 0) return
+        DebugLog.i(DebugLog.DB) {
+            val kinds = applied.groupingBy { it.kind.wire }.eachCount()
+            "Sync: applied ${applied.size} $source change(s) $kinds, $purges purge(s), " +
+                "$heldBack held back; cursor " + if (heldBack == 0) "now $cursor" else "unchanged"
+        }
     }
 
     /**
@@ -2465,7 +2597,7 @@ class HierarchySync(
             }
             if (!stillHere) continue
             val result = evictToCloudLocked(notebook)
-            log.i(TAG, "Notebook ${notebook.id} is cloud-only on the account: $result")
+            Log.i(TAG, "Notebook ${notebook.id} is cloud-only on the account: $result")
         }
     }
 
@@ -2505,12 +2637,6 @@ class HierarchySync(
 
         /** `PageContentFields.blobRefs` is `maxItems: 512`. A page with more is not a page. */
         const val MAX_BLOB_REFS = 512
-
-        /**
-         * A field name only [Outline.Image] has, used to skip decoding a body that cannot mention a
-         * picture. Both codecs write field names as text, so it holds for `cbor/1` as well.
-         */
-        const val IMAGE_FIELD_HINT = "attachmentId"
     }
 }
 

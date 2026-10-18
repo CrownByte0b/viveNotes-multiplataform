@@ -97,7 +97,7 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
                 pdfExporter = remember(window) { notes.pdfExporter(window) },
                 onEditorDefaultsChange = notes::updateEditorDefaults,
                 onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
-                accountService = notes.accountService,
+                accountHost = notes.sync?.accountHost,
                 aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
                 appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild)
         }

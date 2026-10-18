@@ -1,7 +1,9 @@
 package com.vivenotes.workspace
 
 import com.vivenotes.data.PageLoad
+import com.vivenotes.data.InkEdit
 import com.vivenotes.data.InkSource
+import com.vivenotes.data.PendingInkEdit
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.model.Block
 import com.vivenotes.model.Outline
@@ -14,6 +16,7 @@ import com.vivenotes.model.ink.VisibleInkStroke
 import com.vivenotes.richtext.TextSelection
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -151,28 +154,142 @@ class WorkspaceSessionTest {
         assertEquals("series", other.preview, "the list still shows the stored preview")
     }
 
+    /** Android's `acceptStoredDocument`: a body sync stores underneath the open page shows at once. */
     @Test
-    fun remoteBodyRefreshesTheOpenPageWithoutSavingItBack() = runTest {
+    fun aSyncedBodyReplacesTheOpenPageWithoutBeingSavedBack() = runTest {
         val session = started()
         store.storeBody(limits, PageLoad.Loaded(typed("from another device")))
-
-        session.refreshOpenPageFromStorage()
         runCurrent()
 
         assertEquals("from another device", session.state.value!!.selectedPage!!.body)
+        advanceTimeBy(WorkspaceSession.AUTOSAVE_DELAY_MILLIS * 2)
+        runCurrent()
         assertTrue(store.saves.isEmpty())
     }
 
+    /**
+     * Plain OCC, as on Android: the server's version wins over an edit still waiting to be saved, and
+     * that edit is never written over it — writing it would push stale content as a fresh change and
+     * bring back what the other device removed.
+     */
     @Test
-    fun remoteRefreshPreservesAnUnsavedEdit() = runTest {
+    fun aSyncedBodyWinsOverAnEditStillWaitingToBeSaved() = runTest {
         val session = started()
         session.type("editing here")
         store.storeBody(limits, PageLoad.Loaded(typed("from another device")))
-
-        session.refreshOpenPageFromStorage()
+        runCurrent()
+        advanceTimeBy(WorkspaceSession.AUTOSAVE_DELAY_MILLIS * 2)
         runCurrent()
 
-        assertEquals("editing here", session.state.value!!.selectedPage!!.body)
+        assertEquals("from another device", session.state.value!!.selectedPage!!.body)
+        assertTrue(store.saves.isEmpty(), "the older edit must not be written over the synced body")
+    }
+
+    /** A save already queued when the synced body lands was made against the old body, and is dropped. */
+    @Test
+    fun aSaveStillQueuedWhenASyncedBodyArrivesIsDropped() = runTest {
+        val session = started()
+        store.deleteGate = CompletableDeferred()
+        session.delete(NavigationItem.Page(series))
+        runCurrent()
+        session.type("editing here")
+        advanceTimeBy(WorkspaceSession.AUTOSAVE_DELAY_MILLIS + 1)
+        runCurrent()
+
+        store.storeBody(limits, PageLoad.Loaded(typed("from another device")))
+        runCurrent()
+        store.deleteGate!!.complete(Unit)
+        runCurrent()
+
+        assertTrue(store.saves.none { it.first == limits }, "the queued save ran over the synced body")
+        assertEquals("from another device", session.state.value!!.selectedPage!!.body)
+    }
+
+    /**
+     * The session's own save comes back through the same observation. It is recognised as the body it
+     * asked to store, not compared with the editor, so typing done while it was written stays.
+     */
+    @Test
+    fun aSaveComingBackDoesNotRollBackTypingMadeMeanwhile() = runTest {
+        val session = started()
+        session.type("first")
+        advanceTimeBy(WorkspaceSession.AUTOSAVE_DELAY_MILLIS + 1)
+        session.type("first and more")
+        runCurrent()
+
+        assertEquals(listOf("first"), store.saves.map { it.second.text() })
+        assertEquals("first and more", session.state.value!!.selectedPage!!.body)
+    }
+
+    /** As on Android, a synced body this build cannot read blocks every save rather than being overwritten. */
+    @Test
+    fun anUnreadableSyncedBodyMakesThePageReadOnly() = runTest {
+        val session = started()
+        store.storeBody(limits, PageLoad.Unreadable("{not a page", IllegalStateException("unknown format")))
+        runCurrent()
+
+        assertEquals(PageContent.Unreadable, session.state.value!!.selectedPage!!.content)
+        session.type("x")
+        advanceTimeBy(WorkspaceSession.AUTOSAVE_DELAY_MILLIS * 2)
+        session.flush()
+        assertTrue(store.saves.isEmpty())
+    }
+
+    /**
+     * Android's `maySeedStarter`: a device joining an account it has not pulled must not grow the
+     * account a second starter notebook nobody made. The tree is still read.
+     */
+    @Test
+    fun aDeviceJoiningAnAccountDoesNotSeedAStarterNotebook() = runTest {
+        val session = WorkspaceSession(store, backgroundScope, createdLabel = { "created $it" }, maySeedStarter = { false })
+        session.start()
+        runCurrent()
+
+        assertEquals(0, store.seeds)
+        assertNotNull(session.state.value)
+        assertEquals(limits, session.state.value!!.selectedPageId)
+    }
+
+    /**
+     * Android's `absorbRemoteInk`: the open page reads its ink again when sync says it wrote into that
+     * page — and waits while the page has ink of its own still to save, then catches up.
+     */
+    @Test
+    fun inkSyncWritesIntoTheOpenPageIsReadAgainOnceTheOwnInkHasSettled() = runTest {
+        val reads = mutableListOf<String>()
+        var strokes = listOf(stroke("mine"))
+        val source = object : InkSource {
+            override suspend fun loadInk(pageId: String): InkPage {
+                reads += pageId
+                return InkPage(pageId, strokes)
+            }
+        }
+        val remoteInk = MutableStateFlow<Map<String, Long>>(emptyMap())
+        val session = WorkspaceSession(store, backgroundScope, { "created $it" }, inkSource = source, remoteInk = remoteInk)
+        session.start()
+        runCurrent()
+        assertEquals(listOf(limits), reads)
+
+        strokes = listOf(stroke("mine"), stroke("theirs"))
+        remoteInk.value = mapOf(limits to 1L)
+        runCurrent()
+        assertEquals(listOf(limits, limits), reads)
+        assertEquals(listOf("mine", "theirs"), session.state.value!!.selectedPage!!.ink!!.strokes.map { it.id })
+
+        // Another page's ink is not this page's news.
+        remoteInk.value = mapOf(limits to 1L, series to 1L)
+        runCurrent()
+        assertEquals(2, reads.size)
+
+        // Ink of this page's own still to save: the read waits, and runs once it has gone.
+        val own = PendingInkEdit("pending", limits, InkEdit.EraseStrokes(setOf("mine")))
+        session.update { it.copy(pendingInkEdits = listOf(own)) }
+        remoteInk.value = mapOf(limits to 2L, series to 1L)
+        runCurrent()
+        assertEquals(2, reads.size)
+        session.update { it.copy(pendingInkEdits = emptyList()) }
+        runCurrent()
+        assertEquals(3, reads.size)
     }
 
     @Test
@@ -596,6 +713,9 @@ class WorkspaceSessionTest {
 
     private fun PageDoc.text(): String =
         outlines.filterIsInstance<Outline.Text>().first().blocks.joinToString("\n") { it.text }
+
+    private fun stroke(id: String) = VisibleInkStroke(id, "marker", 1, 6f, 0xFF000000.toInt(), false,
+        listOf(InkSample(10f, 20f)))
 
     private fun typed(text: String) =
         PageDoc(outlines = listOf(Outline.Text(id = "text", blocks = listOf(Block.of(text)))))
