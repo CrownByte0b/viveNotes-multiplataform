@@ -9,6 +9,37 @@ import kotlin.test.*
 
 class InkToolkitPersistenceTest {
     @Test
+    fun automaticRecolourSurvivesReopenAndUndoPreservesExplicitWhiteAndOriginalInputs() = runBlocking {
+        val file = Files.createTempFile("automatic-selection-color", ".db").toFile()
+        var database = NotesDatabase.create(file)
+        try {
+            var repository = NotesRepository(database)
+            val notebook = repository.createNotebook("Colors")
+            val section = repository.createSection(notebook, "Ink")
+            val pageId = repository.createPage(section)
+            val original = selectionLine(pageId = pageId).copy(colorArgb = -1, colorFollowsTheme = false)
+            repository.applyInkEdit(pageId, InkEdit.AddStroke(original))
+            val page = repository.loadInk(pageId)
+            val change = page.geometry!!.selectAt(page, 40f, 200f)!!.recolor(0xff000000.toInt(), true)!!
+            change.edits.forEach { repository.applyInkEdit(pageId, it) }
+            database.close()
+            database = NotesDatabase.create(file)
+            repository = NotesRepository(database)
+            val reopened = repository.loadInk(pageId)
+            assertTrue(reopened.strokes.single().colorFollowsTheme!!)
+            assertEquals(0xffe6e6e6.toInt(), automaticColorOr(reopened.strokes.single().colorArgb,
+                reopened.strokes.single().colorFollowsTheme, 0xffe6e6e6.toInt()))
+            change.undo.forEach { repository.applyInkEdit(pageId, it) }
+            val restored = repository.inkFor(pageId).single()
+            assertEquals(-1, restored.colorArgb)
+            assertFalse(restored.colorFollowsTheme!!)
+            assertContentEquals(original.points, restored.points)
+            change.redo.forEach { repository.applyInkEdit(pageId, it) }
+            assertTrue(repository.loadInk(pageId).strokes.single().colorFollowsTheme!!)
+        } finally { database.close(); file.delete() }
+    }
+
+    @Test
     fun groupsReopenAsOneMovableObjectAndUndoRestoresPreviousMembershipAndOriginalBytes() = runBlocking {
         val file = Files.createTempFile("ink-group", ".db").toFile()
         var database = NotesDatabase.create(file)

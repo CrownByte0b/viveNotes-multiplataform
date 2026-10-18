@@ -58,10 +58,6 @@ internal object ShapeMenuTags {
     fun fill(argb: Int?) = "draw-shape-fill-${argb ?: "none"}"
 }
 
-internal val ShapeColors = listOf(0xFF000000.toInt(), 0xFFFFFFFF.toInt(),
-    0xFF3584E4.toInt(), 0xFF2EC27E.toInt(), 0xFFE01B24.toInt(),
-    0xFFFF7800.toInt(), 0xFF9141AC.toInt(), 0xFFF6D32D.toInt())
-
 /** Accepts RGB and ARGB hex colours from desktop keyboard input. */
 internal fun parseShapeColor(value: String): Int? {
     val hex = value.trim().removePrefix("#")

@@ -147,7 +147,7 @@ import com.vivenotes.model.ink.arms
 import com.vivenotes.model.ink.ends
 import com.vivenotes.ui.canvas.drawDocumentShape
 import com.vivenotes.ui.ribbon.draw.ShapeObjectTools
-import com.vivenotes.ui.ribbon.draw.CustomShapeColorField
+import com.vivenotes.ui.canvas.SelectionColorButton
 import com.vivenotes.model.PageStyle
 import com.vivenotes.workspace.primeHeight
 import com.vivenotes.workspace.isPrimeObject
@@ -161,7 +161,6 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -189,7 +188,6 @@ import com.vivenotes.ui.components.LocalTooltipDismissals
 import com.vivenotes.ui.components.TooltipDismissals
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.ui.components.LocalPopupLayerDensity
-import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.TooltipIconButton
 import com.vivenotes.ui.ribbon.document.DocumentTab
 import com.vivenotes.ui.ribbon.document.DocumentColorSelection
@@ -264,14 +262,6 @@ import com.vivenotes.search.revealSearchHit
 import com.vivenotes.model.search.ContentHit
 import com.vivenotes.model.search.ContentKind
 import com.vivenotes.ui.search.SearchPane
-
-private val ObjectColors get() = listOf(
-    Strings.white to 0xFFFFFFFF.toInt(), Strings.black to 0xFF000000.toInt(),
-    Strings.gray to 0xFF6B7280.toInt(), Strings.red to 0xFFEF4444.toInt(),
-    Strings.orange to 0xFFF59E0B.toInt(), Strings.green to 0xFF22C55E.toInt(),
-    Strings.cyan to 0xFF06B6D4.toInt(), Strings.blue to 0xFF3B82F6.toInt(),
-    Strings.purple to 0xFF8B5CF6.toInt(), Strings.pink to 0xFFEC4899.toInt(),
-)
 
 /** Stable semantics identifiers used by desktop UI tests and future accessibility automation. */
 object WorkspaceTestTags {
@@ -781,10 +771,11 @@ private fun WorkspaceContent(
                             openPane = DockedPane.Math
                         }
                     },
-                    onInkRecolor = { source, argb, change -> onStateChange { current ->
+                    onInkRecolor = { source, argb, followsTheme, change -> onStateChange { current ->
                         if (current.selectedInk !== source) current
-                        else if (change == null) current.colorSelectedObjects(argb)
-                        else current.applyInkSelectionChange(change, recolorOutlinesArgb = argb)
+                        else if (change == null) current.colorSelectedObjects(argb, followsTheme)
+                        else current.applyInkSelectionChange(change, recolorOutlinesArgb = argb,
+                            recolorFollowsTheme = followsTheme)
                     } },
                     onPreparedPaste = { before, prepared -> onStateChange { it.applyPreparedCanvasPaste(before, prepared) } },
                     onCreateShape = { sx, sy, ex, ey -> onStateChange { it.createShape(sx, sy, ex, ey) } },
@@ -815,7 +806,7 @@ private fun WorkspaceContent(
                     onCopyObjects = { onStateChange { it.copySelectedObjects() } },
                     onDeleteObjects = { onStateChange { it.deleteSelectedObjects() } },
                     onToggleObjectLock = { onStateChange { it.toggleObjectLock() } },
-                    onColorObjects = { argb -> onStateChange { it.colorSelectedObjects(argb) } },
+                    onColorObjects = { argb, followsTheme -> onStateChange { it.colorSelectedObjects(argb, followsTheme) } },
                     onShapeLineType = { type -> onStateChange { it.setSelectedShapeLineType(type) } },
                     onShapeWidth = { width -> onStateChange { it.setSelectedShapeBorderWidth(width) } },
                     onShapeFill = { argb -> onStateChange { it.setSelectedShapeFill(argb) } },
@@ -1017,7 +1008,7 @@ private fun PageCanvas(
     onInkGrouping: (InkSelectionChange) -> Unit,
     inkMathAvailable: Boolean,
     onInkMath: (InkSelection) -> Unit,
-    onInkRecolor: (InkSelection, Int, InkSelectionChange?) -> Unit,
+    onInkRecolor: (InkSelection, Int, Boolean, InkSelectionChange?) -> Unit,
     onPreparedPaste: (WorkspaceState, WorkspaceState) -> Unit,
     onCreateShape: (Float, Float, Float, Float) -> Unit,
     onStraightenStroke: (StraightLine, InkPenSettings) -> Unit = { _, _ -> },
@@ -1033,7 +1024,7 @@ private fun PageCanvas(
     onCopyObjects: () -> Unit,
     onDeleteObjects: () -> Unit,
     onToggleObjectLock: () -> Unit,
-    onColorObjects: (Int) -> Unit,
+    onColorObjects: (Int, Boolean) -> Unit,
     onShapeLineType: (LineType) -> Unit,
     onShapeWidth: (Int) -> Unit,
     onShapeFill: (Int?) -> Unit,
@@ -2195,55 +2186,24 @@ private fun PageCanvas(
                 if (state.selectedObjectIds.isNotEmpty() && state.selectedInk == null) {
                     val selected = state.selectedPrimeObjects.firstOrNull()
                     if (selected != null) {
-                        var colorMenu by remember(selected.id) { mutableStateOf(false) }
                         Surface(color = Color(0xFF161618), contentColor = Color.White,
                             shape = MaterialTheme.shapes.medium, tonalElevation = 4.dp,
                             modifier = Modifier.offset((groupBounds?.left ?: selected.x).dp,
-                                ((groupBounds?.top ?: selected.y).dp - 52.dp).coerceAtLeast(0.dp))
+                                ((groupBounds?.top ?: selected.y).dp - 42.dp).coerceAtLeast(0.dp))
                                 .testTag(WorkspaceTestTags.ObjectToolkit)) {
-                            Row(Modifier.padding(3.dp)) {
+                            Row(Modifier.padding(horizontal = 3.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
                                 val colorSource = state.selectedColorableObject
                                 if (colorSource != null) {
-                                    Box {
-                                        val swatch = when (colorSource) {
-                                            is Outline.Shape -> Color(com.vivenotes.data.automaticColorOr(
-                                                colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
-                                            is Outline.Table -> Color(com.vivenotes.data.automaticColorOr(
-                                                colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
-                                            is Outline.Equation -> colorSource.colorArgb?.let(::Color) ?: shapeInk
-                                            else -> Color.Black
-                                        }
-                                        TooltipIconButton(Strings.change_object_colour, onClick = { colorMenu = true },
-                                            tooltipPosition = TooltipAnchorPosition.Above,
-                                            modifier = Modifier.size(40.dp)
-                                                .testTag(WorkspaceTestTags.ObjectColor)) {
-                                            Box(Modifier.size(18.dp).clip(CircleShape).background(swatch))
-                                        }
-                                        ScaledDropdownMenu(expanded = colorMenu, onDismissRequest = { colorMenu = false }) {
-                                            ObjectColors.chunked(5).forEach { colors ->
-                                                Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                                    colors.forEach { (name, argb) ->
-                                                        HoverTooltip(name) {
-                                                            Box(Modifier.size(40.dp).padding(4.dp)
-                                                                .clip(CircleShape)
-                                                                .background(Color(argb))
-                                                                .clickable(role = Role.Button) {
-                                                                    colorMenu = false
-                                                                    onColorObjects(argb)
-                                                                }
-                                                                .semantics { contentDescription = name })
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            if (colorSource is Outline.Shape) {
-                                                CustomShapeColorField(Strings.border, "object-shape-custom-border") {
-                                                    colorMenu = false
-                                                    onColorObjects(it)
-                                                }
-                                            }
-                                        }
+                                    val swatch = when (colorSource) {
+                                        is Outline.Shape -> Color(com.vivenotes.data.automaticColorOr(
+                                            colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
+                                        is Outline.Table -> Color(com.vivenotes.data.automaticColorOr(
+                                            colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
+                                        is Outline.Equation -> colorSource.colorArgb?.let(::Color) ?: shapeInk
+                                        else -> Color.Black
                                     }
+                                    SelectionColorButton(swatch, shapeInk, onColorObjects)
                                 }
                                 if (state.selectedObjectIds.size == 1 && state.selectedTextOutlineIds.isEmpty()) {
                                     if (selected is Outline.Table) TableObjectTools(selected, onTableAction)
@@ -2254,14 +2214,14 @@ private fun PageCanvas(
                                     ShapeObjectTools(selected, onShapeLineType, onShapeWidth, onShapeFill)
                                 }
                                 TooltipIconButton(Strings.copy_selection, onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
-                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
+                                    modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
                                     Icon(DocumentSymbols.ContentCopy, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 }
                                 if (state.canLockSelectedObjects) {
                                     TooltipIconButton(if (state.selectedObjectsLocked) Strings.unlock_selection else Strings.lock_selection,
                                         onClick = onToggleObjectLock, tooltipPosition = TooltipAnchorPosition.Above,
-                                        modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectLock)) {
+                                        modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectLock)) {
                                         Icon(if (state.selectedObjectsLocked) ObjectSymbols.Lock
                                             else ObjectSymbols.LockOpen,
                                             contentDescription = null,
@@ -2269,7 +2229,7 @@ private fun PageCanvas(
                                     }
                                 }
                                 TooltipIconButton(Strings.delete_selection, onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
-                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
+                                    modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
                                     Icon(ObjectSymbols.Delete, contentDescription = null,
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(18.dp))
@@ -2313,7 +2273,7 @@ private fun PageCanvas(
                 (bounds.right + inkDragOffset.x) * scale - horizontalScroll.value,
                 (bounds.bottom + inkDragOffset.y) * scale - verticalScroll.value)
             val ink = canvasPalette(page.document.style, canvasDark).ink
-            InkSelectionToolkit(selection, viewBounds, viewportPx, ObjectColors, ink,
+            InkSelectionToolkit(selection, viewBounds, viewportPx, ink,
                 enabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy && !inkMoveBusy,
                 showColor = state.selectedTextOutlineIds.isEmpty(), onBoundsChange = { inkToolkitBoundsInView = it },
                 showGroup = state.inkOnlySelection && (selection.targetIds.size > 1 || selection.isGrouped),
@@ -2332,13 +2292,13 @@ private fun PageCanvas(
                         }
                     }
                 },
-                onCopy = onCopyObjects, onDelete = onDeleteObjects, onColor = { argb ->
+                onCopy = onCopyObjects, onDelete = onDeleteObjects, onColor = { argb, followsTheme ->
                     if (!inkMoveBusy) {
                         inkMoveBusy = true
                         inkMoveScope.launch {
                             try {
-                                val change = withContext(Dispatchers.Default) { selection.recolor(argb) }
-                                currentInkRecolor(selection, argb, change)
+                                val change = withContext(Dispatchers.Default) { selection.recolor(argb, followsTheme) }
+                                currentInkRecolor(selection, argb, followsTheme, change)
                             } finally { inkMoveBusy = false }
                         }
                     }

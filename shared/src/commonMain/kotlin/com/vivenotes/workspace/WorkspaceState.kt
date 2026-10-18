@@ -409,14 +409,14 @@ data class WorkspaceState(
         else clearCanvasFocus().copy(selectedInk = selection)
 
     fun applyInkSelectionChange(change: com.vivenotes.model.ink.InkSelectionChange, deleteOutlines: Boolean = false,
-                                recolorOutlinesArgb: Int? = null): WorkspaceState {
+                                recolorOutlinesArgb: Int? = null, recolorFollowsTheme: Boolean = false): WorkspaceState {
         val page = editablePage ?: return this
         if (!page.inkReady || notebookTransfer.running || filePane.busy || change.edits.isEmpty() ||
             change.source !== selectedInk || page.ink !== change.before || change.after.pageId != page.id) return this
         val document = page.document.copy(outlines = page.document.outlines.mapNotNull { outline ->
             if (outline.id !in selectedObjectIds && outline.id !in selectedTextOutlineIds) outline
             else if (deleteOutlines) null
-            else if (recolorOutlinesArgb != null) outline.recolored(recolorOutlinesArgb)
+            else if (recolorOutlinesArgb != null) outline.recolored(recolorOutlinesArgb, recolorFollowsTheme)
             else if (outline is Outline.Text) outline.copy(x = (outline.x + change.dx).coerceAtLeast(0f),
                 y = (outline.y + change.dy).coerceAtLeast(0f))
             else if (outline.lockGroup != null) outline
@@ -868,11 +868,13 @@ data class WorkspaceState(
         } }
     }
 
-    fun colorSelectedObjects(argb: Int): WorkspaceState {
+    fun colorSelectedObjects(argb: Int, followsTheme: Boolean = false): WorkspaceState {
         if (editablePage == null) return this
-        selectedInk?.recolor(argb)?.let { return applyInkSelectionChange(it, recolorOutlinesArgb = argb) }
+        selectedInk?.recolor(argb, followsTheme)?.let {
+            return applyInkSelectionChange(it, recolorOutlinesArgb = argb, recolorFollowsTheme = followsTheme)
+        }
         return editOutlines { outlines -> outlines.map {
-            if (it.id in selectedObjectIds) it.recolored(argb) else it
+            if (it.id in selectedObjectIds) it.recolored(argb, followsTheme) else it
         } }
     }
 

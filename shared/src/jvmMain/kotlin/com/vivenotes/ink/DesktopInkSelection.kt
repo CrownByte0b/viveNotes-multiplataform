@@ -65,11 +65,11 @@ internal class DesktopInkSelection(override val page: InkPage, val held: InkLass
 
     override fun copy(): InkClipboard = DesktopInkClipboard(page, held)
 
-    override fun recolor(argb: Int): InkSelectionChange? {
+    override fun recolor(argb: Int, followsTheme: Boolean): InkSelectionChange? {
         val sources = page.desktopGeometry().sourceStrokes.filter { it.id in targetIds &&
-            (it.stroke.brush.colorIntArgb != argb || it.colorFollowsTheme != false) }
+            (it.stroke.brush.colorIntArgb != argb || it.colorFollowsTheme != followsTheme) }
         if (sources.isEmpty()) return null
-        val edit = InkEdit.SetStrokeColors(sources.associate { it.id to StrokeColor(argb, false) })
+        val edit = InkEdit.SetStrokeColors(sources.associate { it.id to StrokeColor(argb, followsTheme) })
         val undo = InkEdit.SetStrokeColors(sources.associate {
             it.id to StrokeColor(it.stroke.brush.colorIntArgb, it.colorFollowsTheme)
         })

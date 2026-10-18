@@ -118,8 +118,8 @@ class WorkspaceScreenTest {
             onNodeWithTag(ShapeObjectTags.Fill).performClick()
             onNodeWithText("No fill").performClick()
             onNodeWithTag(WorkspaceTestTags.ObjectColor).performClick()
-            onNodeWithTag("object-shape-custom-border").performTextReplacement("#345678")
-            onNodeWithTag("object-shape-custom-border-apply").performClick()
+            onNodeWithTag(com.vivenotes.ui.canvas.SelectionColorTags.Custom).performTextReplacement("#345678")
+            onNodeWithTag("${com.vivenotes.ui.canvas.SelectionColorTags.Custom}-apply").performClick()
             runOnIdle {
                 val shape = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().last()
                 assertEquals(LineType.Dotted, shape.lineType)
