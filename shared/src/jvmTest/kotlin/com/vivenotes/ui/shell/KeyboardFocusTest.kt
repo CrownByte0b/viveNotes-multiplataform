@@ -10,6 +10,9 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithTag
@@ -23,12 +26,14 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.model.Outline
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.ui.navigation.NavigationTestTags
+import com.vivenotes.ui.ribbon.document.DocumentRibbonTags
 import com.vivenotes.ui.ribbon.settings.InterfaceTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -132,6 +137,54 @@ class KeyboardFocusTest {
         ctrl(Key.Zero)
         assertZoom(100)
         runOnIdle { assertTrue(observed.activeTab == RibbonTab.View) }
+    }
+
+    /** I is the Document tab's Text button, from a fresh launch with nothing clicked, both ways. */
+    @Test
+    fun iTogglesTheTextBoxToolBeforeAnythingIsClicked() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = WorkspaceState.demo()
+        setWorkspace { observed = it }
+        press(Key.I)
+        runOnIdle { assertTrue(observed.textToolArmed, "I did not arm the Text box tool") }
+        onNodeWithTag(DocumentRibbonTags.Text).assertIsSelected()
+        press(Key.I)
+        runOnIdle { assertFalse(observed.textToolArmed, "a second I did not put the tool down") }
+        onNodeWithTag(DocumentRibbonTags.Text).assertIsNotSelected()
+    }
+
+    /**
+     * Where I would be typed — a text box, the page title, a dialog's field — it is the letter, and
+     * the tool stays as it was. Once the keyboard has left the field, I is the shortcut again.
+     */
+    @Test
+    fun iInATextFieldIsALetterNotTheShortcut() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = WorkspaceState.demo()
+        setWorkspace { observed = it }
+
+        onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
+        onNodeWithTag(WorkspaceTestTags.BodyEditor).assertIsFocused()
+        press(Key.I)
+        runOnIdle { assertFalse(observed.textToolArmed, "I in a text box armed the tool") }
+        press(Key.Escape)
+        press(Key.I)
+        runOnIdle { assertTrue(observed.textToolArmed, "I after Esc left the text box did nothing") }
+        press(Key.I)
+
+        onNodeWithTag(WorkspaceTestTags.TitleEditor).performClick()
+        onNodeWithTag(WorkspaceTestTags.TitleEditor).assertIsFocused()
+        press(Key.I)
+        runOnIdle { assertFalse(observed.textToolArmed, "I in the page title armed the tool") }
+
+        onNodeWithTag(WorkspaceTestTags.page("lecture-notes")).performMouseInput { rightClick(center) }
+        onNodeWithTag(NavigationTestTags.Rename).performClick()
+        onNodeWithTag(NavigationTestTags.NameField).assertIsFocused()
+        press(Key.I)
+        runOnIdle { assertFalse(observed.textToolArmed, "I in the rename field armed the tool") }
+        onNodeWithTag(NavigationTestTags.Cancel).performClick()
+
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(700f, 600f)) }
+        press(Key.I)
+        runOnIdle { assertTrue(observed.textToolArmed, "I on the page after the fields did nothing") }
     }
 
     private fun ComposeUiTest.assertZoom(percent: Int) {

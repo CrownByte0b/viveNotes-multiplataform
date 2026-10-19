@@ -18,7 +18,7 @@ class KeyBindingsTest {
     fun defaultChordsAreDistinctAndUsable() {
         val all = ShortcutAction.entries.flatMap { it.defaults }
         assertEquals(all.size, all.toSet().size, "a default chord runs two commands")
-        assertTrue(all.all { it.usable })
+        assertTrue(ShortcutAction.entries.all { action -> action.defaults.all(action::accepts) })
         assertTrue(ShortcutAction.entries.all { it.defaults.isNotEmpty() })
     }
 
@@ -40,6 +40,7 @@ class KeyBindingsTest {
             KeyBindings.Default.actionFor(KeyChord(ShortcutKey.NumPadEnter, ctrl = true)))
         assertEquals("Ctrl+Shift+V", shown[ShortcutAction.PastePlainText])
         assertEquals("Esc", shown[ShortcutAction.SelectTool])
+        assertEquals("I", shown[ShortcutAction.TextTool])
         assertEquals("Delete", shown[ShortcutAction.DeleteSelection])
         assertEquals(ShortcutAction.Redo, KeyBindings.Default.actionFor(ctrlShiftZ))
         assertEquals(ShortcutAction.ZoomIn,
@@ -74,6 +75,50 @@ class KeyBindingsTest {
         assertTrue(KeyChord(ShortcutKey.F5).usable)
         assertTrue(KeyChord(ShortcutKey.F12, shift = true).usable)
         assertTrue(KeyChord(ShortcutKey.Tab).usable)
+    }
+
+    /** The Text box tool's I: a key that types is a shortcut only for what never runs where it types. */
+    @Test
+    fun onlyACommandThatNeverRunsInTextTakesAKeyThatTypes() {
+        val t = KeyChord(ShortcutKey.T)
+        assertTrue(ShortcutAction.TextTool.accepts(t))
+        assertTrue(ShortcutAction.TextTool.accepts(KeyChord(ShortcutKey.T, shift = true)))
+        assertTrue(ShortcutAction.TextTool.accepts(ctrlK))
+        assertFalse(ShortcutAction.Bold.accepts(t))
+        assertFalse(ShortcutAction.NewPage.accepts(t))
+        assertFalse(ShortcutAction.SelectTool.accepts(t))
+        assertEquals(ShortcutScope.OutsideText, ShortcutAction.TextTool.scope)
+        assertEquals("Tools", ShortcutAction.TextTool.group)
+
+        val stored = KeyBindings.of(mapOf(ShortcutAction.TextTool to listOf(t), ShortcutAction.Bold to listOf(KeyChord(ShortcutKey.Q))))
+        assertEquals(t, stored.primary(ShortcutAction.TextTool))
+        assertEquals(KeyChord(ShortcutKey.B, ctrl = true), stored.primary(ShortcutAction.Bold),
+            "a bare letter for Bold is still no shortcut, so that change is ignored")
+    }
+
+    @Test
+    fun theTextToolRunsOnlyWhereNothingTypes() {
+        val i = KeyChord(ShortcutKey.I)
+        val bindings = KeyBindings.Default
+        assertEquals(ShortcutDecision.Run(ShortcutAction.TextTool), bindings.decide(i, ShortcutScope.OutsideText))
+        assertEquals(ShortcutDecision.Swallow, bindings.decide(i, ShortcutScope.OutsideText, repeat = true),
+            "holding I must not flick the tool on and off")
+        assertEquals(ShortcutDecision.Pass, bindings.decide(i, ShortcutScope.Anywhere))
+        assertEquals(ShortcutDecision.Pass, bindings.decide(i, ShortcutScope.Workspace))
+        assertEquals(ShortcutDecision.Pass, bindings.decide(i, ShortcutScope.TextBox), "in a text box I is the letter")
+        // Nothing else runs where a letter is a shortcut.
+        assertEquals(ShortcutDecision.Pass, bindings.decide(ctrlZ, ShortcutScope.OutsideText))
+        assertEquals(ShortcutDecision.Pass, bindings.decide(KeyChord(ShortcutKey.Escape), ShortcutScope.OutsideText))
+    }
+
+    /** Regression guard: the text field's own Ctrl+C must not come back when the Text box tool takes it. */
+    @Test
+    fun aTextBoxDefaultGivenToTheTextToolIsUsedUpInATextBox() {
+        val textOnCopy = KeyBindings.Default.rebind(ShortcutAction.TextTool, ctrlC)
+        assertEquals(ShortcutDecision.Swallow, textOnCopy.decide(ctrlC, ShortcutScope.TextBox))
+        assertEquals(ShortcutDecision.Run(ShortcutAction.TextTool), textOnCopy.decide(ctrlC, ShortcutScope.OutsideText))
+        assertNull(textOnCopy.actionFor(KeyChord(ShortcutKey.I)), "I runs nothing once the tool moved off it")
+        assertEquals(ShortcutDecision.Pass, textOnCopy.decide(ctrlK, ShortcutScope.TextBox))
     }
 
     @Test

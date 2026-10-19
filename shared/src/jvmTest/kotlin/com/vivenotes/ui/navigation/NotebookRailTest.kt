@@ -9,7 +9,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
@@ -23,6 +25,7 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.shell.WorkspaceScreen
@@ -72,6 +75,27 @@ class NotebookRailTest {
                 }
             }
         }
+    }
+
+    /** A notebook's book and name are 30% larger than its sections' names, so the two levels read apart. */
+    @Test
+    fun aNotebookIsLabelledLargerThanItsSections() = runDesktopComposeUiTest(width = 400, height = 600) {
+        setRail()
+        fun fontSize(text: String): Float {
+            val layouts = mutableListOf<TextLayoutResult>()
+            onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode()
+                .config[SemanticsActions.GetTextLayoutResult].action!!(layouts)
+            return layouts.single().layoutInput.style.fontSize.value
+        }
+        assertEquals(14f, fontSize("Alpha"), 0.01f)
+        assertEquals(14f * 1.3f, fontSize("Field notes"), 0.01f)
+        val book = onNodeWithTag(NavigationTestTags.notebookBook("nb")).getUnclippedBoundsInRoot()
+        assertEquals(16f * 1.3f, book.width.value, 0.5f)
+        assertEquals(16f * 1.3f, book.height.value, 0.5f)
+        // The larger name still fits its row.
+        val name = onNodeWithText("Field notes", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val row = onNodeWithTag(NavigationTestTags.notebook("nb")).getUnclippedBoundsInRoot()
+        assertTrue(name.top >= row.top && name.bottom <= row.bottom, "name $name spills out of its row $row")
     }
 
     /** The commands are behind a right-click, not docked beside the name. */

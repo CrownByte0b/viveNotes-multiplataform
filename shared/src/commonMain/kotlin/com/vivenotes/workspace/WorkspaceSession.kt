@@ -222,6 +222,9 @@ class WorkspaceSession(
         if (before.inkTool != after.inkTool) log.event("ink") { "tool ${after.inkTool?.name ?: "Select"}" }
         if (before.eraserMode != after.eraserMode) log.event("ink") { "eraser mode ${after.eraserMode.name}" }
         if (before.drawPlacement != after.drawPlacement) log.event("draw") { "tool ${after.drawPlacement?.name ?: "Select"}" }
+        if (before.textToolArmed != after.textToolArmed) log.event("text") {
+            "text box tool ${if (after.textToolArmed) "armed" else "put down"}"
+        }
         if (before.activePenIndex != after.activePenIndex) log.event("ink") { "pen preset ${after.activePenIndex + 1}" }
         if (before.rulerVisible != after.rulerVisible) log.event("ink") { "ruler ${if (after.rulerVisible) "shown" else "hidden"}" }
         if (before.inkSettings != after.inkSettings) log.event("ink") { "drawing preferences changed" }

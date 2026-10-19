@@ -55,6 +55,7 @@ object NavigationTestTags {
     const val ConfirmDelete = "navigation-confirm-delete"
     const val Cancel = "navigation-dialog-cancel"
     fun notebook(id: String): String = "navigation-notebook-$id"
+    fun notebookBook(id: String): String = "navigation-notebook-book-$id"
     fun sectionDrag(id: String): String = "navigation-section-drag-$id"
     fun addSection(notebookId: String): String = "navigation-add-section-$notebookId"
     const val AddNotebook = "navigation-add-notebook"

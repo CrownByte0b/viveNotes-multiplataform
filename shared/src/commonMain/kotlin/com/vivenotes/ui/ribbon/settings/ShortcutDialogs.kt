@@ -56,7 +56,8 @@ object ShortcutDialogTags {
 /**
  * Asks for [action]'s new keys, as GNOME Settings does: the next chord pressed becomes the shortcut,
  * Esc cancels, and Backspace disables it. A chord another command already uses is held until
- * Replace (or Enter) confirms taking it; one that needs a modifier to be a shortcut is refused.
+ * Replace (or Enter) confirms taking it; one that needs a modifier to be [action]'s shortcut — a key
+ * that types, for a command that can run in a text field — is refused.
  * [onSet] receives the chord, or null to disable.
  */
 @Composable
@@ -70,13 +71,13 @@ internal fun ShortcutCaptureDialog(
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     val held = pending
-    val conflict = held?.takeIf { it.usable }?.let { bindings.conflict(action, it) }
+    val conflict = held?.takeIf(action::accepts)?.let { bindings.conflict(action, it) }
 
     fun capture(chord: KeyChord) {
         when {
             // Its own keys again: nothing changes, and a zoom keeps its numpad and Shift spellings.
             chord in bindings.chords(action) -> onDismiss()
-            chord.usable && bindings.conflict(action, chord) == null -> onSet(chord)
+            action.accepts(chord) && bindings.conflict(action, chord) == null -> onSet(chord)
             else -> pending = chord
         }
     }
@@ -113,7 +114,7 @@ internal fun ShortcutCaptureDialog(
                     modifier = Modifier.padding(vertical = 4.dp).testTag(ShortcutDialogTags.Captured))
                 Text(
                     text = when {
-                        held != null && !held.usable ->
+                        held != null && !action.accepts(held) ->
                             Strings.value_can_t_be_a_shortcut_on_its_own_add_ctrl(held.label)
                         conflict != null ->
                             Strings.value_is_already_used_for_value_replacing_it_removes_it_from(held?.label, conflict.label, conflict.label)
@@ -121,7 +122,7 @@ internal fun ShortcutCaptureDialog(
                             Strings.esc_cancels_backspace_disables_the_shortcut
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (held != null && !held.usable) MaterialTheme.colorScheme.error
+                    color = if (held != null && !action.accepts(held)) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.heightIn(min = 32.dp).testTag(ShortcutDialogTags.Message),

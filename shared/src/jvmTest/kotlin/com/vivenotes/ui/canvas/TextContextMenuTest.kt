@@ -10,7 +10,10 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -33,10 +36,12 @@ import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
+import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
@@ -60,6 +65,21 @@ class TextContextMenuTest {
     /** A point on the word "Review", in the editor's coordinates. */
     private val onFirstWord = Offset(15f, 10f)
 
+    private val limitsUrl = "https://example.com/limits"
+    private val andUrl = "https://example.com/and"
+
+    /** "Review limits and derivatives…" with "limits" (7–13) and "and" (14–17) linked, nothing focused. */
+    private val linked = WorkspaceState.demo().focusBody()
+        .selectText(TextSelection(7, 13)).insertLink("limits", limitsUrl)
+        .selectText(TextSelection(14, 17)).insertLink("and", andUrl).clearCanvasFocus()
+
+    /** The middle of character [offset] in [editor]'s text, in the editor's coordinates. */
+    private fun characterCentre(editor: SemanticsNodeInteraction, offset: Int): Offset {
+        val layouts = mutableListOf<TextLayoutResult>()
+        editor.fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action!!(layouts)
+        return layouts.first().getBoundingBox(offset).center
+    }
+
     @Test
     fun rightClickingTextEditsThatBoxAndOffersItsCommands() = runDesktopComposeUiTest(width = 1400, height = 900) {
         val clipboard = FakeClipboard()
@@ -76,6 +96,7 @@ class TextContextMenuTest {
         onNodeWithTag(TextMenuTags.Cut).assertIsNotEnabled()
         onNodeWithTag(TextMenuTags.Copy).assertIsNotEnabled()
         onNodeWithTag(TextMenuTags.InsertLink).assertDoesNotExist()
+        onNodeWithTag(TextMenuTags.EditLink).assertDoesNotExist()
         onNodeWithTag(TextMenuTags.ClearFormatting).assertDoesNotExist()
         onNodeWithTag(TextMenuTags.Paste).assertIsNotEnabled()
         onNodeWithTag(TextMenuTags.PastePlainText).assertIsNotEnabled()
@@ -215,6 +236,78 @@ class TextContextMenuTest {
                 run.marks.any { it is Mark.Link }
             }, "typing after the link must stay outside it")
         }
+    }
+
+    /** A right-click on a link already there offers to edit it, and the edit takes the whole link. */
+    @Test
+    fun rightClickingALinkOffersEditLink() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = linked
+        setWorkspace(linked, FakeClipboard()) { observed = it }
+        val editor = onNodeWithTag(WorkspaceTestTags.BodyEditor)
+        editor.performTextInputSelection(TextRange(0))
+
+        editor.performMouseInput { rightClick(characterCentre(editor, 9)) }
+        onNodeWithTag(TextMenuTags.EditLink).assertTextEquals("Edit link")
+        onNodeWithTag(TextMenuTags.InsertLink).assertDoesNotExist()
+        onNodeWithTag(TextMenuTags.ClearFormatting).assertDoesNotExist()
+        onNodeWithTag(TextMenuTags.EditLink).performClick()
+
+        onNodeWithTag(DocumentRibbonTags.LinkPanel).assertIsDisplayed()
+        onNodeWithTag(DocumentRibbonTags.LinkText).assertTextContains("limits")
+        onNodeWithTag(DocumentRibbonTags.LinkAddress).assertTextContains(limitsUrl)
+        onNodeWithTag(DocumentRibbonTags.LinkAddress).performTextReplacement("example.com/calculus")
+        onNodeWithTag(DocumentRibbonTags.LinkSubmit).performClick()
+
+        runOnIdle {
+            val text = observed.richText!!
+            assertEquals(linked.richTextFor(observed.focusedTextOutlineId!!)!!.text, text.text, "editing the link changed its words")
+            assertEquals(listOf(RichTextBuffer.LinkSpan(7, 13, "https://example.com/calculus"),
+                RichTextBuffer.LinkSpan(14, 17, andUrl)), text.linkSpans())
+        }
+    }
+
+    /** The plain text around a link still offers Insert link, and a selection inside one Edit link. */
+    @Test
+    fun theLinkCommandIsNamedForWhatItDoes() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        setWorkspace(linked, FakeClipboard()) {}
+        val editor = onNodeWithTag(WorkspaceTestTags.BodyEditor)
+
+        editor.performTextInputSelection(TextRange(0, 6))
+        editor.performMouseInput { rightClick(onFirstWord) }
+        onNodeWithTag(TextMenuTags.InsertLink).assertTextEquals("Insert link")
+        onNodeWithTag(TextMenuTags.EditLink).assertDoesNotExist()
+        onNodeWithTag(TextMenuTags.SelectAll).performClick()
+
+        editor.performTextInputSelection(TextRange(8, 11))
+        editor.performMouseInput { rightClick(characterCentre(editor, 9)) }
+        onNodeWithTag(TextMenuTags.EditLink).assertTextEquals("Edit link")
+        onNodeWithTag(TextMenuTags.InsertLink).assertDoesNotExist()
+        onNodeWithTag(TextMenuTags.ClearFormatting).assertIsDisplayed()
+    }
+
+    /**
+     * Regression: a box not being edited shows its preview, where each link's icon moves the text
+     * after it. The right-click was read on the hidden editor, so on the second link of a line it
+     * landed past the link: no Edit link, and the caret in the wrong word.
+     */
+    @Test
+    fun aLinkInABoxNotBeingEditedIsReadWhereItIsDrawn() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = linked
+        setWorkspace(linked, FakeClipboard()) { observed = it }
+        onNodeWithTag("text-box-preview").assertIsDisplayed()
+        val icon = onNodeWithTag("link-icon-14", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        // The last letter of "and", just before its link icon.
+        val onAnd = Offset(icon.left.value - 3f, (icon.top.value + icon.bottom.value) / 2f)
+
+        onRoot().performMouseInput { rightClick(onAnd) }
+        onNodeWithTag(TextMenuTags.EditLink).assertIsDisplayed()
+        runOnIdle {
+            assertTrue(observed.editorSelection.collapsed && observed.editorSelection.start in 14..17,
+                "the caret went to ${observed.editorSelection}, not into \"and\"")
+        }
+        onNodeWithTag(TextMenuTags.EditLink).performClick()
+        onNodeWithTag(DocumentRibbonTags.LinkText).assertTextContains("and")
+        onNodeWithTag(DocumentRibbonTags.LinkAddress).assertTextContains(andUrl)
     }
 
     @Test

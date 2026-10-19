@@ -185,6 +185,12 @@ import com.vivenotes.ui.ribbon.document.PictureDialogHost
 import com.vivenotes.ui.canvas.asAnnotatedString
 import com.vivenotes.ui.canvas.drawBlockDecorations
 import com.vivenotes.ui.canvas.linkAtPoint
+import com.vivenotes.ui.canvas.PreviewLayout
+import com.vivenotes.ui.canvas.textMenuAt
+import com.vivenotes.ui.canvas.CanvasPointer
+import com.vivenotes.ui.canvas.InsertCursorBadge
+import com.vivenotes.ui.canvas.followPointer
+import com.vivenotes.ui.canvas.pendingInsert
 import com.vivenotes.ui.canvas.rememberPictureAssets
 import com.vivenotes.ui.canvas.todoAt
 import com.vivenotes.ui.components.HoverTooltip
@@ -234,7 +240,6 @@ import com.vivenotes.ui.canvas.TextMenuRequest
 import com.vivenotes.ui.canvas.TextCaretKeys
 import com.vivenotes.ui.canvas.caretAt
 import com.vivenotes.ui.canvas.scrollOnlyForTyping
-import com.vivenotes.ui.canvas.selectionForRightClick
 import com.vivenotes.ui.canvas.selectedCanvasBounds
 import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.navigation.NavigationDialogs
@@ -250,6 +255,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.input.key.KeyEvent
 import com.vivenotes.ui.keyboard.LocalKeyBindings
 import com.vivenotes.ui.keyboard.ShortcutKeys
+import com.vivenotes.ui.keyboard.TextInputSessions
+import androidx.compose.ui.platform.InterceptPlatformTextInput
 import com.vivenotes.ui.ribbon.settings.HardwarePane
 import com.vivenotes.ui.ribbon.settings.ResetAllShortcutsDialog
 import com.vivenotes.ui.ribbon.settings.ShortcutCaptureDialog
@@ -393,6 +400,7 @@ fun WorkspaceScreen(
     val canvasFocusRequester = remember { FocusRequester() }
     val tooltipDismissals = remember(debugLog) { TooltipDismissals(debugLog) }
     val shortcutKeys = remember { ShortcutKeys() }
+    val textInput = remember { TextInputSessions() }
     var workspaceHasFocus by remember { mutableStateOf(false) }
     LaunchedEffect(workspaceHasFocus, tooltipDismissals.hasOpenPopup, pdfExportOpen, accountOpen) {
         if (pdfExportOpen || accountOpen || workspaceHasFocus || tooltipDismissals.hasOpenPopup) return@LaunchedEffect
@@ -421,7 +429,10 @@ fun WorkspaceScreen(
                             sectionName = state.selectedSection?.name.orEmpty(),
                             onDismiss = { pdfExportOpen = false }, prepare = fileActions::preparePdfExport,
                         )
-                    } else WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
+                    // Every text field in the workspace reports to textInput while it takes typing. Only
+                    // the call is wrapped: the Kotlin compiler's flow analysis of WorkspaceContent's
+                    // own body ran out of memory once that body sat inside one more lambda.
+                    } else InterceptPlatformTextInput(textInput) { WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
                         onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
                         view = view, themePreference = effectiveSettings.darkTheme, onViewChange = { next ->
                             view = next
@@ -441,7 +452,7 @@ fun WorkspaceScreen(
                         onAbout = { aboutOpen = true }, aiModels = aiModels, drawMath = drawMath,
                         onExportPdf = { pdfExportOpen = true },
                         search = search, onOpenSearchPage = onOpenSearchPage, shortcutKeys = shortcutKeys,
-                        developmentBuild = developmentBuild, debugLog = debugLog)
+                        textInput = textInput, developmentBuild = developmentBuild, debugLog = debugLog) }
                 }
                 // Composed while closed as well: it holds the state Android keeps above its Account
                 // destination, so a sign-in in flight outlives the screen it was started from.
@@ -504,6 +515,8 @@ private fun WorkspaceContent(
     search: ContentSearchService?,
     onOpenSearchPage: ((String, String) -> Unit)?,
     shortcutKeys: ShortcutKeys,
+    /** Whether a text field has the keyboard, which is when a letter is a letter and not a shortcut. */
+    textInput: TextInputSessions,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
     val canvasControl = remember { CanvasViewControl() }
@@ -609,7 +622,9 @@ private fun WorkspaceContent(
                     shortcutKeys.dispatch(event, currentBindings, ShortcutScope.Anywhere, shortcuts::run)
             }
             .onKeyEvent { event ->
-                shortcutKeys.dispatch(event, currentBindings, ShortcutScope.Workspace, shortcuts::run)
+                shortcutKeys.dispatch(event, currentBindings, ShortcutScope.Workspace, shortcuts::run) ||
+                    !textInput.typing &&
+                    shortcutKeys.dispatch(event, currentBindings, ShortcutScope.OutsideText, shortcuts::run)
             }
             .focusRequester(canvasFocusRequester)
             .focusable(),
@@ -1140,6 +1155,7 @@ private fun PageCanvas(
     val panOffset = panPointer - panAnchor
     val panCursorDirection = panDirection(panOffset.x, panOffset.y)
     ApplyPanCursorWhilePressed(panActive, panCursorDirection)
+    val canvasPointer = remember { CanvasPointer() }
     val currentCreate by rememberUpdatedState(onCreateTextBox)
     val currentCreateShape by rememberUpdatedState(onCreateShape)
     val currentClearCanvasFocus by rememberUpdatedState(onClearCanvasFocus)
@@ -1163,6 +1179,8 @@ private fun PageCanvas(
     val currentState by rememberUpdatedState(state)
     val measuredTextHeights = remember(page?.id) { mutableStateMapOf<String, Float>() }
     val textLayouts = remember(page?.id) { mutableStateMapOf<String, TextLayoutResult>() }
+    // How each box's preview is laid out, while it is drawn in place of the box's editor.
+    val previewLayouts = remember(page?.id) { mutableMapOf<String, PreviewLayout>() }
     val titleFocus = remember { FocusRequester() }
     var titleValue by remember(page?.id) { mutableStateOf(TextFieldValue(page?.title.orEmpty())) }
     LaunchedEffect(page?.title) {
@@ -1421,6 +1439,8 @@ private fun PageCanvas(
             }
             .pointerHoverIcon(if (panActive) panPointerIcon(panCursorDirection) else PointerIcon.Default,
                 overrideDescendants = panActive)
+            // Where the mouse is, for the badge beside it that shows what a click will insert.
+            .followPointer(canvasPointer)
             // Ahead of the page's own handlers: on the initial pass, the first modifier is asked first.
             .pointerInput(page?.id) {
                 detectRulerGestures({ currentRuler }, ::toPage) { rulerPlacement = it }
@@ -1813,16 +1833,10 @@ private fun PageCanvas(
                             .scrollOnlyForTyping { currentState.richTextFor(outline.id)?.text }
                             // Ours in place of the text field's own menu, which it never sees.
                             .onSecondaryPress(outline.id) { position ->
-                                val snapshot = currentState
-                                val inset = with(density) { TextBoxPadding.toPx() }
-                                val selection = selectionForRightClick(
-                                    current = snapshot.editorSelection.takeIf { snapshot.focusedTextOutlineId == outline.id },
-                                    layout = textLayouts[outline.id],
-                                    text = snapshot.richTextFor(outline.id)?.text.orEmpty(),
-                                    point = position - Offset(inset, inset),
-                                )
-                                onOpenTextMenu(outline.id, selection)
-                                textMenu = TextMenuRequest(outline.id, position, selection)
+                                val request = textMenuAt(outline.id, position, with(density) { TextBoxPadding.toPx() },
+                                    currentState, previewLayouts[outline.id], textLayouts[outline.id])
+                                onOpenTextMenu(outline.id, request.selection)
+                                textMenu = request
                             }
                             .testTag(WorkspaceTestTags.textBox(outline.id)),
                     ) {
@@ -1850,8 +1864,10 @@ private fun PageCanvas(
                                 blocks = outline.blocks,
                                 colors = richColors,
                                 onToggleTodo = { blockId -> currentToggleTodo(outline.id, blockId) },
+                                onPreviewLayout = { previewLayouts[outline.id] = it },
                             )
                         } else false
+                        SideEffect { if (!showingPreview) previewLayouts.remove(outline.id) }
                         BasicTextField(
                             value = TextFieldValue(
                                 annotatedString = styledText,
@@ -2405,6 +2421,8 @@ private fun PageCanvas(
                 }
             }
         }
+        // Last, so it is drawn over everything on the page; the pan cursor stands alone.
+        InsertCursorBadge(if (panActive) null else state.pendingInsert(), canvasPointer, Modifier.matchParentSize())
     }
 }
 

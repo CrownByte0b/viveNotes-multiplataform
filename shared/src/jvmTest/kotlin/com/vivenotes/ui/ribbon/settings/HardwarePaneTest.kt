@@ -54,6 +54,7 @@ import com.vivenotes.workspace.ShortcutKey
 import com.vivenotes.workspace.WorkspaceState
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -216,6 +217,26 @@ class HardwarePaneTest {
         press(listOf(Key.F6))
         onNodeWithTag(ShortcutDialogTags.Capture).assertDoesNotExist()
         runOnIdle { assertEquals(KeyChord(ShortcutKey.F6), reported!!.primary(ShortcutAction.NewPage)) }
+    }
+
+    /** The Text box tool may have a letter alone, which works on the canvas at once. */
+    @Test
+    fun theTextBoxToolTakesALetterAlone() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        var observed = WorkspaceState.demo()
+        setWorkspace { observed = it }
+        openHardware()
+        onNodeWithTag(HardwareTags.shortcut(ShortcutAction.TextTool)).performScrollTo()
+            .assertTextContains("Text box tool").assertTextContains("I").performClick()
+        press(listOf(Key.T))
+        onNodeWithTag(ShortcutDialogTags.Capture).assertDoesNotExist()
+        runOnIdle { assertEquals(KeyChord(ShortcutKey.T), reported!!.primary(ShortcutAction.TextTool)) }
+        onNodeWithTag(HardwareTags.shortcut(ShortcutAction.TextTool)).assertTextContains("T")
+
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput { click(Offset(700f, 500f)) }
+        press(listOf(Key.I))
+        runOnIdle { assertFalse(observed.textToolArmed, "I still armed the tool after it moved to T") }
+        press(listOf(Key.T))
+        runOnIdle { assertTrue(observed.textToolArmed) }
     }
 
     @Test

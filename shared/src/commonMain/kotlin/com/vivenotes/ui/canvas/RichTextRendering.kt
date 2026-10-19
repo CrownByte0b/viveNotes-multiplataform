@@ -35,6 +35,7 @@ import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Mark
 import com.vivenotes.richtext.RichTextBuffer
+import com.vivenotes.richtext.RichTextBuffer.LinkSpan
 import multiplataform_vive.shared.generated.resources.Res
 import multiplataform_vive.shared.generated.resources.inter
 import multiplataform_vive.shared.generated.resources.jetbrains_mono
@@ -342,11 +343,19 @@ internal fun todoAt(
     }
 
 /** The address of the link drawn under [point], if the pointer is on a linked character. */
-internal fun RichTextBuffer.linkAtPoint(layout: TextLayoutResult, point: Offset): String? {
+internal fun RichTextBuffer.linkAtPoint(layout: TextLayoutResult, point: Offset): String? =
+    linkSpanAtPoint(layout, point)?.href
+
+/** The whole link drawn under [point], if the pointer is on one of its characters. */
+internal fun RichTextBuffer.linkSpanAtPoint(layout: TextLayoutResult, point: Offset): LinkSpan? {
+    val character = characterAt(layout, point, minOf(text.length, layout.layoutInput.text.length)) ?: return null
+    return linkSpans().firstOrNull { character in it.start until it.end }
+}
+
+/** The character of [layout] whose box holds [point], among its first [length]; null between them. */
+internal fun characterAt(layout: TextLayoutResult, point: Offset, length: Int = layout.layoutInput.text.length): Int? {
     val offset = layout.getOffsetForPosition(point)
-    return listOf(offset, offset - 1).firstNotNullOfOrNull { candidate ->
-        candidate.takeIf { it in 0 until minOf(text.length, layout.layoutInput.text.length) }
-            ?.takeIf { layout.getBoundingBox(it).contains(point) }
-            ?.let(::linkUrlAt)
+    return listOf(offset, offset - 1).firstOrNull { candidate ->
+        candidate in 0 until length && layout.getBoundingBox(candidate).contains(point)
     }
 }

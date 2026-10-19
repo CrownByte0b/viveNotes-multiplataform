@@ -607,6 +607,7 @@
     <string name="view">View</string>
     <string name="actual_size">Actual size</string>
     <string name="select_tool">Select tool</string>
+    <string name="text_box_tool">Text box tool</string>
     <string name="tools">Tools</string>
     <string name="formatting">Formatting</string>
     <string name="indent">Indent</string>

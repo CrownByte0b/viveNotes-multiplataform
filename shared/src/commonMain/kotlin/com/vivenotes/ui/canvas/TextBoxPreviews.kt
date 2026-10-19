@@ -63,7 +63,8 @@ import org.jetbrains.compose.resources.decodeToImageBitmap
  *
  * The preview stands in for the editor, which it hides, so it draws [blocks]' list markers and
  * quote stripes itself and ticks a to-do whose box is clicked. [onEdit] gets the source offset
- * clicked, where editing starts.
+ * clicked, where editing starts. [onPreviewLayout] gets each layout it draws, for what reads a
+ * point on the box — a right-click — while the editor underneath is laid out differently.
  */
 @Composable
 internal fun TextBoxPreviews(
@@ -82,6 +83,7 @@ internal fun TextBoxPreviews(
     blocks: List<Block> = emptyList(),
     colors: RichTextColors = RichTextColors(Color(0xFF4CAF50), linkColor, ink.copy(alpha = 0.1f)),
     onToggleTodo: (String) -> Unit = {},
+    onPreviewLayout: (PreviewLayout) -> Unit = {},
 ): Boolean {
     val equations = remember(source.text, storedEquations) {
         findAutoEquationCandidates(source.text).map {
@@ -159,50 +161,64 @@ internal fun TextBoxPreviews(
     if (ordered.isEmpty()) return false
     val ranges = ordered.map { it.start until it.end }
     val projected = previewProjection(source, ranges)
-    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var layout by remember { mutableStateOf<PreviewLayout?>(null) }
     var pressedAt by remember { mutableStateOf<Offset?>(null) }
     val measurer = rememberTextMeasurer()
-    val displayLinks = links.map { link ->
-        Triple(projectedOffset(link.start, ranges), projectedOffset(link.end, ranges), link.href)
-    }
+    val currentLinks by rememberUpdatedState(links)
     val currentBlocks by rememberUpdatedState(blocks)
     val currentToggleTodo by rememberUpdatedState(onToggleTodo)
     BasicText(projected,
         inlineContent = ordered.mapIndexed { index, entry -> "preview-$index" to entry.content }.toMap(),
-        onTextLayout = { layout = it },
+        onTextLayout = { PreviewLayout(it, ranges).let { shown -> layout = shown; onPreviewLayout(shown) } },
         style = style, modifier = modifier
             .drawBehind {
-                layout?.let { drawBlockDecorations(it, blocks, colors, ink, measurer) { offset -> projectedOffset(offset, ranges) } }
+                layout?.let { drawBlockDecorations(it.layout, blocks, colors, ink, measurer) { offset -> projectedOffset(offset, ranges) } }
             }
-            .pointerInput(displayLinks, ranges) {
+            .pointerInput(ranges) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     pressedAt = down.position
-                    val textLayout = layout ?: return@awaitEachGesture
-                    val todo = todoAt(textLayout, currentBlocks, down.position, this) { projectedOffset(it, ranges) }
-                    val link = if (todo != null || !currentEvent.keyboardModifiers.isCtrlPressed) null else {
-                        val offset = textLayout.getOffsetForPosition(down.position)
-                        displayLinks.firstOrNull { (start, end, _) ->
-                            offset in start until end && textLayout.getBoundingBox(offset).contains(down.position)
-                        }
-                    }
+                    val shown = layout ?: return@awaitEachGesture
+                    val todo = todoAt(shown.layout, currentBlocks, down.position, this) { projectedOffset(it, ranges) }
+                    val link = if (todo != null || !currentEvent.keyboardModifiers.isCtrlPressed) null
+                        else shown.linkAt(down.position, currentLinks)
                     if (todo == null && link == null) return@awaitEachGesture
                     down.consume()
                     val up = waitForUpOrCancellation(PointerEventPass.Initial) ?: return@awaitEachGesture
                     up.consume()
                     todo?.let { currentToggleTodo(it) }
-                    link?.let { onOpenLink(it.third) }
+                    link?.let { onOpenLink(it.href) }
                 }
             }
             .clickable {
-                val textLayout = layout
+                val shown = layout
                 val at = pressedAt
-                // Editing starts where the box was clicked. Separators are zero-width spaces here,
-                // as in the editor; [caretAt] reads them as the newlines they stand for.
-                onEdit(if (textLayout == null || at == null) 0
-                    else sourceOffset(caretAt(textLayout, projected.text.replace('\u200B', '\n'), at), ranges))
+                // Editing starts where the box was clicked.
+                onEdit(if (shown == null || at == null) 0 else shown.caretAt(at))
             }.testTag("text-box-preview"))
     return true
+}
+
+/**
+ * A preview as drawn — its [layout], and the source [ranges] its objects replace — for finding
+ * what a point on it stands for in the source text.
+ */
+internal class PreviewLayout(val layout: TextLayoutResult, private val ranges: List<IntRange>) {
+    // Separators are zero-width spaces here, as in the editor; [caretAt] reads them as newlines.
+    private val text = layout.layoutInput.text.text.replace('\u200B', '\n')
+
+    /** The source offset a click at [point] edits at. */
+    fun caretAt(point: Offset): Int = sourceOffset(caretAt(layout, text, point), ranges)
+
+    /** The link of [links] drawn under [point]: on its text, or on the link icon drawn after it. */
+    fun linkAt(point: Offset, links: List<LinkSpan>): LinkSpan? {
+        val character = characterAt(layout, point) ?: return null
+        return links.firstOrNull { link ->
+            val end = projectedOffset(link.end, ranges)
+            character in projectedOffset(link.start, ranges) until end ||
+                (character == end && ranges.any { it.isEmpty() && it.first == link.end })
+        }
+    }
 }
 
 /** Keeps each placeholder inside one paragraph while retaining the source's paragraph styling. */

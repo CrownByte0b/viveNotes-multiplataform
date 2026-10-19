@@ -7,6 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextLayoutResult
+import com.vivenotes.richtext.RichTextBuffer
+import com.vivenotes.richtext.RichTextBuffer.LinkSpan
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.richtext.LinkTarget
 import com.vivenotes.ui.components.ContextMenu
@@ -27,6 +29,7 @@ object TextMenuTags {
     const val Paste = "text-menu-paste"
     const val PastePlainText = "text-menu-paste-plain"
     const val InsertLink = "text-menu-insert-link"
+    const val EditLink = "text-menu-edit-link"
     const val ClearFormatting = "text-menu-clear-formatting"
     const val CopyBox = "text-menu-copy-box"
     const val DeleteBox = "text-menu-delete-box"
@@ -35,33 +38,77 @@ object TextMenuTags {
 /**
  * A right-click in text box [outlineId] at [at], in the box's coordinates. [selection] is the range
  * the menu's commands act on, captured at the click: opening the menu takes the keyboard from the
- * editor, which can collapse the editor's own selection.
+ * editor, which can collapse the editor's own selection. [link] is the link the click landed on.
  */
-internal data class TextMenuRequest(val outlineId: String, val at: Offset, val selection: TextSelection)
+internal data class TextMenuRequest(
+    val outlineId: String,
+    val at: Offset,
+    val selection: TextSelection,
+    val link: LinkSpan? = null,
+)
 
 /**
- * Where a right-click at [point] leaves the caret, as desktop editors do it: inside the current
- * selection keeps that selection, so Copy copies it; anywhere else puts the caret there, so Paste
- * pastes there. [current] is null when the box is not being edited; [layout] is the box's [text],
- * laid out with its top left at the origin [point] is measured from.
+ * The menu a right-click at [position] opens in text box [outlineId], whose text starts [inset] in
+ * from its corner. A box showing its [preview] is read as drawn there rather than as its hidden
+ * [editor] is laid out: a link icon or a formula in the preview moves what follows it.
  */
-internal fun selectionForRightClick(
-    current: TextSelection?,
-    layout: TextLayoutResult?,
-    text: String,
-    point: Offset,
-): TextSelection {
-    val clicked = layout?.let { caretAt(it, text, point) }
-    return when {
-        current != null && !current.collapsed && (clicked == null || clicked in current.min..current.max) -> current
-        clicked != null -> TextSelection(clicked)
-        else -> current ?: TextSelection(0)
+internal fun textMenuAt(
+    outlineId: String,
+    position: Offset,
+    inset: Float,
+    state: WorkspaceState,
+    preview: PreviewLayout?,
+    editor: TextLayoutResult?,
+): TextMenuRequest {
+    val point = position - Offset(inset, inset)
+    val text = state.richTextFor(outlineId)
+    val clicked = when {
+        preview != null -> preview.caretAt(point)
+        editor != null -> caretAt(editor, text?.text.orEmpty(), point)
+        else -> null
     }
+    val link = when {
+        text == null -> null
+        preview != null -> preview.linkAt(point, text.linkSpans())
+        editor != null -> text.linkSpanAtPoint(editor, point)
+        else -> null
+    }
+    val current = if (state.focusedTextOutlineId == outlineId) state.editorSelection else null
+    return TextMenuRequest(outlineId, position, selectionForRightClick(current, clicked), link)
+}
+
+/**
+ * Where a right-click leaves the caret, as desktop editors do it: inside the current selection keeps
+ * that selection, so Copy copies it; anywhere else puts the caret where it [clicked], so Paste pastes
+ * there. [current] is null when the box is not being edited; [clicked] when the click was not read.
+ */
+internal fun selectionForRightClick(current: TextSelection?, clicked: Int?): TextSelection = when {
+    current != null && !current.collapsed && (clicked == null || clicked in current.min..current.max) -> current
+    clicked != null -> TextSelection(clicked)
+    else -> current ?: TextSelection(0)
+}
+
+/**
+ * The range and link the menu's link command opens the link panel on. A link already there is
+ * edited whole: the one the click landed on, or the one the selection lies in. Otherwise a selection
+ * is linked as it is, and with neither there is nothing to link. A target with an address is a link
+ * already there, which the command edits rather than inserts.
+ */
+internal fun linkEditFor(request: TextMenuRequest, text: RichTextBuffer?): Pair<TextSelection, LinkTarget>? {
+    text ?: return null
+    val selection = request.selection
+    val link = if (selection.collapsed) request.link
+        else text.linkSpans().firstOrNull { selection.min >= it.start && selection.max <= it.end }
+    if (link != null && link.end <= text.text.length) {
+        return TextSelection(link.start, link.end) to LinkTarget(text.text.substring(link.start, link.end), link.href)
+    }
+    return if (selection.collapsed) null else selection to text.select(selection).linkTarget
 }
 
 /**
  * The text box right-click menu: text editing commands plus whole-box Copy and Delete.
- * Cut and Copy need a selection and the pastes need text on the clipboard.
+ * Cut and Copy need a selection and the pastes need text on the clipboard. Insert link needs a
+ * selection too; on a link already there, or a selection inside one, it is Edit link.
  */
 @Composable
 internal fun TextContextMenu(
@@ -130,17 +177,21 @@ internal fun TextContextMenu(
             modifier = Modifier.testTag(TextMenuTags.PastePlainText),
         )
         ContextMenuDivider()
-        if (!selection.collapsed) {
+        val linkEdit = request?.let { linkEditFor(it, state.richTextFor(it.outlineId)) }
+        if (linkEdit != null) {
+            val (range, target) = linkEdit
+            val existing = target.url != null
             ContextMenuItem(
-                label = Strings.insert_link,
+                label = if (existing) Strings.edit_link else Strings.insert_link,
                 icon = DocumentSymbols.Link,
                 onClick = {
                     onClose()
-                    request?.let { onLinkRequest(it.outlineId, it.selection,
-                        state.richTextFor(it.outlineId)?.select(it.selection)?.linkTarget ?: LinkTarget("", null)) }
+                    request?.let { onLinkRequest(it.outlineId, range, target) }
                 },
-                modifier = Modifier.testTag(TextMenuTags.InsertLink),
+                modifier = Modifier.testTag(if (existing) TextMenuTags.EditLink else TextMenuTags.InsertLink),
             )
+        }
+        if (!selection.collapsed) {
             ContextMenuItem(
                 label = Strings.clear_formatting,
                 icon = DocumentSymbols.FormatClear,
@@ -152,8 +203,8 @@ internal fun TextContextMenu(
                 },
                 modifier = Modifier.testTag(TextMenuTags.ClearFormatting),
             )
-            ContextMenuDivider()
         }
+        if (linkEdit != null || !selection.collapsed) ContextMenuDivider()
         ContextMenuItem(
             label = Strings.select_all,
             icon = ContextSymbols.SelectAll,

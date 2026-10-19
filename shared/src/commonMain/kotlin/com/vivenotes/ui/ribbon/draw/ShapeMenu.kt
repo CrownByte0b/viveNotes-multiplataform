@@ -172,7 +172,7 @@ private fun ShapeChoice(kind: ShapeKind, selected: Boolean, onClick: () -> Unit)
     }
 }
 
-private fun DrawScope.drawToolkitTracing(tracing: ShapeTracing, color: Color, width: Float, lineType: LineType, fill: Color? = null) {
+internal fun DrawScope.drawToolkitTracing(tracing: ShapeTracing, color: Color, width: Float, lineType: LineType, fill: Color? = null) {
     if (fill != null) tracing.fill.forEach { points ->
         if (points.size >= 6) drawPath(Path().apply {
             moveTo(points[0], points[1])

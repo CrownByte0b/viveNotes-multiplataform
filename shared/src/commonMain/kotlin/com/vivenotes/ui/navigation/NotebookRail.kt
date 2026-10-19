@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -55,6 +56,9 @@ import com.vivenotes.workspace.WorkspaceState
 /** Android's `RAIL_WIDTH`. */
 private val NotebookPaneWidth = 232.dp
 private val SectionRowHeight = 32.dp
+
+/** A notebook's book and name are this much larger than its sections' names, so the levels read apart. */
+internal const val NotebookLabelScale = 1.3f
 
 /**
  * The notebooks and their sections — the leftmost pane, Android's `NotebookRail`.
@@ -195,7 +199,8 @@ private fun NotebookHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(38.dp)
+            // Grows with a large Interface font size rather than clipping the bigger name.
+            .heightIn(min = 38.dp)
             .background(rowContainer(selected = false, dragging = false, menuOpen = menuOpen))
             .clickable(onClickLabel = if (notebook.expanded) Strings.collapse else Strings.expand, onClick = onClick)
             .semantics { stateDescription = if (notebook.expanded) Strings.expanded else Strings.collapsed }
@@ -214,12 +219,13 @@ private fun NotebookHeader(
             imageVector = NavigationSymbols.Book,
             contentDescription = null,
             tint = Color(notebook.colorArgb),
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(16.dp * NotebookLabelScale).testTag(NavigationTestTags.notebookBook(notebook.id)),
         )
         Spacer(Modifier.width(8.dp))
+        val nameStyle = MaterialTheme.typography.titleSmall
         Text(
             text = notebook.name,
-            style = MaterialTheme.typography.titleSmall,
+            style = nameStyle.copy(fontSize = nameStyle.fontSize * NotebookLabelScale),
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

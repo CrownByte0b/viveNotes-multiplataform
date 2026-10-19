@@ -53,6 +53,23 @@ class WorkspaceSessionTest {
         assertTrue(lines.none { it.contains(equation.id) || it.contains(equation.latex) })
     }
 
+    /** The Text box tool, armed from its button or the I key, and put down again. */
+    @Test
+    fun debugLogTracksTheTextBoxTool() = runTest {
+        val lines = mutableListOf<String>()
+        val session = WorkspaceSession(store, backgroundScope, { "created $it" },
+            log = DebugLog(enabled = true, output = lines::add))
+        session.start()
+        runCurrent()
+        session.update { it.toggleTextTool() }
+        session.update { it.toggleTextTool() }
+        session.update { it.toggleTextTool() }
+        session.update { it.selectPointer() }
+
+        assertEquals(listOf("armed", "put down", "armed", "put down"),
+            lines.filter { "[text] text box tool" in it }.map { it.substringAfter("text box tool ") })
+    }
+
     @Test
     fun pictureBackgroundIsSavedAndLoggedWithoutItsColourOrIds() = runTest {
         val picture = Outline.Image("private-picture-id", 100f, 220f, 80f, attachmentId = "private-attachment", height = 60f)

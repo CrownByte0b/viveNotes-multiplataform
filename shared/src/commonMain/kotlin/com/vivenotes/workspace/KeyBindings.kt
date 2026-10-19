@@ -39,6 +39,8 @@ enum class ShortcutKey(private val labelText: (() -> String)? = null) {
      * Whether this key needs Ctrl, Alt or Super to be a shortcut. Alone, most keys type a character
      * or move the caret, and binding one would take that away from every text box. Function keys,
      * Delete and Tab may stand alone; a focused text field handles Delete before the workspace.
+     * A command that never runs while a text field has the keyboard may have any key: see
+     * [ShortcutAction.accepts].
      */
     val needsModifier: Boolean
         get() = this != Tab && this != Escape && this != Delete && ordinal !in F1.ordinal..F12.ordinal
@@ -100,6 +102,13 @@ enum class ShortcutScope {
 
     /** Only in the text box being edited, ahead of the text field's own keys. */
     TextBox,
+
+    /**
+     * Where [Workspace] is, but only while no text field has the keyboard. Here a key that types
+     * can be a shortcut: wherever it would be typed — a text box, the title, the search field — it
+     * is a letter, and nothing else.
+     */
+    OutsideText,
 }
 
 private enum class ShortcutGroup {
@@ -156,6 +165,8 @@ enum class ShortcutAction(
         ctrl(ShortcutKey.NumPad0)),
 
     SelectTool({ Strings.select_tool }, ShortcutGroup.Tools, ShortcutScope.Anywhere, false, KeyChord(ShortcutKey.Escape)),
+    // The Document tab's Text button. A bare letter, so it can only run where it would type nothing.
+    TextTool({ Strings.text_box_tool }, ShortcutGroup.Tools, ShortcutScope.OutsideText, false, KeyChord(ShortcutKey.I)),
 
     Bold({ Strings.bold }, ShortcutGroup.Formatting, ShortcutScope.TextBox, false, ctrl(ShortcutKey.B)),
     Italic({ Strings.italic }, ShortcutGroup.Formatting, ShortcutScope.TextBox, false, ctrl(ShortcutKey.I)),
@@ -171,6 +182,12 @@ enum class ShortcutAction(
     val group: String get() = shortcutGroup.label
 
     val defaults: List<KeyChord> = chords.toList()
+
+    /**
+     * Whether [chord] may run this command. A key that types needs Ctrl, Alt or Super, except for
+     * a command that never runs while a text field has the keyboard, where it types nothing.
+     */
+    fun accepts(chord: KeyChord): Boolean = chord.usable || scope == ShortcutScope.OutsideText
 
     companion object {
         /** Grouped as the Hardware pane shows them, groups and rows in declaration order. */
@@ -231,13 +248,15 @@ class KeyBindings private constructor(private val overrides: Map<ShortcutAction,
      * would take them the moment a text box command moved off them: a text box default that runs
      * nothing any more is used up rather than passed on, and one given to a workspace command runs
      * that command here, since it would never get past the text field to where it is dispatched.
+     * One given to a command that never runs in a text field runs nothing here, so it is used up.
      */
     fun decide(chord: KeyChord, at: ShortcutScope, repeat: Boolean = false): ShortcutDecision {
         val action = actionFor(chord)
         val claimed = when (at) {
             ShortcutScope.TextBox -> {
                 val textDefault = TextBoxDefaults.contains(chord)
-                if (action == null) return if (textDefault) ShortcutDecision.Swallow else ShortcutDecision.Pass
+                if (action == null || action.scope == ShortcutScope.OutsideText)
+                    return if (textDefault) ShortcutDecision.Swallow else ShortcutDecision.Pass
                 action.scope == ShortcutScope.TextBox || (textDefault && action.scope == ShortcutScope.Workspace)
             }
             else -> action?.scope == at
@@ -267,14 +286,14 @@ class KeyBindings private constructor(private val overrides: Map<ShortcutAction,
             .filter { it.scope == ShortcutScope.TextBox }.flatMap { it.defaults }.toSet()
 
         /**
-         * Bindings from stored [changes], cleaned as they are read: a change with a chord that
-         * cannot be a shortcut is ignored, a chord claimed twice stays with the later action in
-         * declaration order, and a change back to an action's defaults is no change.
+         * Bindings from stored [changes], cleaned as they are read: a change with a chord its action
+         * does not [accept][ShortcutAction.accepts] is ignored, a chord claimed twice stays with the
+         * later action in declaration order, and a change back to an action's defaults is no change.
          */
         fun of(changes: Map<ShortcutAction, List<KeyChord>>): KeyBindings {
             val chords = ShortcutAction.entries.associateWith { it.defaults }.toMutableMap()
             for (action in ShortcutAction.entries) {
-                val assigned = changes[action]?.takeIf { list -> list.all { it.usable } }?.distinct() ?: continue
+                val assigned = changes[action]?.takeIf { list -> list.all(action::accepts) }?.distinct() ?: continue
                 val taken = assigned.toSet()
                 for (other in ShortcutAction.entries) {
                     chords[other] = if (other == action) assigned else chords.getValue(other).filterNot { it in taken }

@@ -48,6 +48,7 @@ internal class WorkspaceShortcuts(
             ShortcutAction.ZoomOut -> view.zoomOut()
             ShortcutAction.ActualSize -> view.setZoom(1f)
             ShortcutAction.SelectTool -> onStateChange { it.selectPointer() }
+            ShortcutAction.TextTool -> onStateChange { it.toggleTextTool() }
             ShortcutAction.Bold -> onEditorCommand { it.toggleSelectedMark(Mark.Bold) }
             ShortcutAction.Italic -> onEditorCommand { it.toggleSelectedMark(Mark.Italic) }
             ShortcutAction.Underline -> onEditorCommand { it.toggleSelectedMark(Mark.Underline) }
