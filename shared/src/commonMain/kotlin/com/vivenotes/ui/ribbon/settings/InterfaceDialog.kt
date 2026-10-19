@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.settings
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -60,7 +61,7 @@ internal fun InterfaceDialog(
 ) {
     val darkTheme = settings.darkTheme ?: (MaterialTheme.colorScheme.background.luminance() < 0.45f)
     DesktopDialogFrame(
-        title = "Interface",
+        title = Strings.interface_label,
         onDismiss = onDismiss,
         modifier = Modifier.testTag(InterfaceTags.Dialog),
         backdropTag = InterfaceTags.Backdrop,
@@ -79,31 +80,31 @@ internal fun InterfaceDialog(
                         onCheckedChange = { onChange(settings.copy(darkTheme = it)) },
                         modifier = Modifier.padding(horizontal = 12.dp).testTag(InterfaceTags.ThemeSwitch)
                             .semantics {
-                                contentDescription = "App theme"
-                                stateDescription = if (darkTheme) "Dark" else "Light"
+                                contentDescription = Strings.app_theme
+                                stateDescription = if (darkTheme) Strings.dark else Strings.light
                             },
                     )
                     Icon(ViewSymbols.DarkMode, contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
                 }
-                Text("Adjust the workspace for your monitor. Changes appear while you move a slider.",
+                Text(Strings.adjust_the_workspace_for_your_monitor_changes_appear_while_you_move,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                ScaleSlider("Display scale (DPI)", "Scales the whole app for low or 4K resolution monitors",
+                ScaleSlider(Strings.display_scale_dpi, Strings.scales_the_whole_app_for_low_or_4k_resolution_monitors,
                     settings.displayScale, InterfaceSettings.DisplayScaleRange, InterfaceTags.DisplayScale) {
                     onChange(settings.copy(displayScale = it))
                 }
-                ScaleSlider("UI size", "Changes controls and spacing", settings.uiScale,
+                ScaleSlider(Strings.ui_size, Strings.changes_controls_and_spacing, settings.uiScale,
                     InterfaceSettings.UiScaleRange, InterfaceTags.UiScale) {
                     onChange(settings.copy(uiScale = it))
                 }
-                ScaleSlider("Font size", "Changes text independently of UI size", settings.fontScale,
+                ScaleSlider(Strings.font_size, Strings.changes_text_independently_of_ui_size, settings.fontScale,
                     InterfaceSettings.FontScaleRange, InterfaceTags.FontScale) {
                     onChange(settings.copy(fontScale = it))
                 }
                 Surface(color = MaterialTheme.colorScheme.surface,
                     shape = MaterialTheme.shapes.medium) {
-                    Text("The quick brown fox jumps over the lazy dog.",
+                    Text(Strings.the_quick_brown_fox_jumps_over_the_lazy_dog,
                         modifier = Modifier.padding(14.dp),
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontSize = MaterialTheme.typography.bodyLarge.fontSize * settings.displayScale * settings.fontScale))
@@ -112,13 +113,13 @@ internal fun InterfaceDialog(
         },
         actions = {
             TextButton(onClick = { onChange(InterfaceSettings()) }, modifier = Modifier.testTag(InterfaceTags.Reset)) {
-                Text("Reset")
+                Text(Strings.reset)
             }
             Spacer(Modifier.weight(1f))
             OutlinedButton(onClick = onDismiss, shape = MaterialTheme.shapes.small,
-                modifier = Modifier.testTag(InterfaceTags.Cancel)) { Text("Cancel") }
+                modifier = Modifier.testTag(InterfaceTags.Cancel)) { Text(Strings.cancel) }
             Button(onClick = onApply, shape = MaterialTheme.shapes.small,
-                modifier = Modifier.testTag(InterfaceTags.Apply)) { Text("Apply") }
+                modifier = Modifier.testTag(InterfaceTags.Apply)) { Text(Strings.apply) }
         },
     )
 }
@@ -136,7 +137,7 @@ private fun ScaleSlider(
         else Alignment.CenterStart
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-            Text("$label: ${(value * 100).roundToInt()}%", style = MaterialTheme.typography.titleSmall)
+            Text(Strings.value_value_b8d94b(label, (value * 100).roundToInt()), style = MaterialTheme.typography.titleSmall)
             Text(description, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Slider(value = value, onValueChange = onChange, valueRange = range,

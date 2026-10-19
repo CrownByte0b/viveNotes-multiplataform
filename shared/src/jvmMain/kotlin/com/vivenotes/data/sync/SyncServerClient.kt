@@ -1,8 +1,10 @@
+// Copied from the Android app's `data/sync/SyncServerClient.kt`; only Android-only imports differ.
 package com.vivenotes.data.sync
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -11,7 +13,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import java.io.BufferedInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -52,6 +54,12 @@ enum class ConnectFailure {
 
     /** `402 membership_required` — sync is available after the managed plan is activated. */
     MembershipRequired,
+
+    /**
+     * `403 quota_exceeded` — the account's storage is full. Not retryable as it stands: the same
+     * upload succeeds only after the account deletes something or moves to a larger plan.
+     */
+    StorageFull,
 
     /**
      * Something answered and it was not viveCServer: a proxy error page, a different service on
@@ -1075,6 +1083,10 @@ class SyncServerClient(
      * `HttpURLConnection` read does not observe coroutine cancellation by itself, so [awaitClose]
      * disconnects it from the cancelling thread. That lets backgrounding the app close the socket
      * immediately even though an idle server intentionally sends no heartbeats.
+     *
+     * Buffered one event deep, so the next page is read and decoded while the last is applied and
+     * no further. `callbackFlow`'s default is 64, and on a first sync the reader outruns Room: it
+     * would hold up to 64 decoded pages of ink while the collector worked through the first.
      */
     fun watchChanges(
         serverBaseUrl: String,
@@ -1150,14 +1162,17 @@ class SyncServerClient(
                     return@launch
                 }
 
-                BufferedInputStream(connection.inputStream).use { input ->
+                connection.inputStream.use { input ->
+                    val lines = EventStreamLines(input)
                     var eventName: String? = null
                     val dataLines = mutableListOf<String>()
+                    var dataLength = 0
                     while (isActive) {
-                        val line = readEventStreamLine(input) ?: break
+                        val line = lines.next() ?: break
                         when {
                             line.isEmpty() -> {
-                                val payload = dataLines.joinToString("\n")
+                                // One line is the usual case, and joining it would copy the page.
+                                val payload = dataLines.singleOrNull() ?: dataLines.joinToString("\n")
                                 when (eventName) {
                                     "ready", "changes" -> {
                                         val page = try {
@@ -1185,11 +1200,22 @@ class SyncServerClient(
                                 }
                                 eventName = null
                                 dataLines.clear()
+                                dataLength = 0
                             }
                             line.startsWith("event:") ->
                                 eventName = line.substringAfter(':').trimStart()
-                            line.startsWith("data:") ->
-                                dataLines += line.substringAfter(':').removePrefix(" ")
+                            line.startsWith("data:") -> {
+                                // One copy of what may be a whole page, without the field name or
+                                // the single space allowed after it.
+                                val data = line.substring(if (line.startsWith("data: ")) 6 else 5)
+                                // Bounded across lines as well as within one: an event is one
+                                // pull page, whatever number of `data:` lines it is split over.
+                                dataLength += data.length + if (dataLines.isEmpty()) 0 else 1
+                                if (dataLength > MAX_API_RESPONSE_BYTES) {
+                                    throw IOException("change stream event is too large")
+                                }
+                                dataLines += data
+                            }
                             // Comments, ids, retry hints, and future fields are ignored.
                         }
                     }
@@ -1214,7 +1240,7 @@ class SyncServerClient(
             activeConnection.getAndSet(null)?.disconnect()
             reader.cancel()
         }
-    }
+    }.buffer(1)
 
     private fun decodePullChangesPage(payload: String): PullChangesPage {
         val decoded = syncJson.decodeFromString(PullChangesResponse.serializer(), payload)
@@ -1719,6 +1745,7 @@ class SyncServerClient(
             "invalid_request" -> ConnectFailure.InvalidRequest
             "payload_too_large" -> ConnectFailure.PayloadTooLarge
             "membership_required" -> ConnectFailure.MembershipRequired
+            "quota_exceeded" -> ConnectFailure.StorageFull
             null -> failureForStatus(status)
             // "internal", and anything this build has not heard of. A code added to the contract
             // later is a server-side problem from here, not a reason to claim the address is wrong.
@@ -1833,10 +1860,13 @@ class SyncServerClient(
     }
 
     /**
-     * Reads at most [MAX_RESPONSE_BYTES].
+     * Reads at most [maxBytes].
      *
      * The bodies in this contract are a few hundred bytes. Reading unboundedly from an address the
      * user typed means an arbitrary host can decide how much memory this allocates.
+     *
+     * Grown as the body arrives rather than allocated at [maxBytes] up front: a pull may carry ten
+     * megabytes and typically carries one, and a first sync reads dozens of them back to back.
      */
     private fun readBounded(
         stream: InputStream?,
@@ -1844,43 +1874,76 @@ class SyncServerClient(
     ): String {
         if (stream == null) return ""
         return stream.use { input ->
-            val buffer = ByteArray(maxBytes)
-            var filled = 0
-            while (filled < buffer.size) {
-                val count = input.read(buffer, filled, buffer.size - filled)
+            val chunk = ByteArray(minOf(maxBytes, TRANSFER_BUFFER_BYTES))
+            val body = ByteArrayOutputStream(chunk.size)
+            while (body.size() < maxBytes) {
+                val count = input.read(chunk, 0, minOf(chunk.size, maxBytes - body.size()))
                 if (count < 0) break
-                filled += count
+                body.write(chunk, 0, count)
             }
-            String(buffer, 0, filled, Charsets.UTF_8)
+            body.toString(Charsets.UTF_8)
         }
     }
 
-    /** A bounded UTF-8 line reader for the tiny, attacker-controlled event stream. */
-    private fun readEventStreamLine(input: InputStream): String? {
-        val bytes = ByteArray(MAX_EVENT_STREAM_LINE_BYTES)
-        var length = 0
-        while (true) {
-            val next = input.read()
-            if (next < 0) {
-                if (length == 0) return null
-                break
+    /**
+     * A bounded UTF-8 line reader for the attacker-controlled event stream.
+     *
+     * Reads a buffer at a time rather than a byte at a time, because a `ready` or `changes` event
+     * carries a whole pull page on one `data:` line — megabytes of it on a first sync. A carriage
+     * return is dropped wherever it falls, so CRLF and LF streams read the same.
+     */
+    private class EventStreamLines(private val input: InputStream) {
+        private val buffer = ByteArray(TRANSFER_BUFFER_BYTES)
+        private var position = 0
+        private var limit = 0
+
+        /** The next line without its terminator, or null once the stream has ended. */
+        fun next(): String? {
+            val line = ByteArrayOutputStream()
+            while (true) {
+                if (position == limit) {
+                    val count = input.read(buffer)
+                    if (count < 0) {
+                        return if (line.size() == 0) null else line.toString(Charsets.UTF_8)
+                    }
+                    position = 0
+                    limit = count
+                }
+                var segment = position
+                while (position < limit) {
+                    val byte = buffer[position++].toInt()
+                    if (byte != '\n'.code && byte != '\r'.code) continue
+                    line.write(buffer, segment, position - 1 - segment)
+                    segment = position
+                    if (byte == '\n'.code) {
+                        boundLength(line)
+                        return line.toString(Charsets.UTF_8)
+                    }
+                }
+                line.write(buffer, segment, limit - segment)
+                boundLength(line)
             }
-            if (next == '\n'.code) break
-            if (next == '\r'.code) continue
-            if (length == bytes.size) throw IOException("change stream line is too large")
-            bytes[length++] = next.toByte()
         }
-        return String(bytes, 0, length, Charsets.UTF_8)
+
+        private fun boundLength(line: ByteArrayOutputStream) {
+            if (line.size() > MAX_EVENT_STREAM_LINE_BYTES) {
+                throw IOException("change stream line is too large")
+            }
+        }
     }
 
     private companion object {
         const val CONNECT_TIMEOUT_MS = 10_000
-        /** One page of a file at a time, on both byte routes. */
+        /** One page at a time of a file on both byte routes, a response body or the change stream. */
         const val TRANSFER_BUFFER_BYTES = 64 * 1024
         const val READ_TIMEOUT_MS = 30_000
         const val MAX_RESPONSE_BYTES = 64 * 1024
         const val MAX_API_RESPONSE_BYTES = 10 * 1024 * 1024
-        const val MAX_EVENT_STREAM_LINE_BYTES = 4 * 1024
+        /**
+         * The longest change-stream line accepted. A `ready` or `changes` event puts one pull page
+         * on a single `data:` line, so this is a pull response's bound plus the field name.
+         */
+        const val MAX_EVENT_STREAM_LINE_BYTES = MAX_API_RESPONSE_BYTES + 16
         const val CHANGE_STREAM_CONTENT_TYPE = "text/event-stream"
         const val MAX_PUSH_CHANGES = 512
         const val MAX_PULL_LIMIT = 2048

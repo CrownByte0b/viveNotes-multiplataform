@@ -1,5 +1,6 @@
 package com.vivenotes.ui.components
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -49,6 +50,19 @@ import kotlin.math.roundToInt
 object ToolPaneTags {
     const val Pane = "tool-pane"
     const val Close = "tool-pane-close"
+    const val Size = "Size"
+    const val Orientation = "Orientation"
+    const val Width = "Width"
+    const val Height = "Height"
+    const val Top = "Top"
+    const val Bottom = "Bottom"
+    const val Left = "Left"
+    const val Right = "Right"
+    const val Range = "Range"
+    const val Margins = "Margins"
+    const val Infinite = "Infinite"
+    const val ScopePage = "This page"
+    const val ScopeSection = "This section"
     fun field(label: String): String = "tool-pane-field-$label"
     fun option(label: String, option: String): String = "tool-pane-field-$label-$option"
 }
@@ -81,7 +95,7 @@ internal fun ToolPane(
             ) {
                 Text(title, style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                TooltipIconButton("Close $title", onClick = onClose,
+                TooltipIconButton(Strings.close_value(title), onClick = onClose,
                     modifier = Modifier.size(32.dp).testTag(ToolPaneTags.Close)) {
                     Icon(ViewSymbols.Close, contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
@@ -133,6 +147,7 @@ internal fun <T> PaneChoice(
     enabled: Boolean = true,
     default: T? = null,
     onSetDefault: ((T) -> Unit)? = null,
+    optionId: (T) -> String = label,
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
@@ -157,7 +172,7 @@ internal fun <T> PaneChoice(
             options.forEach { option ->
                 if (onSetDefault != null) DefaultChoiceItem(
                     label = label(option), selected = option == current, isDefault = option == default,
-                    tag = ToolPaneTags.option(field, label(option)),
+                    tag = ToolPaneTags.option(field, optionId(option)),
                     onChoose = {
                         open = false
                         onPick(option)
@@ -170,7 +185,7 @@ internal fun <T> PaneChoice(
                 else DropdownMenuItem(
                     text = { Text(label(option)) },
                     onClick = { open = false; onPick(option) },
-                    modifier = Modifier.testTag(ToolPaneTags.option(field, label(option))),
+                    modifier = Modifier.testTag(ToolPaneTags.option(field, optionId(option))),
                 )
             }
         }
@@ -220,7 +235,7 @@ internal fun PaneMeasure(
             modifier = Modifier.weight(1f).testTag(ToolPaneTags.field(field)),
         )
         Spacer(Modifier.width(6.dp))
-        Text("in", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(Strings.unit_inches, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

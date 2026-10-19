@@ -1,5 +1,6 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.localization.Strings
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -16,9 +17,9 @@ fun formatCreated(
 ): String {
     if (timestamp == 0L) return ""
     val created = Instant.ofEpochMilli(timestamp).atZone(zone)
-    val day = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", locale).format(created)
-    val time = DateTimeFormatter.ofPattern("h:mm a", locale).format(created)
-    return "$day    $time"
+    val day = DateTimeFormatter.ofPattern(Strings.date_full_pattern, locale).format(created)
+    val time = DateTimeFormatter.ofPattern(Strings.time_pattern, locale).format(created)
+    return Strings.created_stamp(day, time)
 }
 
 /**
@@ -35,9 +36,9 @@ fun formatUpdated(
     val elapsed = now - timestamp
     val updated = Instant.ofEpochMilli(timestamp).atZone(zone)
     return when {
-        elapsed < 60_000 -> "Just now"
-        elapsed < 3_600_000 -> "${elapsed / 60_000} min ago"
-        elapsed < 86_400_000 -> DateTimeFormatter.ofPattern("h:mm a", locale).format(updated)
-        else -> DateTimeFormatter.ofPattern("MMM d, yyyy", locale).format(updated)
+        elapsed < 60_000 -> Strings.just_now
+        elapsed < 3_600_000 -> Strings.value_min_ago(elapsed / 60_000)
+        elapsed < 86_400_000 -> DateTimeFormatter.ofPattern(Strings.time_pattern, locale).format(updated)
+        else -> DateTimeFormatter.ofPattern(Strings.date_short_pattern, locale).format(updated)
     }
 }

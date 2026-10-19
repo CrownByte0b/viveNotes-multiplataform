@@ -1,5 +1,6 @@
 package com.vivenotes.ai
 
+import com.vivenotes.localization.Strings
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.roundToLong
 
@@ -82,7 +83,7 @@ data class BundledArtifact(
  * packages keep Android's pins; desktop Small and the bundled OCR have independent releases.
  */
 object AiModelCatalog {
-    const val TEXT_MODEL_NAME = "PP-OCRv6 Small"
+    val TEXT_MODEL_NAME get() = Strings.pp_ocrv6_small
 
     val TEXT_MODEL = BundledArtifact(
         fileName = "pp-ocrv6_small_rec.onnx",
@@ -201,7 +202,7 @@ object AiModelCatalog {
 
 /** A model's size the way a file manager writes it: decimal megabytes, `113 MB`, `12.7 MB`. */
 fun formatModelBytes(bytes: Long): String {
-    if (bytes < 1_000_000L) return "${(bytes / 1_000.0).roundToLong().coerceAtLeast(1)} kB"
+    if (bytes < 1_000_000L) return Strings.value_kb((bytes / 1_000.0).roundToLong().coerceAtLeast(1))
     val tenths = (bytes / 100_000.0).roundToLong()
-    return if (tenths >= 1_000L) "${(tenths + 5) / 10} MB" else "${tenths / 10}.${tenths % 10} MB"
+    return if (tenths >= 1_000L) Strings.value_mb((tenths + 5) / 10) else Strings.value_value_mb(tenths / 10, tenths % 10)
 }

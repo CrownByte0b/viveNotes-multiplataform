@@ -16,6 +16,8 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -92,11 +94,39 @@ class AttachmentStoreTest {
     }
 
     @Test
-    fun onlyAHashCanNameAFile() = runBlocking {
+    fun onlyAHashCanNameAFile() = runBlocking<Unit> {
         File(root, "secret").writeText("outside the attachments")
         assertNull(store.bytes("../secret"))
         assertNull(store.fileFor("../secret"))
         assertNull(store.bytes("0".repeat(64)), "a missing file reads as nothing")
+        assertFailsWith<IllegalArgumentException> { store.syncBytes.fileFor("../secret") }
+    }
+
+    /**
+     * Sync's view of the store, Android's `AttachmentStore` as `AttachmentBytes`: a download is
+     * staged under its own suffix, published by rename, and announced so a page showing a broken
+     * frame reads it again.
+     */
+    @Test
+    fun aPublishedDownloadIsAnnouncedAndNeverReplacesTheBytesAlreadyHere() {
+        val id = "a".repeat(64)
+        val bytes = store.syncBytes
+        val staged = bytes.stagingFor(id)
+        assertEquals("$id.sync", staged.name, "never the import's .part, so the two cannot tear each other")
+        directory.mkdirs()
+        staged.writeBytes(byteArrayOf(1, 2, 3))
+
+        assertTrue(bytes.publish(staged, id))
+        assertContentEquals(byteArrayOf(1, 2, 3), bytes.fileFor(id).readBytes())
+        assertFalse(staged.exists())
+        assertEquals(1L, store.arrivals.value)
+
+        // A second copy of a digest already here is already these bytes: dropped, and not news.
+        bytes.stagingFor(id).writeBytes(byteArrayOf(9))
+        assertTrue(bytes.publish(bytes.stagingFor(id), id))
+        assertContentEquals(byteArrayOf(1, 2, 3), bytes.fileFor(id).readBytes())
+        assertFalse(bytes.stagingFor(id).exists())
+        assertEquals(1L, store.arrivals.value)
     }
 
     private fun png(width: Int, height: Int, transparentLeftHalf: Boolean = false): ByteArray =

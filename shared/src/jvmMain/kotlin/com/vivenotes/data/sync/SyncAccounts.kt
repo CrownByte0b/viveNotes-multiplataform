@@ -1,0 +1,1121 @@
+// Ported from the Android app's `data/sync/SyncAccounts.kt`. Every operation is Android's word for
+// word; what differs is only what Android reads from its platform: the account store, the managed
+// server address (`BuildConfig.CLOUD_BASE_URL`), and this installation's name and details (`Build`,
+// `BuildConfig`) arrive through the constructor, and Sign in with Google needs no Activity.
+package com.vivenotes.data.sync
+
+import com.vivenotes.data.db.NotesDatabase
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.util.Locale
+import java.util.UUID
+
+/** Internal control flow used to cancel a socket after a streamed page cannot be committed. */
+private class StopRemoteDelivery : RuntimeException()
+
+/**
+ * Where this installation stands with a server, managed or self-hosted.
+ *
+ * One type for both, because the connected state is one thing: a base URL and a device token,
+ * reached either by Sign in with Google against the managed deployment or by registering an account
+ * on a server the user runs. Everything past the sign-in — the cursor, the outbox, the blobs —
+ * cannot tell them apart and must not have to.
+ *
+ * [Connecting] is here rather than being the screen's own boolean because the request outlives the
+ * screen on purpose: "a connection is in flight" is a fact about the app, not about whether a
+ * composable is on screen.
+ */
+sealed interface ServerConnection {
+
+    /** Never connected, or the last attempt's result has been dismissed. */
+    data object Idle : ServerConnection
+
+    data object Connecting : ServerConnection
+
+    data class Connected(
+        val serverUrl: String,
+        val deviceName: String,
+        val email: String? = null,
+        val authProvider: AccountAuthProvider? = null,
+    ) : ServerConnection
+
+    data class Failed(val reason: ConnectFailure) : ServerConnection
+}
+
+/**
+ * How one pass through Sign in with Google ended.
+ *
+ * Separate from [ServerConnection] because two of its outcomes are not connection states at all:
+ * a dismissal is the person changing their mind, and a link requirement is the contract handing the
+ * client a second request to make. Both would have to be squeezed into `Failed` otherwise, and the
+ * screen would show an error for each.
+ */
+sealed interface CloudSignInResult {
+
+    /**
+     * Signed in and enrolled. [createdAccount] is the server's word for which of the two things the
+     * one button just did, so the screen can say "Account created" rather than guessing.
+     */
+    data class Connected(
+        val serverUrl: String,
+        val deviceName: String,
+        val createdAccount: Boolean,
+        val email: String? = null,
+    ) : CloudSignInResult
+
+    /**
+     * `409 account_link_required`: this Google email already belongs to a password account.
+     *
+     * [SyncAccounts] is now holding the unconsumed challenge and the ID token, waiting for
+     * [SyncAccounts.linkGoogleAccount] or [SyncAccounts.cancelGoogleLink]. It is holding a Google ID
+     * token in memory for as long as that lasts, which is why cancelling is a real operation and not
+     * just closing a dialog.
+     */
+    data object LinkRequired : CloudSignInResult
+
+    /** The Google sheet was dismissed. Nothing was sent; the screen says nothing. */
+    data object Dismissed : CloudSignInResult
+
+    data class Failed(val reason: ConnectFailure) : CloudSignInResult
+}
+
+sealed interface DisconnectResult {
+    data object Disconnected : DisconnectResult
+    data class Failed(val reason: ConnectFailure) : DisconnectResult
+}
+
+/**
+ * How synchronisation is going, for any screen that wants to say so.
+ *
+ * Every run reports here — event-driven foreground work, WorkManager catch-up and the Sync now
+ * button alike — because the runs nobody asked for are the ones that need somewhere to be seen.
+ * Before this existed, a failed automatic run looked identical to one with nothing to do.
+ *
+ * Deliberately in memory and not persisted: the first stream connection runs a catch-up
+ * immediately, and every later event refreshes this without turning status into database churn.
+ */
+data class SyncStatus(
+    /** True for the length of a run, whoever started it. */
+    val running: Boolean = false,
+    /** When a run last reconciled everything, or null if none has since this process started. */
+    val lastSucceededAtMillis: Long? = null,
+    /** What that run moved. Zero on both counts is the ordinary case and says "nothing to do". */
+    val lastSummary: SyncSummary? = null,
+    /** The last run's verdict when it was not a success. Cleared by the next success. */
+    val failure: SyncRunResult? = null,
+) {
+
+    /**
+     * Whether the last run could not reach the server at all — the Cloud Off state.
+     *
+     * Narrower than "sync is failing", deliberately. The badge this drives says the server is not
+     * there, and only the two transport failures mean that: nothing answered
+     * ([ConnectFailure.Unreachable]) and something answered that was not viveCServer
+     * ([ConnectFailure.NotAViveServer]). Both leave this tablet holding writes it cannot deliver.
+     *
+     * Everything else is excluded because a cloud with a line through it would misdescribe it. A
+     * 5xx, a revoked token or a change this build cannot store all mean the server is reachable and
+     * something else is wrong, and each has its own sentence on the account screen. `InvalidAddress`
+     * and `NotStored` cannot arise from a run at all, but are named so this stays exhaustive.
+     */
+    val serverUnreachable: Boolean
+        get() = when ((failure as? SyncRunResult.Retryable)?.reason) {
+            ConnectFailure.Unreachable, ConnectFailure.NotAViveServer -> true
+
+            ConnectFailure.InvalidAddress,
+            ConnectFailure.InvalidCredentials,
+            ConnectFailure.InvalidRequest,
+            ConnectFailure.PayloadTooLarge,
+            ConnectFailure.ServerError,
+            ConnectFailure.MembershipRequired,
+            ConnectFailure.StorageFull,
+            ConnectFailure.NotStored,
+            ConnectFailure.Revoked,
+            ConnectFailure.SignupClosed,
+            ConnectFailure.EmailTaken,
+            ConnectFailure.AccountCreatedNotRegistered,
+            // The Google failures cannot arise from a sync run either — nothing in the protocol
+            // touches those endpoints — but they are named rather than caught by an `else` so this
+            // stays exhaustive and a new failure has to be considered here.
+            ConnectFailure.InvalidChallenge,
+            ConnectFailure.InvalidGoogleToken,
+            ConnectFailure.GoogleUnavailable,
+            ConnectFailure.IdentityConflict,
+            ConnectFailure.IdempotencyConflict,
+            ConnectFailure.AccountUnavailable,
+            ConnectFailure.NoGoogleAccount,
+            ConnectFailure.GoogleNotConfigured,
+            -> false
+
+            // Not a retryable failure: a success, a permanent failure, a revocation, or no run yet.
+            null -> false
+        }
+}
+
+/**
+ * Connecting this installation to a self-hosted viveCServer, start to finish.
+ *
+ * Ties [SyncServerClient] to [SyncAccountStore] so no caller can do half of it: the token is written
+ * to disk before success is reported, because it is returned exactly once and a caller that reported
+ * success first would have a window in which the only copy of a non-reissuable credential lives on
+ * the stack.
+ */
+class SyncAccounts(
+    /** Android's `SyncAccountStore(context)`: where the registration and installation id are kept. */
+    private val store: SyncAccountStore,
+    /**
+     * Android's `BuildConfig.CLOUD_BASE_URL`: the managed deployment this build talks to — the local
+     * development server for the development profile, `https://sync.vivenotes.net` otherwise.
+     */
+    cloudBaseUrl: String,
+    private val client: SyncServerClient = SyncServerClient(),
+    database: NotesDatabase? = null,
+    /**
+     * Where attachment bytes live, so a run can carry pictures as well as rows.
+     *
+     * Required with a [database], which Android defaults to its `AttachmentStore`: the app passes the
+     * same store the editor draws from, so a picture downloaded here announces itself to the canvas
+     * already showing its frame. The screens' own tests build this class without either.
+     */
+    attachments: AttachmentBytes? = null,
+    /** What the server's device list will call this installation; Android's `defaultDeviceName`. */
+    private val deviceName: String,
+    /** Display-only on the server; Android's `defaultPlatform`, "Android <release>". */
+    private val platform: String,
+    /** The optional details the Google routes send, which Android reads from `Build` and `BuildConfig`. */
+    private val installation: InstallationDetails = InstallationDetails(),
+    /**
+     * The platform half of Sign in with Google. Injectable because the browser sign-in needs a real
+     * browser and a real Google account to answer, which no test on this side has.
+     */
+    private val google: GoogleIdentityProvider = GoogleIdentityProvider(clientId = ""),
+) {
+
+    private val remoteInkSignal = RemoteInkSignal()
+    private val hierarchy = database?.let { db ->
+        HierarchySync(
+            db = db,
+            client = client,
+            remoteInk = remoteInkSignal,
+            blobs = AttachmentBlobSync(
+                db,
+                client,
+                checkNotNull(attachments) { "A database needs the attachment store beside it" },
+            ),
+        )
+    }
+
+    /**
+     * Pages the server has written ink into, by generation.
+     *
+     * Held here because this is the one object both coordinators run through: the foreground event
+     * scheduler and WorkManager catch-up both call [synchronize] on this instance, in this process,
+     * so an open canvas hears about a pulled stroke whichever of them pulled it.
+     */
+    val remoteInk: StateFlow<Map<String, Long>> = remoteInkSignal.pages
+
+    /** Null until connected. Survives launches; cleared by [disconnect] or [forgetConnection]. */
+    val account: Flow<SyncAccount?> = store.account
+
+    /** Whether Room currently holds a local mutation that the active account has not accepted. */
+    val pendingChanges: Flow<Boolean> = hierarchy?.pendingChanges ?: flowOf(false)
+
+    /** A fresh database read for the foreground-to-WorkManager lifecycle handoff. */
+    suspend fun hasPendingChanges(): Boolean = hierarchy?.hasPendingChanges() == true
+
+    /** True only after the live stream's initial authoritative delta is committed locally. */
+    private val _streamReady = MutableStateFlow(false)
+    val streamReady: StateFlow<Boolean> = _streamReady.asStateFlow()
+
+    /**
+     * Server-driven authoritative change delivery.
+     *
+     * Collecting this flow holds the SSE connection. Its events already contain and apply the
+     * pull-shaped pages; emissions are lifecycle observations, not prompts to make another request.
+     * [streamReady] gates local pushes until the initial backlog is committed, closing the
+     * catch-up/push race without a cursor poll.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val remoteChanges: Flow<Unit> = account.flatMapLatest { activeAccount ->
+        if (activeAccount == null) {
+            flow { _streamReady.value = false }
+        } else {
+            remoteChangeDelivery(activeAccount)
+        }
+    }
+
+    /**
+     * The managed deployment this build talks to — `http://localhost:5444` in the development
+     * profile, `https://sync.vivenotes.net` otherwise, either overridable with `vive.cloudBaseUrl`.
+     *
+     * Put through [normaliseServerAddress] like a typed address, so a trailing slash or a capital in
+     * the host cannot produce two spellings of one server. The unnormalised value is kept as the
+     * fallback rather than throwing: a build configured with a malformed URL should fail its first
+     * request with `InvalidAddress` rather than crash on launch somewhere unrelated.
+     */
+    val cloudServerUrl: String =
+        normaliseServerAddress(cloudBaseUrl) ?: cloudBaseUrl
+
+    /** False when this build has no Google Web client id; the screen says so rather than failing. */
+    val googleSignInAvailable: Boolean get() = google.configured
+
+    /** Billing and coupons exist only on the one managed deployment compiled into this build. */
+    fun isManagedAccount(account: SyncAccount?): Boolean =
+        account != null && account.serverUrl == cloudServerUrl
+
+    /** Reads the server-authoritative union of paid Play and promotional coupon access. */
+    suspend fun managedSubscription(
+        expectedAccountId: String? = null,
+    ): SubscriptionResult<ManagedSubscriptionStatus> {
+        val account = store.account.first()
+            ?: return SubscriptionResult.Failed(SubscriptionFailure.NotConnected)
+        if (expectedAccountId != null && account.accountId != expectedAccountId) {
+            return SubscriptionResult.Failed(SubscriptionFailure.NotConnected)
+        }
+        if (!isManagedAccount(account)) {
+            return SubscriptionResult.Failed(SubscriptionFailure.NotManaged)
+        }
+        return handleSubscriptionResult(
+            account,
+            client.getSubscription(account.serverUrl, account.token),
+        )
+    }
+
+    /** Redeems an existing managed-server coupon without touching the Play subscription. */
+    suspend fun redeemManagedCoupon(
+        code: String,
+        expectedAccountId: String? = null,
+    ): SubscriptionResult<CouponGrant> {
+        val account = store.account.first()
+            ?: return SubscriptionResult.Failed(SubscriptionFailure.NotConnected)
+        if (expectedAccountId != null && account.accountId != expectedAccountId) {
+            return SubscriptionResult.Failed(SubscriptionFailure.NotConnected)
+        }
+        if (!isManagedAccount(account)) {
+            return SubscriptionResult.Failed(SubscriptionFailure.NotManaged)
+        }
+        return handleSubscriptionResult(
+            account,
+            client.redeemCoupon(account.serverUrl, account.token, code),
+        )
+    }
+
+    /** Sends a Play token to the managed backend; local code never grants the entitlement. */
+    suspend fun confirmGooglePlaySubscription(
+        purchaseToken: String,
+        productId: String,
+        expectedAccountId: String? = null,
+    ): SubscriptionResult<ManagedSubscriptionStatus> {
+        val account = store.account.first()
+            ?: return SubscriptionResult.Failed(SubscriptionFailure.NotConnected)
+        if (expectedAccountId != null && account.accountId != expectedAccountId) {
+            return SubscriptionResult.Failed(SubscriptionFailure.NotConnected)
+        }
+        if (!isManagedAccount(account)) {
+            return SubscriptionResult.Failed(SubscriptionFailure.NotManaged)
+        }
+        return handleSubscriptionResult(
+            account,
+            client.confirmGooglePlaySubscription(
+                serverBaseUrl = account.serverUrl,
+                token = account.token,
+                purchaseToken = purchaseToken,
+                productId = productId,
+            ),
+        )
+    }
+
+    /**
+     * An entitlement request authenticates with the same revocable device token as sync. Treat its
+     * explicit 401 identically: retain nothing that can only fail, while every transport/5xx result
+     * leaves the once-issued credential alone.
+     */
+    private suspend fun <T> handleSubscriptionResult(
+        account: SyncAccount,
+        result: SubscriptionResult<T>,
+    ): SubscriptionResult<T> {
+        if (result == SubscriptionResult.Unauthorized) forget(account)
+        return result
+    }
+
+    /**
+     * The half-finished Google sign-in that `409 account_link_required` leaves behind.
+     *
+     * In memory and nowhere else. It holds a Google ID token, which is a bearer credential for the
+     * few minutes it lives, so it is never persisted and is dropped the moment the link succeeds,
+     * fails, or is cancelled. `@Volatile` because the dialog's answer arrives on a different
+     * coroutine from the sign-in that set it.
+     */
+    @Volatile
+    private var pendingLink: PendingGoogleLink? = null
+
+    private val _status = MutableStateFlow(SyncStatus())
+
+    /** How synchronisation is going. See [SyncStatus] for why this is not persisted. */
+    val status: StateFlow<SyncStatus> = _status.asStateFlow()
+
+    private fun remoteChangeDelivery(activeAccount: SyncAccount): Flow<Unit> = flow {
+        var reconnectDelayMillis = INITIAL_STREAM_RECONNECT_MILLIS
+        try {
+            while (currentCoroutineContext().isActive) {
+                _streamReady.value = false
+                var terminal: ChangeStreamEvent? = null
+                val since = try {
+                    hierarchy?.beginChangeStream(activeAccount.accountId) ?: 0L
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    _status.update {
+                        it.copy(failure = SyncRunResult.Failed(PermanentSyncFailure.LocalData))
+                    }
+                    return@flow
+                }
+                try {
+                    client.watchChanges(activeAccount.serverUrl, activeAccount.token, since)
+                        .collect { event ->
+                            when (event) {
+                                is ChangeStreamEvent.Ready -> {
+                                    reconnectDelayMillis = INITIAL_STREAM_RECONNECT_MILLIS
+                                    val result = applyStreamPage(activeAccount, event.page)
+                                    if (result !is SyncRunResult.Succeeded) {
+                                        throw StopRemoteDelivery()
+                                    }
+                                    if (!event.page.hasMore) {
+                                        _streamReady.value = true
+                                    }
+                                    emit(Unit)
+                                }
+                                is ChangeStreamEvent.Changes -> {
+                                    if (event.page.hasMore) _streamReady.value = false
+                                    val result = applyStreamPage(activeAccount, event.page)
+                                    if (result !is SyncRunResult.Succeeded) {
+                                        throw StopRemoteDelivery()
+                                    }
+                                    if (!event.page.hasMore) {
+                                        _streamReady.value = true
+                                    }
+                                    emit(Unit)
+                                }
+                                ChangeStreamEvent.Unauthorized,
+                                is ChangeStreamEvent.Failed,
+                                -> terminal = event
+                            }
+                        }
+                } catch (_: StopRemoteDelivery) {
+                    return@flow
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: IOException) {
+                    terminal = ChangeStreamEvent.Failed(
+                        ConnectFailure.Unreachable,
+                        retryable = true,
+                    )
+                }
+
+                when (val ended = terminal) {
+                    ChangeStreamEvent.Unauthorized -> {
+                        // Clearing the account cancels this flatMapLatest child. Finish the security
+                        // transition atomically with respect to that cancellation, including turning
+                        // off the database's outbox triggers for the revoked account.
+                        withContext(NonCancellable) {
+                            store.clear()
+                            hierarchy?.deactivate(activeAccount.accountId)
+                            _status.update { it.copy(failure = SyncRunResult.Revoked) }
+                        }
+                        return@flow
+                    }
+                    is ChangeStreamEvent.Failed -> {
+                        _streamReady.value = false
+                        _status.update {
+                            it.copy(
+                                failure = if (ended.reason == ConnectFailure.MembershipRequired) {
+                                    SyncRunResult.Failed(PermanentSyncFailure.MembershipRequired)
+                                } else {
+                                    SyncRunResult.Retryable(ended.reason)
+                                },
+                            )
+                        }
+                        if (!ended.retryable) return@flow
+                    }
+                    // A conforming client stream always reports why it ended. Treat an unexpected
+                    // completion as a dropped connection rather than spinning without delay.
+                    null -> _status.update {
+                        it.copy(failure = SyncRunResult.Retryable(ConnectFailure.Unreachable))
+                    }
+                    is ChangeStreamEvent.Ready,
+                    is ChangeStreamEvent.Changes,
+                    -> error("a non-terminal change-stream event ended the stream")
+                }
+
+                delay(reconnectDelayMillis)
+                reconnectDelayMillis = (reconnectDelayMillis * 2)
+                    .coerceAtMost(MAX_STREAM_RECONNECT_MILLIS)
+            }
+        } finally {
+            _streamReady.value = false
+        }
+    }
+
+    private suspend fun applyStreamPage(
+        account: SyncAccount,
+        page: PullChangesPage,
+    ): SyncRunResult {
+        _status.update { it.copy(running = true) }
+        val result = try {
+            hierarchy?.applyStreamPage(account, page)
+                ?: SyncRunResult.Failed(PermanentSyncFailure.LocalData)
+        } finally {
+            _status.update { it.copy(running = false) }
+        }
+        recordResult(result)
+        return result
+    }
+
+    /**
+     * Registers this device and stores the token it gets back.
+     *
+     * This installation's stable UUID lets a current managed server refresh the existing device
+     * row and rotate its token instead of adding another registered client. Older community servers
+     * ignore that forward-compatible field and retain their original append-only behavior, so this
+     * still must not be called speculatively or retried automatically.
+     *
+     * The caller is expected to run this in a scope that outlives the account screen. Cancelling
+     * mid-flight cannot un-register the device, so a cancelled call is how an orphan row is created.
+     */
+    suspend fun connect(
+        typedAddress: String,
+        email: String,
+        password: String,
+    ): ServerConnection {
+        val serverUrl = normaliseServerAddress(typedAddress)
+            ?: return ServerConnection.Failed(ConnectFailure.InvalidAddress)
+
+        return when (
+            val registration = client.registerDevice(
+                serverBaseUrl = serverUrl,
+                email = email,
+                password = password,
+                deviceName = deviceName,
+                platform = platform,
+                installationId = store.installationId(serverUrl),
+            )
+        ) {
+            is DeviceRegistration.Registered -> when (
+                val unstored = adopt(
+                    serverUrl = serverUrl,
+                    accountId = registration.accountId,
+                    deviceId = registration.deviceId,
+                    token = registration.token,
+                    email = email,
+                    authProvider = AccountAuthProvider.Password,
+                )
+            ) {
+                null -> ServerConnection.Connected(
+                    serverUrl = serverUrl,
+                    deviceName = deviceName,
+                    email = email.normalizedAccountEmail(),
+                    authProvider = AccountAuthProvider.Password,
+                )
+                else -> ServerConnection.Failed(unstored)
+            }
+
+            is DeviceRegistration.Rejected -> ServerConnection.Failed(registration.reason)
+        }
+    }
+
+    /**
+     * Creates an account on a server and connects this installation to it, in that order.
+     *
+     * Two requests, because the contract is two: `POST /v1/accounts` mints an account and no
+     * credential at all, and `POST /v1/devices` is the only endpoint that returns a token. Joined
+     * here rather than in the screen so nobody can do half of it — a created account with no device
+     * is the one outcome of this flow that leaves something behind on the server.
+     *
+     * That outcome is reported as [ConnectFailure.AccountCreatedNotRegistered] rather than as
+     * whatever the second request said, because the instruction it needs is neither request's
+     * message: the account exists, and the way in is now Sign in.
+     *
+     * [ConnectFailure.NotStored] is the exception and keeps its own meaning — the device did
+     * register, and the thing to fix is local storage.
+     */
+    suspend fun register(
+        typedAddress: String,
+        email: String,
+        password: String,
+    ): ServerConnection {
+        val serverUrl = normaliseServerAddress(typedAddress)
+            ?: return ServerConnection.Failed(ConnectFailure.InvalidAddress)
+
+        when (val created = client.createAccount(serverUrl, email, password)) {
+            is AccountCreation.Created -> Unit
+            is AccountCreation.Rejected -> return ServerConnection.Failed(created.reason)
+        }
+
+        return when (
+            val registration = client.registerDevice(
+                serverBaseUrl = serverUrl,
+                email = email,
+                password = password,
+                deviceName = deviceName,
+                platform = platform,
+                installationId = store.installationId(serverUrl),
+            )
+        ) {
+            is DeviceRegistration.Registered -> when (
+                val unstored = adopt(
+                    serverUrl = serverUrl,
+                    accountId = registration.accountId,
+                    deviceId = registration.deviceId,
+                    token = registration.token,
+                    email = email,
+                    authProvider = AccountAuthProvider.Password,
+                )
+            ) {
+                null -> ServerConnection.Connected(
+                    serverUrl = serverUrl,
+                    deviceName = deviceName,
+                    email = email.normalizedAccountEmail(),
+                    authProvider = AccountAuthProvider.Password,
+                )
+                else -> ServerConnection.Failed(unstored)
+            }
+
+            is DeviceRegistration.Rejected ->
+                ServerConnection.Failed(ConnectFailure.AccountCreatedNotRegistered)
+        }
+    }
+
+    /**
+     * Logs in to the managed deployment with an email and a password.
+     *
+     * [connect] with the address supplied rather than typed: a managed account is not something a
+     * person should have to know a hostname for, and the app already knows the one hostname there is.
+     *
+     * Carries [connect]'s warning unchanged: the request rotates this installation's credential, so
+     * it must not be called speculatively or retried automatically.
+     */
+    suspend fun logInToCloud(email: String, password: String): ServerConnection =
+        connect(cloudServerUrl, email, password)
+
+    /** [register] against the managed deployment: create the account, then connect this device. */
+    suspend fun signUpForCloud(email: String, password: String): ServerConnection =
+        register(cloudServerUrl, email, password)
+
+    /** Starts the managed server's public, non-enumerating password-recovery flow. */
+    suspend fun requestCloudPasswordReset(email: String): PasswordResetResult =
+        client.requestPasswordReset(cloudServerUrl, email)
+
+    /** Submits the emailed code and replacement password as the contract's one atomic operation. */
+    suspend fun completeCloudPasswordReset(
+        email: String,
+        code: String,
+        password: String,
+    ): PasswordResetResult = client.completePasswordReset(
+        serverBaseUrl = cloudServerUrl,
+        email = email,
+        code = code,
+        password = password,
+    )
+
+    /**
+     * Requests irreversible deletion from the managed service and forgets this installation only
+     * after the server accepts responsibility for it.
+     *
+     * The server route is deliberately future-facing: until it is added to OpenAPI it answers 404,
+     * which remains an on-screen failure with the bearer credential intact. Logging out first would
+     * destroy the only credential that could retry a request the server never received.
+     */
+    suspend fun requestManagedAccountDeletion(email: String): AccountDeletionResult {
+        val account = store.account.first()
+            ?: return AccountDeletionResult.Failed(AccountDeletionFailure.NotConnected)
+        if (!isManagedAccount(account)) {
+            return AccountDeletionResult.Failed(AccountDeletionFailure.NotManaged)
+        }
+
+        return when (
+            val result = client.requestAccountDeletion(
+                serverBaseUrl = account.serverUrl,
+                token = account.token,
+                email = email,
+            )
+        ) {
+            AccountDeletionResult.Requested -> {
+                forget(account)
+                AccountDeletionResult.Requested
+            }
+            is AccountDeletionResult.Failed -> {
+                if (result.reason == AccountDeletionFailure.Revoked) forget(account)
+                result
+            }
+        }
+    }
+
+    /**
+     * Signs in to the managed deployment with Google, creating the account if there is not one yet.
+     *
+     * One method for logging in and registering, because `POST /v1/auth/google` is one endpoint for
+     * both: the server finds the account by `(issuer, sub)` or creates it.
+     *
+     * The order is fixed by the contract and is the whole security story of this flow. The challenge
+     * is fetched first, its nonce goes into the sheet, and Google seals it into the signed token; a
+     * token that does not carry the challenge this server issued seconds ago is refused. So the
+     * challenge cannot be cached, reordered or reused.
+     *
+     * The provider opens the system browser on the desktop, where Android shows Credential Manager's
+     * sheet over an Activity. Like [connect], this is expected to run in a scope that outlives the
+     * account screen: the device token comes back once, and a cancelled call is how an unusable
+     * device row is created.
+     */
+    suspend fun signInWithGoogle(): CloudSignInResult {
+        val serverUrl = cloudServerUrl
+        pendingLink = null
+
+        val challenge = when (val requested = client.createGoogleChallenge(serverUrl)) {
+            is ServerResult.Success -> requested.value
+            // This endpoint takes no credential, so a 401 from it is not a revocation — it is a
+            // server that is not viveCServer, or a proxy in front of one.
+            ServerResult.Unauthorized -> return CloudSignInResult.Failed(ConnectFailure.NotAViveServer)
+            is ServerResult.Failed -> return CloudSignInResult.Failed(requested.reason)
+        }
+
+        val googleCredential = when (
+            val credential = google.requestIdToken(challenge.nonce)
+        ) {
+            is GoogleIdToken.Received -> credential
+            GoogleIdToken.Dismissed -> return CloudSignInResult.Dismissed
+            is GoogleIdToken.Rejected -> return CloudSignInResult.Failed(credential.reason)
+        }
+
+        val device = googleDeviceDetails(serverUrl)
+        val authentication = client.signInWithGoogle(
+            serverBaseUrl = serverUrl,
+            challengeId = challenge.challengeId,
+            idToken = googleCredential.idToken,
+            // New per logical attempt. It is not reused across retries here because there is no
+            // retry here: a lost response leaves the person pressing the button again, which is a
+            // new attempt with a new challenge and therefore a new key.
+            idempotencyKey = UUID.randomUUID().toString(),
+            device = device,
+        )
+
+        return when (authentication) {
+            is GoogleAuthentication.Authenticated -> adoptGoogle(
+                serverUrl = serverUrl,
+                authentication = authentication,
+                email = googleCredential.email,
+            )
+
+            is GoogleAuthentication.LinkRequired -> {
+                // The challenge is deliberately still unspent, so the link request can prove the
+                // same Google session rather than opening a second sheet.
+                pendingLink = PendingGoogleLink(
+                    serverUrl = serverUrl,
+                    challengeId = challenge.challengeId,
+                    idToken = googleCredential.idToken,
+                    email = googleCredential.email,
+                    device = device,
+                )
+                CloudSignInResult.LinkRequired
+            }
+
+            is GoogleAuthentication.Rejected -> CloudSignInResult.Failed(authentication.reason)
+        }
+    }
+
+    /**
+     * Finishes a sign-in that came back `account_link_required`, by proving the password account.
+     *
+     * The email is asked for rather than read out of the ID token: the token's claims are unverified
+     * until the server checks Google's signature over them, and the server compares this email
+     * against the verified one anyway. A mismatch comes back as `InvalidCredentials`, which is what
+     * the message on that failure has to account for.
+     *
+     * Returns [ConnectFailure.InvalidChallenge] with no request sent when there is nothing pending:
+     * the challenge behind a link expires in five minutes, and a dialog left open outlives it.
+     */
+    suspend fun linkGoogleAccount(email: String, password: String): CloudSignInResult {
+        val pending = pendingLink ?: return CloudSignInResult.Failed(ConnectFailure.InvalidChallenge)
+
+        val authentication = client.linkGoogleIdentity(
+            serverBaseUrl = pending.serverUrl,
+            challengeId = pending.challengeId,
+            idToken = pending.idToken,
+            // A *new* key: the request content differs from the sign-in that was refused, and
+            // reusing that key would be `409 idempotency_conflict` rather than a retry.
+            idempotencyKey = UUID.randomUUID().toString(),
+            device = pending.device,
+            email = email,
+            password = password,
+        )
+
+        return when (authentication) {
+            is GoogleAuthentication.Authenticated -> {
+                pendingLink = null
+                adoptGoogle(
+                    serverUrl = pending.serverUrl,
+                    authentication = authentication,
+                    email = pending.email,
+                )
+            }
+
+            // The link endpoint answering "link required" would mean the server changed its mind
+            // about the same identity. Nothing sensible follows, so it is reported as a failure
+            // rather than looping the dialog back onto itself.
+            is GoogleAuthentication.LinkRequired -> {
+                pendingLink = null
+                CloudSignInResult.Failed(ConnectFailure.IdentityConflict)
+            }
+
+            // The pending link is kept: a wrong password is usually one character, and dropping the
+            // ID token here would make correcting it mean a whole new sign-in.
+            is GoogleAuthentication.Rejected -> CloudSignInResult.Failed(authentication.reason)
+        }
+    }
+
+    /**
+     * Drops a pending link, and the Google ID token it is holding.
+     *
+     * Called when the dialog is dismissed. Closing the dialog without this would leave a bearer
+     * credential in memory for as long as the process lives.
+     */
+    fun cancelGoogleLink() {
+        pendingLink = null
+    }
+
+    /** The shared tail of both Google routes: store the token, activate, and start syncing. */
+    private suspend fun adoptGoogle(
+        serverUrl: String,
+        authentication: GoogleAuthentication.Authenticated,
+        email: String?,
+    ): CloudSignInResult = when (
+        val unstored = adopt(
+            serverUrl = serverUrl,
+            accountId = authentication.accountId,
+            deviceId = authentication.deviceId,
+            token = authentication.token,
+            email = email,
+            authProvider = AccountAuthProvider.Google,
+        )
+    ) {
+        null -> CloudSignInResult.Connected(
+            serverUrl = serverUrl,
+            deviceName = deviceName,
+            createdAccount = authentication.createdAccount,
+            email = email?.normalizedAccountEmail(),
+        )
+
+        else -> CloudSignInResult.Failed(unstored)
+    }
+
+    /**
+     * Writes a freshly issued device token to disk and brings sync up on it.
+     *
+     * Returns null on success, or the [ConnectFailure] that must be reported instead. Shared by
+     * every route that ends in a token — password registration, Google sign-in, Google linking —
+     * because the order matters identically in all three: the token is written before success is
+     * reported, since it is returned exactly once and the server keeps only its SHA-256.
+     */
+    private suspend fun adopt(
+        serverUrl: String,
+        accountId: String,
+        deviceId: String,
+        token: String,
+        email: String?,
+        authProvider: AccountAuthProvider,
+    ): ConnectFailure? {
+        try {
+            store.setAccount(
+                SyncAccount(
+                    serverUrl = serverUrl,
+                    accountId = accountId,
+                    deviceId = deviceId,
+                    token = token,
+                    deviceName = deviceName,
+                    email = email?.normalizedAccountEmail(),
+                    authProvider = authProvider,
+                ),
+            )
+        } catch (unwritable: IOException) {
+            // The device exists on the server and its token is now unrecoverable. Reporting success
+            // would leave the app claiming a connection it cannot authenticate.
+            return ConnectFailure.NotStored
+        }
+
+        // Activation is local and idempotent. If it fails after the token is safely stored, the
+        // scheduled worker retries it; the registration itself still succeeded.
+        try {
+            hierarchy?.activate(accountId)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // The token is already durable. The scheduled worker retries local activation.
+        }
+        return null
+    }
+
+    /**
+     * What the server's device list will show for this installation on the Google routes.
+     *
+     * Richer than the two fields `POST /v1/devices` takes, because the list is read by somebody
+     * deciding which row to revoke and a model name alone regularly names two of them. The
+     * installation id is the part that does real work: it is stable across signing out and back in,
+     * so a second sign-in rotates this device row instead of adding another one.
+     */
+    private suspend fun googleDeviceDetails(serverUrl: String): GoogleDeviceDetails = GoogleDeviceDetails(
+        installationId = store.installationId(serverUrl),
+        name = deviceName,
+        platform = platform,
+        appVersion = installation.appVersion,
+        appBuild = installation.appBuild,
+        osVersion = installation.osVersion,
+        model = installation.model,
+        architecture = installation.architecture,
+        locale = Locale.getDefault().toLanguageTag(),
+    )
+
+    /**
+     * Re-checks the stored registration against the server, and forgets it if it has been revoked.
+     *
+     * Revocation is one-sided: the operator removes a device from the dashboard, and this
+     * installation finds out only by being told `401 unauthenticated`. Holding that token afterwards
+     * is worse than holding nothing, because every later request fails identically and the app goes
+     * on claiming to be connected. So a revoked token is deleted, which puts the account screen back
+     * on its sign-in form.
+     *
+     * Only an explicit 401 clears the store. Offline, DNS failure, a 5xx from a proxy: all leave the
+     * registration where it was. The token cannot be reissued, so anything less than the server
+     * itself saying no is not enough to throw it away.
+     *
+     * Returns null when there is nothing stored to check.
+     */
+    suspend fun refresh(): ServerConnection? {
+        val account = store.account.first() ?: return null
+
+        return when (client.checkToken(account.serverUrl, account.token)) {
+            TokenCheck.Valid -> account.toConnection()
+
+            TokenCheck.Revoked -> {
+                forget(account)
+                ServerConnection.Failed(ConnectFailure.Revoked)
+            }
+
+            // Unreachable, or a server-side error. Nothing was learned, so nothing changes: the
+            // stored registration still stands and the screen goes on showing it as connected.
+            is TokenCheck.Unknown ->
+                account.toConnection()
+        }
+    }
+
+    /**
+     * Revokes this installation on the server before forgetting its non-reissuable token.
+     *
+     * Network and 5xx failures leave the credential standing so the user can try again. A 401 means
+     * it was already revoked and is therefore the other successful local-disconnect path.
+     *
+     * Asking the server first is the polite order, not a precondition for leaving it:
+     * [forgetConnection] is the way out when the answer never comes.
+     */
+    suspend fun disconnect(): DisconnectResult {
+        val account = store.account.first() ?: return DisconnectResult.Disconnected
+        return when (val result = client.revokeDevice(account.serverUrl, account.token, account.deviceId)) {
+            is ServerResult.Success,
+            ServerResult.Unauthorized,
+            -> {
+                forget(account)
+                DisconnectResult.Disconnected
+            }
+            is ServerResult.Failed -> DisconnectResult.Failed(result.reason)
+        }
+    }
+
+    /**
+     * Forgets the registration without the server's agreement, for when it cannot give one.
+     *
+     * The stored registration is what the account screen shows instead of the connect form, so a
+     * server that stayed down — decommissioned, moved, or reachable only from a network this tablet
+     * has left — used to hold this installation to itself with no way to reach another one.
+     *
+     * The cost is real and the screen states it before offering this: the device row stays in the
+     * server's list and its token stays valid there until somebody removes it. Nothing holds that
+     * token afterwards — this deletes the only copy — but it is an entry the operator has to prune
+     * by hand, which is why this is the second offer and never the first.
+     */
+    suspend fun forgetConnection() {
+        val account = store.account.first() ?: return
+        forget(account)
+    }
+
+    /** The local half of a disconnect, identical whichever route arrives at it. */
+    private suspend fun forget(account: SyncAccount) {
+        store.clear()
+        hierarchy?.deactivate(account.accountId)
+        // Nothing about the old server's syncing is true of the next one.
+        _status.value = SyncStatus()
+    }
+
+    /**
+     * Whether this installation may still create its first-run starter notebook.
+     *
+     * A device joining an existing account must not: it seeds before its first pull, activation
+     * enqueues the seed into the outbox, and the account permanently grows a second "My Notebook"
+     * that nobody created.
+     *
+     * True with no registration at all, because an offline install must not open on an empty void.
+     * True again once this device is level with the server: an empty tree then really is an empty
+     * account rather than one that has not been pulled yet. The "account is empty" half needs no
+     * code here — [com.vivenotes.data.NotesRepository.seedIfEmpty] already refuses to run over an
+     * existing tree, and after a pull the local tree is the account.
+     */
+    suspend fun maySeedStarter(): Boolean {
+        val account = store.account.first() ?: return true
+        return hierarchy?.hasCaughtUp(account.accountId) ?: true
+    }
+
+    /**
+     * Runs the hierarchy protocol once, or returns null when no account is configured.
+     *
+     * Every path through here reports to [status], including the ones nobody watched start.
+     */
+    suspend fun synchronize(): SyncRunResult? {
+        val account = store.account.first() ?: return null
+
+        _status.update { it.copy(running = true) }
+        val result = try {
+            hierarchy?.run(account) ?: SyncRunResult.Failed(PermanentSyncFailure.LocalData)
+        } finally {
+            // In a `finally` because the foreground listener cancels its run when the app goes to the
+            // background, and a status left saying "running" would outlive the run that set it.
+            _status.update { it.copy(running = false) }
+        }
+
+        recordResult(result)
+
+        if (result == SyncRunResult.Revoked) {
+            store.clear()
+            hierarchy?.deactivate(account.accountId)
+        }
+        return result
+    }
+
+    /** Pushes foreground local work after the live stream has delivered its initial backlog. */
+    suspend fun pushPending(): SyncRunResult? {
+        val account = store.account.first() ?: return null
+        _status.update { it.copy(running = true) }
+        val result = try {
+            hierarchy?.pushPending(account)
+                ?: SyncRunResult.Failed(PermanentSyncFailure.LocalData)
+        } finally {
+            _status.update { it.copy(running = false) }
+        }
+        recordResult(result)
+        if (result == SyncRunResult.Revoked) {
+            store.clear()
+            hierarchy?.deactivate(account.accountId)
+        }
+        return result
+    }
+
+    private fun recordResult(result: SyncRunResult) {
+        _status.update { current ->
+            when (result) {
+                is SyncRunResult.Succeeded -> current.copy(
+                    lastSucceededAtMillis = System.currentTimeMillis(),
+                    lastSummary = result.summary,
+                    failure = null,
+                )
+                // The last success stands: "this failed" and "it last worked ten minutes ago" are
+                // both worth knowing, and the second is what says how stale the tablet is.
+                else -> current.copy(failure = result)
+            }
+        }
+    }
+
+    /**
+     * Moves a closed notebook's contents to the server and removes them from this device.
+     *
+     * The sync run in front is not a convenience: `HierarchySync.evictToCloud` refuses to delete
+     * anything while the outbox holds work, and an empty outbox is the server's own statement that
+     * it has every byte this device could offer. The run behind tells the other devices, since the
+     * shelf columns travel on the notebook row like any other edit.
+     *
+     * Both are ordinary runs and take the sync mutex, so they are deliberately outside the eviction
+     * — calling `synchronize` from within would deadlock on a lock this class does not own.
+     */
+    suspend fun moveNotebookToCloud(notebookId: String): CloudArchiveResult {
+        val hierarchy = this.hierarchy ?: return CloudArchiveResult.NoAccount
+        store.account.first() ?: return CloudArchiveResult.NoAccount
+        when (val run = synchronize()) {
+            is SyncRunResult.Succeeded -> Unit
+            null -> return CloudArchiveResult.NoAccount
+            else -> return CloudArchiveResult.Failed(run)
+        }
+        val moved = hierarchy.evictToCloud(notebookId)
+        if (moved == CloudArchiveResult.Moved) synchronize()
+        return moved
+    }
+
+    /** Downloads a notebook absent from this device, then puts it back on the rail. */
+    suspend fun bringNotebookBack(notebookId: String): CloudArchiveResult {
+        val hierarchy = this.hierarchy ?: return CloudArchiveResult.NoAccount
+        val account = store.account.first() ?: return CloudArchiveResult.NoAccount
+        val restored = hierarchy.restoreFromCloud(account, notebookId)
+        // So the cleared shelf columns reach the account: another device holding this notebook in
+        // the cloud has to stop evicting it before it can show it again.
+        if (restored == CloudArchiveResult.BroughtBack) synchronize()
+        return restored
+    }
+}
+
+/**
+ * A Google sign-in paused on `account_link_required`, waiting for the account's password.
+ *
+ * Every field is required to finish it and none of them may be re-derived: the challenge must be the
+ * same unconsumed one, and the ID token must be the same token, or the link proves a different
+ * Google session from the one that was refused.
+ */
+private data class PendingGoogleLink(
+    val serverUrl: String,
+    val challengeId: String,
+    val idToken: String,
+    val email: String?,
+    val device: GoogleDeviceDetails,
+)
+
+private fun String.normalizedAccountEmail(): String = trim().lowercase(Locale.ROOT)
+
+private fun SyncAccount.toConnection(): ServerConnection.Connected = ServerConnection.Connected(
+    serverUrl = serverUrl,
+    deviceName = deviceName,
+    email = email,
+    authProvider = authProvider,
+)
+
+/**
+ * What Android's [SyncAccounts] reads from `BuildConfig` and `Build` for the Google routes' optional
+ * device details. Every field may be null; the request omits what is missing.
+ */
+data class InstallationDetails(
+    val appVersion: String? = null,
+    val appBuild: String? = null,
+    val osVersion: String? = null,
+    val model: String? = null,
+    val architecture: String? = null,
+)
+
+private const val INITIAL_STREAM_RECONNECT_MILLIS = 1_000L
+private const val MAX_STREAM_RECONNECT_MILLIS = 30_000L

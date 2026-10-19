@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.view
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -99,21 +100,21 @@ internal data class ViewActions(
 )
 
 /** Android's page colours, named for screen readers and hover. */
-internal val PageColors = listOf(
-    0xFFFFFFFF to "White", 0xFFFFF8E7 to "Cream", 0xFFFDF1F4 to "Blush", 0xFFEFF5FC to "Sky",
-    0xFFEFF7EF to "Mint", 0xFFF5F0FA to "Lavender", 0xFFF7F3EC to "Linen", 0xFFECF6F6 to "Aqua",
-    0xFF1F1F1F to "Charcoal", 0xFF17232E to "Navy", 0xFF1D2A1D to "Forest", 0xFF2A1E2A to "Plum",
+internal val PageColors get() = listOf(
+    0xFFFFFFFF to Strings.white, 0xFFFFF8E7 to Strings.cream, 0xFFFDF1F4 to Strings.blush, 0xFFEFF5FC to Strings.sky,
+    0xFFEFF7EF to Strings.mint, 0xFFF5F0FA to Strings.lavender, 0xFFF7F3EC to Strings.linen, 0xFFECF6F6 to Strings.aqua,
+    0xFF1F1F1F to Strings.charcoal, 0xFF17232E to Strings.navy, 0xFF1D2A1D to Strings.forest, 0xFF2A1E2A to Strings.plum,
 ).map { (argb, name) -> argb.toInt() to name }
 
 /** The ruling choices Android offers, in its order; the divider goes before Dotted. */
-internal val RuleLineChoices = listOf(
-    RuleLines.None to "None",
-    RuleLines.Standard to "Standard Ruled",
-    RuleLines.Wide to "Wide Ruled",
-    RuleLines.Dotted to "Dotted Paper",
-    RuleLines.Hexagonal to "Hexagonal Paper",
-    RuleLines.GridMedium to "Medium Grid",
-    RuleLines.GridLarge to "Large Grid",
+internal val RuleLineChoices get() = listOf(
+    RuleLines.None to Strings.none,
+    RuleLines.Standard to Strings.standard_ruled,
+    RuleLines.Wide to Strings.wide_ruled,
+    RuleLines.Dotted to Strings.dotted_paper,
+    RuleLines.Hexagonal to Strings.hexagonal_paper,
+    RuleLines.GridMedium to Strings.medium_grid,
+    RuleLines.GridLarge to Strings.large_grid,
 )
 
 /**
@@ -137,13 +138,13 @@ internal fun ViewRibbon(
         TabsLayoutMenu(settings.tabsLayout, idle.tabsLayout, actions.setTabsLayout)
         RibbonDivider()
         ZoomPicker(settings.zoom, actions.setZoom)
-        RibbonIcon(ViewSymbols.ZoomIn, "Zoom in", enabled = settings.zoom < ViewSettings.MAX_ZOOM,
+        RibbonIcon(ViewSymbols.ZoomIn, Strings.zoom_in, enabled = settings.zoom < ViewSettings.MAX_ZOOM,
             tag = ViewRibbonTags.ZoomIn, onClick = actions.zoomIn)
-        RibbonIcon(ViewSymbols.ZoomOut, "Zoom out", enabled = settings.zoom > ViewSettings.MIN_ZOOM,
+        RibbonIcon(ViewSymbols.ZoomOut, Strings.zoom_out, enabled = settings.zoom > ViewSettings.MIN_ZOOM,
             tag = ViewRibbonTags.ZoomOut, onClick = actions.zoomOut)
-        RibbonCommand("100%", onClick = { actions.setZoom(1f) },
+        RibbonCommand(Strings.label_100, onClick = { actions.setZoom(1f) },
             modifier = Modifier.testTag(ViewRibbonTags.ActualSize)) { MonoIcon(ViewSymbols.Article) }
-        RibbonCommand("Page Width", onClick = actions.zoomToPageWidth, enabled = pageOpen,
+        RibbonCommand(Strings.page_width, onClick = actions.zoomToPageWidth, enabled = pageOpen,
             modifier = Modifier.testTag(ViewRibbonTags.PageWidth)) { TwoToneIcon(idle.pageWidth) }
         RibbonDivider()
         RuleLinesMenu(style.ruleLines, defaultRuleLines, pageOpen, idle.ruleLines, active.ruleLines,
@@ -151,16 +152,16 @@ internal fun ViewRibbon(
         PageColorMenu(style.backgroundArgb, pageOpen, canvasDark, actions.setPageColor)
         // A pane rather than a menu: six fields in two groups, which has to stay open while the
         // page changes shape beside it.
-        RibbonCommand("Paper Size", onClick = actions.togglePaperSizePane,
+        RibbonCommand(Strings.paper_size, onClick = actions.togglePaperSizePane,
             active = style.paper != PaperSize.Auto, enabled = pageOpen,
             modifier = Modifier.testTag(ViewRibbonTags.PaperSize)) {
             TwoToneIcon(if (style.paper != PaperSize.Auto) active.paperSize else idle.paperSize)
         }
-        RibbonCommand("Hide Page Title", onClick = { actions.setHideTitle(!style.hideTitle) },
+        RibbonCommand(Strings.hide_page_title, onClick = { actions.setHideTitle(!style.hideTitle) },
             active = style.hideTitle, enabled = pageOpen, modifier = Modifier.testTag(ViewRibbonTags.HideTitle)) {
             TwoToneIcon(if (style.hideTitle) active.hidePageTitle else idle.hidePageTitle)
         }
-        RibbonCommand("Switch Background", onClick = { actions.setCanvasDark(!canvasDark) },
+        RibbonCommand(Strings.switch_background, onClick = { actions.setCanvasDark(!canvasDark) },
             modifier = Modifier.testTag(ViewRibbonTags.SwitchBackground)) { MonoIcon(ViewSymbols.WbSunny) }
     }
 }
@@ -180,15 +181,15 @@ private fun TwoToneIcon(icon: ImageVector) {
 private fun ZoomPicker(zoom: Float, onPick: (Float) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        HoverTooltip("Zoom level") {
-            RibbonCommand("${(zoom * 100).roundToInt()}%", onClick = { open = true },
+        HoverTooltip(Strings.zoom_level) {
+            RibbonCommand(Strings.value((zoom * 100).roundToInt()), onClick = { open = true },
                 dropdown = true, modifier = Modifier.testTag(ViewRibbonTags.Zoom)
-                    .semantics { contentDescription = "Zoom level" })
+                    .semantics { contentDescription = Strings.zoom_level })
         }
         ScaledDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             ViewSettings.ZOOM_STEPS.forEach { step ->
                 DropdownMenuItem(
-                    text = { Text("${(step * 100).roundToInt()}%") },
+                    text = { Text(Strings.value((step * 100).roundToInt())) },
                     onClick = {
                         open = false
                         onPick(step)
@@ -204,10 +205,10 @@ private fun ZoomPicker(zoom: Float, onPick: (Float) -> Unit) {
 private fun TabsLayoutMenu(current: TabsLayout, icon: ImageVector, onPick: (TabsLayout) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        RibbonCommand("Tabs Layout", onClick = { open = true }, dropdown = true,
+        RibbonCommand(Strings.tabs_layout, onClick = { open = true }, dropdown = true,
             modifier = Modifier.testTag(ViewRibbonTags.TabsLayout)) { TwoToneIcon(icon) }
         ScaledDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            listOf(TabsLayout.Vertical to "Vertical Tabs", TabsLayout.Horizontal to "Horizontal Tabs")
+            listOf(TabsLayout.Vertical to Strings.vertical_tabs, TabsLayout.Horizontal to Strings.horizontal_tabs)
                 .forEach { (layout, label) ->
                     CheckableItem(label, layout == current, ViewRibbonTags.tabsLayout(layout)) {
                         open = false
@@ -230,7 +231,7 @@ private fun RuleLinesMenu(
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
-        RibbonCommand("Paper", onClick = { open = true }, active = current != RuleLines.None,
+        RibbonCommand(Strings.paper, onClick = { open = true }, active = current != RuleLines.None,
             enabled = pageOpen, dropdown = true, modifier = Modifier.testTag(ViewRibbonTags.Paper)) {
             TwoToneIcon(if (current != RuleLines.None) active else idle)
         }
@@ -253,7 +254,7 @@ private fun PageColorMenu(current: Int?, pageOpen: Boolean, canvasDark: Boolean,
     val swatch = current?.let(::Color) ?: if (canvasDark) Color(0xFF1F1F1F) else Color.White
     val icon = remember(neutral, swatch) { pageColorGlyph(neutral, swatch) }
     Box {
-        RibbonCommand("Page Color", onClick = { open = true }, enabled = pageOpen, dropdown = true,
+        RibbonCommand(Strings.page_color, onClick = { open = true }, enabled = pageOpen, dropdown = true,
             modifier = Modifier.testTag(ViewRibbonTags.PageColor)) { TwoToneIcon(icon) }
         ScaledDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             Column(Modifier.padding(8.dp)) {
@@ -284,7 +285,7 @@ private fun PageColorMenu(current: Int?, pageOpen: Boolean, canvasDark: Boolean,
                         }
                     }
                 }
-                CheckableItem("No Color", current == null, ViewRibbonTags.NoPageColor) {
+                CheckableItem(Strings.no_color, current == null, ViewRibbonTags.NoPageColor) {
                     open = false
                     onPick(null)
                 }

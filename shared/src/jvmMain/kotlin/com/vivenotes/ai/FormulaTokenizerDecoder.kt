@@ -1,5 +1,6 @@
 package com.vivenotes.ai
 
+import com.vivenotes.localization.Strings
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
@@ -38,7 +39,7 @@ internal object FormulaTokenizerDecoder {
             if (value != null && value in wanted) tokens[value] = token
         }
 
-        require(ids.all { it in specialIds || it in tokens }) { "Formula tokenizer does not match model" }
+        require(ids.all { it in specialIds || it in tokens }) { Strings.formula_tokenizer_does_not_match_model }
         val encoded = buildString {
             ids.forEach { id -> if (id !in specialIds) append(tokens.getValue(id)) }
         }
@@ -50,7 +51,7 @@ internal object FormulaTokenizerDecoder {
         val output = ByteArrayOutputStream(encoded.length)
         encoded.codePoints().forEach { codePoint ->
             val byte = BYTE_DECODER[codePoint]
-                ?: error("Unsupported ByteLevel code point U+${codePoint.toString(16)}")
+                ?: error(Strings.unsupported_bytelevel_code_point_u_value(codePoint.toString(16)))
             output.write(byte)
         }
         return output.toByteArray().toString(StandardCharsets.UTF_8)

@@ -24,3 +24,8 @@ mytrash/
 devdb/
 memory/
 tools/
+!/tools/
+/tools/*
+!/tools/lint/
+/tools/lint/*
+!/tools/lint/ResourceLint.java

@@ -1,5 +1,7 @@
 package com.vivenotes.ui.ribbon.view
 
+import com.vivenotes.localization.Strings
+import com.vivenotes.ui.components.ToolPaneTags
 import androidx.compose.runtime.Composable
 import com.vivenotes.model.Orientation
 import com.vivenotes.model.PageStyle
@@ -13,7 +15,17 @@ import com.vivenotes.ui.components.PaneRow
 import com.vivenotes.ui.components.ToolPane
 
 /** How the Size field names each sheet. Auto is the endless canvas every page starts on. */
-internal fun paperSizeLabel(paper: PaperSize): String = if (paper == PaperSize.Auto) "Infinite" else paper.name
+internal fun paperSizeLabel(paper: PaperSize): String = when (paper) {
+    PaperSize.Auto -> Strings.infinite
+    PaperSize.Custom -> Strings.custom
+    PaperSize.Billfold -> Strings.billfold
+    else -> paper.name
+}
+
+internal fun orientationLabel(orientation: Orientation): String = when (orientation) {
+    Orientation.Portrait -> Strings.portrait
+    Orientation.Landscape -> Strings.landscape
+}
 
 /**
  * The Paper Size pane — Android's `PaperSizePanelContent` in a docked desktop pane.
@@ -35,40 +47,41 @@ internal fun PaperSizePane(
     val inches = style.paperInches ?: PaperDimensions.DEFAULT
     val paperRange = PaperDimensions.MIN_INCHES..PaperDimensions.MAX_INCHES
     val marginRange = 0f..PrintMargins.MAX_INCHES
-    ToolPane(title = "Paper Size", onClose = onClose) {
-        PaneGroup("Paper size") {
-            PaneRow("Size", first = true) {
-                PaneChoice("Size", style.paper, PaperSize.entries, ::paperSizeLabel, actions.setPaperSize,
-                    enabled, defaultPaper, onDefaultPaper)
+    ToolPane(title = Strings.paper_size, onClose = onClose) {
+        PaneGroup(Strings.paper_size_957101) {
+            PaneRow(Strings.size, first = true) {
+                PaneChoice(ToolPaneTags.Size, style.paper, PaperSize.entries, ::paperSizeLabel, actions.setPaperSize,
+                    enabled, defaultPaper, onDefaultPaper,
+                    optionId = { if (it == PaperSize.Auto) ToolPaneTags.Infinite else it.name })
             }
-            PaneRow("Orientation") {
-                PaneChoice("Orientation", style.orientation, Orientation.entries, { it.name },
-                    actions.setOrientation, enabled && style.paper != PaperSize.Auto)
+            PaneRow(Strings.orientation) {
+                PaneChoice(ToolPaneTags.Orientation, style.orientation, Orientation.entries, ::orientationLabel,
+                    actions.setOrientation, enabled && style.paper != PaperSize.Auto, optionId = { it.name })
             }
-            PaneRow("Width") {
-                PaneMeasure("Width", inches.widthInches, { actions.setCustomPaper(inches.copy(widthInches = it)) },
+            PaneRow(Strings.width) {
+                PaneMeasure(ToolPaneTags.Width, inches.widthInches, { actions.setCustomPaper(inches.copy(widthInches = it)) },
                     paperRange, enabled && custom)
             }
-            PaneRow("Height") {
-                PaneMeasure("Height", inches.heightInches, { actions.setCustomPaper(inches.copy(heightInches = it)) },
+            PaneRow(Strings.height) {
+                PaneMeasure(ToolPaneTags.Height, inches.heightInches, { actions.setCustomPaper(inches.copy(heightInches = it)) },
                     paperRange, enabled && custom)
             }
         }
-        PaneGroup("Print margins") {
-            PaneRow("Top", first = true) {
-                PaneMeasure("Top", style.margins.topInches,
+        PaneGroup(Strings.print_margins) {
+            PaneRow(Strings.top, first = true) {
+                PaneMeasure(ToolPaneTags.Top, style.margins.topInches,
                     { actions.setMargins(style.margins.copy(topInches = it)) }, marginRange, enabled)
             }
-            PaneRow("Bottom") {
-                PaneMeasure("Bottom", style.margins.bottomInches,
+            PaneRow(Strings.bottom) {
+                PaneMeasure(ToolPaneTags.Bottom, style.margins.bottomInches,
                     { actions.setMargins(style.margins.copy(bottomInches = it)) }, marginRange, enabled)
             }
-            PaneRow("Left") {
-                PaneMeasure("Left", style.margins.leftInches,
+            PaneRow(Strings.left) {
+                PaneMeasure(ToolPaneTags.Left, style.margins.leftInches,
                     { actions.setMargins(style.margins.copy(leftInches = it)) }, marginRange, enabled)
             }
-            PaneRow("Right") {
-                PaneMeasure("Right", style.margins.rightInches,
+            PaneRow(Strings.right) {
+                PaneMeasure(ToolPaneTags.Right, style.margins.rightInches,
                     { actions.setMargins(style.margins.copy(rightInches = it)) }, marginRange, enabled)
             }
         }

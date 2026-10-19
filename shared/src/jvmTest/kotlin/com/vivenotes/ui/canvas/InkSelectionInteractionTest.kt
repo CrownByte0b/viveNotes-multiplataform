@@ -79,7 +79,7 @@ class InkSelectionInteractionTest {
         waitUntil(timeoutMillis = 5000) { state.value.structuralUndo.size == 1 }
         runOnIdle {
             val stroke = state.value.selectedPage!!.ink!!.desktopGeometry().projections.single()
-            assertEquals(0xff3b82f6.toInt(), stroke.stroke.brush.colorIntArgb)
+            assertEquals(0xff2962ff.toInt(), stroke.stroke.brush.colorIntArgb)
             assertEquals(false, stroke.colorFollowsTheme)
             assertNotNull(state.value.selectedInk)
             assertEquals(1, state.value.structuralUndo.size)
@@ -87,7 +87,7 @@ class InkSelectionInteractionTest {
         onNodeWithTag(WorkspaceTestTags.ObjectToolkit).assertIsDisplayed()
         onNodeWithTag(WorkspaceTestTags.CanvasExtent).performMouseInput { click(Offset(400f, 400f)) }
         val pixels = onNodeWithTag(INK_LAYER_TAG).captureToImage().toPixelMap()
-        assertEquals(Color(0xff3b82f6), pixels[40, 200])
+        assertEquals(Color(0xff2962ff), pixels[40, 200])
         onNodeWithTag(WorkspaceTestTags.StructuralUndo).performClick()
         runOnIdle { assertEquals(original, state.value.selectedPage!!.ink!!.desktopGeometry().projections.single().stroke.brush.colorIntArgb) }
     }

@@ -13,10 +13,10 @@ data class CanvasClipboard(
     val isEmpty: Boolean get() = texts.isEmpty() && objects.isEmpty() && ink == null
 }
 
-internal fun Outline.recolored(argb: Int): Outline = when (this) {
-    is Outline.Shape -> copy(borderArgb = argb, borderFollowsTheme = false)
-    is Outline.Table -> copy(borderArgb = argb, borderFollowsTheme = false)
-    is Outline.Equation -> copy(colorArgb = argb)
+internal fun Outline.recolored(argb: Int, followsTheme: Boolean = false): Outline = when (this) {
+    is Outline.Shape -> copy(borderArgb = argb, borderFollowsTheme = followsTheme)
+    is Outline.Table -> copy(borderArgb = argb, borderFollowsTheme = followsTheme)
+    is Outline.Equation -> copy(colorArgb = argb.takeUnless { followsTheme })
     else -> this
 }
 

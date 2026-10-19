@@ -83,6 +83,48 @@ class PrimeObjectPersistenceTest {
         }
     }
 
+    @Test
+    fun aPictureBackgroundReopensAsAndroidStoresItAndClearsBackToNone() = runBlocking {
+        val directory = Files.createTempDirectory("picture-background").toFile()
+        val file = File(directory, NotesDatabase.FILE_NAME)
+        var database = NotesDatabase.create(file)
+        try {
+            var repository = NotesRepository(database)
+            val page = repository.createPage(repository.createSection(repository.createNotebook("Pictures"), "Backgrounds"))
+            val picture = Outline.Image("picture", 100f, 220f, 80f, attachmentId = "a".repeat(64), height = 60f)
+            val base = WorkspaceState.demo().let { state ->
+                state.updatePage(state.selectedPageId) { it.copy(document = PageDoc(outlines = listOf(picture))) }
+            }
+            val blue = 0xFF2962FF.toInt()
+            val colored = base.selectObject(picture.id).toggleObjectLock().setSelectedImageBackground(blue)
+            repository.saveDoc(page, colored.selectedPage!!.document)
+            database.close()
+            database = NotesDatabase.create(file)
+            repository = NotesRepository(database)
+
+            val loaded = (repository.loadDoc(page) as PageLoad.Loaded).doc
+            assertEquals(colored.selectedPage!!.document, loaded)
+            val reopened = loaded.outlines.filterIsInstance<Outline.Image>().single()
+            assertEquals(blue, reopened.backgroundArgb)
+            // The stored row is what Android reads and sync carries, in Android's field order.
+            val stored = database.pageContentDao().byId(page)!!.docJson
+            assertTrue(stored.contains(""""lockGroup":"${reopened.lockGroup}","backgroundArgb":$blue}"""), stored)
+
+            val cleared = colored.setSelectedImageBackground(null)
+            repository.saveDoc(page, cleared.selectedPage!!.document)
+            database.close()
+            database = NotesDatabase.create(file)
+            repository = NotesRepository(database)
+            assertNull((repository.loadDoc(page) as PageLoad.Loaded).doc.outlines.filterIsInstance<Outline.Image>()
+                .single().backgroundArgb)
+            assertFalse(database.pageContentDao().byId(page)!!.docJson.contains("backgroundArgb"),
+                "no background is an absent field, as Android writes it")
+        } finally {
+            database.close()
+            directory.deleteRecursively()
+        }
+    }
+
     private fun png(): ByteArray = Surface.makeRasterN32Premul(20, 10).use { surface ->
         surface.canvas.clear(0x883584e4.toInt())
         surface.makeImageSnapshot().use { it.encodeToData(EncodedImageFormat.PNG)!!.use { data -> data.bytes } }

@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.document
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -38,7 +39,7 @@ internal class LinkEditorRequest(
 
 @Composable
 internal fun LinkButton(enabled: Boolean, onClick: () -> Unit) {
-    RibbonIcon(DocumentSymbols.Link, "Link", enabled = enabled,
+    RibbonIcon(DocumentSymbols.Link, Strings.link, enabled = enabled,
         tag = DocumentRibbonTags.Link, onClick = onClick)
 }
 
@@ -56,7 +57,7 @@ internal fun LinkEditorDialog(request: LinkEditorRequest, onDismiss: () -> Unit)
     }
 
     DesktopDialogFrame(
-        title = if (request.existing.url != null) "Edit link" else "Insert link",
+        title = if (request.existing.url != null) Strings.edit_link else Strings.insert_link,
         icon = DocumentSymbols.Link,
         iconTint = MaterialTheme.colorScheme.primary,
         onDismiss = onDismiss,
@@ -68,7 +69,7 @@ internal fun LinkEditorDialog(request: LinkEditorRequest, onDismiss: () -> Unit)
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
-                    label = { Text("Text to display") },
+                    label = { Text(Strings.text_to_display) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag(DocumentRibbonTags.LinkText)
                         .then(if (request.existing.text.isEmpty()) Modifier.focusRequester(first) else Modifier),
@@ -76,10 +77,10 @@ internal fun LinkEditorDialog(request: LinkEditorRequest, onDismiss: () -> Unit)
                 OutlinedTextField(
                     value = address,
                     onValueChange = { address = it },
-                    label = { Text("Web address") },
+                    label = { Text(Strings.web_address) },
                     singleLine = true,
                     isError = address.isNotBlank() && url == null,
-                    supportingText = { Text("https://example.com") },
+                    supportingText = { Text(Strings.https_example_com) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { submit() }),
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
@@ -90,9 +91,9 @@ internal fun LinkEditorDialog(request: LinkEditorRequest, onDismiss: () -> Unit)
         },
         actions = {
             OutlinedButton(onClick = onDismiss, shape = MaterialTheme.shapes.small,
-                modifier = Modifier.testTag(DocumentRibbonTags.LinkCancel)) { Text("Cancel") }
+                modifier = Modifier.testTag(DocumentRibbonTags.LinkCancel)) { Text(Strings.cancel) }
             Button(onClick = ::submit, enabled = url != null, shape = MaterialTheme.shapes.small,
-                modifier = Modifier.testTag(DocumentRibbonTags.LinkSubmit)) { Text("Apply") }
+                modifier = Modifier.testTag(DocumentRibbonTags.LinkSubmit)) { Text(Strings.apply) }
         },
     )
     LaunchedEffect(request) { first.requestFocus() }

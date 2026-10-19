@@ -16,7 +16,7 @@ interface InkSelection {
     }
     fun move(dx: Float, dy: Float): InkSelectionChange?
     fun delete(): InkSelectionChange?
-    fun recolor(argb: Int): InkSelectionChange? = null
+    fun recolor(argb: Int, followsTheme: Boolean = false): InkSelectionChange? = null
     fun copy(): InkClipboard? = null
     val isGrouped: Boolean get() = false
     fun group(): InkSelectionChange? = null

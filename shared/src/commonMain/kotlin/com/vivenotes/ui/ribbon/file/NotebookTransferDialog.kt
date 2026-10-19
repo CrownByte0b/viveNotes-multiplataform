@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.file
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -34,9 +35,9 @@ internal fun NotebookTransferDialog(state: NotebookTransferState, onDismiss: () 
     val focus = remember { FocusRequester() }
     DesktopDialogFrame(
         title = when {
-            state.running -> "Working with notebook"
-            state.error != null -> "Notebook transfer failed"
-            else -> "Notebook transfer complete"
+            state.running -> Strings.working_with_notebook
+            state.error != null -> Strings.notebook_transfer_failed
+            else -> Strings.notebook_transfer_complete
         },
         onDismiss = { if (!state.running) onDismiss() },
         modifier = Modifier.testTag(FileRibbonTags.TransferDialog),
@@ -52,7 +53,7 @@ internal fun NotebookTransferDialog(state: NotebookTransferState, onDismiss: () 
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                    Text("Checking and preparing the notebook…", style = MaterialTheme.typography.bodyMedium)
+                    Text(Strings.checking_and_preparing_the_notebook, style = MaterialTheme.typography.bodyMedium)
                 }
             } else {
                 Text(state.error ?: state.message.orEmpty(), style = MaterialTheme.typography.bodyMedium,
@@ -65,7 +66,7 @@ internal fun NotebookTransferDialog(state: NotebookTransferState, onDismiss: () 
                     onClick = onDismiss,
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier.focusRequester(focus).testTag(FileRibbonTags.TransferOk),
-                ) { Text("OK") }
+                ) { Text(Strings.ok) }
             }
         },
     )

@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.file
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -17,7 +18,7 @@ import com.vivenotes.ui.icons.deletedItemsGlyph
 import com.vivenotes.ui.icons.deleteNotebookGlyph
 import com.vivenotes.ui.icons.closeNotebookGlyph
 import com.vivenotes.ui.icons.closedNotebooksGlyph
-import com.vivenotes.ui.ribbon.PendingRibbonAction
+import com.vivenotes.ui.icons.exportPdfGlyph
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonCommand
 import com.vivenotes.ui.ribbon.RibbonDivider
@@ -27,6 +28,7 @@ import com.vivenotes.workspace.FilePane
 
 /** Android's `FileTags`, for the commands that are ported. */
 object FileRibbonTags {
+    const val ExportPdf = "file-export-pdf"
     const val ExportNotebook = "file-export-notebook"
     const val ImportNotebook = "file-import-notebook"
     const val TransferDialog = "file-transfer-dialog"
@@ -41,7 +43,7 @@ object FileRibbonTags {
 }
 
 /**
- * The File tab in Android's order. PDF output will be added with the renderer later.
+ * The File tab in Android's order.
  */
 @Composable
 internal fun FileRibbon(
@@ -53,6 +55,7 @@ internal fun FileRibbon(
     actions: FileActions?,
     onCloseNotebook: () -> Unit,
     onDeleteNotebook: () -> Unit,
+    onExportPdf: () -> Unit = {},
 ) {
     val accent = RibbonStyle.accent
     val neutral = RibbonStyle.normalText
@@ -63,32 +66,34 @@ internal fun FileRibbon(
     val deleteIcon = remember(neutral) { deleteNotebookGlyph(neutral, Color(0xFFE94C4F)) }
     val closeIcon = remember(neutral, accent) { closeNotebookGlyph(neutral, accent) }
     val closedIcon = remember(neutral, accent) { closedNotebooksGlyph(neutral, accent) }
+    val pdfIcon = remember(neutral, accent) { exportPdfGlyph(neutral, accent) }
     RibbonBar {
-        PendingRibbonAction("Export PDF")
+        FileCommand(Strings.export_pdf, pdfIcon, FileRibbonTags.ExportPdf,
+            actions?.pdfExporter != null && pageOpen && !transferRunning, twoTone = true, onClick = onExportPdf)
         RibbonDivider()
-        FileCommand("Version History", historyIcon, FileRibbonTags.VersionHistory,
+        FileCommand(Strings.version_history, historyIcon, FileRibbonTags.VersionHistory,
             actions != null && pageOpen && !transferRunning, twoTone = true) { actions?.openPane(FilePane.VersionHistory) }
-        FileCommand("Deleted Items", recoveredIcon, FileRibbonTags.DeletedItems,
+        FileCommand(Strings.deleted_items, recoveredIcon, FileRibbonTags.DeletedItems,
             actions != null && !transferRunning, twoTone = true) { actions?.openPane(FilePane.DeletedItems) }
-        FileCommand("Closed Notebooks", closedIcon, FileRibbonTags.ClosedNotebooks,
+        FileCommand(Strings.closed_notebooks, closedIcon, FileRibbonTags.ClosedNotebooks,
             actions != null && !transferRunning, twoTone = true) { actions?.openPane(FilePane.ClosedNotebooks) }
         RibbonDivider()
-        FileCommand("Close Notebook", closeIcon, FileRibbonTags.CloseNotebook,
+        FileCommand(Strings.close_notebook, closeIcon, FileRibbonTags.CloseNotebook,
             actions != null && notebookOpen && !transferRunning, twoTone = true, onClick = onCloseNotebook)
         RibbonCommand(
-            label = "Export Notebook",
+            label = Strings.export_notebook,
             onClick = { actions?.exportNotebook() },
             enabled = actions != null && notebookOpen && !transferRunning,
             modifier = Modifier.testTag(FileRibbonTags.ExportNotebook),
         ) { TwoToneIcon(exportIcon) }
         RibbonCommand(
-            label = "Import",
+            label = Strings.import,
             onClick = { actions?.importNotebook() },
             enabled = actions != null && !transferRunning,
             modifier = Modifier.testTag(FileRibbonTags.ImportNotebook),
         ) { TwoToneIcon(importIcon) }
         RibbonDivider()
-        FileCommand("Delete Notebook", deleteIcon, FileRibbonTags.DeleteNotebook,
+        FileCommand(Strings.delete_notebook, deleteIcon, FileRibbonTags.DeleteNotebook,
             actions != null && notebookOpen && !transferRunning, twoTone = true, onClick = onDeleteNotebook)
     }
 }

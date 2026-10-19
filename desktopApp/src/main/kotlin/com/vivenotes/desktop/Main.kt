@@ -10,6 +10,8 @@ import androidx.compose.ui.window.rememberWindowState
 import com.vivenotes.App
 import com.vivenotes.desktop.touch.DesktopTouch
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.localization.Localization
+import kotlinx.coroutines.runBlocking
 import java.awt.Dimension
 
 internal enum class WindowBackend { NATIVE_WAYLAND, STANDARD }
@@ -56,6 +58,7 @@ fun main(args: Array<String>) {
         WindowBackend.NATIVE_WAYLAND -> {
             System.setProperty("awt.toolkit.name", "WLToolkit")
             useWaylandWindowClass(profile)
+            runBlocking { Localization.initialize(log = log) }
             launchWayland(DesktopNotes.open(profile, log), profile, log)
         }
         WindowBackend.STANDARD -> {
@@ -64,6 +67,7 @@ fun main(args: Array<String>) {
                 useX11WindowClass(profile)
                 DesktopTouch.prepareX11(log)
             }
+            runBlocking { Localization.initialize(log = log) }
             launchStandardWindow(DesktopNotes.open(profile, log), profile, log)
         }
     }
@@ -90,9 +94,10 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
                 notes.keyBindings, notes::updateKeyBindings,
                 inputSettings = notes.inputSettings, onInputSettingsChange = notes::updateInputSettings,
                 notebookFiles = remember(window) { notes.notebookFiles(window) }, thumbnails = notes.thumbnails,
+                pdfExporter = remember(window) { notes.pdfExporter(window) },
                 onEditorDefaultsChange = notes::updateEditorDefaults,
                 onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
-                accountService = notes.accountService,
+                accountHost = notes.sync?.accountHost,
                 aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
                 appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild)
         }

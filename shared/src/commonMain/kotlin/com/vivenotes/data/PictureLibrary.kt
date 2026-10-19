@@ -20,6 +20,18 @@ interface PictureLibrary {
      */
     suspend fun choose(): ImportedPicture?
 
+    /**
+     * Stores a picture already in memory — one downloaded or photographed rather than chosen — as
+     * Android's `AttachmentStore.import(bytes)` does. Null when the bytes are not a picture.
+     */
+    suspend fun import(bytes: ByteArray): ImportedPicture?
+
     /** The stored bytes of [attachmentId], or null when there is no such file. */
     suspend fun bytes(attachmentId: String): ByteArray?
+
+    /** The Picture menu's "Search online"; null where the platform offers none. */
+    val online: OnlineImages? get() = null
+
+    /** The Picture menu's "Camera"; null where the platform has no way to take a photo. */
+    val camera: PictureCamera? get() = null
 }

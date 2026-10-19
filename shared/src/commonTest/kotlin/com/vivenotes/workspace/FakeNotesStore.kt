@@ -19,6 +19,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 
 /**
@@ -34,7 +35,8 @@ class FakeNotesStore : NotesStore {
     private val deletedPageRows = mutableMapOf<String, List<PageEntity>>()
     val revisions = mutableMapOf<String, MutableList<Pair<PageRevisionSummary, PageDoc>>>()
     private val pageRows = MutableStateFlow<List<PageEntity>>(emptyList())
-    private val bodies = mutableMapOf<String, PageLoad>()
+    /** Observable like `page_content`, so a body written underneath an open page reaches [observeDoc]. */
+    private val bodies = MutableStateFlow<Map<String, PageLoad>>(emptyMap())
     private var nextId = 0
     private var now = 1_000L
 
@@ -78,10 +80,10 @@ class FakeNotesStore : NotesStore {
 
     /** Replaces a page's stored body underneath whoever has it open, as sync or an import would. */
     fun storeBody(pageId: String, load: PageLoad) {
-        bodies[pageId] = load
+        bodies.value = bodies.value + (pageId to load)
     }
 
-    fun body(pageId: String): PageLoad? = bodies[pageId]
+    fun body(pageId: String): PageLoad? = bodies.value[pageId]
 
     /** Rewrites a page row the way another writer would, so the pages flow re-emits. */
     fun touchPage(pageId: String, title: String) {
@@ -233,16 +235,19 @@ class FakeNotesStore : NotesStore {
         return DeletionOutcome.Tombstoned
     }
 
+    override fun observeDoc(pageId: String): Flow<PageLoad> =
+        bodies.map { it[pageId] }.filterNotNull().distinctUntilChanged()
+
     override suspend fun loadDoc(pageId: String): PageLoad {
         loads += pageId
-        return bodies.getValue(pageId)
+        return bodies.value.getValue(pageId)
     }
 
     override suspend fun saveDoc(pageId: String, doc: PageDoc) {
         saveFailure?.let { throw it }
         saves += pageId to doc
         writes += "save:$pageId"
-        bodies[pageId] = PageLoad.Loaded(doc)
+        bodies.value = bodies.value + (pageId to PageLoad.Loaded(doc))
         pageRows.value = pageRows.value.map {
             if (it.id == pageId) it.copy(preview = pagePreview(doc), updatedAt = ++now) else it
         }
@@ -258,7 +263,7 @@ class FakeNotesStore : NotesStore {
     private fun addPage(sectionId: String, title: String, order: Int, doc: PageDoc): String {
         val id = id(title.ifBlank { "page" })
         pageRows.value = pageRows.value + PageEntity(id, sectionId, title, order, pagePreview(doc), now, now)
-        bodies[id] = PageLoad.Loaded(doc)
+        bodies.value = bodies.value + (id to PageLoad.Loaded(doc))
         return id
     }
 

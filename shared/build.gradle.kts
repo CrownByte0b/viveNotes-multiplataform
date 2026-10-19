@@ -1,5 +1,78 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.ExperimentalJsTestDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import javax.xml.parsers.DocumentBuilderFactory
+
+abstract class GenerateAppStrings : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val stringsFile: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        val factory = DocumentBuilderFactory.newInstance().apply {
+            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+        }
+        val document = factory.newDocumentBuilder().parse(stringsFile.get().asFile)
+        val elements = document.getElementsByTagName("string")
+        val escapes = Regex("""\\(u[0-9a-fA-F]{4}|[nrt\\])""")
+        fun decode(value: String): String = escapes.replace(value) { match ->
+            when (val escape = match.groupValues[1]) {
+                "n" -> "\n"
+                "r" -> "\r"
+                "t" -> "\t"
+                "\\" -> "\\"
+                else -> escape.drop(1).toInt(16).toChar().toString()
+            }
+        }
+        fun literal(value: String): String = buildString {
+            append('"')
+            value.forEach { character ->
+                append(when (character) {
+                    '\\' -> "\\\\"
+                    '"' -> "\\\""
+                    '$' -> "\\$"
+                    '\n' -> "\\n"
+                    '\r' -> "\\r"
+                    '\t' -> "\\t"
+                    else -> character.toString()
+                })
+            }
+            append('"')
+        }
+        val strings = (0 until elements.length).associate { index ->
+            val element = elements.item(index) as org.w3c.dom.Element
+            element.getAttribute("name") to decode(element.textContent)
+        }
+        val placeholder = Regex("""%(\d+)\$[sd]""")
+        val target = outputDirectory.file("com/vivenotes/localization/Strings.kt").get().asFile
+        target.parentFile.mkdirs()
+        target.writeText(buildString {
+            appendLine("// Generated from composeResources/values/strings.xml. Edit the XML, then build.")
+            appendLine("package com.vivenotes.localization")
+            appendLine()
+            appendLine("internal val defaultStrings: Map<String, String> = buildMap {")
+            strings.forEach { (name, value) -> appendLine("    put(${literal(name)}, ${literal(value)})") }
+            appendLine("}")
+            appendLine()
+            appendLine("/** Shared UI text, also available to synchronous platform callbacks and state models. */")
+            appendLine("object Strings {")
+            strings.forEach { (name, value) ->
+                val arity = placeholder.findAll(value).map { it.groupValues[1].toInt() }.maxOrNull() ?: 0
+                if (arity == 0) appendLine("    val $name: String get() = Localization.text(${literal(name)})")
+                else {
+                    val parameters = (1..arity).joinToString { "arg$it: Any?" }
+                    val arguments = (1..arity).joinToString { "arg$it" }
+                    appendLine("    fun $name($parameters): String = Localization.text(${literal(name)}, $arguments)")
+                }
+            }
+            appendLine("}")
+        })
+    }
+}
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -8,6 +81,11 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
+}
+
+val generateAppStrings = tasks.register<GenerateAppStrings>("generateAppStrings") {
+    stringsFile.set(layout.projectDirectory.file("src/commonMain/composeResources/values/strings.xml"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/appStrings"))
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -44,19 +122,41 @@ kotlin {
         }
     }
 
+    @OptIn(ExperimentalJsTestDsl::class)
     js {
-        browser()
+        browser {
+            test {
+                chromium()
+            }
+        }
         binaries.executable()
     }
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
-        browser()
+        browser {
+            testTask {
+                // Kotlin 2.4's managed browser runner supports JS only; Karma reuses its Chromium.
+                dependsOn("kotlinInstallPlaywrightBrowsers")
+                environment("VIVE_PLAYWRIGHT_MODULE",
+                    rootProject.layout.buildDirectory.dir("js/node_modules/playwright").get().asFile.absolutePath)
+                providers.gradleProperty("kotlin.gradle.playwright.browsers.path").orNull?.let {
+                    environment("PLAYWRIGHT_BROWSERS_PATH", it)
+                }
+                useKarma {
+                    useChromeHeadless()
+                    useConfigDirectory(rootProject.file("gradle/karma"))
+                }
+            }
+        }
         binaries.executable()
     }
 
 
     sourceSets {
+        commonMain {
+            kotlin.srcDir(generateAppStrings.map { it.outputDirectory })
+        }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
@@ -79,11 +179,15 @@ kotlin {
             implementation(libs.compose.uiTest)
         }
         jvmMain.dependencies {
+            // Skiko supplies the Android renderer's vector canvas; FOP writes those paths to PDF.
+            implementation("org.apache.xmlgraphics:fop-core:2.11")
             val byteinkVersion = providers.gradleProperty("byteinkVersion").orElse("0.1.0-SNAPSHOT").get()
             implementation("com.vivenotes.byteink:byteink-compose:$byteinkVersion")
             implementation("com.vivenotes.byteink:byteink-kit:$byteinkVersion")
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
+            // The sync account record, in the same Preferences file format Android keeps it in.
+            implementation(libs.androidx.datastore.preferences.core)
             implementation(libs.onnxruntime)
             runtimeOnly("io.github.darriousliu:ratex-native-linux-x86-64:0.1.14")
             runtimeOnly("io.github.darriousliu:ratex-native-linux-aarch64:0.1.14")
@@ -95,12 +199,18 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(compose.desktop.currentOs)
+            implementation("org.apache.pdfbox:pdfbox:3.0.7")
         }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
         }
+        jsTest.dependencies {
+            implementation(npm("mocha", libs.versions.mocha.get()))
+        }
     }
 }
+
+apply(from = rootProject.file("gradle/browser-test-page.gradle.kts"))
 
 dependencies {
     add("kspJvm", libs.androidx.room.compiler)

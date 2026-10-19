@@ -5,7 +5,11 @@ import com.vivenotes.data.NotebookFiles
 import com.vivenotes.math.UvMathRuntime
 import com.vivenotes.data.InkSource
 import com.vivenotes.data.NotesLibrary
+import com.vivenotes.data.OnlineImages
+import com.vivenotes.data.PictureCamera
 import com.vivenotes.data.PictureLibrary
+import com.vivenotes.data.onlineImageSearch
+import com.vivenotes.desktop.camera.desktopCamera
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
@@ -55,7 +59,8 @@ internal class DesktopNotes(
     private val inputStore: InputSettingsFile? = null,
     val thumbnails: DesktopVideoThumbnails? = null,
     private val log: DebugLog = DebugLog(),
-    val accountService: DesktopAccountService = DesktopAccountService(log),
+    /** Account and sync, Android's; null in tests and builds that run without them. */
+    val sync: DesktopSync? = null,
     private val inkSource: InkSource = library.repository,
     /** The recognition models in the data directory, managed from Settings → Models. */
     val aiModels: AiModelStore? = null,
@@ -78,10 +83,12 @@ internal class DesktopNotes(
         private set
     val session = WorkspaceSession(library.repository, CoroutineScope(scope.coroutineContext + sessionJob), ::formatCreated,
         updatedLabel = { formatUpdated(it) }, editorDefaults = editorDefaults,
-        shapeSettings = shapeSettings, inkSettings = inkSettings, log = log, inkSource = inkSource)
+        shapeSettings = shapeSettings, inkSettings = inkSettings, log = log, inkSource = inkSource,
+        maySeedStarter = sync?.accounts?.let { accounts -> { accounts.maySeedStarter() } },
+        remoteInk = sync?.accounts?.remoteInk, notebookCloud = sync?.notebookCloud)
     init {
-        accountService.flushBeforeSync = session::flush
-        accountService.afterSync = session::refreshOpenPageFromStorage
+        // What undo, redo and the clipboard can still put back on a page; the picture sweep asks.
+        library.attachments.hold(session) { session.heldPictures() }
     }
 
     fun updateEditorDefaults(defaults: EditorDefaults) {
@@ -162,13 +169,19 @@ internal class DesktopNotes(
         }
     }
     private var maintenance: Job? = null
-    private val syncCoordinator = DesktopSyncCoordinator(scope, accountService, library.synchronizer,
-        log = log, beforeRemoteApply = session::flush,
-        afterRemoteApply = session::refreshOpenPageFromStorage)
+
+    /**
+     * The Picture menu's "Search online": one for the process, so every window shares its preview
+     * cache. Building it opens no connection; only a search does.
+     */
+    private val onlineImages: OnlineImages by lazy { onlineImageSearch(DesktopBuildInfo.version, log) }
+
+    /** The Picture menu's "Camera"; null where the desktop has no way to drive one. */
+    private val camera: PictureCamera? by lazy { desktopCamera(log) }
 
     /** Pictures for a window: its file dialog opens over [owner]. */
     fun pictures(owner: Frame?): PictureLibrary =
-        DesktopPictures(library.attachments) { choosePictureFile(owner) }
+        DesktopPictures(library.attachments, onlineImages, camera) { choosePictureFile(owner) }
 
     /** `.vive` export and import for a window: their file dialogs open over [owner]. */
     fun notebookFiles(owner: Frame?): NotebookFiles = DesktopNotebookFiles(
@@ -176,13 +189,19 @@ internal class DesktopNotes(
         chooseSave = { name, directory -> chooseNotebookDestination(owner, name, directory) },
         chooseOpen = { directory -> chooseNotebookSource(owner, directory) },
     )
+
+    fun pdfExporter(owner: Frame?): com.vivenotes.pdf.PdfExportService = DesktopPdfExport(
+        com.vivenotes.pdf.PdfExporter(library.repository, library.attachments, log = log),
+        chooseSave = { name, directory -> choosePdfDestination(owner, name, directory) },
+        onUpdate = { owner?.repaint() },
+    )
     private var closing: Job? = null
 
     /** Starts reading the notes, and the upkeep. Only once AWT's toolkit has been chosen. */
     fun start() {
         log.event("app") { "session starting" }
         session.start()
-        syncCoordinator.start()
+        sync?.start()
         // Off the UI thread: a backup copies the whole database.
         maintenance = scope.launch(Dispatchers.IO) {
             while (isActive) {
@@ -216,7 +235,8 @@ internal class DesktopNotes(
                     closing = null
                 } else {
                     sessionJob.cancel()
-                    syncCoordinator.stop()
+                    // After the flush, so its writes are in the outbox the final push sends.
+                    sync?.stop()
                     maintenance?.cancelAndJoin()
                     // A model download or an install under way stops here; neither leaves a half
                     // package that later reads as installed.
@@ -224,6 +244,7 @@ internal class DesktopNotes(
                     aiModels?.close()
                     mathRuntime?.close()
                     search.close()
+                    library.attachments.releaseHold(session)
                     library.close()
                     log.event("app") { "closed" }
                     done()
@@ -237,11 +258,6 @@ internal class DesktopNotes(
 
         fun open(profile: DesktopProfile = DesktopProfile.fromProperty(), log: DebugLog = DebugLog()): DesktopNotes {
             val directories = profile.directories()
-            val cloudBase = System.getProperty("vivenotes.cloudBaseUrl")
-                ?: if (profile == DesktopProfile.DEVELOPMENT) "http://localhost:5444"
-                   else "https://sync.vivenotes.net"
-            val desktopGoogleClientId = System.getProperty("vivenotes.googleDesktopClientId")
-                ?: System.getenv("VIVENOTES_GOOGLE_DESKTOP_CLIENT_ID")
             val library = NotesLibrary.open(directories.data, directories.cache, log)
             return DesktopNotes(library, MainScope(),
                 interfaceStore = InterfaceSettingsFile(File(directories.config, "interface.properties")),
@@ -252,12 +268,7 @@ internal class DesktopNotes(
                 keyStore = KeyBindingsFile(File(directories.config, "keyboard.properties")),
                 inputStore = InputSettingsFile(File(directories.config, "input.properties")),
                 thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")), log = log,
-                accountService = DesktopAccountService(log,
-                    installationId = accountInstallationId(File(directories.config, "account-installation-id")),
-                    managedServerUrl = cloudBase,
-                    googleIdentity = desktopGoogleClientId?.takeIf(String::isNotBlank)?.let(::DesktopGoogleIdentity),
-                    credentialStore = desktopCredentialStore(profile, directories.config),
-                    syncEngine = library.synchronizer),
+                sync = DesktopSync(library, profile, DesktopSyncIdentity.current(profile, DesktopBuildInfo.version), log),
                 aiModels = AiModelStore(File(directories.data, AiModelStore.DIRECTORY),
                     AiSettingsFile(File(directories.config, "ai.properties")), log = log),
                 mathRuntime = UvMathRuntime(File(directories.data, UvMathRuntime.DIRECTORY), log))

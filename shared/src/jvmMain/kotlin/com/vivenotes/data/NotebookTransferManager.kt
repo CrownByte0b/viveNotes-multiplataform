@@ -6,6 +6,7 @@
 // into desktop bundles, because Android's importer requires it.
 package com.vivenotes.data
 
+import com.vivenotes.localization.Strings
 import androidx.room.useWriterConnection
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteStatement
@@ -26,6 +27,7 @@ import com.vivenotes.data.db.PageContentEntity
 import com.vivenotes.data.db.PageEntity
 import com.vivenotes.data.db.PageRevisionEntity
 import com.vivenotes.data.db.SectionEntity
+import com.vivenotes.data.db.deferredNotebookContentKey
 import com.vivenotes.ink.InkCodec
 import com.vivenotes.model.DocumentCodecs
 import com.vivenotes.model.Outline
@@ -95,7 +97,7 @@ class NotebookTransferManager(
             val input = try {
                 FileInputStream(source)
             } catch (failure: IOException) {
-                throw NotebookTransferException("The selected notebook file could not be opened.", failure)
+                throw NotebookTransferException(Strings.the_selected_notebook_file_could_not_be_opened, failure)
             }
             input.use { importNotebookLocked(it) }
         }
@@ -178,7 +180,7 @@ class NotebookTransferManager(
         } catch (failure: NotebookTransferException) {
             throw failure
         } catch (failure: Throwable) {
-            throw NotebookTransferException("The notebook could not be exported.", failure)
+            throw NotebookTransferException(Strings.the_notebook_could_not_be_exported, failure)
         } finally {
             root.deleteRecursively()
         }
@@ -189,14 +191,14 @@ class NotebookTransferManager(
         try {
             val archive = File(root, "incoming.vive")
             FileOutputStream(archive).use { output ->
-                input.copyBounded(output, MAX_ARCHIVE_BYTES, "The notebook file is too large.")
+                input.copyBounded(output, MAX_ARCHIVE_BYTES, Strings.the_notebook_file_is_too_large)
             }
             val validated = validateArchive(archive, root)
             return install(validated)
         } catch (failure: NotebookTransferException) {
             throw failure
         } catch (failure: Throwable) {
-            throw NotebookTransferException("This .vive file is damaged or unsafe and was not imported.", failure)
+            throw NotebookTransferException(Strings.this_vive_file_is_damaged_or_unsafe_and_was_not_imported, failure)
         } finally {
             root.deleteRecursively()
         }
@@ -226,7 +228,7 @@ class NotebookTransferManager(
             moveAtomically(pending, destination)
         } catch (failure: IOException) {
             pending.delete()
-            throw NotebookTransferException("The selected destination could not be opened.", failure)
+            throw NotebookTransferException(Strings.the_selected_destination_could_not_be_opened, failure)
         }
     }
 
@@ -242,7 +244,7 @@ class NotebookTransferManager(
             "SELECT * FROM notebooks WHERE id = ? AND deletedAt IS NULL",
             notebookId,
             mapper = ::readNotebook,
-        ).singleOrNull() ?: throw NotebookTransferException("The selected notebook no longer exists.")
+        ).singleOrNull() ?: throw NotebookTransferException(Strings.the_selected_notebook_no_longer_exists)
 
         // A notebook whose contents were moved to the cloud has pages and no bodies, so it would
         // export as a bundle of empty documents that looks like a successful backup and is not one.
@@ -250,7 +252,7 @@ class NotebookTransferManager(
             it.isNull(0)
         }.singleOrNull() == false
         if (cloudOnly) throw NotebookTransferException(
-            "This notebook's contents are in the cloud. Bring it back to this device first.",
+            Strings.this_notebook_s_contents_are_in_the_cloud_bring_it_back,
         )
 
         source.transaction {
@@ -273,6 +275,13 @@ class NotebookTransferManager(
             // Dropped rather than nulled so the bundle's columns stay the format's.
             source.execSQL("ALTER TABLE notebooks DROP COLUMN closedAt")
             source.execSQL("ALTER TABLE notebooks DROP COLUMN cloudOnlyAt")
+            // Likewise per device, and dropped for the same reason. Whether this installation
+            // has released a picture from its account says nothing about the notebook, and the
+            // saved-version picture index is a cache the importing device rebuilds: an imported
+            // picture arrives unreleased and an imported version unindexed, which is what a
+            // picture and a version this device has never swept are.
+            source.execSQL("ALTER TABLE attachments DROP COLUMN releasedAt")
+            source.execSQL("ALTER TABLE page_revisions DROP COLUMN pictureIds")
             // Installation identity never travels; derived caches are rebuilt by the importer.
             source.execSQL("DROP TABLE IF EXISTS local_metadata")
             source.execSQL("DROP TABLE IF EXISTS attachment_text")
@@ -307,7 +316,7 @@ class NotebookTransferManager(
             mapper = ::readAttachment,
         ).filter { it.id in attachmentRefs }
         if (metadata.map { it.id }.toSet() != attachmentRefs.keys) {
-            throw NotebookTransferException("The notebook references an attachment whose metadata is missing.")
+            throw NotebookTransferException(Strings.the_notebook_references_an_attachment_whose_metadata_is_missing)
         }
 
         val stagedAttachments = metadata.sortedBy { it.id }.map { row ->
@@ -316,7 +325,7 @@ class NotebookTransferManager(
             if (original == null || !original.isFile || original.length() != row.byteCount ||
                 original.sha256() != row.id
             ) {
-                throw NotebookTransferException("Attachment ${row.id.take(12)} is missing or damaged.")
+                throw NotebookTransferException(Strings.attachment_value_is_missing_or_damaged(row.id.take(12)))
             }
             val staged = File(root, "export-attachments/${row.id}").apply {
                 parentFile?.mkdirs()
@@ -353,40 +362,40 @@ class NotebookTransferManager(
     }
 
     private fun validateArchive(archive: File, root: File): ValidatedBundle {
-        if (archive.length() !in 1..MAX_ARCHIVE_BYTES) fail("The notebook file is empty or too large.")
+        if (archive.length() !in 1..MAX_ARCHIVE_BYTES) fail(Strings.the_notebook_file_is_empty_or_too_large)
         val extractedRoot = File(root, "extracted").apply { mkdirs() }
         val names = linkedSetOf<String>()
         var expandedBytes = 0L
         ZipInputStream(FileInputStream(archive).buffered()).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
-                if (!names.add(entry.name)) fail("The archive contains a duplicate entry.")
-                if (names.size > MAX_ENTRIES) fail("The archive contains too many entries.")
+                if (!names.add(entry.name)) fail(Strings.the_archive_contains_a_duplicate_entry)
+                if (names.size > MAX_ENTRIES) fail(Strings.the_archive_contains_too_many_entries)
                 validateEntryName(entry.name)
-                if (entry.isDirectory) fail("Directory entries are not allowed in a .vive file.")
+                if (entry.isDirectory) fail(Strings.directory_entries_are_not_allowed_in_a_vive_file)
                 val limit = entryLimit(entry.name)
-                if (entry.size > limit) fail("Archive entry ${entry.name} is too large.")
+                if (entry.size > limit) fail(Strings.archive_entry_value_is_too_large(entry.name))
                 val target = safeTarget(extractedRoot, entry.name)
                 target.parentFile?.mkdirs()
                 FileOutputStream(target).use { output ->
                     expandedBytes += zip.copyBounded(
                         output,
                         limit,
-                        "Archive entry ${entry.name} expands beyond its limit.",
+                        Strings.archive_entry_value_expands_beyond_its_limit(entry.name),
                     )
                 }
-                if (expandedBytes > MAX_EXPANDED_BYTES) fail("The archive expands beyond its limit.")
+                if (expandedBytes > MAX_EXPANDED_BYTES) fail(Strings.the_archive_expands_beyond_its_limit)
                 zip.closeEntry()
             }
         }
         if (MANIFEST_ENTRY !in names || DATABASE_ENTRY !in names || CHECKSUMS_ENTRY !in names) {
-            fail("The archive is missing required files.")
+            fail(Strings.the_archive_is_missing_required_files)
         }
 
         val manifestFile = File(extractedRoot, MANIFEST_ENTRY)
         val manifest = runCatching {
             JSON.decodeFromString(NotebookBundleManifest.serializer(), manifestFile.readText())
-        }.getOrElse { fail("manifest.json is not valid ViveNotes metadata.", it) }
+        }.getOrElse { fail(Strings.manifest_not_valid_metadata, it) }
         validateManifest(manifest)
 
         val expectedNames = buildSet {
@@ -395,28 +404,28 @@ class NotebookTransferManager(
             add(CHECKSUMS_ENTRY)
             manifest.attachments.forEach { add(it.path) }
         }
-        if (names != expectedNames) fail("The archive contains missing or unexpected files.")
+        if (names != expectedNames) fail(Strings.the_archive_contains_missing_or_unexpected_files)
 
         val checksums = parseChecksums(File(extractedRoot, CHECKSUMS_ENTRY))
         val checksummedNames = expectedNames - CHECKSUMS_ENTRY
-        if (checksums.keys != checksummedNames) fail("The checksum list does not exactly match the archive.")
+        if (checksums.keys != checksummedNames) fail(Strings.the_checksum_list_does_not_exactly_match_the_archive)
         checksums.forEach { (path, expected) ->
-            if (File(extractedRoot, path).sha256() != expected) fail("Checksum verification failed for $path.")
+            if (File(extractedRoot, path).sha256() != expected) fail(Strings.checksum_verification_failed_for_value(path))
         }
         if (manifest.database.sha256 != checksums[DATABASE_ENTRY] ||
             manifest.database.byteCount != File(extractedRoot, DATABASE_ENTRY).length()
-        ) fail("The database metadata does not match its file.")
+        ) fail(Strings.the_database_metadata_does_not_match_its_file)
         manifest.attachments.forEach { attachment ->
             val file = File(extractedRoot, attachment.path)
             if (attachment.sha256 != checksums[attachment.path] || attachment.byteCount != file.length()) {
-                fail("Attachment metadata does not match ${attachment.path}.")
+                fail(Strings.attachment_metadata_does_not_match_value(attachment.path))
             }
         }
 
         val data = validateBundleDatabase(File(extractedRoot, DATABASE_ENTRY), manifest)
         val stagedAttachments = manifest.attachments.associate { descriptor ->
             val metadata = data.attachments.singleOrNull { it.id == descriptor.id }
-                ?: fail("Attachment metadata is missing for ${descriptor.id}.")
+                ?: fail(Strings.attachment_metadata_is_missing_for_value(descriptor.id))
             if (
                 descriptor.path != "$ATTACHMENTS_PREFIX${descriptor.id}" ||
                 descriptor.sha256 != descriptor.id ||
@@ -424,16 +433,16 @@ class NotebookTransferManager(
                 descriptor.pixelWidth != metadata.pixelWidth ||
                 descriptor.pixelHeight != metadata.pixelHeight ||
                 descriptor.byteCount != metadata.byteCount
-            ) fail("Attachment metadata is inconsistent for ${descriptor.id}.")
+            ) fail(Strings.attachment_metadata_is_inconsistent_for_value(descriptor.id))
             descriptor.id to File(extractedRoot, descriptor.path)
         }
         data.attachments.forEach { metadata ->
             requireValidAttachmentMetadata(metadata)
-            val file = stagedAttachments[metadata.id] ?: fail("Attachment ${metadata.id} is absent.")
-            if (file.sha256() != metadata.id) fail("Attachment ${metadata.id.take(12)} is damaged.")
-            val bounds = boundsOf(file) ?: fail("Attachment ${metadata.id.take(12)} is not a readable image.")
+            val file = stagedAttachments[metadata.id] ?: fail(Strings.attachment_value_is_absent(metadata.id))
+            if (file.sha256() != metadata.id) fail(Strings.attachment_value_is_damaged(metadata.id.take(12)))
+            val bounds = boundsOf(file) ?: fail(Strings.attachment_value_is_not_a_readable_image(metadata.id.take(12)))
             if (bounds.width != metadata.pixelWidth || bounds.height != metadata.pixelHeight) {
-                fail("Attachment ${metadata.id.take(12)} has incorrect image dimensions.")
+                fail(Strings.attachment_value_has_incorrect_image_dimensions(metadata.id.take(12)))
             }
         }
         return ValidatedBundle(manifest, data, stagedAttachments)
@@ -441,16 +450,16 @@ class NotebookTransferManager(
 
     private fun validateBundleDatabase(file: File, manifest: NotebookBundleManifest): BundleData {
         if (!file.isFile || file.length() !in 1..MAX_DATABASE_BYTES || !file.hasSQLiteHeader()) {
-            fail("notebook.sqlite is not a readable SQLite database.")
+            fail(Strings.notebook_not_readable_database)
         }
         val source = runCatching { openBundle(file, SQLITE_OPEN_READONLY) }
-            .getOrElse { fail("notebook.sqlite is not a readable SQLite database.", it) }
+            .getOrElse { fail(Strings.notebook_not_readable_database, it) }
         return source.use { database ->
             database.execSQL("PRAGMA query_only = ON")
             requireDatabaseOkay(database)
             if (database.scalarLong("PRAGMA application_id") != APPLICATION_ID.toLong() ||
                 database.scalarLong("PRAGMA user_version") != FORMAT_VERSION.toLong()
-            ) fail("The notebook database has an unsupported format.")
+            ) fail(Strings.the_notebook_database_has_an_unsupported_format)
             validateSchema(database)
             val bundleMetadata = database.queryRows(
                 "SELECT key, value FROM vive_bundle",
@@ -460,7 +469,7 @@ class NotebookTransferManager(
                 bundleMetadata["formatVersion"] != FORMAT_VERSION.toString() ||
                 bundleMetadata["appSchemaVersion"] != APP_SCHEMA_VERSION.toString() ||
                 bundleMetadata["notebookId"] != manifest.sourceNotebookId
-            ) fail("The manifest and notebook database describe different bundles.")
+            ) fail(Strings.the_manifest_and_notebook_database_describe_different_bundles)
 
             validateTableCounts(database, manifest.counts)
 
@@ -485,29 +494,29 @@ class NotebookTransferManager(
                 ?: fail("A .vive file must contain exactly one notebook.")
             if (notebook.id != manifest.sourceNotebookId || notebook.name != manifest.notebookName ||
                 notebook.deletedAt != null
-            ) fail("The manifest notebook does not match notebook.sqlite.")
+            ) fail(Strings.the_manifest_notebook_does_not_match_notebook_sqlite)
             if (sections.any { it.notebookId != notebook.id }) {
-                fail("The notebook contains invalid sections.")
+                fail(Strings.the_notebook_contains_invalid_sections)
             }
             if (sections.any { !validId(it.id) || it.name.length > MAX_NAME_CHARS }) {
-                fail("The notebook contains invalid section metadata.")
+                fail(Strings.the_notebook_contains_invalid_section_metadata)
             }
             val sectionIds = sections.map { it.id }.toSet()
             if (pages.any { it.sectionId !in sectionIds }) {
-                fail("The notebook contains invalid pages.")
+                fail(Strings.the_notebook_contains_invalid_pages)
             }
             if (pages.any {
                     !validId(it.id) || it.title.length > MAX_NAME_CHARS ||
                         it.preview.length > MAX_PREVIEW_CHARS
                 }
-            ) fail("The notebook contains invalid page metadata.")
+            ) fail(Strings.the_notebook_contains_invalid_page_metadata)
             val pageIds = pages.map { it.id }.toSet()
             if (contents.size != pages.size || contents.map { it.pageId }.toSet() != pageIds) {
-                fail("Every imported page must have exactly one document.")
+                fail(Strings.every_imported_page_must_have_exactly_one_document)
             }
             if (strokes.any { it.pageId !in pageIds } || erases.any { it.pageId !in pageIds } ||
                 moves.any { it.pageId !in pageIds } || revisions.any { it.pageId !in pageIds }
-            ) fail("The notebook contains records outside its pages.")
+            ) fail(Strings.the_notebook_contains_records_outside_its_pages)
 
             val decodedCurrent = contents.associate { row ->
                 if (row.docJson.encodeToByteArray().size > DocumentRevisionPayload.MAX_DOCUMENT_BYTES) {
@@ -526,7 +535,7 @@ class NotebookTransferManager(
                     !validId(target.eraseId) || !validId(target.strokeId) ||
                         target.eraseId !in erasesById
                 }
-            ) fail("The notebook contains invalid erase targets.")
+            ) fail(Strings.the_notebook_contains_invalid_erase_targets)
             if (eraseTargets.any { target ->
                     val erase = erasesById[target.eraseId]
                     val stroke = strokesById[target.strokeId]
@@ -535,12 +544,12 @@ class NotebookTransferManager(
                     // Only a stored stroke can cross a page.
                     stroke != null && erase?.pageId != stroke.pageId
                 }
-            ) fail("An erase target crosses a page boundary.")
+            ) fail(Strings.an_erase_target_crosses_a_page_boundary)
             if (moveTargets.any { target ->
                     !validId(target.moveId) || !validId(target.strokeId) ||
                         target.moveId !in movesById
                 }
-            ) fail("The notebook contains invalid move targets.")
+            ) fail(Strings.the_notebook_contains_invalid_move_targets)
             if (moveTargets.any { target ->
                     val move = movesById[target.moveId]
                     val stroke = strokesById[target.strokeId]
@@ -570,7 +579,7 @@ class NotebookTransferManager(
             }
             if (attachments.map { it.id }.toSet() != referencedAttachments ||
                 manifest.attachments.map { it.id }.toSet() != referencedAttachments
-            ) fail("The attachment list does not exactly match the notebook documents.")
+            ) fail(Strings.the_attachment_list_does_not_exactly_match_the_notebook_documents)
 
             BundleData(
                 notebook,
@@ -590,14 +599,11 @@ class NotebookTransferManager(
     }
 
     private suspend fun install(bundle: ValidatedBundle): NotebookImportResult {
-        // Where this device keeps the archive's notebook: the id the archive names, unless the
-        // account permanently deleted it and sync moved the import to a fresh id. Resolved before
-        // anything is read, so every collision below is asked about that notebook.
-        val data = bundle.data.installedUnder(
-            db.localMetadataDao().value(NotesRepository.importRemapKey(bundle.data.notebook.id))
-                ?: bundle.data.notebook.id,
-        )
+        // Resolved before anything is read, so every collision below is asked about the notebook
+        // this file is actually an update of.
+        val data = bundle.data.installedUnder(installTarget(bundle.data))
         val notebookId = data.notebook.id
+        requireContentsOnDevice(notebookId)
         val existingRows = auditLiveCollisions(data)
         val existingNotebook = existingRows.notebook
         val localSections = db.sectionDao().allInNotebook(notebookId)
@@ -634,10 +640,10 @@ class NotebookTransferManager(
         val installedFiles = mutableListOf<File>()
         try {
             bundle.attachmentFiles.forEach { (id, staged) ->
-                val target = attachmentStore.fileFor(id) ?: fail("An attachment has an invalid identity.")
+                val target = attachmentStore.fileFor(id) ?: fail(Strings.an_attachment_has_an_invalid_identity)
                 if (target.exists()) {
                     if (!target.isFile || target.length() != staged.length() || target.sha256() != id) {
-                        fail("An existing attachment with the same identity is damaged.")
+                        fail(Strings.an_existing_attachment_with_the_same_identity_is_damaged)
                     }
                 } else {
                     target.parentFile?.mkdirs()
@@ -645,7 +651,7 @@ class NotebookTransferManager(
                     staged.copyTo(pending)
                     if (pending.sha256() != id) {
                         pending.delete()
-                        fail("An attachment changed while it was being installed.")
+                        fail(Strings.an_attachment_changed_while_it_was_being_installed)
                     }
                     moveAtomically(pending, target)
                     installedFiles += target
@@ -816,6 +822,46 @@ class NotebookTransferManager(
      * locally after seeding and the marker is cleared on the first content mutation. Only that
      * exact, sole, still-live generated notebook can be replaced by a restored stable UUID.
      */
+    /**
+     * Where this device keeps the archive's notebook: the id the archive names, unless the account
+     * permanently deleted it and `HierarchySync.remapPurgedImport` moved the import to a fresh one.
+     *
+     * The device that made the move records it, but `local_metadata` never syncs. Every other
+     * device, and this one after a reinstall, receives the moved notebook with the archive's own
+     * section ids under it and no record of the id it replaced, so those sections are what find it.
+     * The move copies the notebook row under the new id, so the notebook holding them also carries
+     * the archive's `createdAt`. Sections held anywhere else are left for [auditLiveCollisions] to
+     * refuse.
+     */
+    private suspend fun installTarget(archive: BundleData): String {
+        val archiveId = archive.notebook.id
+        val recorded = db.localMetadataDao().value(NotesRepository.importRemapKey(archiveId)) ?: archiveId
+        val holder = loadChunked(archive.sections.map { it.id }, db.sectionDao()::byIds)
+            .mapTo(hashSetOf()) { it.notebookId }
+            .singleOrNull()
+            ?.takeIf { it != recorded }
+            ?: return recorded
+        if (db.notebookDao().byId(holder)?.createdAt != archive.notebook.createdAt) return recorded
+        return holder
+    }
+
+    /**
+     * Refuses a notebook this device holds without its contents: one moved to the cloud, or first
+     * seen here already closed.
+     *
+     * A restore makes the notebook match the archive by tombstoning whatever this device holds
+     * beyond it, and here that is only the index. Strokes added since the export were never
+     * downloaded, so they would stay live on the server and every other device while this one
+     * showed the archive, and a page added since would go to Deleted Items with no body to restore.
+     */
+    private suspend fun requireContentsOnDevice(notebookId: String) {
+        val notebook = db.notebookDao().byId(notebookId) ?: return
+        if (notebook.cloudOnlyAt == null &&
+            db.localMetadataDao().value(deferredNotebookContentKey(notebookId)) == null
+        ) return
+        fail(Strings.value_is_in_the_cloud_bring_it_back_from_closed_notebooks(notebook.name))
+    }
+
     private suspend fun replaceableStarterNotebook(): NotebookEntity? {
         val metadata = db.localMetadataDao()
         val starterId = metadata.value(NotesRepository.REPLACEABLE_STARTER_KEY) ?: return null
@@ -862,12 +908,12 @@ class NotebookTransferManager(
         }
         data.strokes.forEach { incoming ->
             strokes[incoming.id]?.let { existing ->
-                if (!existing.sameImmutableInkAs(incoming)) fail("An ink id has conflicting geometry.")
+                if (!existing.sameImmutableInkAs(incoming)) fail(Strings.an_ink_id_has_conflicting_geometry)
             }
         }
         data.erases.forEach { incoming ->
             erases[incoming.id]?.let { existing ->
-                if (!existing.sameImmutableInkAs(incoming)) fail("An erase id has conflicting geometry.")
+                if (!existing.sameImmutableInkAs(incoming)) fail(Strings.an_erase_id_has_conflicting_geometry)
             }
         }
         data.moves.forEach { incoming ->
@@ -886,7 +932,7 @@ class NotebookTransferManager(
                     existing.pixelWidth != incoming.pixelWidth ||
                     existing.pixelHeight != incoming.pixelHeight ||
                     existing.byteCount != incoming.byteCount
-                ) fail("An attachment id has conflicting metadata.")
+                ) fail(Strings.an_attachment_id_has_conflicting_metadata)
             }
         }
         return ExistingBundleRows(
@@ -917,19 +963,19 @@ class NotebookTransferManager(
                 "WHERE name NOT LIKE 'sqlite_%' ORDER BY name",
         ) { Triple(it.text(0), it.text(1), it.nullableText(2)) }
         if (objects.any { it.first == "view" || it.first == "trigger" }) {
-            fail("Views and triggers are not allowed in a notebook bundle.")
+            fail(Strings.views_and_triggers_are_not_allowed_in_a_notebook_bundle)
         }
         val tables = objects.filter { it.first == "table" }.associate { it.second to it.third }
         if (tables.keys != EXPECTED_COLUMNS.keys || tables.values.any { sql ->
                 sql == null || !sql.trimStart().startsWith("CREATE TABLE", ignoreCase = true)
             }
-        ) fail("The notebook database schema is not recognized.")
+        ) fail(Strings.the_notebook_database_schema_is_not_recognized)
         EXPECTED_COLUMNS.forEach { (table, expected) ->
             val actual = database.queryRows("PRAGMA table_info(`$table`)") { it.text(1) }
             // SQLite preserves ALTER TABLE insertion order, while a fresh Room database puts
             // colorFollowsTheme alongside the entity field. Both are the same schema to callers.
             if (actual.size != expected.size || actual.toSet() != expected.toSet()) {
-                fail("The $table table has an unexpected schema.")
+                fail(Strings.the_value_table_has_an_unexpected_schema(table))
             }
         }
     }
@@ -952,12 +998,12 @@ class NotebookTransferManager(
             pages != expected.pages.toLong() || contents != pages ||
             revisions != expected.revisions.toLong() || strokes != expected.strokes.toLong() ||
             attachments != expected.attachments.toLong()
-        ) fail("The manifest record counts do not match notebook.sqlite.")
+        ) fail(Strings.the_manifest_record_counts_do_not_match_notebook_sqlite)
         if (sections > MAX_SECTIONS || pages > MAX_PAGES || revisions > MAX_REVISIONS ||
             strokes > MAX_STROKES || erases > MAX_INK_OPERATIONS || moves > MAX_INK_OPERATIONS ||
             eraseTargets > MAX_INK_TARGETS || moveTargets > MAX_INK_TARGETS ||
             attachments > MAX_ATTACHMENTS
-        ) fail("The notebook database exceeds safe import limits.")
+        ) fail(Strings.the_notebook_database_exceeds_safe_import_limits)
         val perPage = database.scalarLong(
             "SELECT COALESCE(MAX(revisionCount), 0) FROM (" +
                 "SELECT COUNT(*) AS revisionCount FROM page_revisions GROUP BY pageId)",
@@ -970,20 +1016,20 @@ class NotebookTransferManager(
     private fun validateManifest(manifest: NotebookBundleManifest) {
         if (manifest.format != FORMAT || manifest.formatVersion != FORMAT_VERSION ||
             manifest.appSchemaVersion != APP_SCHEMA_VERSION
-        ) fail("This .vive format is not supported by this version of ViveNotes.")
+        ) fail(Strings.this_vive_format_is_not_supported_by_this_version_of_vivenotes)
         if (!UUIDISH.matches(manifest.bundleId) || !UUIDISH.matches(manifest.sourceNotebookId)) {
-            fail("The manifest contains invalid identifiers.")
+            fail(Strings.the_manifest_contains_invalid_identifiers)
         }
         if (manifest.notebookName.isBlank() || manifest.notebookName.length > MAX_NAME_CHARS) {
-            fail("The manifest contains an invalid notebook name.")
+            fail(Strings.the_manifest_contains_an_invalid_notebook_name)
         }
         if (manifest.database.path != DATABASE_ENTRY ||
             manifest.database.byteCount !in 1..MAX_DATABASE_BYTES ||
             !SHA256.matches(manifest.database.sha256)
-        ) fail("The manifest contains invalid database metadata.")
+        ) fail(Strings.the_manifest_contains_invalid_database_metadata)
         if (manifest.attachments.size > MAX_ATTACHMENTS ||
             manifest.attachments.map { it.id }.toSet().size != manifest.attachments.size
-        ) fail("The manifest contains too many or duplicate attachments.")
+        ) fail(Strings.the_manifest_contains_too_many_or_duplicate_attachments)
         manifest.attachments.forEach { attachment ->
             if (!SHA256.matches(attachment.id) || attachment.sha256 != attachment.id ||
                 attachment.path != "$ATTACHMENTS_PREFIX${attachment.id}" ||
@@ -991,13 +1037,13 @@ class NotebookTransferManager(
                 attachment.pixelWidth !in 1..AttachmentStore.MAX_DIMENSION ||
                 attachment.pixelHeight !in 1..AttachmentStore.MAX_DIMENSION ||
                 attachment.mimeType !in ALLOWED_IMAGE_TYPES
-            ) fail("The manifest contains invalid attachment metadata.")
+            ) fail(Strings.the_manifest_contains_invalid_attachment_metadata)
         }
         val counts = manifest.counts
         if (counts.sections !in 0..MAX_SECTIONS || counts.pages !in 0..MAX_PAGES ||
             counts.strokes !in 0..MAX_STROKES || counts.revisions !in 0..MAX_REVISIONS ||
             counts.attachments != manifest.attachments.size
-        ) fail("The manifest declares unsafe record counts.")
+        ) fail(Strings.the_manifest_declares_unsafe_record_counts)
     }
 
     private fun validateCounts(
@@ -1012,10 +1058,10 @@ class NotebookTransferManager(
             sections.size != expected.sections || pages.size != expected.pages ||
             strokes.size != expected.strokes || revisions.size != expected.revisions ||
             attachments.size != expected.attachments
-        ) fail("The manifest record counts do not match notebook.sqlite.")
+        ) fail(Strings.the_manifest_record_counts_do_not_match_notebook_sqlite)
         if (sections.size > MAX_SECTIONS || pages.size > MAX_PAGES || strokes.size > MAX_STROKES ||
             revisions.size > MAX_REVISIONS || attachments.size > MAX_ATTACHMENTS
-        ) fail("The notebook database exceeds safe import limits.")
+        ) fail(Strings.the_notebook_database_exceeds_safe_import_limits)
     }
 
     private fun validateStroke(row: InkStrokeEntity) {
@@ -1027,7 +1073,7 @@ class NotebookTransferManager(
             row.enc != InkCodec.ENCODING || !InkCodec.hasValidInputData(row.points) ||
             listOf(row.minX, row.minY, row.maxX, row.maxY).any { !it.isFinite() } ||
             row.minX > row.maxX || row.minY > row.maxY
-        ) fail("The notebook contains invalid ink data.")
+        ) fail(Strings.the_notebook_contains_invalid_ink_data)
     }
 
     private fun validateErase(row: InkEraseEntity) {
@@ -1035,7 +1081,7 @@ class NotebookTransferManager(
             !row.sizeDp.isFinite() || row.sizeDp <= 0f || row.sizeDp > 1_000f ||
             row.points.isEmpty() || row.points.size > MAX_POINT_BYTES ||
             row.enc != InkCodec.ENCODING || !InkCodec.hasValidInputData(row.points)
-        ) fail("The notebook contains invalid erase data.")
+        ) fail(Strings.the_notebook_contains_invalid_erase_data)
     }
 
     private fun validateMove(row: InkMoveEntity) {
@@ -1044,7 +1090,7 @@ class NotebookTransferManager(
             listOf(row.dxDp, row.dyDp, row.scaleX, row.scaleY, row.anchorX, row.anchorY)
                 .any { !it.isFinite() } ||
             InkCodec.decodeMove(row) == null
-        ) fail("The notebook contains invalid move data.")
+        ) fail(Strings.the_notebook_contains_invalid_move_data)
     }
 
     private fun requireValidAttachmentMetadata(row: AttachmentEntity) {
@@ -1052,7 +1098,7 @@ class NotebookTransferManager(
             row.pixelWidth !in 1..AttachmentStore.MAX_DIMENSION ||
             row.pixelHeight !in 1..AttachmentStore.MAX_DIMENSION ||
             row.byteCount !in 1..MAX_ATTACHMENT_BYTES
-        ) fail("The notebook contains invalid attachment metadata.")
+        ) fail(Strings.the_notebook_contains_invalid_attachment_metadata)
     }
 
     private fun requireDatabaseOkay(database: SQLiteConnection) {
@@ -1061,18 +1107,18 @@ class NotebookTransferManager(
         }
         if (!quick) fail("SQLite integrity verification failed.")
         val foreignKeyProblem = database.prepare("PRAGMA foreign_key_check").use { it.step() }
-        if (foreignKeyProblem) fail("The notebook database contains broken relationships.")
+        if (foreignKeyProblem) fail(Strings.the_notebook_database_contains_broken_relationships)
     }
 
     private fun parseChecksums(file: File): Map<String, String> {
-        if (!file.isFile || file.length() > MAX_CHECKSUM_BYTES) fail("The checksum list is invalid.")
+        if (!file.isFile || file.length() > MAX_CHECKSUM_BYTES) fail(Strings.the_checksum_list_is_invalid)
         val result = linkedMapOf<String, String>()
         file.readLines().filter { it.isNotBlank() }.forEach { line ->
-            val match = CHECKSUM_LINE.matchEntire(line) ?: fail("The checksum list is malformed.")
+            val match = CHECKSUM_LINE.matchEntire(line) ?: fail(Strings.the_checksum_list_is_malformed)
             val (hash, path) = match.destructured
             validateEntryName(path)
             if (path == CHECKSUMS_ENTRY || result.put(path, hash) != null) {
-                fail("The checksum list contains a duplicate or self-reference.")
+                fail(Strings.the_checksum_list_contains_a_duplicate_or_self_reference)
             }
         }
         return result
@@ -1083,7 +1129,7 @@ class NotebookTransferManager(
             '\\' in name || name.startsWith('/') || name.split('/').any { it == ".." || it.isBlank() } ||
             (name != MANIFEST_ENTRY && name != DATABASE_ENTRY && name != CHECKSUMS_ENTRY &&
                 !ATTACHMENT_PATH.matches(name))
-        ) fail("The archive contains an unsafe path.")
+        ) fail(Strings.the_archive_contains_an_unsafe_path)
     }
 
     private fun entryLimit(name: String): Long = when (name) {
@@ -1096,7 +1142,7 @@ class NotebookTransferManager(
     private fun safeTarget(root: File, name: String): File {
         val target = File(root, name)
         val prefix = root.canonicalPath + File.separator
-        if (!target.canonicalPath.startsWith(prefix)) fail("The archive contains an unsafe path.")
+        if (!target.canonicalPath.startsWith(prefix)) fail(Strings.the_archive_contains_an_unsafe_path)
         return target
     }
 
@@ -1106,7 +1152,7 @@ class NotebookTransferManager(
      */
     private fun freshDirectory(kind: String): File {
         transferRoot.mkdirs()
-        if (!transferRoot.isDirectory) fail("The private transfer directory is unavailable.")
+        if (!transferRoot.isDirectory) fail(Strings.the_private_transfer_directory_is_unavailable)
         // File ages are wall-clock time, whatever [clock] says about the notes.
         val abandoned = System.currentTimeMillis() - STALE_STAGING_MILLIS
         transferRoot.listFiles { file -> file.isDirectory && file.lastModified() < abandoned }
@@ -1122,7 +1168,7 @@ class NotebookTransferManager(
             ?.let(DocumentCodecs::byId)
             ?.let { codec ->
                 runCatching { codec.decode(bytes).migrated() }.getOrNull()
-            } ?: fail("The notebook uses an unsupported document format.")
+            } ?: fail(Strings.the_notebook_uses_an_unsupported_document_format)
 
     private fun PageDoc.imageIds(): List<String> =
         outlines.filterIsInstance<Outline.Image>().map { it.attachmentId }

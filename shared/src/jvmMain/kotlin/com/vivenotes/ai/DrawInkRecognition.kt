@@ -1,5 +1,6 @@
 package com.vivenotes.ai
 
+import com.vivenotes.localization.Strings
 import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.ink.geometry.ImmutableAffineTransform
 import com.vivenotes.byteink.compose.InkPathRenderer
@@ -24,7 +25,7 @@ class DesktopDrawMath(private val models: AiModelStore, override val engine: Mat
 ) : DrawMath, AutoCloseable {
     private val recognition = OnnxInkRecognitionEngine(models, log = log)
     override suspend fun readFormula(ink: InkPage): String {
-        check(models.state.value.formulaReady) { "Install a formula model in Settings → Models." }
+        check(models.state.value.formulaReady) { Strings.install_a_formula_model_in_settings_models }
         val image = withContext(Dispatchers.Default) {
             renderDrawInk(ink.desktopGeometry().projections, models.state.value.formulaEngine.stemPx)
         }
@@ -38,7 +39,7 @@ class DesktopDrawMath(private val models: AiModelStore, override val engine: Mat
 
 internal fun renderDrawInk(strokes: List<PageStroke>, stemPx: Float): Image {
     val boxes = strokes.mapNotNull { it.pageBounds }
-    require(boxes.isNotEmpty()) { "Recognition requires ink" }
+    require(boxes.isNotEmpty()) { Strings.recognition_requires_ink }
     val left = boxes.minOf { it.left }; val top = boxes.minOf { it.top }
     val widthDp = (boxes.maxOf { it.right } - left).coerceAtLeast(1f)
     val heightDp = (boxes.maxOf { it.bottom } - top).coerceAtLeast(1f)

@@ -1,4 +1,5 @@
 import java.io.File
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -46,6 +47,37 @@ val jbrJvmArgs = listOf("--add-opens=java.desktop/sun.awt.wl=ALL-UNNAMED")
 
 val appVersion = project.version.toString()
 
+/**
+ * Deployment values that are not the same on every machine, as the Android app's build reads them:
+ * a `-P` on the command line, then `local.properties` at the repository root (gitignored here), then
+ * the default. `./gradlew :desktopApp:run -Pvive.cloudBaseUrl=http://192.168.1.20:5444`.
+ */
+val localProperties: Properties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use(::load)
+}
+
+fun localSetting(name: String, fallback: String): String =
+    (project.findProperty(name) as String?)?.takeIf(String::isNotBlank)
+        ?: localProperties.getProperty(name)?.takeIf(String::isNotBlank)
+        ?: fallback
+
+/**
+ * Android's `vive.cloudBaseUrl`: replaces the managed sync server both profiles talk to, as it does
+ * either Android build type. Unset, `DesktopBuildInfo` gives the development profile — Android's
+ * debug build — the local Docker server and everything else `https://sync.vivenotes.net`.
+ */
+val cloudBaseUrlOverride = localSetting("vive.cloudBaseUrl", "")
+
+/**
+ * A Google OAuth client of the Desktop app type, in the project that holds the Android app's Web
+ * client, and the not-confidential secret Google issues installed apps with it. Empty until filled
+ * in, which leaves Sign in with Google disabled and explained, as an Android build without
+ * `vive.googleWebClientId` does. The server must list the same id in `GOOGLE_CLIENT_IDS`.
+ */
+val googleDesktopClientId = localSetting("vive.googleDesktopClientId", "")
+val googleDesktopClientSecret = localSetting("vive.googleDesktopClientSecret", "")
+
 compose.desktop {
     application {
         mainClass = "com.vivenotes.desktop.MainKt"
@@ -57,7 +89,14 @@ compose.desktop {
 }
 
 tasks.processResources {
-    expand("appVersion" to appVersion)
+    val values = mapOf(
+        "appVersion" to appVersion,
+        "cloudBaseUrl" to cloudBaseUrlOverride,
+        "googleDesktopClientId" to googleDesktopClientId,
+        "googleDesktopClientSecret" to googleDesktopClientSecret,
+    )
+    inputs.properties(values)
+    expand(values)
 }
 
 tasks.withType<Test>().configureEach {
@@ -67,6 +106,12 @@ tasks.withType<Test>().configureEach {
 tasks.test {
     val settingsFile = rootProject.file("settings.gradle.kts")
     inputs.file(settingsFile)
+    inputs.files(rootProject.files("build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
+        "shared/build.gradle.kts", "webApp/build.gradle.kts", "desktopApp/build.gradle.kts",
+        "gradle/karma/managed-chromium.js", "gradle/browser-test-page.gradle.kts",
+        "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js"))
+    inputs.file(rootProject.file("tools/lint/ResourceLint.java"))
+    systemProperty("vivenotes.test.projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
     systemProperty("vivenotes.test.gradleHome", gradle.gradleHomeDir!!.absolutePath)
     systemProperty("vivenotes.test.gradleUserHome", gradle.gradleUserHomeDir.absolutePath)

@@ -10,6 +10,7 @@ import com.vivenotes.data.db.InkMoveEntity
 import com.vivenotes.data.db.InkMoveTargetEntity
 import com.vivenotes.data.db.InkStrokeEntity
 import com.vivenotes.data.db.LocalMetadataEntity
+import com.vivenotes.data.db.deferredNotebookContentKey
 import com.vivenotes.data.db.NotesDatabase
 import com.vivenotes.data.db.StrokeColor
 import com.vivenotes.data.db.SyncEntityStateEntity
@@ -195,6 +196,85 @@ class NotebookTransferManagerTest {
         assertEquals(listOf(sectionId), db.sectionDao().allInNotebook(movedId).map { it.id })
         assertEquals(movedId, db.sectionDao().byId(sectionId)!!.notebookId)
         assertNotNull(db.pageDao().byId(pageId))
+    }
+
+    @Test
+    fun aReImportFindsTheNotebookAPurgeMovedOnAnotherDevice() = runBlocking<Unit> {
+        val archiveNotebookId = repository.createNotebook("Field Notes")
+        val sectionId = repository.createSection(archiveNotebookId, "Observations")
+        val pageId = repository.createPage(sectionId, "Heron")
+        val bundle = export(archiveNotebookId)
+
+        // What every device but the one that made the move holds: the moved notebook arrived through
+        // sync with the archive's sections under it, and no record of where it went, because
+        // `local_metadata` never syncs. The retired id can arrive as well, as a tombstone.
+        val original = db.notebookDao().byId(archiveNotebookId)!!
+        val movedId = "01a0039f-1bbc-7979-ad06-000000000002"
+        db.notebookDao().upsert(original.copy(id = movedId))
+        db.sectionDao().repointNotebook(archiveNotebookId, movedId)
+        db.notebookDao().upsert(original.copy(updatedAt = now, deletedAt = now))
+        repository.closeNotebook(movedId)
+
+        now += 1
+        val result = transfers.importNotebook(ByteArrayInputStream(bundle))
+
+        assertEquals(movedId, result.notebookId)
+        assertFalse(result.created, "it is an update of the moved notebook")
+        assertEquals(movedId, db.sectionDao().byId(sectionId)!!.notebookId)
+        assertNotNull(db.pageDao().byId(pageId))
+        assertNull(db.notebookDao().byId(movedId)!!.closedAt, "an imported notebook arrives open")
+        assertNotNull(db.notebookDao().byId(archiveNotebookId)!!.deletedAt, "the retired id stays deleted")
+    }
+
+    @Test
+    fun anImportIntoANotebookWhoseContentsAreNotOnTheDeviceIsRefused() = runBlocking<Unit> {
+        val archiveNotebookId = repository.createNotebook("Field Notes")
+        val sectionId = repository.createSection(archiveNotebookId, "Observations")
+        repository.createPage(sectionId, "Heron")
+        val bundle = export(archiveNotebookId)
+
+        // A moved notebook first seen here already closed: its pages are here and their contents
+        // are not, so the restore could not tombstone ink added since the export.
+        val movedId = "01a0039f-1bbc-7979-ad06-000000000003"
+        db.notebookDao().upsert(db.notebookDao().byId(archiveNotebookId)!!.copy(id = movedId))
+        db.sectionDao().repointNotebook(archiveNotebookId, movedId)
+        db.notebookDao().hardDelete(archiveNotebookId)
+        db.notebookDao().setClosed(movedId, now, now)
+        db.localMetadataDao().put(LocalMetadataEntity(deferredNotebookContentKey(movedId), "$now"))
+
+        val failure = runCatching {
+            transfers.importNotebook(ByteArrayInputStream(bundle))
+        }.exceptionOrNull()
+
+        val refused = assertIs<NotebookTransferException>(failure)
+        assertTrue(refused.message!!.contains("Bring it back"), "the message has to say what to do about it")
+        assertEquals(now, db.notebookDao().byId(movedId)!!.closedAt, "nothing was reopened")
+        assertNotNull(db.localMetadataDao().value(deferredNotebookContentKey(movedId)))
+        assertNull(db.notebookDao().byId(archiveNotebookId))
+    }
+
+    @Test
+    fun sectionsHeldByAnUnrelatedNotebookStillRefuseTheImport() = runBlocking<Unit> {
+        val archiveNotebookId = repository.createNotebook("Field Notes")
+        val sectionId = repository.createSection(archiveNotebookId, "Observations")
+        repository.createPage(sectionId, "Heron")
+        val bundle = export(archiveNotebookId)
+
+        // The archive's sections under a notebook that is not a copy of the archive's: a different
+        // creation time is what tells it apart from one a purge moved.
+        val original = db.notebookDao().byId(archiveNotebookId)!!
+        val otherId = "01a0039f-1bbc-7979-ad06-000000000004"
+        db.notebookDao().upsert(original.copy(id = otherId, createdAt = original.createdAt + 1))
+        db.sectionDao().repointNotebook(archiveNotebookId, otherId)
+        db.notebookDao().hardDelete(archiveNotebookId)
+
+        val failure = runCatching {
+            transfers.importNotebook(ByteArrayInputStream(bundle))
+        }.exceptionOrNull()
+
+        assertEquals("A section id belongs to another notebook.", failure?.message)
+        assertNull(db.notebookDao().byId(archiveNotebookId))
+        assertEquals(otherId, db.sectionDao().byId(sectionId)!!.notebookId)
     }
 
     @Test
@@ -511,7 +591,9 @@ class NotebookTransferManagerTest {
                     "notebookId" to notebookId),
                 bundle.rows("SELECT key, value FROM vive_bundle") { it.getText(0) to it.getText(1) }.toMap(),
             )
-            assertEquals(listOf("716b15d1aa8dc9904a8694705a2e8502"),
+            // The exporting database's Room identity, copied as Android's exporter copies it: the
+            // shared schema's current one (version 2). Android's importer checks the table's columns.
+            assertEquals(listOf("838efa4694ec57940c0f7f9cfba1fc33"),
                 bundle.rows("SELECT identity_hash FROM room_master_table") { it.getText(0) })
             assertEquals(listOf("ok"), bundle.rows("PRAGMA quick_check") { it.getText(0) })
         }

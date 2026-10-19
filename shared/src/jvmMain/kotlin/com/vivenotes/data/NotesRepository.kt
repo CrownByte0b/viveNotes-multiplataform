@@ -1,6 +1,7 @@
 // Ported from the Android app's `data/NotesRepository.kt`. What differs is listed on the class.
 package com.vivenotes.data
 
+import com.vivenotes.localization.Strings
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
 import kotlinx.coroutines.flow.Flow
@@ -97,7 +98,7 @@ class NotesRepository(
      * `page_content` changes. Without this guard, saving another page could re-emit the selected
      * page's older stored body while its editor still has unsaved typing and roll that typing back.
      */
-    fun observeDoc(pageId: String): Flow<PageLoad> = contents.observeById(pageId)
+    override fun observeDoc(pageId: String): Flow<PageLoad> = contents.observeById(pageId)
         .distinctUntilChanged()
         .map(::decodeDoc)
 
@@ -193,6 +194,9 @@ class NotesRepository(
 
     /** One page's metadata — its title and its created stamp — without its body. */
     override suspend fun pageById(id: String): PageEntity? = pages.byId(id)
+
+    /** Android's value query used by section PDF export, in stored page order. */
+    suspend fun pagesInSection(sectionId: String): List<PageEntity> = pages.inSection(sectionId)
 
     suspend fun pagesInNotebook(notebookId: String): List<PageEntity> {
         val notebook = notebooks.byId(notebookId) ?: return emptyList()
@@ -1082,11 +1086,11 @@ class NotesRepository(
     override suspend fun seedIfEmpty() {
         if (notebooks.count() > 0) return
 
-        val notebookId = createNotebook("My Notebook")
-        val gettingStarted = createSection(notebookId, "Getting Started")
-        createSection(notebookId, "Ideas")
+        val notebookId = createNotebook(Strings.my_notebook)
+        val gettingStarted = createSection(notebookId, Strings.getting_started)
+        createSection(notebookId, Strings.ideas)
 
-        createPage(gettingStarted, "Welcome")
+        createPage(gettingStarted, Strings.welcome)
 
         // Written last: all calls above are seed construction, while any later content mutation
         // clears this marker. The UUID lets import remove only this installation's placeholder.

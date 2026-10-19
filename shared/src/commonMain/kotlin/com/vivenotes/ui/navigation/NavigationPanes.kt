@@ -1,5 +1,6 @@
 package com.vivenotes.ui.navigation
 
+import com.vivenotes.localization.Strings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.clickable
@@ -98,7 +99,7 @@ internal fun WithItemMenu(
         content(menuAt != null)
         ContextMenu(anchor = menuAt, onDismiss = { menuAt = null }) {
             ContextMenuItem(
-                label = "Rename ${item.noun}",
+                label = item.renameLabel,
                 icon = ContextSymbols.Edit,
                 onClick = {
                     menuAt = null
@@ -108,7 +109,7 @@ internal fun WithItemMenu(
             )
             ContextMenuDivider()
             ContextMenuItem(
-                label = "Delete ${item.noun}",
+                label = item.deleteLabel,
                 icon = ObjectSymbols.Delete,
                 destructive = true,
                 onClick = {

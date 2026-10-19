@@ -14,6 +14,31 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.*
 
 class InkToolkitCommandsTest {
+    @Test
+    fun mixedRecolourPreservesAutomaticIntentForEveryTypeAndUndoesAsOneChange() {
+        val base = workspace()
+        val objects = listOf(Outline.Shape("shape", x = 150f, y = 190f),
+            com.vivenotes.model.newTable(1, 1, x = 300f, y = 190f, inkOnly = true),
+            Outline.Equation("equation", 500f, 190f, 80f, 40f, "x^2"))
+        val selected = base.updatePage(base.selectedPageId) { it.copy(document = PageDoc(outlines = objects)) }
+            .selectObjectsInRect(0f, 180f, 900f, 500f)
+        for ((argb, follows) in listOf(0xff000000.toInt() to true, -1 to true, -1 to false,
+            0xff000000.toInt() to false, 0xffef4444.toInt() to false)) {
+            val colored = selected.colorSelectedObjects(argb, follows)
+            val doc = colored.selectedPage!!.document
+            assertEquals(follows, (doc.outlines.first() as Outline.Shape).borderFollowsTheme)
+            assertEquals(follows, doc.outlines.filterIsInstance<Outline.Table>().single().borderFollowsTheme)
+            assertEquals(argb.takeUnless { follows }, doc.outlines.filterIsInstance<Outline.Equation>().single().colorArgb)
+            assertEquals(follows, colored.selectedPage!!.ink!!.strokes.single().colorFollowsTheme)
+            assertEquals(1, colored.structuralUndo.size)
+            val restored = colored.undoStructure()
+            assertEquals(selected.selectedPage!!.document, restored.selectedPage!!.document)
+            assertEquals(selected.selectedPage!!.ink!!.strokes, restored.selectedPage!!.ink!!.strokes)
+            assertEquals(doc, restored.redoStructure().selectedPage!!.document)
+            assertEquals(follows, restored.redoStructure().selectedPage!!.ink!!.strokes.single().colorFollowsTheme)
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun sessionLogsInkCopyAndSavedColoursWithoutStrokeIdsOrContents() = runTest {
@@ -61,6 +86,18 @@ class InkToolkitCommandsTest {
             restored.desktopGeometry().sourceStrokes.single().stroke.brush.colorIntArgb)
         assertEquals(page.desktopGeometry().projections.map { it.pageBounds }, restored.desktopGeometry().projections.map { it.pageBounds })
         assertNull(change.selection!!.recolor(0xff3b82f6.toInt()))
+    }
+
+    @Test
+    fun changingOnlyTheAutomaticIntentStillRecordsAReversibleInkEdit() {
+        val page = workspace().selectedPage!!.ink!!
+        val selection = page.geometry!!.selectAt(page, 40f, 200f)!!
+        val argb = page.strokes.single().colorArgb
+        val automatic = assertNotNull(selection.recolor(argb, true))
+        val explicit = assertNotNull(automatic.selection!!.recolor(argb, false))
+        assertFalse(explicit.after.strokes.single().colorFollowsTheme!!)
+        assertTrue(explicit.after.withDesktopEdits(explicit.undo).strokes.single().colorFollowsTheme!!)
+        assertNull(explicit.selection!!.recolor(argb, false))
     }
 
     @Test

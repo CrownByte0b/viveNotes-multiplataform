@@ -1,5 +1,6 @@
 package com.vivenotes.ai
 
+import com.vivenotes.localization.Strings
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import java.io.File
@@ -36,7 +37,7 @@ internal class VerifiedArtifactDownloader(
         }
         try {
             val response = connection.responseCode
-            require(response in 200..299) { "Server returned HTTP $response" }
+            require(response in 200..299) { Strings.server_returned_http_value(response) }
             val digest = MessageDigest.getInstance("SHA-256")
             var written = 0L
             connection.inputStream.use { input ->
@@ -50,16 +51,16 @@ internal class VerifiedArtifactDownloader(
                         digest.update(buffer, 0, count)
                         written += count
                         require(written <= artifact.bytes) {
-                            "${artifact.fileName} is larger than expected"
+                            Strings.value_is_larger_than_expected(artifact.fileName)
                         }
                         onBytes(written)
                     }
                     output.fd.sync()
                 }
             }
-            require(written == artifact.bytes) { "${artifact.fileName} is incomplete" }
+            require(written == artifact.bytes) { Strings.value_is_incomplete(artifact.fileName) }
             require(digest.digest().hex() == artifact.sha256) {
-                "${artifact.fileName} failed verification"
+                Strings.value_failed_verification(artifact.fileName)
             }
         } catch (failure: Exception) {
             destination.delete()

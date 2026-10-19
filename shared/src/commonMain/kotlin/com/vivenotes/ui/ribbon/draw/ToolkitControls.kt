@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -73,10 +74,10 @@ internal fun DrawToolkitPopup(open: Boolean, onDismiss: () -> Unit, content: @Co
 }
 
 @Composable
-internal fun ReferenceToolKit(title: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun ReferenceToolKit(title: String, tag: String, content: @Composable ColumnScope.() -> Unit) {
     DrawToolkitTheme {
         Column(Modifier.width(320.dp).background(MaterialTheme.colorScheme.surfaceContainer)
-            .testTag("draw-toolkit-${title.lowercase().replace(' ', '-')}").padding(horizontal = 16.dp, vertical = 12.dp)) {
+            .testTag(tag).padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(10.dp))
             content()
@@ -94,8 +95,8 @@ internal fun ToolkitSetting(label: String, info: String? = null, trailing: @Comp
                 Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 if (info != null) {
                     Spacer(Modifier.width(6.dp))
-                    HoverTooltip("About $label") {
-                        Icon(DrawToolkitSymbols.Info, "About $label", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    HoverTooltip(Strings.about_value(label)) {
+                        Icon(DrawToolkitSymbols.Info, Strings.about_value(label), tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(17.dp).clickable { explaining = !explaining })
                     }
                 }
@@ -131,7 +132,7 @@ internal fun ToolkitNumberPicker(label: String, value: Int, range: IntRange, tag
             }
             ScaledDropdownMenu(open, { open = false }) {
                 range.forEach { option ->
-                    DropdownMenuItem(text = { Text(if (option == 0) "Off" else option.toString()) },
+                    DropdownMenuItem(text = { Text(if (option == 0) Strings.off else option.toString()) },
                         modifier = Modifier.testTag("$tag-option-$option"),
                         onClick = { open = false; onPick(option) })
                 }
@@ -151,7 +152,7 @@ internal fun ColumnScope.ToolkitSlider(label: String, value: Float, range: Close
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("$tag-value"))
     }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        ToolkitStepButton(DrawToolkitSymbols.Remove, "Decrease $label", value > range.start, "$tag-minus") {
+        ToolkitStepButton(DrawToolkitSymbols.Remove, Strings.decrease_value(label), value > range.start, "$tag-minus") {
             onChange((value - step).coerceAtLeast(range.start))
         }
         Box(Modifier.weight(1f).pointerInput(Unit) {
@@ -180,7 +181,7 @@ internal fun ColumnScope.ToolkitSlider(label: String, value: Float, range: Close
                 }
             }
         }
-        ToolkitStepButton(DrawToolkitSymbols.Add, "Increase $label", value < range.endInclusive, "$tag-plus") {
+        ToolkitStepButton(DrawToolkitSymbols.Add, Strings.increase_value(label), value < range.endInclusive, "$tag-plus") {
             onChange((value + step).coerceAtMost(range.endInclusive))
         }
     }
@@ -209,11 +210,11 @@ internal fun ToolkitLineTypes(current: LineType, tag: (LineType) -> String, onPi
         LineType.entries.forEach { type ->
             val selected = type == current
             val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            HoverTooltip("${type.name} line") {
+            HoverTooltip(Strings.value_line(type.label)) {
                 Box(Modifier.size(58.dp, 34.dp).clip(RoundedCornerShape(8.dp))
                     .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                     .selectable(selected, onClick = { onPick(type) }).testTag(tag(type))
-                    .semantics { contentDescription = "${type.name} line" }, contentAlignment = Alignment.Center) {
+                    .semantics { contentDescription = Strings.value_line(type.label) }, contentAlignment = Alignment.Center) {
                     Canvas(Modifier.size(38.dp, 12.dp)) {
                         val width = 2.dp.toPx()
                         drawLine(color, Offset(1.dp.toPx(), center.y), Offset(size.width - 1.dp.toPx(), center.y),
@@ -236,19 +237,19 @@ internal fun ToolkitPalette(palette: List<Int>, current: Int, colorTag: (Int) ->
     val colors = palette.normalizedPenPalette()
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         colors.forEach { argb ->
-            ToolkitSwatch(argb == current, colorTag(argb), "Color #${(argb and 0xffffff).toString(16).padStart(6, '0')}",
+            ToolkitSwatch(argb == current, colorTag(argb), Strings.color_value((argb and 0xffffff).toString(16).padStart(6, '0')),
                 { onPick(argb) }) { drawRect(Color(argb)) }
         }
         Box {
-            ToolkitSwatch(current !in colors, customTag, "Custom color", { mixed = null; open = true }) {
+            ToolkitSwatch(current !in colors, customTag, Strings.custom_color, { mixed = null; open = true }) {
                 drawRect(Brush.sweepGradient(HUE_STOPS, center))
                 drawCircle(Brush.radialGradient(listOf(Color.White, Color.Transparent), center, size.minDimension / 2f))
             }
             DrawToolkitPopup(open, ::close) {
-                ReferenceToolKit("Custom color") {
+                ReferenceToolKit(Strings.custom_color, "draw-toolkit-custom-color") {
                     ColorWheelContent(current, onPick = { mixed = it; onPick(it) }, onDone = ::close)
-                    if (onAutomatic != null) TextButton(onAutomatic, Modifier.testTag(InkControlsTags.Automatic)) { Text("Automatic") }
-                    ToolkitHexField("Color", hexTag) { mixed = it; onPick(it) }
+                    if (onAutomatic != null) TextButton(onAutomatic, Modifier.testTag(InkControlsTags.Automatic)) { Text(Strings.automatic) }
+                    ToolkitHexField(Strings.color, hexTag) { mixed = it; onPick(it) }
                 }
             }
         }
@@ -256,7 +257,7 @@ internal fun ToolkitPalette(palette: List<Int>, current: Int, colorTag: (Int) ->
 }
 
 @Composable
-private fun ToolkitSwatch(selected: Boolean, tag: String, label: String, onClick: () -> Unit, fill: DrawScope.() -> Unit) {
+internal fun ToolkitSwatch(selected: Boolean, tag: String, label: String, onClick: () -> Unit, fill: DrawScope.() -> Unit) {
     HoverTooltip(label) {
         Box(Modifier.size(26.dp).selectable(selected, onClick = onClick).testTag(tag)
             .semantics { contentDescription = label }
@@ -273,29 +274,29 @@ internal fun ToolkitFill(fill: Int?, seed: Int, tag: String, noFillTag: String, 
     var mixed by remember { mutableStateOf<Int?>(null) }
     val latestPromote by rememberUpdatedState(onPromote)
     fun close() { open = false; mixed?.let(latestPromote); mixed = null }
-    ToolkitSetting("Fill color") {
+    ToolkitSetting(Strings.fill_color) {
         Box {
-            HoverTooltip(if (fill == null) "No fill" else "Fill color") {
+            HoverTooltip(if (fill == null) Strings.no_fill else Strings.fill_color) {
                 Box(Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).background(fill?.let(::Color) ?: Color.Transparent)
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
                     .clickable { mixed = null; open = true }.testTag(tag)
-                    .semantics { contentDescription = if (fill == null) "No fill" else "Fill color" }, contentAlignment = Alignment.Center) {
+                    .semantics { contentDescription = if (fill == null) Strings.no_fill else Strings.fill_color }, contentAlignment = Alignment.Center) {
                     if (fill == null) Icon(DrawToolkitSymbols.Block, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp))
                 }
             }
             DrawToolkitPopup(open, ::close) {
-                ReferenceToolKit("Fill color") {
+                ReferenceToolKit(Strings.fill_color, "draw-toolkit-fill-color") {
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
                         .background(if (fill == null) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                         .selectable(fill == null, onClick = { open = false; mixed = null; onChange(null) })
                         .padding(horizontal = 10.dp, vertical = 8.dp).testTag(noFillTag), verticalAlignment = Alignment.CenterVertically) {
                         Icon(DrawToolkitSymbols.Block, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(10.dp)); Text("No fill", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.width(10.dp)); Text(Strings.no_fill, style = MaterialTheme.typography.bodyMedium)
                     }
                     Spacer(Modifier.height(10.dp))
                     ColorWheelContent(fill ?: seed, onPick = { mixed = it; onChange(it) }, onDone = ::close)
-                    ToolkitHexField("Fill", hexTag, allowAlpha = true) { mixed = it; onChange(it) }
+                    ToolkitHexField(Strings.fill, hexTag, allowAlpha = true) { mixed = it; onChange(it) }
                 }
             }
         }
@@ -307,9 +308,9 @@ private fun ToolkitHexField(label: String, tag: String, allowAlpha: Boolean = fa
     var hex by remember { mutableStateOf("") }
     val parsed = if (allowAlpha) parseShapeColor(hex) else parseInkColor(hex)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(hex, { if (it.length <= 9) hex = it }, label = { Text("$label hex") },
+        OutlinedTextField(hex, { if (it.length <= 9) hex = it }, label = { Text(Strings.value_hex(label)) },
             singleLine = true, isError = hex.isNotEmpty() && parsed == null,
             modifier = Modifier.size(140.dp, 58.dp).testTag(tag))
-        TextButton({ parsed?.let(onPick) }, enabled = parsed != null, modifier = Modifier.testTag("$tag-apply")) { Text("Apply") }
+        TextButton({ parsed?.let(onPick) }, enabled = parsed != null, modifier = Modifier.testTag("$tag-apply")) { Text(Strings.apply) }
     }
 }

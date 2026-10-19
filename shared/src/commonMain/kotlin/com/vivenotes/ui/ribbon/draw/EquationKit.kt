@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,21 +35,21 @@ internal fun EquationKit(existing: String? = null, onSubmit: (PendingDrawEquatio
     val parsed = rememberBlockingRaTeXDisplayList(source, color = MaterialTheme.colorScheme.onSurface)
     val display = parsed.getOrNull()
     val density = LocalDensity.current
-    ToolKit(if (existing == null) "Insert equation" else "Edit equation") {
-        OutlinedTextField(source, { source = it }, label = { Text("LaTeX") }, minLines = 2, maxLines = 5,
+    ToolKit(if (existing == null) Strings.insert_equation else Strings.edit_equation) {
+        OutlinedTextField(source, { source = it }, label = { Text(Strings.latex) }, minLines = 2, maxLines = 5,
             modifier = Modifier.fillMaxWidth().testTag(EquationTags.Source))
-        Text("Preview", style = MaterialTheme.typography.labelLarge)
+        Text(Strings.preview, style = MaterialTheme.typography.labelLarge)
         Box(Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag(EquationTags.Preview)) {
             if (display != null) RaTeX(displayList = display, fontSize = 20.sp)
         }
-        parsed.exceptionOrNull()?.let { Text(it.message ?: "Unable to render this equation", color = MaterialTheme.colorScheme.error) }
+        parsed.exceptionOrNull()?.let { Text(it.message ?: Strings.unable_to_render_this_equation, color = MaterialTheme.colorScheme.error) }
         Button(onClick = {
             if (display != null) {
                 val size = display.measure(with(density) { 20.dp.toPx() })
                 onSubmit(PendingDrawEquation(source.trim(), size.widthPx / density.density, size.totalHeightPx / density.density))
             }
         }, enabled = source.isNotBlank() && display != null, modifier = Modifier.testTag(EquationTags.Submit)) {
-            Text(if (existing == null) "Place on page" else "Update")
+            Text(if (existing == null) Strings.place_on_page else Strings.update)
         }
     }
 }

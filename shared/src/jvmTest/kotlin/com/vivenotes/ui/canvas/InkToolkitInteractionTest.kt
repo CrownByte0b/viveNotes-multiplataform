@@ -210,9 +210,9 @@ class InkToolkitInteractionTest {
         setContent { ViveNotesTheme(darkTheme = true) {
             CompositionLocalProvider(LocalDensity provides Density(2f)) {
                 Box(Modifier.size(500.dp, 200.dp)) {
-                    InkSelectionToolkit(selected, Rect(20f, 180f, 300f, 250f), IntSize(1000, 400), emptyList(),
+                    InkSelectionToolkit(selected, Rect(20f, 180f, 300f, 250f), IntSize(1000, 400),
                         Color.White, enabled = true, showColor = true, onBoundsChange = {}, onCopy = {},
-                        onDelete = {}, onColor = {}, showGroup = true, showMath = true, onGroup = {}, onMath = {})
+                        onDelete = {}, onColor = { _, _ -> }, showGroup = true, showMath = true, onGroup = {}, onMath = {})
                 }
             }
         } }

@@ -1,5 +1,6 @@
 package com.vivenotes.search
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.data.AttachmentStore
 import com.vivenotes.data.NotesRepository
 import com.vivenotes.data.db.AttachmentTextEntity
@@ -32,7 +33,7 @@ class DesktopContentSearch(
         }.catch { error ->
             if (error is CancellationException) throw error
             log.event("search") { "query failed" }
-            emit(SearchResults(error = "Search could not finish. Try again."))
+            emit(SearchResults(error = Strings.search_could_not_finish_try_again))
         }.flowOn(Dispatchers.Default)
     }
 
@@ -51,7 +52,7 @@ class DesktopContentSearch(
                 body = if (live) JsonDocumentCodec.encodeToString(request.liveDocument!!) else row?.docJson,
                 codec = if (live) JsonDocumentCodec.id else row?.format ?: JsonDocumentCodec.id)
             projected[page.id]?.takeIf { it.request == command }?.reply ?: pool.execute(command).also {
-                check(!it.failed) { "Document worker failed" }
+                check(!it.failed) { Strings.document_worker_failed }
                 projected[page.id] = Projection(command, it)
             }
         }
@@ -118,7 +119,7 @@ class DesktopContentSearch(
         val size = ((units.size + pool.parallelism - 1) / pool.parallelism).coerceIn(1, 128)
         return ranked(parallelMap(units.chunked(size)) { chunk ->
             pool.execute(WorkerRequest(SearchOperation.Match, query = query, units = chunk)).also {
-                check(!it.failed) { "Matching worker failed" }
+                check(!it.failed) { Strings.matching_worker_failed }
             }.hits
         }.flatten())
     }

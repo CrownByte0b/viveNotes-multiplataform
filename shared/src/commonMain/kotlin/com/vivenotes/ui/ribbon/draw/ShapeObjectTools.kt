@@ -1,11 +1,12 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,6 +23,7 @@ import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.LineType
 import com.vivenotes.model.ink.canFill
 import com.vivenotes.ui.components.ScaledDropdownMenu
+import com.vivenotes.ui.canvas.SelectionColorPicker
 import com.vivenotes.workspace.ShapeToolSettings
 
 internal object ShapeObjectTags {
@@ -36,9 +38,9 @@ internal fun ShapeObjectTools(shape: Outline.Shape, onLineType: (LineType) -> Un
                               onWidth: (Int) -> Unit, onFill: (Int?) -> Unit) {
     var lineMenu by remember(shape.id) { mutableStateOf(false) }
     var widthMenu by remember(shape.id) { mutableStateOf(false) }
-    var fillMenu by remember(shape.id) { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { lineMenu = true }, modifier = Modifier.testTag(ShapeObjectTags.LineType)) {
+        TextButton(onClick = { lineMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp),
+            modifier = Modifier.height(32.dp).testTag(ShapeObjectTags.LineType)) {
             Text(shape.lineType.label)
         }
         ScaledDropdownMenu(lineMenu, { lineMenu = false }) {
@@ -48,37 +50,23 @@ internal fun ShapeObjectTools(shape: Outline.Shape, onLineType: (LineType) -> Un
         }
     }
     Box {
-        TextButton(onClick = { widthMenu = true }, modifier = Modifier.testTag(ShapeObjectTags.Width)) {
-            Text("${shape.borderWidth.toInt()} pt")
+        TextButton(onClick = { widthMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp),
+            modifier = Modifier.height(32.dp).testTag(ShapeObjectTags.Width)) {
+            Text(Strings.value_pt(shape.borderWidth.toInt()))
         }
         ScaledDropdownMenu(widthMenu, { widthMenu = false }) {
             (ShapeToolSettings.MIN_BORDER_WIDTH..ShapeToolSettings.MAX_BORDER_WIDTH).forEach { width ->
-                DropdownMenuItem(text = { Text("$width pt") }, onClick = { widthMenu = false; onWidth(width) })
+                DropdownMenuItem(text = { Text(Strings.value_pt(width)) }, onClick = { widthMenu = false; onWidth(width) })
             }
         }
     }
     if (shape.canFill) {
-        Box {
-            TextButton(onClick = { fillMenu = true }, modifier = Modifier.testTag(ShapeObjectTags.Fill)) {
-                Text("Fill")
+        SelectionColorPicker(onColor = onFill, onNoFill = { onFill(null) }, selectedColor = shape.fillArgb) { open ->
+            TextButton(onClick = open, contentPadding = PaddingValues(horizontal = 8.dp),
+                modifier = Modifier.height(32.dp).testTag(ShapeObjectTags.Fill)) {
+                Text(Strings.fill)
                 Box(Modifier.padding(start = 4.dp).size(14.dp).background(shape.fillArgb?.let(::Color)
                     ?: Color.Transparent))
-            }
-            ScaledDropdownMenu(fillMenu, { fillMenu = false }) {
-                DropdownMenuItem(text = { Text("No fill") }, onClick = { fillMenu = false; onFill(null) })
-                ShapeColors.chunked(4).forEach { row ->
-                    Row(Modifier.padding(4.dp)) {
-                        row.forEach { argb ->
-                            Box(Modifier.padding(3.dp).size(25.dp).background(Color(argb))
-                                .clickable { fillMenu = false; onFill(argb) }
-                                .testTag(ShapeMenuTags.fill(argb)))
-                        }
-                    }
-                }
-                CustomShapeColorField("Fill", "object-shape-custom-fill") {
-                    fillMenu = false
-                    onFill(it)
-                }
             }
         }
     }

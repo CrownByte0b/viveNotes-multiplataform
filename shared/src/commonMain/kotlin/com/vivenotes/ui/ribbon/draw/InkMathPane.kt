@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,16 +26,16 @@ internal fun InkMathPane(selection: InkSelection, math: DrawMath, showInterpreta
         error = null
         try {
             val ink = withContext(Dispatchers.Default) { selection.forRecognition() }
-                ?: throw IllegalStateException("The selected ink could not be read.")
+                ?: throw IllegalStateException(Strings.the_selected_ink_could_not_be_read)
             val recognized = withoutTrailingEquals(math.readFormula(ink))
             currentCoroutineContext().ensureActive()
-            check(recognized.isNotBlank()) { "No formula was recognized. Try selecting the expression again." }
+            check(recognized.isNotBlank()) { Strings.no_formula_was_recognized_try_selecting_the_expression_again }
             source = recognized
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
             currentCoroutineContext().ensureActive()
-            error = failure.message ?: "Unable to read this formula."
+            error = failure.message ?: Strings.unable_to_read_this_formula_578906
         }
     }
     val recognized = source
@@ -43,10 +44,10 @@ internal fun InkMathPane(selection: InkSelection, math: DrawMath, showInterpreta
         val failure = error
         if (failure == null) {
             LinearProgressIndicator(Modifier.fillMaxWidth().testTag("ink-math-loading"))
-            Text("Reading handwriting…")
+            Text(Strings.reading_handwriting)
         } else {
             Text(failure, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("ink-math-error"))
-            TextButton(onClick = { attempt++ }, modifier = Modifier.testTag("ink-math-retry")) { Text("Retry") }
+            TextButton(onClick = { attempt++ }, modifier = Modifier.testTag("ink-math-retry")) { Text(Strings.retry) }
         }
     }
 }

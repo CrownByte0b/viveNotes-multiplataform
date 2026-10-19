@@ -1,5 +1,6 @@
 package com.vivenotes.math
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -188,7 +189,7 @@ class UvMathRuntime internal constructor(
         } catch (failure: Exception) {
             log.failure("math", "install", failure)
             _state.value = MathRuntimeState.Failed(
-                failure.message?.takeIf(String::isNotBlank) ?: "The math engine could not be installed.",
+                failure.message?.takeIf(String::isNotBlank) ?: Strings.the_math_engine_could_not_be_installed,
             )
         }
     }
@@ -206,13 +207,13 @@ class UvMathRuntime internal constructor(
         }
         val outcome = runProcess(builder) { line -> log.event("math") { "uv: $line" } }
         if (outcome.exitCode != 0) {
-            throw IOException(outcome.lastLine?.take(MAX_MESSAGE) ?: "uv exited with code ${outcome.exitCode}")
+            throw IOException(outcome.lastLine?.take(MAX_MESSAGE) ?: Strings.uv_exited_with_code_value(outcome.exitCode))
         }
     }
 
     private fun launchServer(requireReady: Boolean): Process {
         if (requireReady && _state.value !is MathRuntimeState.Ready || !python.isFile) {
-            throw MathEngineUnavailableException("The math engine is not installed. Install it in Settings → Models.")
+            throw MathEngineUnavailableException(Strings.the_math_engine_is_not_installed_install_it_in_settings_models)
         }
         // Every start, so the sources the process runs are always this app's.
         project.extract(projectDirectory)
@@ -299,17 +300,17 @@ sealed interface UvLookup {
             val name = if (windows) "uv.exe" else "uv"
             val file = if (explicit != null) {
                 File(explicit).takeIf { it.isFile && it.canExecute() }
-                    ?: return Unavailable("No uv at $explicit.")
+                    ?: return Unavailable(Strings.no_uv_at_value(explicit))
             } else {
                 path.orEmpty().split(File.pathSeparatorChar).filter(String::isNotBlank).map { File(it, name) }
                     .plus(listOf(File(home, ".local/bin/$name"), File(home, ".cargo/bin/$name")))
                     .firstOrNull { it.isFile && it.canExecute() }
-                    ?: return Unavailable("Installing the math engine needs uv. Get it from docs.astral.sh/uv, then install again.")
+                    ?: return Unavailable(Strings.installing_the_math_engine_needs_uv_get_it_from_docs_astral)
             }
             val found = version(file)?.let(UvVersion::parse)
-                ?: return Unavailable("uv at ${file.path} did not report its version.")
+                ?: return Unavailable(Strings.uv_at_value_did_not_report_its_version(file.path))
             return if (found < MINIMUM) {
-                Unavailable("uv $found is too old; the math engine needs uv $MINIMUM or newer.")
+                Unavailable(Strings.uv_value_is_too_old_the_math_engine_needs_uv_value(found, MINIMUM))
             } else {
                 Found(file, found)
             }

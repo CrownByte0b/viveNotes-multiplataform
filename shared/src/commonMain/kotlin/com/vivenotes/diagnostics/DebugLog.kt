@@ -2,7 +2,8 @@ package com.vivenotes.diagnostics
 
 /** Small, opt-in process log. Messages must describe operations, never document contents. */
 class DebugLog(
-    private val enabled: Boolean = false,
+    /** Whether lines are written at all, so a caller can skip building one. */
+    val enabled: Boolean = false,
     private val output: (String) -> Unit = ::println,
 ) {
     fun event(area: String, message: () -> String) {

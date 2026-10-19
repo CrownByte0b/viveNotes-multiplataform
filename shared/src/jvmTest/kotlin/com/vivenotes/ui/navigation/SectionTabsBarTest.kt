@@ -64,6 +64,9 @@ class SectionTabsBarTest {
         onNodeWithTag(NavigationTestTags.SectionTabs).assertIsDisplayed()
         onNodeWithTag(WorkspaceTestTags.NavigationToggle).performClick()
         onNodeWithTag(NavigationTestTags.SectionTabs).assertDoesNotExist()
+        onNodeWithTag(WorkspaceTestTags.PagePane).assertDoesNotExist()
+        onNodeWithTag(WorkspaceTestTags.NavigationToggle).performClick()
+        onNodeWithTag(NavigationTestTags.SectionTabs).assertIsDisplayed()
         onNodeWithTag(WorkspaceTestTags.PagePane).assertIsDisplayed()
     }
 

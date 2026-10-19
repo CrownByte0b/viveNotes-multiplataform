@@ -1,5 +1,6 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.data.ACCENT_PALETTE
 import com.vivenotes.model.newId
 import com.vivenotes.richtext.TextSelection
@@ -108,10 +109,10 @@ private fun WorkspaceState.withoutHistoryOf(removed: Set<String>): WorkspaceStat
 )
 
 /** What a notebook left unnamed in the New notebook dialog is called (Android's default). */
-const val NEW_NOTEBOOK_NAME = "New Notebook"
+val NEW_NOTEBOOK_NAME get() = Strings.new_notebook_acb5cb
 
 /** What a section left unnamed is called — also the first section of every new notebook. */
-const val NEW_SECTION_NAME = "New Section"
+val NEW_SECTION_NAME get() = Strings.new_section_09100a
 
 /** [name] trimmed, or [NEW_NOTEBOOK_NAME] when blank: unlike a rename, creating has a default. */
 fun notebookName(name: String): String = name.trim().ifEmpty { NEW_NOTEBOOK_NAME }

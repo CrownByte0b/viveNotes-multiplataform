@@ -1,5 +1,6 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.model.SpaceCut
 import com.vivenotes.model.newTable
 import com.vivenotes.model.withRowInserted
@@ -39,7 +40,15 @@ enum class RibbonTab {
     Draw,
     Document,
     View,
-    Settings,
+    Settings;
+
+    val label: String get() = when (this) {
+        File -> Strings.file_tab
+        Draw -> Strings.draw_tab
+        Document -> Strings.document_tab
+        View -> Strings.view_tab
+        Settings -> Strings.settings_tab
+    }
 }
 
 /** The user's choices for the next shape; placed shapes keep their own copy in the document. */
@@ -160,8 +169,10 @@ data class WorkspaceState(
     val activeTab: RibbonTab = RibbonTab.Document,
     /** The notebook pane: the top bar's navigation button and a swipe left across it. */
     val navigationVisible: Boolean = true,
-    /** The page list, which only a swipe puts away; the navigation button brings it back. */
+    /** The page list can also be closed by collapsing its divider. */
     val pageListVisible: Boolean = true,
+    val notebookPaneWidth: Float = 232f,
+    val pagePaneWidth: Float = 260f,
     val editorSelection: TextSelection = TextSelection(0),
     val typingMarks: Set<Mark> = emptySet(),
     val editorDefaults: EditorDefaults = EditorDefaults(),
@@ -398,14 +409,14 @@ data class WorkspaceState(
         else clearCanvasFocus().copy(selectedInk = selection)
 
     fun applyInkSelectionChange(change: com.vivenotes.model.ink.InkSelectionChange, deleteOutlines: Boolean = false,
-                                recolorOutlinesArgb: Int? = null): WorkspaceState {
+                                recolorOutlinesArgb: Int? = null, recolorFollowsTheme: Boolean = false): WorkspaceState {
         val page = editablePage ?: return this
         if (!page.inkReady || notebookTransfer.running || filePane.busy || change.edits.isEmpty() ||
             change.source !== selectedInk || page.ink !== change.before || change.after.pageId != page.id) return this
         val document = page.document.copy(outlines = page.document.outlines.mapNotNull { outline ->
             if (outline.id !in selectedObjectIds && outline.id !in selectedTextOutlineIds) outline
             else if (deleteOutlines) null
-            else if (recolorOutlinesArgb != null) outline.recolored(recolorOutlinesArgb)
+            else if (recolorOutlinesArgb != null) outline.recolored(recolorOutlinesArgb, recolorFollowsTheme)
             else if (outline is Outline.Text) outline.copy(x = (outline.x + change.dx).coerceAtLeast(0f),
                 y = (outline.y + change.dy).coerceAtLeast(0f))
             else if (outline.lockGroup != null) outline
@@ -857,11 +868,13 @@ data class WorkspaceState(
         } }
     }
 
-    fun colorSelectedObjects(argb: Int): WorkspaceState {
+    fun colorSelectedObjects(argb: Int, followsTheme: Boolean = false): WorkspaceState {
         if (editablePage == null) return this
-        selectedInk?.recolor(argb)?.let { return applyInkSelectionChange(it, recolorOutlinesArgb = argb) }
+        selectedInk?.recolor(argb, followsTheme)?.let {
+            return applyInkSelectionChange(it, recolorOutlinesArgb = argb, recolorFollowsTheme = followsTheme)
+        }
         return editOutlines { outlines -> outlines.map {
-            if (it.id in selectedObjectIds) it.recolored(argb) else it
+            if (it.id in selectedObjectIds) it.recolored(argb, followsTheme) else it
         } }
     }
 
@@ -1031,6 +1044,24 @@ data class WorkspaceState(
         return editOutlines { it + image }.copy(textToolArmed = false, objectLassoArmed = false)
     }
 
+    /** Android `CanvasSelection.isImageOnly`: the selected pictures, when nothing else is selected. */
+    val selectedImages: List<Outline.Image> get() =
+        if (selectedInk != null || selectedTextOutlineIds.isNotEmpty() ||
+            selectedPrimeObjects.any { it !is Outline.Image }) emptyList()
+        else selectedPrimeObjects.filterIsInstance<Outline.Image>()
+
+    /**
+     * Android's `setImageBackground`. Null is no background, not a transparent one — the value
+     * "No background" restores. A locked picture takes it too: lock means stays put.
+     */
+    fun setSelectedImageBackground(argb: Int?): WorkspaceState {
+        val ids = selectedImages.map { it.id }.toSet()
+        if (ids.isEmpty()) return this
+        return editOutlines { outlines ->
+            outlines.map { if (it is Outline.Image && it.id in ids) it.copy(backgroundArgb = argb) else it }
+        }
+    }
+
     internal fun withRichText(buffer: RichTextBuffer): WorkspaceState {
         val page = editablePage ?: return this
         val oldText = focusedTextOutline ?: return this
@@ -1053,11 +1084,11 @@ data class WorkspaceState(
         val id = "${section.id}-draft-$ordinal"
         val page = PageSummary(
             id = id,
-            title = "Untitled page",
-            preview = "Start writing…",
-            createdLabel = "Just now",
+            title = Strings.untitled_page,
+            preview = Strings.start_writing,
+            createdLabel = Strings.just_now,
             document = textDocument("").copy(style = editorDefaults.pageStyle()),
-            updatedLabel = "Just now",
+            updatedLabel = Strings.just_now,
         )
         return updateSection(section.id) { it.copy(pages = it.pages + page) }
             .copy(selectedPageId = id, editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null)
@@ -1099,47 +1130,47 @@ data class WorkspaceState(
         fun demo(): WorkspaceState {
             val calculus = NotebookSummary(
                 id = "calculus",
-                name = "Calculus",
+                name = Strings.calculus,
                 colorArgb = 0xFF45C45A.toInt(),
                 sections = listOf(
                     SectionSummary(
                         id = "chapter-1",
-                        name = "Chapter 1",
+                        name = Strings.chapter_1,
                         colorArgb = 0xFF45C45A.toInt(),
                         pages = listOf(
                             PageSummary(
                                 id = "lecture-notes",
-                                title = "Lecture notes",
-                                preview = "The basic idea of integral calculus is…",
-                                createdLabel = "Today, 9:20 AM",
+                                title = Strings.lecture_notes,
+                                preview = Strings.the_basic_idea_of_integral_calculus_is,
+                                createdLabel = Strings.today_9_20_am,
                                 updatedAt = 3L,
-                                updatedLabel = "Today, 9:20 AM",
-                                document = textDocument("The basic idea of integral calculus is to calculate area by adding increasingly small pieces."),
+                                updatedLabel = Strings.today_9_20_am,
+                                document = textDocument(Strings.the_basic_idea_of_integral_calculus_is_to_calculate_area_by),
                             ),
                             PageSummary(
                                 id = "homework-1",
-                                title = "Homework 1",
-                                preview = "Review limits and derivatives before Friday.",
-                                createdLabel = "Today, 10:45 AM",
+                                title = Strings.homework_1,
+                                preview = Strings.review_limits_and_derivatives_before_friday,
+                                createdLabel = Strings.today_10_45_am,
                                 updatedAt = 4L,
-                                updatedLabel = "Today, 10:45 AM",
-                                document = textDocument("Review limits and derivatives before Friday.\n\nUse this space to continue the note. Changes in this first skeleton are kept in memory only."),
+                                updatedLabel = Strings.today_10_45_am,
+                                document = textDocument(Strings.review_limits_and_derivatives_before_friday_use_this_space_to_continue),
                             ),
                         ),
                     ),
                     SectionSummary(
                         id = "chapter-2",
-                        name = "Chapter 2",
+                        name = Strings.chapter_2,
                         colorArgb = 0xFF1E88E5.toInt(),
                         pages = listOf(
                             PageSummary(
                                 id = "sequences",
-                                title = "Sequences",
-                                preview = "Convergence, bounds, and worked examples.",
-                                createdLabel = "Yesterday",
+                                title = Strings.sequences,
+                                preview = Strings.convergence_bounds_and_worked_examples,
+                                createdLabel = Strings.yesterday,
                                 updatedAt = 2L,
-                                updatedLabel = "Yesterday",
-                                document = textDocument("Convergence, bounds, and worked examples."),
+                                updatedLabel = Strings.yesterday,
+                                document = textDocument(Strings.convergence_bounds_and_worked_examples),
                             ),
                         ),
                     ),
@@ -1147,22 +1178,22 @@ data class WorkspaceState(
             )
             val biology = NotebookSummary(
                 id = "biology",
-                name = "Biology",
+                name = Strings.biology,
                 colorArgb = 0xFFFFA726.toInt(),
                 sections = listOf(
                     SectionSummary(
                         id = "cell-biology",
-                        name = "Cell biology",
+                        name = Strings.cell_biology,
                         colorArgb = 0xFFFFA726.toInt(),
                         pages = listOf(
                             PageSummary(
                                 id = "meiosis",
-                                title = "Meiosis",
-                                preview = "Anaphase I and cytokinesis.",
-                                createdLabel = "Monday",
+                                title = Strings.meiosis,
+                                preview = Strings.anaphase_i_and_cytokinesis,
+                                createdLabel = Strings.monday,
                                 updatedAt = 1L,
-                                updatedLabel = "Monday",
-                                document = textDocument("Anaphase I\n\nHomologous chromosomes separate and move to opposite poles."),
+                                updatedLabel = Strings.monday,
+                                document = textDocument(Strings.anaphase_i_homologous_chromosomes_separate_and_move_to_opposite_poles),
                             ),
                         ),
                     ),

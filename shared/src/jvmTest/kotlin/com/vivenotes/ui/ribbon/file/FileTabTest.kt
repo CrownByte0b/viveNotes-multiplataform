@@ -6,14 +6,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ui.shell.WorkspaceScreen
@@ -31,6 +34,8 @@ import com.vivenotes.data.DeletedItem
 import com.vivenotes.workspace.NotebookTransferState
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.localization.Strings
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -82,6 +87,44 @@ class FileTabTest {
             FileRibbonTags.CloseNotebook, FileRibbonTags.DeleteNotebook).forEach {
             onNodeWithTag(it).assertIsEnabled()
         }
+    }
+
+    @Test
+    fun pdfOpensFromTheFileTabAndEscapeReturnsToTheSamePage() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        val exporter = object : com.vivenotes.pdf.PdfExportService {
+            override suspend fun defaultOptionsFor(pageId: String?) = com.vivenotes.pdf.PdfExportOptions()
+            override suspend fun plan(request: com.vivenotes.pdf.PdfExportRequest): com.vivenotes.pdf.PdfExportPlan {
+                val paper = com.vivenotes.pdf.PdfPaper.of(request.options.paper, request.options.orientation)
+                val tile = com.vivenotes.pdf.PdfTile(0, 0, com.vivenotes.pdf.PdfBounds(0f, 0f, 1000f, 1000f))
+                return com.vivenotes.pdf.PdfExportPlan(request.options, paper,
+                    listOf(com.vivenotes.pdf.PlannedPage(request.pageId!!, "Draft",
+                        com.vivenotes.pdf.PdfPagePlan(listOf(tile), emptyMap()))),
+                    listOf(com.vivenotes.pdf.PdfSheetRef(0, 0)), "Draft.pdf")
+            }
+            override suspend fun preview(plan: com.vivenotes.pdf.PdfExportPlan, sheetIndex: Int, maxWidthPx: Int) =
+                androidx.compose.ui.graphics.ImageBitmap(20, 30)
+            override suspend fun chooseDestination(suggestedName: String): String? = null
+            override suspend fun write(plan: com.vivenotes.pdf.PdfExportPlan, destination: String, onProgress: (Int, Int) -> Unit) = 0
+            override suspend fun release() {}
+        }
+        val pdfActions = object : FileActions by actions { override val pdfExporter = exporter }
+        setWorkspace(fileActions = pdfActions)
+        val page = shown.selectedPageId
+        onNodeWithTag(FileRibbonTags.ExportPdf).assertIsEnabled().performClick()
+        onNodeWithTag(ExportPdfTags.DIALOG).fetchSemanticsNode()
+        onRoot().performKeyInput { keyDown(Key.Escape); keyUp(Key.Escape) }
+        onNodeWithTag(FileRibbonTags.ExportPdf).assertIsEnabled()
+        runOnIdle { assertEquals(page, shown.selectedPageId) }
+    }
+
+    @Test
+    fun pdfIsInertWithoutAnOpenPageEvenWhenTheExporterIsAvailable() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        val exporter = ExportPdfDialogTest.Exporter()
+        val pdfActions = object : FileActions by actions { override val pdfExporter = exporter }
+        setWorkspace(WorkspaceState(emptyList(), "", "", "", activeTab = RibbonTab.File), fileActions = pdfActions)
+        onNodeWithTag(FileRibbonTags.ExportPdf).assertIsNotEnabled().performTouchInput { click() }
+        onNodeWithTag(ExportPdfTags.DIALOG).assertDoesNotExist()
+        assertTrue(exporter.requests.isEmpty())
     }
 
     @Test
@@ -137,20 +180,61 @@ class FileTabTest {
         runOnIdle { assertTrue("restore-revision" in calls) }
     }
 
+    /**
+     * Android's shelf: two groups, because a notebook on this device opens at once and one in the
+     * cloud has to come back first. With no account feature at all there is no Move to cloud, and the
+     * cloud group says a server is needed rather than offering a button that does nothing.
+     */
     @Test
     fun closedNotebookShelfReopensLocalContentAndMarksUnavailableContent() = runDesktopComposeUiTest(width = 2000, height = 900) {
-        val local = ClosedNotebook(NotebookEntity("local", "Local Book", 0, 0,
-            createdAt = 1, updatedAt = 2, closedAt = 3), 2, 5, true)
-        val remote = ClosedNotebook(NotebookEntity("remote", "Remote Book", 0, 1,
-            createdAt = 1, updatedAt = 2, closedAt = 3), 1, 2, false)
         setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
             filePane = FilePaneState(pane = FilePane.ClosedNotebooks,
-                closedNotebooks = listOf(local, remote))))
+                closedNotebooks = listOf(localBook, remoteBook))))
+        onNodeWithTag(FilePaneTags.OnDeviceHeading).assertIsDisplayed()
+        onNodeWithTag(FilePaneTags.InCloudHeading).assertIsDisplayed()
+        onNodeWithText(Strings.closed_notebooks_no_account).assertIsDisplayed()
         onNodeWithTag(FilePaneTags.closed("local")).fetchSemanticsNode()
-        onNodeWithTag(FilePaneTags.reopen("remote")).assertIsNotEnabled()
+        onNodeWithTag(FilePaneTags.reopen("remote")).assertDoesNotExist()
+        onNodeWithTag(FilePaneTags.moveToCloud("local")).assertDoesNotExist()
+        onNodeWithTag(FilePaneTags.bringBack("remote")).assertIsNotEnabled()
         onNodeWithTag(FilePaneTags.reopen("local")).performClick()
         runOnIdle { assertTrue("reopen:local" in calls) }
     }
+
+    /** With a server, a device row moves to the cloud and a cloud row comes back. */
+    @Test
+    fun aConnectedShelfMovesNotebooksToTheCloudAndBringsThemBack() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
+            filePane = FilePaneState(pane = FilePane.ClosedNotebooks,
+                closedNotebooks = listOf(localBook, remoteBook))), fileActions = connectedActions)
+        onNodeWithText(Strings.closed_notebooks_in_cloud_supporting).assertIsDisplayed()
+        onNodeWithTag(FilePaneTags.moveToCloud("local")).assertIsEnabled().performClick()
+        onNodeWithTag(FilePaneTags.bringBack("remote")).assertIsEnabled().performClick()
+        runOnIdle { assertEquals(listOf("to-cloud:local", "back:remote"), calls) }
+    }
+
+    /** One operation at a time: while one row shows it is busy, every other row's buttons wait. */
+    @Test
+    fun aCloudOperationHoldsEveryOtherRowStill() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
+            filePane = FilePaneState(pane = FilePane.ClosedNotebooks, closedNotebooks = listOf(localBook, remoteBook),
+                cloudBusyNotebookId = "remote")), fileActions = connectedActions)
+        onNodeWithTag(FilePaneTags.cloudBusy("remote")).assertIsDisplayed()
+        onNodeWithTag(FilePaneTags.bringBack("remote")).assertDoesNotExist()
+        onNodeWithTag(FilePaneTags.moveToCloud("local")).assertIsNotEnabled()
+        onNodeWithTag(FilePaneTags.reopen("local")).assertIsNotEnabled()
+    }
+
+    private val connectedActions = object : FileActions by actions {
+        override val cloudConnected = MutableStateFlow(true)
+        override fun moveNotebookToCloud(id: String) { calls += "to-cloud:$id" }
+        override fun bringNotebookBack(id: String) { calls += "back:$id" }
+    }
+
+    private val localBook = ClosedNotebook(NotebookEntity("local", "Local Book", 0, 0,
+        createdAt = 1, updatedAt = 2, closedAt = 3), 2, 5, true)
+    private val remoteBook = ClosedNotebook(NotebookEntity("remote", "Remote Book", 0, 1,
+        createdAt = 1, updatedAt = 2, closedAt = 3), 1, 2, false)
 
     @Test
     fun withoutFileDialogsNeitherIsAvailable() = runDesktopComposeUiTest(width = 2000, height = 900) {

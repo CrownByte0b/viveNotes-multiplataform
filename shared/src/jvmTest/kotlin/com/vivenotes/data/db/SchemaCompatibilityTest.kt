@@ -20,12 +20,12 @@ import kotlin.test.assertFailsWith
  * The desktop database is the Android one — the Android `MigrationTest`, plus the fixture that
  * makes it a cross-platform promise.
  *
- * `android-baseline-1.json` is the Android app's committed `app/schemas/…/1.json`, frozen as a
- * fixture rather than read from `shared/schemas/`, because the build rewrites that export from the
- * entities and so can never disagree with them. A `.vive` bundle is a copy of these tables, and
- * Android validates it column by column, so this is the compatibility contract for transfer too.
+ * `android-baseline-<version>.json` are the Android app's committed `app/schemas/…/<version>.json`,
+ * frozen as fixtures rather than read from `shared/schemas/`, because the build rewrites that export
+ * from the entities and so can never disagree with them. A `.vive` bundle is a copy of these tables,
+ * and Android validates it column by column, so this is the compatibility contract for transfer too.
  *
- * The next schema change adds its migration case here, as it does on Android.
+ * Each schema change adds its migration case here, as it does on Android.
  */
 class SchemaCompatibilityTest {
 
@@ -43,7 +43,7 @@ class SchemaCompatibilityTest {
      */
     @Test
     fun aDatabaseBuiltFromTheAndroidBaselineOpensAsThisBuildsSchema() {
-        val file = databaseFrom(androidBaseline())
+        val file = databaseFrom(androidBaseline(NEWEST))
 
         val database = NotesDatabase.create(file)
         try {
@@ -56,7 +56,7 @@ class SchemaCompatibilityTest {
     /** The control for the test above: it only proves something if a mismatch is refused. */
     @Test
     fun aDatabaseFromAnyOtherSchemaIsRefusedRatherThanOpened() {
-        val file = databaseFrom(androidBaseline(), identityHash = "0".repeat(32))
+        val file = databaseFrom(androidBaseline(NEWEST), identityHash = "0".repeat(32))
 
         val database = NotesDatabase.create(file)
         try {
@@ -74,12 +74,55 @@ class SchemaCompatibilityTest {
      */
     @Test
     fun theExportedSchemaMatchesTheAndroidBaselineTableByTable() {
-        val exported = File("schemas/com.vivenotes.data.db.NotesDatabase/1.json")
-        val desktop = createStatements(Json.parseToJsonElement(exported.readText()).jsonObject)
-        val android = createStatements(androidBaseline())
+        (1..NEWEST).forEach { version ->
+            val exported = File("schemas/com.vivenotes.data.db.NotesDatabase/$version.json")
+            val desktop = createStatements(Json.parseToJsonElement(exported.readText()).jsonObject)
+            val android = createStatements(androidBaseline(version))
 
-        assertEquals(android.keys, desktop.keys)
-        android.forEach { (table, statements) -> assertEquals(statements, desktop[table], table) }
+            assertEquals(android.keys, desktop.keys, "version $version")
+            android.forEach { (table, statements) -> assertEquals(statements, desktop[table], "$table v$version") }
+        }
+    }
+
+    /**
+     * Version 2 adds the picture release and the saved-version picture index.
+     *
+     * Every existing picture comes through unreleased, because nothing had ever been released, and
+     * every existing saved version comes through unindexed rather than as "places nothing", which
+     * would let the first sweep delete a file a version still shows. The release trigger exists
+     * afterwards — `onCreate` never runs again for a database that already exists — and fires on a
+     * release but not on the `refCount` updates every import makes.
+     */
+    @Test
+    fun versionOneMigratesWithEveryPictureUnreleasedAndEveryVersionUnindexed() {
+        val file = databaseFrom(androidBaseline(1))
+        withConnection(file) { connection ->
+            connection.execSQL(
+                "INSERT INTO attachments(id, mimeType, pixelWidth, pixelHeight, byteCount, refCount, createdAt) " +
+                    "VALUES('sha-one', 'image/webp', 8, 8, 10, 1, 42)",
+            )
+            connection.execSQL(
+                "INSERT INTO sync_state(singleton, accountId, cursor, applyingRemote) VALUES(0, 'account', 0, 0)",
+            )
+        }
+
+        // Room runs MIGRATION_1_2 and then validates every table against these entities.
+        val database = NotesDatabase.create(file)
+        try {
+            runBlocking { assertEquals(listOf("sha-one"), database.attachmentDao().allIds()) }
+            assertEquals(null, runBlocking { database.attachmentDao().byId("sha-one") }?.releasedAt)
+        } finally {
+            database.close()
+        }
+
+        withConnection(file) { connection ->
+            assertEquals(2L, connection.scalar("PRAGMA user_version"))
+            connection.execSQL("UPDATE attachments SET refCount = 2 WHERE id = 'sha-one'")
+            assertEquals(0L, connection.scalar(OUTBOX_ROWS))
+
+            connection.execSQL("UPDATE attachments SET releasedAt = 99 WHERE id = 'sha-one'")
+            assertEquals(1L, connection.scalar(OUTBOX_ROWS))
+        }
     }
 
     /**
@@ -158,9 +201,23 @@ class SchemaCompatibilityTest {
         }
     }
 
-    private fun androidBaseline(): JsonObject {
-        val text = checkNotNull(javaClass.getResource("/schemas/android-baseline-1.json")).readText()
+    private fun androidBaseline(version: Int): JsonObject {
+        val text = checkNotNull(javaClass.getResource("/schemas/android-baseline-$version.json")).readText()
         return Json.parseToJsonElement(text).jsonObject
+    }
+
+    private fun withConnection(file: File, block: (androidx.sqlite.SQLiteConnection) -> Unit) {
+        val connection = BundledSQLiteDriver().open(file.absolutePath)
+        try {
+            block(connection)
+        } finally {
+            connection.close()
+        }
+    }
+
+    private fun androidx.sqlite.SQLiteConnection.scalar(sql: String): Long = prepare(sql).use { statement ->
+        statement.step()
+        statement.getLong(0)
     }
 
     /** Every table's `CREATE TABLE` and `CREATE INDEX` statements, with the table name filled in. */
@@ -196,5 +253,12 @@ class SchemaCompatibilityTest {
             }
         }
         return file
+    }
+
+    private companion object {
+        /** The newest schema Android has committed, and the version [NotesDatabase] declares. */
+        const val NEWEST = 2
+
+        const val OUTBOX_ROWS = "SELECT COUNT(*) FROM sync_outbox WHERE kind = 'attachment' AND entityId = 'sha-one'"
     }
 }

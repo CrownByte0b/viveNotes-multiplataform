@@ -1,27 +1,39 @@
 package com.vivenotes.workspace
 
+import com.vivenotes.localization.Strings
+
 /**
  * A key a shortcut can use, named the way it is stored. The UI maps each platform's keys onto
  * these; a key missing here cannot be bound. [label] is how the key is printed on screen.
  */
-enum class ShortcutKey(label: String? = null) {
+enum class ShortcutKey(private val labelText: (() -> String)? = null) {
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
-    Digit0("0"), Digit1("1"), Digit2("2"), Digit3("3"), Digit4("4"),
-    Digit5("5"), Digit6("6"), Digit7("7"), Digit8("8"), Digit9("9"),
+    Digit0({ "0" }), Digit1({ "1" }), Digit2({ "2" }), Digit3({ "3" }), Digit4({ "4" }),
+    Digit5({ "5" }), Digit6({ "6" }), Digit7({ "7" }), Digit8({ "8" }), Digit9({ "9" }),
     F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
     Tab, Space, Enter, Backspace, Delete, Insert, Home, End,
-    PageUp("Page Up"), PageDown("Page Down"),
-    Up("↑"), Down("↓"), Left("←"), Right("→"),
-    Escape("Esc"),
+    PageUp({ Strings.page_up }), PageDown({ Strings.page_down }),
+    Up({ "↑" }), Down({ "↓" }), Left({ "←" }), Right({ "→" }),
+    Escape({ Strings.esc }),
     // Android prints the minus key as "−", so a zoom shortcut reads the same on both.
-    Equals("="), Minus("−"), Plus("+"), Comma(","), Period("."), Slash("/"), Backslash("\\"),
-    Semicolon(";"), Apostrophe("'"), Grave("`"), LeftBracket("["), RightBracket("]"),
-    NumPad0("Num 0"), NumPad1("Num 1"), NumPad2("Num 2"), NumPad3("Num 3"), NumPad4("Num 4"),
-    NumPad5("Num 5"), NumPad6("Num 6"), NumPad7("Num 7"), NumPad8("Num 8"), NumPad9("Num 9"),
-    NumPadAdd("Num +"), NumPadSubtract("Num −"), NumPadMultiply("Num *"), NumPadDivide("Num /"),
-    NumPadDot("Num ."), NumPadEnter("Num Enter");
+    Equals({ "=" }), Minus({ "−" }), Plus({ "+" }), Comma({ "," }), Period({ "." }), Slash({ "/" }), Backslash({ "\\" }),
+    Semicolon({ ";" }), Apostrophe({ "'" }), Grave({ "`" }), LeftBracket({ "[" }), RightBracket({ "]" }),
+    NumPad0({ Strings.num_0 }), NumPad1({ Strings.num_1 }), NumPad2({ Strings.num_2 }), NumPad3({ Strings.num_3 }), NumPad4({ Strings.num_4 }),
+    NumPad5({ Strings.num_5 }), NumPad6({ Strings.num_6 }), NumPad7({ Strings.num_7 }), NumPad8({ Strings.num_8 }), NumPad9({ Strings.num_9 }),
+    NumPadAdd({ Strings.num }), NumPadSubtract({ Strings.num_095a0b }), NumPadMultiply({ Strings.num_d9b7ea }), NumPadDivide({ Strings.num_6d880c }),
+    NumPadDot({ Strings.num_3980b1 }), NumPadEnter({ Strings.num_enter });
 
-    val label: String = label ?: name
+    val label: String get() = labelText?.invoke() ?: when (this) {
+        Tab -> Strings.key_tab
+        Space -> Strings.key_space
+        Enter -> Strings.key_enter
+        Backspace -> Strings.key_backspace
+        Delete -> Strings.key_delete
+        Insert -> Strings.key_insert
+        Home -> Strings.key_home
+        End -> Strings.key_end
+        else -> name
+    }
 
     /**
      * Whether this key needs Ctrl, Alt or Super to be a shortcut. Alone, most keys type a character
@@ -41,7 +53,13 @@ data class KeyChord(
     val meta: Boolean = false,
 ) {
     /** "Ctrl+Shift+Z", as menus and the Hardware pane print it. */
-    val label: String get() = spelled(key.label)
+    val label: String get() = buildList {
+        if (ctrl) add(Strings.key_ctrl)
+        if (shift) add(Strings.key_shift)
+        if (alt) add(Strings.key_alt)
+        if (meta) add(Strings.key_super)
+        add(key.label)
+    }.joinToString("+")
 
     /** Shift alone does not count: Shift+A types a capital. See [ShortcutKey.needsModifier]. */
     val usable: Boolean get() = !key.needsModifier || ctrl || alt || meta
@@ -84,6 +102,19 @@ enum class ShortcutScope {
     TextBox,
 }
 
+private enum class ShortcutGroup {
+    Pages, Edit, View, Tools, Formatting, Paragraph;
+
+    val label: String get() = when (this) {
+        Pages -> Strings.pages
+        Edit -> Strings.edit
+        View -> Strings.view
+        Tools -> Strings.tools
+        Formatting -> Strings.formatting
+        Paragraph -> Strings.paragraph
+    }
+}
+
 private fun ctrl(key: ShortcutKey) = KeyChord(key, ctrl = true)
 private fun ctrlShift(key: ShortcutKey) = KeyChord(key, ctrl = true, shift = true)
 
@@ -98,47 +129,50 @@ private fun ctrlShift(key: ShortcutKey) = KeyChord(key, ctrl = true, shift = tru
  * must not keep adding pages.
  */
 enum class ShortcutAction(
-    val label: String,
-    val group: String,
+    private val labelText: () -> String,
+    private val shortcutGroup: ShortcutGroup,
     val scope: ShortcutScope,
     val repeatable: Boolean,
     vararg chords: KeyChord,
 ) {
-    Search("Search notebook", "Pages", ShortcutScope.Anywhere, false, ctrl(ShortcutKey.F)),
-    NewPage("New page", "Pages", ShortcutScope.Workspace, false, ctrl(ShortcutKey.N)),
+    Search({ Strings.search_notebook }, ShortcutGroup.Pages, ShortcutScope.Anywhere, false, ctrl(ShortcutKey.F)),
+    NewPage({ Strings.new_page }, ShortcutGroup.Pages, ShortcutScope.Workspace, false, ctrl(ShortcutKey.N)),
 
-    Undo("Undo", "Edit", ShortcutScope.Workspace, true, ctrl(ShortcutKey.Z)),
+    Undo({ Strings.undo }, ShortcutGroup.Edit, ShortcutScope.Workspace, true, ctrl(ShortcutKey.Z)),
     // Ctrl+R is the desktop's own redo; Ctrl+Shift+Z is Android's, and works as well.
-    Redo("Redo", "Edit", ShortcutScope.Workspace, true, ctrl(ShortcutKey.R), ctrlShift(ShortcutKey.Z)),
-    DeleteSelection("Delete selection", "Edit", ShortcutScope.Workspace, false, KeyChord(ShortcutKey.Delete)),
-    Cut("Cut", "Edit", ShortcutScope.TextBox, false, ctrl(ShortcutKey.X)),
-    Copy("Copy", "Edit", ShortcutScope.TextBox, false, ctrl(ShortcutKey.C)),
-    Paste("Paste", "Edit", ShortcutScope.TextBox, true, ctrl(ShortcutKey.V)),
-    PastePlainText("Paste as plain text", "Edit", ShortcutScope.TextBox, true, ctrlShift(ShortcutKey.V)),
-    SelectAll("Select all", "Edit", ShortcutScope.TextBox, false, ctrl(ShortcutKey.A)),
+    Redo({ Strings.redo }, ShortcutGroup.Edit, ShortcutScope.Workspace, true, ctrl(ShortcutKey.R), ctrlShift(ShortcutKey.Z)),
+    DeleteSelection({ Strings.delete_selection }, ShortcutGroup.Edit, ShortcutScope.Workspace, false, KeyChord(ShortcutKey.Delete)),
+    Cut({ Strings.cut }, ShortcutGroup.Edit, ShortcutScope.TextBox, false, ctrl(ShortcutKey.X)),
+    Copy({ Strings.copy }, ShortcutGroup.Edit, ShortcutScope.TextBox, false, ctrl(ShortcutKey.C)),
+    Paste({ Strings.paste }, ShortcutGroup.Edit, ShortcutScope.TextBox, true, ctrl(ShortcutKey.V)),
+    PastePlainText({ Strings.paste_as_plain_text }, ShortcutGroup.Edit, ShortcutScope.TextBox, true, ctrlShift(ShortcutKey.V)),
+    SelectAll({ Strings.select_all }, ShortcutGroup.Edit, ShortcutScope.TextBox, false, ctrl(ShortcutKey.A)),
 
-    ZoomIn("Zoom in", "View", ShortcutScope.Workspace, true, ctrl(ShortcutKey.Equals),
+    ZoomIn({ Strings.zoom_in }, ShortcutGroup.View, ShortcutScope.Workspace, true, ctrl(ShortcutKey.Equals),
         ctrlShift(ShortcutKey.Equals), ctrl(ShortcutKey.Plus), ctrl(ShortcutKey.NumPadAdd)),
-    ZoomOut("Zoom out", "View", ShortcutScope.Workspace, true, ctrl(ShortcutKey.Minus),
+    ZoomOut({ Strings.zoom_out }, ShortcutGroup.View, ShortcutScope.Workspace, true, ctrl(ShortcutKey.Minus),
         ctrl(ShortcutKey.NumPadSubtract)),
-    ActualSize("Actual size", "View", ShortcutScope.Workspace, false, ctrl(ShortcutKey.Digit0),
+    ActualSize({ Strings.actual_size }, ShortcutGroup.View, ShortcutScope.Workspace, false, ctrl(ShortcutKey.Digit0),
         ctrl(ShortcutKey.NumPad0)),
 
-    SelectTool("Select tool", "Tools", ShortcutScope.Anywhere, false, KeyChord(ShortcutKey.Escape)),
+    SelectTool({ Strings.select_tool }, ShortcutGroup.Tools, ShortcutScope.Anywhere, false, KeyChord(ShortcutKey.Escape)),
 
-    Bold("Bold", "Formatting", ShortcutScope.TextBox, false, ctrl(ShortcutKey.B)),
-    Italic("Italic", "Formatting", ShortcutScope.TextBox, false, ctrl(ShortcutKey.I)),
-    Underline("Underline", "Formatting", ShortcutScope.TextBox, false, ctrl(ShortcutKey.U)),
+    Bold({ Strings.bold }, ShortcutGroup.Formatting, ShortcutScope.TextBox, false, ctrl(ShortcutKey.B)),
+    Italic({ Strings.italic }, ShortcutGroup.Formatting, ShortcutScope.TextBox, false, ctrl(ShortcutKey.I)),
+    Underline({ Strings.underline }, ShortcutGroup.Formatting, ShortcutScope.TextBox, false, ctrl(ShortcutKey.U)),
 
-    Indent("Indent", "Paragraph", ShortcutScope.TextBox, true, KeyChord(ShortcutKey.Tab)),
-    Outdent("Outdent", "Paragraph", ShortcutScope.TextBox, true, KeyChord(ShortcutKey.Tab, shift = true));
+    Indent({ Strings.indent }, ShortcutGroup.Paragraph, ShortcutScope.TextBox, true, KeyChord(ShortcutKey.Tab)),
+    Outdent({ Strings.outdent }, ShortcutGroup.Paragraph, ShortcutScope.TextBox, true, KeyChord(ShortcutKey.Tab, shift = true));
+
+    val label: String get() = labelText()
+    val group: String get() = shortcutGroup.label
 
     val defaults: List<KeyChord> = chords.toList()
 
     companion object {
         /** Grouped as the Hardware pane shows them, groups and rows in declaration order. */
         val groups: List<Pair<String, List<ShortcutAction>>>
-            get() = entries.groupBy { it.group }.toList()
+            get() = entries.groupBy { it.shortcutGroup }.map { (group, actions) -> group.label to actions }
     }
 }
 

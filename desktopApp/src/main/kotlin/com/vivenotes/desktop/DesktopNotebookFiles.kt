@@ -1,5 +1,6 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.data.NotebookExportResult
 import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.NotebookImportResult
@@ -59,13 +60,13 @@ internal fun withViveExtension(chosen: File): File {
 
 /** Asks where to save a notebook: GTK on Linux under X11 and native Wayland, native on Windows. */
 internal fun chooseNotebookDestination(owner: Frame?, suggestedName: String, directory: File?): File? =
-    showNotebookDialog(FileDialog(owner, "Export Notebook", FileDialog.SAVE), directory) { dialog ->
+    showNotebookDialog(FileDialog(owner, Strings.export_notebook, FileDialog.SAVE), directory) { dialog ->
         dialog.file = suggestedName
     }
 
 /** Asks for a `.vive` file to import. */
 internal fun chooseNotebookSource(owner: Frame?, directory: File?): File? =
-    showNotebookDialog(FileDialog(owner, "Import Notebook", FileDialog.LOAD), directory) { dialog ->
+    showNotebookDialog(FileDialog(owner, Strings.import_notebook, FileDialog.LOAD), directory) { dialog ->
         dialog.isMultipleMode = false
         // Windows ignores filename filters but reads a pattern list from the file name field.
         if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) dialog.file = "*$VIVE_EXTENSION"

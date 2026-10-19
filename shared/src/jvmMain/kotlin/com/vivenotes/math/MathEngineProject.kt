@@ -1,5 +1,6 @@
 package com.vivenotes.math
 
+import com.vivenotes.localization.Strings
 import java.io.File
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
@@ -18,7 +19,7 @@ internal class MathEngineProject(
         MathEngineProject::class.java.getResourceAsStream("/$RESOURCES/$name")?.use { it.readBytes() }
     },
 ) {
-    private fun bytes(name: String): ByteArray = read(name) ?: error("$name is missing from the app")
+    private fun bytes(name: String): ByteArray = read(name) ?: error(Strings.value_is_missing_from_the_app(name))
 
     /** The exact CPython the lock was made for, from `.python-version`. */
     val pythonVersion: String by lazy { bytes(PYTHON_VERSION).decodeToString().trim() }
@@ -44,7 +45,7 @@ internal class MathEngineProject(
      * alone; any other is replaced whole, so a reader never sees half of one.
      */
     fun extract(directory: File) {
-        require(directory.isDirectory || directory.mkdirs()) { "Cannot create $directory" }
+        require(directory.isDirectory || directory.mkdirs()) { Strings.cannot_create_value(directory) }
         FILES.forEach { name ->
             val content = bytes(name)
             val target = File(directory, name)

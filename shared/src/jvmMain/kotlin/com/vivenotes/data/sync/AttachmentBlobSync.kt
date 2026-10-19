@@ -1,5 +1,7 @@
+// Copied from the Android app's `data/sync/AttachmentBlobSync.kt`; only Android-only imports differ.
 package com.vivenotes.data.sync
 
+import com.vivenotes.data.Log
 import com.vivenotes.data.db.NotesDatabase
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
@@ -43,6 +45,12 @@ sealed interface BlobPresence {
      */
     data object Undeliverable : BlobPresence
 
+    /**
+     * The account has no room for these [bytes]. Not [Undeliverable]: the picture goes once there is
+     * room, so what names it waits in the queue while everything else still syncs.
+     */
+    data class NoRoom(val bytes: Long) : BlobPresence
+
     /** The connection failed, or the token did. The whole phase stops on [result]. */
     data class Stopped(val result: SyncRunResult) : BlobPresence
 }
@@ -71,7 +79,6 @@ class AttachmentBlobSync(
     db: NotesDatabase,
     private val client: SyncTransport,
     private val bytes: AttachmentBytes,
-    private val log: SyncDebugLog = SyncDebugLog(),
 ) {
 
     private val attachments = db.attachmentDao()
@@ -88,16 +95,21 @@ class AttachmentBlobSync(
      * that would normally save an upload can only repeat what the rejection already said. That is
      * also the path that repairs a server whose blob volume was lost while its database survived —
      * §13.12 designed the 404 for exactly this.
+     *
+     * [noRoomFrom] is the smallest picture the account has already refused for room. One at least
+     * that large cannot fit either, and is answered [BlobPresence.NoRoom] without being sent: the
+     * server reads the whole body before it refuses.
      */
     suspend fun ensureUploaded(
         account: SyncAccount,
         digest: String,
         force: Boolean = false,
+        noRoomFrom: Long = Long.MAX_VALUE,
     ): BlobPresence {
         if (!isBlobDigest(digest)) {
             // Not a content address, so it can never name a blob. Only a local row written by
             // something other than AttachmentStore could produce one.
-            log.e(TAG, "Attachment id \"$digest\" is not a SHA-256 and cannot be uploaded")
+            Log.e(TAG, "Attachment id \"$digest\" is not a SHA-256 and cannot be uploaded")
             return BlobPresence.Undeliverable
         }
         if (!force && knownPresent(digest)) return BlobPresence.Present(uploaded = false)
@@ -106,7 +118,7 @@ class AttachmentBlobSync(
         if (!file.isFile) {
             // The picture is broken on this device already. Nothing here can put it on the server,
             // and holding the change back would stop every other change with it.
-            log.w(TAG, "No local bytes for attachment $digest; the change naming it cannot carry it")
+            Log.w(TAG, "No local bytes for attachment $digest; the change naming it cannot carry it")
             return BlobPresence.Undeliverable
         }
 
@@ -121,6 +133,9 @@ class AttachmentBlobSync(
             }
         }
 
+        val size = file.length()
+        if (size >= noRoomFrom) return BlobPresence.NoRoom(size)
+
         return when (val upload = client.uploadBlob(account.serverUrl, account.token, digest, file)) {
             is ServerResult.Success -> {
                 serverHolds += digest
@@ -129,13 +144,19 @@ class AttachmentBlobSync(
                 BlobPresence.Present(uploaded = upload.value)
             }
             ServerResult.Unauthorized -> BlobPresence.Stopped(SyncRunResult.Revoked)
-            is ServerResult.Failed -> if (upload.retryable) {
-                BlobPresence.Stopped(upload.asSyncResult())
-            } else {
-                // A picture the server will not take however many times it is offered: over the
-                // per-attachment cap, or bytes it refuses to hash to their own name.
-                log.e(TAG, "Server permanently refused attachment $digest: ${upload.reason}")
-                BlobPresence.Undeliverable
+            is ServerResult.Failed -> when {
+                // A full account is not a picture that can never be delivered: it goes once there
+                // is room. Undeliverable would drop it from every page pushed this run and from the
+                // queue for good, so the picture would never reach the server even after space was
+                // freed.
+                upload.reason == ConnectFailure.StorageFull -> BlobPresence.NoRoom(size)
+                upload.retryable -> BlobPresence.Stopped(upload.asSyncResult())
+                else -> {
+                    // A picture the server will not take however many times it is offered: over the
+                    // per-attachment cap, or bytes it refuses to hash to their own name.
+                    Log.e(TAG, "Server permanently refused attachment $digest: ${upload.reason}")
+                    BlobPresence.Undeliverable
+                }
             }
         }
     }
@@ -164,12 +185,12 @@ class AttachmentBlobSync(
                         // picture whose bytes are gone, which is a fact about it rather than a
                         // failure worth repeating every minute.
                         !result.value -> {
-                            log.w(TAG, "Server has no bytes for attachment $id")
+                            Log.w(TAG, "Server has no bytes for attachment $id")
                             deferred += id
                         }
                         bytes.publish(staged, id) -> downloaded++
                         else -> {
-                            log.e(TAG, "Downloaded attachment $id could not be published")
+                            Log.e(TAG, "Downloaded attachment $id could not be published")
                             deferred += id
                         }
                     }
@@ -179,7 +200,7 @@ class AttachmentBlobSync(
 
                 is ServerResult.Failed -> {
                     if (result.retryable) return BlobDownloads(downloaded, workRemains = true)
-                    log.e(TAG, "Attachment $id could not be downloaded: ${result.reason}")
+                    Log.e(TAG, "Attachment $id could not be downloaded: ${result.reason}")
                     deferred += id
                 }
             }
@@ -230,6 +251,7 @@ class AttachmentBlobSync(
     private fun ServerResult.Failed.asSyncResult(): SyncRunResult = when {
         reason == ConnectFailure.MembershipRequired ->
             SyncRunResult.Failed(PermanentSyncFailure.MembershipRequired)
+        reason == ConnectFailure.StorageFull -> SyncRunResult.Failed(PermanentSyncFailure.StorageFull)
         retryable -> SyncRunResult.Retryable(reason)
         else -> SyncRunResult.Failed(PermanentSyncFailure.InvalidServerResponse)
     }

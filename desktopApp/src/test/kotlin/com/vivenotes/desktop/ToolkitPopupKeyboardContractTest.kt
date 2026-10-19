@@ -12,6 +12,8 @@ import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.model.Outline
+import com.vivenotes.model.PageDoc
 import java.awt.GraphicsEnvironment
 import java.awt.KeyboardFocusManager
 import java.awt.event.KeyEvent
@@ -21,6 +23,68 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class, ComposeToolingApi::class)
 class ToolkitPopupKeyboardContractTest {
+    @Test
+    fun selectedObjectPaletteKeepsNativeTypingAndEscapeInsideItsPopup() {
+        if (GraphicsEnvironment.isHeadless()) return
+        val base = WorkspaceState.demo()
+        val shape = Outline.Shape("selected-shape", x = 250f, y = 350f)
+        val state = mutableStateOf(base.copy(notebooks = base.notebooks.map { notebook ->
+            notebook.copy(sections = notebook.sections.map { section ->
+                section.copy(pages = section.pages.map { page ->
+                    if (page.id == base.selectedPageId) page.copy(document = PageDoc(outlines = listOf(shape))) else page
+                })
+            })
+        }).selectObject(shape.id))
+        val previousLayerType = System.setProperty("compose.layers.type", "COMPONENT")
+        lateinit var frame: JFrame
+        lateinit var panel: ComposePanel
+        SwingUtilities.invokeAndWait {
+            frame = JFrame("Selection color keyboard contract")
+            panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
+            val host = PopupLayerHost(panel)
+            panel.windowContainer = host
+            frame.contentPane.add(host)
+            frame.setSize(1600, 1100)
+            frame.isVisible = true
+            panel.setContent {
+                ViveNotesTheme(darkTheme = true) {
+                    WorkspaceScreen(state.value, { state.value = it(state.value) },
+                        interfaceSettings = InterfaceSettings(displayScale = .75f))
+                }
+            }
+        }
+        try {
+            click(panel, "workspace-object-color")
+            click(panel, "selection-color-custom")
+            click(panel, "selection-custom-color")
+            Thread.sleep(200)
+            for (char in "#345678") key(KeyEvent.getExtendedKeyCodeForChar(char.uppercaseChar().code), char)
+            waitFor("native typing in the shared selection palette") {
+                node(panel, "selection-custom-color")?.config?.getOrNull(SemanticsProperties.EditableText)?.text == "#345678"
+            }
+            click(panel, "selection-custom-color-apply")
+            waitFor("the shared selection color being applied") {
+                (state.value.selectedPage!!.document.outlines.single() as Outline.Shape).borderArgb == 0xff345678.toInt()
+            }
+            waitFor("the palette closing after Apply") { node(panel, "selection-custom-color") == null }
+            click(panel, "workspace-object-color")
+            waitFor("the reopened selection palette") { node(panel, "selection-color-menu") != null }
+            key(KeyEvent.VK_ESCAPE)
+            waitFor("Escape dismissing the selection palette") { node(panel, "selection-color-menu") == null }
+            assertEquals(setOf(shape.id), state.value.selectedObjectIds)
+            key(KeyEvent.VK_EQUALS, '=', KeyEvent.CTRL_DOWN_MASK)
+            waitFor("workspace shortcuts after the selection palette closes") {
+                node(panel, "workspace-zoom-indicator")?.config?.getOrNull(SemanticsProperties.StateDescription) == "Canvas zoom 125 percent"
+            }
+        } finally {
+            onEdt { panel.setContent { } }
+            waitFor("the selection composition to close") { node(panel, "workspace-object-color") == null }
+            SwingUtilities.invokeAndWait { frame.dispose() }
+            if (previousLayerType == null) System.clearProperty("compose.layers.type")
+            else System.setProperty("compose.layers.type", previousLayerType)
+        }
+    }
+
     @Test
     fun embeddedHostKeepsKeyboardInputInTheHexPickerAndRestoresItAfterEscape() {
         if (GraphicsEnvironment.isHeadless()) return

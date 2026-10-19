@@ -200,7 +200,7 @@ class InkToolStateTest {
     }
 
     @Test
-    fun failedInkOnAnUnloadedPageBlocksNotebookExportImportAndClose() = runTest {
+    fun failedInkOnAnUnloadedPageBlocksPdfAndNotebookExportImportAndClose() = runTest {
         val store = FakeNotesStore()
         val section = store.notebook("Notebook", "Section" to listOf("A" to PageDoc.empty(), "B" to PageDoc.empty())).single()
         val writer = RecordingInkWriter().apply { fail = true }
@@ -214,6 +214,7 @@ class InkToolStateTest {
         session.update { it.selectPage(store.pageIdsIn(section).last()) }
         runCurrent()
         val actions = session.fileActions(files)
+        assertFailsWith<com.vivenotes.pdf.PdfExportException> { actions.preparePdfExport() }
         actions.exportNotebook()
         runCurrent()
         assertTrue(files.exports.isEmpty())
@@ -228,6 +229,9 @@ class InkToolStateTest {
         runCurrent()
         assertTrue(store.observeTree().first().any { it.notebook.id == notebook })
         assertEquals(1, session.state.value!!.pendingInkEdits.size)
+        writer.fail = false
+        actions.preparePdfExport()
+        assertTrue(session.state.value!!.pendingInkEdits.isEmpty())
     }
 
     @Test

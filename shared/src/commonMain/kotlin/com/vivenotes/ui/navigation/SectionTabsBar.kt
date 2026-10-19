@@ -1,5 +1,6 @@
 package com.vivenotes.ui.navigation
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -100,7 +101,7 @@ private fun NotebookChooser(state: WorkspaceState, onSelectNotebook: (String) ->
         ) {
             Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp))
                 .background(current?.let { Color(it.colorArgb) } ?: Color.Transparent))
-            Text(current?.name ?: "Notebooks", style = MaterialTheme.typography.bodyMedium,
+            Text(current?.name ?: Strings.notebooks, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 180.dp))

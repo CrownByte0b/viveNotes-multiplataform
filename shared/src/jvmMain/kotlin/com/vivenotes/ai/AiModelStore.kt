@@ -1,5 +1,6 @@
 package com.vivenotes.ai
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -189,7 +190,7 @@ class AiModelStore internal constructor(
             staging.deleteRecursively()
             setPackageState(
                 engine,
-                AiModelInstallState.Failed(failure.message?.takeIf { it.isNotBlank() } ?: "Download failed"),
+                AiModelInstallState.Failed(failure.message?.takeIf { it.isNotBlank() } ?: Strings.download_failed),
             )
         }
     }
@@ -287,7 +288,7 @@ class AiModelStore internal constructor(
     fun openDetectionModel(): InputStream = openBundled(AiModelCatalog.DETECTION_MODEL)
 
     private fun openBundled(artifact: BundledArtifact): InputStream =
-        bundled.open(artifact.fileName) ?: error("${artifact.fileName} is not bundled")
+        bundled.open(artifact.fileName) ?: error(Strings.value_is_not_bundled(artifact.fileName))
 
     /** Cancels any download under way; a cancelled download removes its staging directory. */
     override fun close() {
@@ -306,7 +307,7 @@ class AiModelStore internal constructor(
             openBundled(artifact).use { input ->
                 val (length, sha256) = input.digest()
                 require(length == artifact.bytes && sha256 == artifact.sha256) {
-                    "${artifact.fileName} failed verification"
+                    Strings.value_failed_verification(artifact.fileName)
                 }
             }
         }
@@ -314,7 +315,7 @@ class AiModelStore internal constructor(
         AiModelInstallState.Installed
     } catch (failure: Exception) {
         log.failure("ai", "bundled OCR verification", failure)
-        AiModelInstallState.Failed("Bundled OCR model is unavailable")
+        AiModelInstallState.Failed(Strings.bundled_ocr_model_is_unavailable)
     }
 
     /**
@@ -333,7 +334,7 @@ class AiModelStore internal constructor(
             } else {
                 formulaPackage.artifacts.forEach { artifact ->
                     val file = File(directory, artifact.fileName)
-                    require(file.isFile && file.length() == artifact.bytes) { "${artifact.fileName} is incomplete" }
+                    require(file.isFile && file.length() == artifact.bytes) { Strings.value_is_incomplete(artifact.fileName) }
                 }
             }
             AiModelInstallState.Installed
@@ -344,9 +345,9 @@ class AiModelStore internal constructor(
     }
 
     private fun verifyFile(file: File, artifact: ModelArtifact) {
-        require(file.isFile && file.length() == artifact.bytes) { "${artifact.fileName} is incomplete" }
+        require(file.isFile && file.length() == artifact.bytes) { Strings.value_is_incomplete(artifact.fileName) }
         val (_, sha256) = file.inputStream().use { it.digest() }
-        require(sha256 == artifact.sha256) { "${artifact.fileName} failed verification" }
+        require(sha256 == artifact.sha256) { Strings.value_failed_verification(artifact.fileName) }
     }
 
     private fun installStagedDirectory(staging: File, destination: File) {
@@ -367,7 +368,7 @@ class AiModelStore internal constructor(
     }
 
     private fun File.mkdirsOrThrow() {
-        require(isDirectory || mkdirs()) { "Cannot create model directory" }
+        require(isDirectory || mkdirs()) { Strings.cannot_create_model_directory }
     }
 
     /** One formula model's files: where they install, what they are, and its name in a log line. */

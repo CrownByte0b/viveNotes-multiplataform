@@ -1,7 +1,10 @@
 package com.vivenotes.ui.shell
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.ui.canvas.InkSelectionFrame
 import com.vivenotes.ui.canvas.InkSelectionToolkit
+import com.vivenotes.ui.canvas.primeResizePointer
+import com.vivenotes.ui.canvas.primeResizeCursorProviders
 import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.model.ink.InkSelectionChange
 import kotlinx.coroutines.launch
@@ -144,7 +147,8 @@ import com.vivenotes.model.ink.arms
 import com.vivenotes.model.ink.ends
 import com.vivenotes.ui.canvas.drawDocumentShape
 import com.vivenotes.ui.ribbon.draw.ShapeObjectTools
-import com.vivenotes.ui.ribbon.draw.CustomShapeColorField
+import com.vivenotes.ui.ribbon.document.PictureObjectTools
+import com.vivenotes.ui.canvas.SelectionColorButton
 import com.vivenotes.model.PageStyle
 import com.vivenotes.workspace.primeHeight
 import com.vivenotes.workspace.isPrimeObject
@@ -158,7 +162,6 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -176,6 +179,8 @@ import com.vivenotes.ui.canvas.contentEdge
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.ribbon.document.LinkEditorDialog
 import com.vivenotes.ui.ribbon.document.LinkEditorRequest
+import com.vivenotes.ui.ribbon.document.PictureDialog
+import com.vivenotes.ui.ribbon.document.PictureDialogHost
 import com.vivenotes.ui.canvas.asAnnotatedString
 import com.vivenotes.ui.canvas.drawBlockDecorations
 import com.vivenotes.ui.canvas.linkAtPoint
@@ -186,7 +191,6 @@ import com.vivenotes.ui.components.LocalTooltipDismissals
 import com.vivenotes.ui.components.TooltipDismissals
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.ui.components.LocalPopupLayerDensity
-import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.TooltipIconButton
 import com.vivenotes.ui.ribbon.document.DocumentTab
 import com.vivenotes.ui.ribbon.document.DocumentColorSelection
@@ -201,14 +205,13 @@ import com.vivenotes.workspace.FilePane
 import com.vivenotes.ui.ribbon.settings.SettingsRibbon
 import com.vivenotes.ui.ribbon.settings.ModelsPane
 import com.vivenotes.ai.AiModels
-import com.vivenotes.ui.account.AccountScreen
-import com.vivenotes.ui.account.AccountScreenModel
-import com.vivenotes.ui.account.AccountService
+import com.vivenotes.ui.account.AccountHost
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
 import com.vivenotes.ui.ribbon.settings.AboutDialog
 import com.vivenotes.ui.theme.ViveNotesTheme
+import com.vivenotes.ui.theme.LocalDesktopColors
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.ribbon.view.PaperSizePane
 import com.vivenotes.ui.ribbon.view.ViewTab
@@ -233,6 +236,9 @@ import com.vivenotes.ui.navigation.NavigationDialogs
 import com.vivenotes.ui.navigation.NavigationRequests
 import com.vivenotes.ui.navigation.NotebookPane
 import com.vivenotes.ui.navigation.PageListPane
+import com.vivenotes.ui.navigation.NavigationDivider
+import com.vivenotes.ui.navigation.NavigationDividerWidth
+import com.vivenotes.ui.navigation.navigationPaneWidths
 import com.vivenotes.workspace.InMemoryNavigation
 import com.vivenotes.workspace.NavigationActions
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -246,6 +252,8 @@ import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.hideNavigation
 import com.vivenotes.workspace.hideNotebookPane
 import com.vivenotes.workspace.toggleNavigation
+import com.vivenotes.workspace.resizeNotebookPane
+import com.vivenotes.workspace.resizePagePane
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.workspace.ShortcutScope
@@ -256,21 +264,20 @@ import com.vivenotes.model.search.ContentHit
 import com.vivenotes.model.search.ContentKind
 import com.vivenotes.ui.search.SearchPane
 
-private val ObjectColors = listOf(
-    "White" to 0xFFFFFFFF.toInt(), "Black" to 0xFF000000.toInt(),
-    "Gray" to 0xFF6B7280.toInt(), "Red" to 0xFFEF4444.toInt(),
-    "Orange" to 0xFFF59E0B.toInt(), "Green" to 0xFF22C55E.toInt(),
-    "Cyan" to 0xFF06B6D4.toInt(), "Blue" to 0xFF3B82F6.toInt(),
-    "Purple" to 0xFF8B5CF6.toInt(), "Pink" to 0xFFEC4899.toInt(),
-)
-
 /** Stable semantics identifiers used by desktop UI tests and future accessibility automation. */
 object WorkspaceTestTags {
     const val HeaderBar = "workspace-header-bar"
+    /** The top bar's account button, and the two badges Android's ribbon puts on it. */
+    const val Account = "account-open"
+    const val AccountConnected = "account-open-connected"
+    const val AccountOffline = "account-open-offline"
     const val RibbonBar = "workspace-ribbon-bar"
     const val NavigationToggle = "workspace-navigation-toggle"
+    const val NavigationIcon = "workspace-navigation-icon"
     const val NotebookPane = "workspace-notebook-pane"
     const val PagePane = "workspace-page-pane"
+    const val NotebookDivider = "workspace-notebook-divider"
+    const val PageDivider = "workspace-page-divider"
     const val PageCanvas = "workspace-page-canvas"
     const val CanvasBackground = "workspace-canvas-background"
     /** Everything that can be scrolled to; on an infinite page it grows as it is scrolled. */
@@ -349,11 +356,12 @@ fun WorkspaceScreen(
     onInputSettingsChange: (InputSettings) -> Unit = {},
     /** The File tab's `.vive` export and import; without it those commands are unavailable. */
     fileActions: FileActions? = null,
-    accountService: AccountService? = null,
+    /** The account feature: the top bar's account button and the Account destination it opens. */
+    accountHost: AccountHost? = null,
     /** This device's recognition models, for Settings → Models; without them it is unavailable. */
     aiModels: AiModels? = null,
     drawMath: DrawMath? = null,
-    appVersion: String = "Development",
+    appVersion: String = Strings.development,
     search: ContentSearchService? = null,
     onOpenSearchPage: ((String, String) -> Unit)? = null,
     debugLog: DebugLog = remember { DebugLog() },
@@ -366,28 +374,30 @@ fun WorkspaceScreen(
     var input by remember(inputSettings) { mutableStateOf(inputSettings) }
     var accountOpen by remember { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
-    val accountScope = rememberCoroutineScope()
-    val accountModel = remember(accountService) { AccountScreenModel(accountService, accountScope) }
-    val accountSession = accountService?.session?.collectAsState()?.value
+    var pdfExportOpen by remember { mutableStateOf(false) }
+    val accountConnected = accountHost?.connected?.collectAsState()?.value == true
+    val accountUnreachable = accountHost?.serverUnreachable?.collectAsState()?.value == true
     val baseDensity = LocalDensity.current
     val effectiveSettings = previewSettings ?: interfaceSettings
     val pageDensity = effectiveSettings.documentDensity(baseDensity)
     // Keys reach only the focused element and what contains it, so the workspace is never left
     // without one: at launch, and whenever the focused element goes (a discarded text box, a
-    // closed dialog), the canvas takes the focus and the keyboard shortcuts keep working.
+    // closed dialog), the canvas takes the focus and the keyboard shortcuts keep working. Not while
+    // the Account destination covers the page: it keeps the focus itself, and a canvas nobody can
+    // see must not take Escape or the shortcuts.
     val canvasFocusRequester = remember { FocusRequester() }
     val tooltipDismissals = remember(debugLog) { TooltipDismissals(debugLog) }
     val shortcutKeys = remember { ShortcutKeys() }
     var workspaceHasFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(workspaceHasFocus, tooltipDismissals.hasOpenPopup) {
-        if (workspaceHasFocus || tooltipDismissals.hasOpenPopup) return@LaunchedEffect
+    LaunchedEffect(workspaceHasFocus, tooltipDismissals.hasOpenPopup, pdfExportOpen, accountOpen) {
+        if (pdfExportOpen || accountOpen || workspaceHasFocus || tooltipDismissals.hasOpenPopup) return@LaunchedEffect
         withFrameNanos { }
         if (!workspaceHasFocus && !tooltipDismissals.hasOpenPopup) canvasFocusRequester.requestFocus()
     }
     val darkTheme = effectiveSettings.darkTheme ?: systemDarkTheme ?:
         (MaterialTheme.colorScheme.background.luminance() < 0.45f)
     ViveNotesTheme(darkTheme = darkTheme) {
-        CompositionLocalProvider(LocalTooltipDismissals provides tooltipDismissals) {
+        CompositionLocalProvider(LocalTooltipDismissals provides tooltipDismissals, *primeResizeCursorProviders()) {
             Box(modifier.fillMaxSize().onFocusChanged { workspaceHasFocus = it.hasFocus }.focusGroup()
                 .onPreviewKeyEvent { event ->
                     shortcutKeys.observe(event) || shortcutKeys.dismiss(event, tooltipDismissals::dismiss)
@@ -397,7 +407,16 @@ fun WorkspaceScreen(
                     LocalPopupLayerDensity provides baseDensity,
                     LocalKeyBindings provides bindings,
                 ) {
-                    WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
+                    if (pdfExportOpen && fileActions?.pdfExporter != null) {
+                        com.vivenotes.ui.ribbon.file.ExportPdfDialog(
+                            exporter = fileActions.pdfExporter!!,
+                            pageId = state.selectedPage?.id,
+                            sectionId = state.selectedSection?.id,
+                            pageTitle = state.selectedPage?.title.orEmpty(),
+                            sectionName = state.selectedSection?.name.orEmpty(),
+                            onDismiss = { pdfExportOpen = false }, prepare = fileActions::preparePdfExport,
+                        )
+                    } else WorkspaceContent(state, onStateChange, Modifier.fillMaxSize(), navigation, pictures, thumbnails,
                         onInterface = { previewSettings = interfaceSettings }, pageDensity = pageDensity,
                         view = view, themePreference = effectiveSettings.darkTheme, onViewChange = { next ->
                             view = next
@@ -412,12 +431,16 @@ fun WorkspaceScreen(
                         onEditorDefaultsChange = onEditorDefaultsChange,
                         onShapeSettingsChange = onShapeSettingsChange,
                         onInkSettingsChange = onInkSettingsChange,
-                        accountConnected = accountSession != null, onOpenAccount = { accountOpen = true },
+                        accountConnected = accountConnected, serverUnreachable = accountUnreachable,
+                        onOpenAccount = { accountOpen = true },
                         onAbout = { aboutOpen = true }, aiModels = aiModels, drawMath = drawMath,
+                        onExportPdf = { pdfExportOpen = true },
                         search = search, onOpenSearchPage = onOpenSearchPage, shortcutKeys = shortcutKeys,
                         developmentBuild = developmentBuild, debugLog = debugLog)
                 }
-                if (accountOpen) AccountScreen(accountService, accountModel, onBack = { accountOpen = false })
+                // Composed while closed as well: it holds the state Android keeps above its Account
+                // destination, so a sign-in in flight outlives the screen it was started from.
+                accountHost?.Destination(visible = accountOpen, onBack = { accountOpen = false })
                 if (aboutOpen) AboutDialog(appVersion, onDismiss = { aboutOpen = false })
                 previewSettings?.let { draft ->
                     InterfaceDialog(
@@ -465,8 +488,10 @@ private fun WorkspaceContent(
     onShapeSettingsChange: (ShapeToolSettings) -> Unit,
     onInkSettingsChange: (InkSettings) -> Unit,
     accountConnected: Boolean,
+    serverUnreachable: Boolean,
     onOpenAccount: () -> Unit,
     onAbout: () -> Unit,
+    onExportPdf: () -> Unit,
     aiModels: AiModels?,
     drawMath: DrawMath?,
     developmentBuild: Boolean,
@@ -489,6 +514,7 @@ private fun WorkspaceContent(
     }
     var editingShortcut by remember { mutableStateOf<ShortcutAction?>(null) }
     var linkEditor by remember { mutableStateOf<LinkEditorRequest?>(null) }
+    var pictureDialog by remember { mutableStateOf<PictureDialog?>(null) }
     var confirmResetShortcuts by remember { mutableStateOf(false) }
     val currentView by rememberUpdatedState(view)
     val currentThemePreference by rememberUpdatedState(themePreference)
@@ -552,7 +578,11 @@ private fun WorkspaceContent(
             openPane = DockedPane.Search
             searchFocusTick++
         } })
-    Box(modifier.fillMaxSize()) {
+    LaunchedEffect(state.navigationVisible, state.pageListVisible) {
+        debugLog.event("navigation") { "visibility notebooks=${state.navigationVisible} pages=${state.pageListVisible}" }
+    }
+    BoxWithConstraints(modifier.fillMaxSize()) {
+    val notebookNavigationAvailable = horizontalTabs || maxWidth >= 1040.dp
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -581,7 +611,7 @@ private fun WorkspaceContent(
     ) {
         TopNavigation(
             activeTab = state.activeTab,
-            navigationVisible = state.navigationVisible,
+            navigationVisible = state.navigationVisible && notebookNavigationAvailable,
             onToggleNavigation = { onStateChange { it.toggleNavigation() } },
             onTabPress = { tabTextSelection = state.focusedTextOutlineId?.let { it to state.editorSelection } },
             onSelectTab = { tab ->
@@ -598,6 +628,7 @@ private fun WorkspaceContent(
             onUndo = { onStateChange { it.undoStructure() } },
             onRedo = { onStateChange { it.redoStructure() } },
             accountConnected = accountConnected,
+            serverUnreachable = serverUnreachable,
             onOpenAccount = onOpenAccount,
             searchAvailable = search != null,
             onSearch = { fileActions?.closePane(); togglePane(DockedPane.Search) },
@@ -608,13 +639,14 @@ private fun WorkspaceContent(
                 pageOpen = state.selectedPage != null,
                 transferRunning = state.notebookTransfer.running, actions = fileActions,
                 onCloseNotebook = { notebookConfirmation = "close" },
-                onDeleteNotebook = { notebookConfirmation = "delete" })
+                onDeleteNotebook = { notebookConfirmation = "delete" }, onExportPdf = onExportPdf)
             RibbonTab.Draw -> DrawRibbon(state, onStateChange, onShapeSettingsChange, onInkSettingsChange,
                 state.selectedPage?.let { if (canvasPalette(it.document.style, canvasDark).background.luminance() < .45f) Color.White else Color.Black } ?: Color.Black,
                 calculatorAvailable = formulaReady, calculatorOpen = calculatorOpen, onToggleCalculator = { calculatorOpen = !calculatorOpen })
             RibbonTab.Document -> DocumentTab(state, onStateChange, ::applyEditorCommand, pictures,
                 { canvasOrigin.read() }, documentColorSelection, onLinkRequest = { linkEditor = it },
-                onEditorDefaultsChange = onEditorDefaultsChange)
+                onEditorDefaultsChange = onEditorDefaultsChange, onPictureDialog = { pictureDialog = it },
+                log = debugLog)
             RibbonTab.View -> ViewTab(state, view, canvasDark, viewActions,
                 onDefaultRuleLines = { rule ->
                     val next = state.editorDefaults.copy(ruleLines = rule)
@@ -643,6 +675,18 @@ private fun WorkspaceContent(
             val showNotebookPane = maxWidth >= 1040.dp && state.navigationVisible && !horizontalTabs
             val showPagePane = maxWidth >= 760.dp && state.pageListVisible
             val paneMotion = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
+            val dockedWidth = when {
+                state.filePane.pane != null && fileActions != null -> ToolPaneWidth + 1.dp
+                openPane == DockedPane.Math -> MathPaneWidth + 1.dp
+                openPane != null -> ToolPaneWidth + 1.dp
+                else -> 0.dp
+            }
+            val widths = navigationPaneWidths(
+                available = (maxWidth - dockedWidth - 240.dp).value,
+                notebook = if (showNotebookPane) state.notebookPaneWidth else 0f,
+                pages = if (showPagePane) state.pagePaneWidth else 0f,
+                dividerWidth = NavigationDividerWidth.value,
+            )
 
             Row(
                 modifier = Modifier
@@ -654,19 +698,27 @@ private fun WorkspaceContent(
                     enter = expandHorizontally(animationSpec = paneMotion),
                     exit = shrinkHorizontally(animationSpec = paneMotion),
                 ) {
-                    NotebookPane(
-                        state = state,
-                        requests = navigationRequests,
-                        navigation = navigation,
-                        onSelectSection = { id -> onStateChange { it.selectSection(id) } },
-                        onSwipeAway = { onStateChange { it.hideNotebookPane() } },
-                    )
-                }
-                if (showNotebookPane) {
-                    VerticalDivider(
-                        modifier = Modifier.fillMaxHeight(),
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                    )
+                    Row {
+                        NotebookPane(
+                            state = state,
+                            requests = navigationRequests,
+                            navigation = navigation,
+                            onSelectSection = { id -> onStateChange { it.selectSection(id) } },
+                            onSwipeAway = { onStateChange { it.hideNotebookPane() } },
+                            width = widths.notebook.dp,
+                        )
+                        NavigationDivider(
+                            width = widths.notebook,
+                            maxWidth = widths.maxNotebook,
+                            background = LocalDesktopColors.current.sidebar,
+                            label = Strings.resize_notebook_panel,
+                            tag = WorkspaceTestTags.NotebookDivider,
+                            onResize = { width, restore -> onStateChange { it.resizeNotebookPane(width, restore) } },
+                            onResizeFinished = {
+                                debugLog.event("navigation") { "notebooks resized width=${currentState.notebookPaneWidth} open=${currentState.navigationVisible}" }
+                            },
+                        )
+                    }
                 }
                 AnimatedVisibility(
                     visible = showPagePane,
@@ -681,10 +733,18 @@ private fun WorkspaceContent(
                             navigation = navigation,
                             onSelectPage = { id -> onStateChange { it.selectPage(id) } },
                             onSwipeAway = { onStateChange { it.hideNavigation() } },
+                            width = widths.pages.dp,
                         )
-                        VerticalDivider(
-                            modifier = Modifier.fillMaxHeight(),
-                            color = MaterialTheme.colorScheme.outlineVariant,
+                        NavigationDivider(
+                            width = widths.pages,
+                            maxWidth = widths.maxPages,
+                            background = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            label = Strings.resize_pages_panel,
+                            tag = WorkspaceTestTags.PageDivider,
+                            onResize = { width, restore -> onStateChange { it.resizePagePane(width, restore) } },
+                            onResizeFinished = {
+                                debugLog.event("navigation") { "pages resized width=${currentState.pagePaneWidth} open=${currentState.pageListVisible}" }
+                            },
                         )
                     }
                 }
@@ -725,10 +785,11 @@ private fun WorkspaceContent(
                             openPane = DockedPane.Math
                         }
                     },
-                    onInkRecolor = { source, argb, change -> onStateChange { current ->
+                    onInkRecolor = { source, argb, followsTheme, change -> onStateChange { current ->
                         if (current.selectedInk !== source) current
-                        else if (change == null) current.colorSelectedObjects(argb)
-                        else current.applyInkSelectionChange(change, recolorOutlinesArgb = argb)
+                        else if (change == null) current.colorSelectedObjects(argb, followsTheme)
+                        else current.applyInkSelectionChange(change, recolorOutlinesArgb = argb,
+                            recolorFollowsTheme = followsTheme)
                     } },
                     onPreparedPaste = { before, prepared -> onStateChange { it.applyPreparedCanvasPaste(before, prepared) } },
                     onCreateShape = { sx, sy, ex, ey -> onStateChange { it.createShape(sx, sy, ex, ey) } },
@@ -759,7 +820,7 @@ private fun WorkspaceContent(
                     onCopyObjects = { onStateChange { it.copySelectedObjects() } },
                     onDeleteObjects = { onStateChange { it.deleteSelectedObjects() } },
                     onToggleObjectLock = { onStateChange { it.toggleObjectLock() } },
-                    onColorObjects = { argb -> onStateChange { it.colorSelectedObjects(argb) } },
+                    onColorObjects = { argb, followsTheme -> onStateChange { it.colorSelectedObjects(argb, followsTheme) } },
                     onShapeLineType = { type -> onStateChange { it.setSelectedShapeLineType(type) } },
                     onShapeWidth = { width -> onStateChange { it.setSelectedShapeBorderWidth(width) } },
                     onShapeFill = { argb -> onStateChange { it.setSelectedShapeFill(argb) } },
@@ -773,6 +834,7 @@ private fun WorkspaceContent(
                     onSpaceInsertion = { insertion -> onStateChange { it.applySpaceInsertion(insertion) } },
                     onTableAction = { action -> onStateChange { it.editSelectedTable(action) } },
                     onEquationChange = { equation -> onStateChange { it.updateSelectedEquation(equation.latex, equation.width, equation.height) } },
+                    onImageBackground = { argb -> onStateChange { it.setSelectedImageBackground(argb) } },
                     onSelectObjectsInLasso = { path, heights -> onStateChange { it.selectObjectsInLasso(path, heights) } },
                     onSelectObjectsInRect = { l, t, r, b ->
                         onStateChange { it.selectObjectsInRect(l, t, r, b) }
@@ -876,11 +938,12 @@ private fun WorkspaceContent(
         }))
     NavigationDialogs(state, navigationRequests, navigation)
     linkEditor?.let { request -> LinkEditorDialog(request, onDismiss = { linkEditor = null }) }
+    pictureDialog?.let { dialog -> PictureDialogHost(dialog, onDismiss = { pictureDialog = null }) }
     NotebookTransferDialog(state.notebookTransfer, onDismiss = { fileActions?.dismissTransfer() })
     if (confirmRevision) {
-        FileConfirmDialog("Restore this version?",
-            "The saved version will replace this page. Your current version will be kept in history.",
-            "Restore", onDismiss = { confirmRevision = false }, onConfirm = {
+        FileConfirmDialog(Strings.restore_this_version_16b4be,
+            Strings.the_saved_version_will_replace_this_page_your_current_version_will,
+            Strings.restore, onDismiss = { confirmRevision = false }, onConfirm = {
                 confirmRevision = false
                 fileActions?.restoreRevision()
             }, tag = FilePaneTags.ConfirmRestore)
@@ -893,11 +956,11 @@ private fun WorkspaceContent(
             SideEffect { notebookConfirmation = null }
         } else {
             FileConfirmDialog(
-                title = "${if (operation == "close") "Close" else "Delete"} ${notebook.name}?",
+                title = if (operation == "close") Strings.close_notebook_confirmation(notebook.name) else Strings.delete_notebook_confirmation(notebook.name),
                 detail = if (operation == "close")
-                    "Nothing is deleted. The notebook leaves the panel until you reopen it from Closed Notebooks."
-                else "This notebook, its sections and all of their pages will be deleted. Written pages can be restored from Deleted Items for 7 days.",
-                verb = if (operation == "close") "Close" else "Delete",
+                    Strings.nothing_is_deleted_the_notebook_leaves_the_panel_until_you_reopen
+                else Strings.this_notebook_its_sections_and_all_of_their_pages_will_be_7425e6,
+                verb = if (operation == "close") Strings.close else Strings.delete,
                 destructive = operation == "delete",
                 onDismiss = { notebookConfirmation = null },
                 onConfirm = {
@@ -961,7 +1024,7 @@ private fun PageCanvas(
     onInkGrouping: (InkSelectionChange) -> Unit,
     inkMathAvailable: Boolean,
     onInkMath: (InkSelection) -> Unit,
-    onInkRecolor: (InkSelection, Int, InkSelectionChange?) -> Unit,
+    onInkRecolor: (InkSelection, Int, Boolean, InkSelectionChange?) -> Unit,
     onPreparedPaste: (WorkspaceState, WorkspaceState) -> Unit,
     onCreateShape: (Float, Float, Float, Float) -> Unit,
     onStraightenStroke: (StraightLine, InkPenSettings) -> Unit = { _, _ -> },
@@ -977,7 +1040,7 @@ private fun PageCanvas(
     onCopyObjects: () -> Unit,
     onDeleteObjects: () -> Unit,
     onToggleObjectLock: () -> Unit,
-    onColorObjects: (Int) -> Unit,
+    onColorObjects: (Int, Boolean) -> Unit,
     onShapeLineType: (LineType) -> Unit,
     onShapeWidth: (Int) -> Unit,
     onShapeFill: (Int?) -> Unit,
@@ -989,6 +1052,7 @@ private fun PageCanvas(
     onSpaceInsertion: (SpaceInsertion) -> Unit = {},
     onTableAction: (String) -> Unit = {},
     onEquationChange: (com.vivenotes.workspace.PendingDrawEquation) -> Unit = {},
+    onImageBackground: (Int?) -> Unit = {},
     onToggleTodo: (outlineId: String, blockId: String) -> Unit,
     /** Applies a text command and gives the keyboard back to the text box. */
     onTextCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
@@ -1247,9 +1311,12 @@ private fun PageCanvas(
                 point.y in (text.y - 32f).coerceAtLeast(0f)..text.y
         }
         val primeBounds = outlines.any { outline ->
+            val margin = if (outline is Outline.Shape && outline.segments.isNotEmpty())
+                maxOf(10f, outline.borderWidth / 2f + 9f) else 10f
+            val height = measuredTextHeights[outline.id] ?: outline.primeHeight()
             outline.id in snapshot.selectedObjectIds && outline.isPrimeObject() &&
-                point.x in (outline.x - 10f)..(outline.x + outline.width + 10f) &&
-                point.y in (outline.y - 10f)..(outline.y + outline.primeHeight() + 10f)
+                point.x in (outline.x - margin)..(outline.x + outline.width + margin) &&
+                point.y in (outline.y - margin)..(outline.y + height + margin)
         }
         return groupBody || groupCorner || textGrip || primeBounds
     }
@@ -1553,7 +1620,7 @@ private fun PageCanvas(
             },
     ) {
         if (page == null) {
-            Text("Choose a page to begin", modifier = Modifier.align(Alignment.Center))
+            Text(Strings.choose_a_page_to_begin, modifier = Modifier.align(Alignment.Center))
             return@Box
         }
         // A body still being read: for that instant there is nothing to draw and nothing to edit.
@@ -1622,7 +1689,7 @@ private fun PageCanvas(
                             cursorBrush = SolidColor(palette.ink),
                             decorationBox = { inner ->
                                 Box {
-                                    if (page.title.isEmpty()) Text("Untitled page",
+                                    if (page.title.isEmpty()) Text(Strings.untitled_page,
                                         style = MaterialTheme.typography.headlineMedium,
                                         color = palette.secondaryInk)
                                     inner()
@@ -1667,12 +1734,12 @@ private fun PageCanvas(
                             modifier = Modifier.offset(x, (y - 76.dp).coerceAtLeast(0.dp)),
                         ) {
                             Row(Modifier.padding(3.dp)) {
-                                TooltipIconButton("Copy selected text boxes", onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
+                                TooltipIconButton(Strings.copy_selected_text_boxes, onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
                                     Icon(DocumentSymbols.ContentCopy, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 }
-                                TooltipIconButton("Delete selected text boxes", onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
+                                TooltipIconButton(Strings.delete_selected_text_boxes, onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
                                     modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
                                     Icon(ObjectSymbols.Delete, contentDescription = null,
                                         tint = MaterialTheme.colorScheme.error,
@@ -1686,7 +1753,7 @@ private fun PageCanvas(
                             modifier = Modifier.offset(x, (y - 32.dp).coerceAtLeast(0.dp))
                                 .size(48.dp, 32.dp)
                                 .testTag(WorkspaceTestTags.textGrip(outline.id))
-                                .semantics { contentDescription = "Move text box" }
+                                .semantics { contentDescription = Strings.move_text_box }
                                 .pointerInput(outline.id, lassoSelected) {
                                     var firstChange = true
                                     detectDragGestures(
@@ -1817,7 +1884,7 @@ private fun PageCanvas(
                                         keyboardTextBox = null
                                     }
                                 }
-                                .semantics { contentDescription = "Text box ${index + 1}" }
+                                .semantics { contentDescription = Strings.text_box_value(index + 1) }
                                 .testTag(if (index == 0) WorkspaceTestTags.BodyEditor else WorkspaceTestTags.textBox(outline.id) + "-editor"),
                         )
                         TextContextMenu(
@@ -1835,7 +1902,7 @@ private fun PageCanvas(
                             y + renderedHeight - 12.dp).size(24.dp)
                             .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small)
                             .testTag(WorkspaceTestTags.textResizeHandle(outline.id))
-                            .semantics { contentDescription = "Resize text box" }
+                            .semantics { contentDescription = Strings.resize_text_box }
                             .pointerInput(outline.id) {
                                 var total = Offset.Zero
                                 var startWidth = 0f
@@ -1885,10 +1952,10 @@ private fun PageCanvas(
                     val height = (objectHeight + 2f * visualPad).coerceAtLeast(24f).dp
                     val label = when (outline) {
                         is Outline.Shape -> outline.kind.label
-                        is Outline.Table -> "Table"
-                        is Outline.Equation -> "Equation: ${outline.latex}"
-                        is Outline.Image -> "Picture"
-                        else -> "Object"
+                        is Outline.Table -> Strings.table
+                        is Outline.Equation -> Strings.equation_value(outline.latex)
+                        is Outline.Image -> Strings.picture
+                        else -> Strings.object_label
                     }
                     // A picture sits on the page itself, so its transparent parts show the paper;
                     // only a picture that cannot be drawn gets a plate (see PictureContent).
@@ -1930,7 +1997,7 @@ private fun PageCanvas(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             if (outline is Outline.Image && pictures != null) {
-                                PictureContent(pictureAssets[outline.attachmentId])
+                                PictureContent(pictureAssets[outline.attachmentId], outline.backgroundArgb)
                             } else if (outline is Outline.Table) {
                                 TableContent(outline, tableRows, shapeInk, state, richColors, editorFocusRequester,
                                     onFocusTextBox, onBodyChange, onTextShortcut)
@@ -1979,9 +2046,11 @@ private fun PageCanvas(
                             val anchorX = if (index % 2 == 0) outline.x + outline.width else outline.x
                             val anchorY = if (index < 2) outline.y + outline.primeHeight() else outline.y
                             Box(Modifier.offset(cx - 7.dp, cy - 7.dp).size(14.dp)
+                                .zIndex(1f)
                                 .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
                                 .testTag(WorkspaceTestTags.objectCorner(outline.id, index))
-                                .semantics { contentDescription = "Resize $label" }
+                                .semantics { contentDescription = Strings.resize_value(label) }
+                                .primeResizePointer(index)
                                 .pointerInput(outline.id, index, state.selectedObjectsLocked) {
                                     if (!state.selectedObjectsLocked) {
                                         var total = Offset.Zero
@@ -2087,10 +2156,12 @@ private fun PageCanvas(
                         listOf(left to top, right to top, left to bottom, right to bottom)
                             .forEachIndexed { index, (cx, cy) ->
                                 Box(Modifier.offset(cx - 7.dp, cy - 7.dp).size(14.dp)
+                                    .zIndex(1f)
                                     .background(MaterialTheme.colorScheme.surface, CircleShape)
                                     .border(1.5.dp, accent, CircleShape)
                                     .testTag(WorkspaceTestTags.groupCorner(index))
-                                    .semantics { contentDescription = "Resize selection" }
+                                    .semantics { contentDescription = Strings.resize_selection }
+                                    .primeResizePointer(index)
                                     .pointerInput(index, state.selectedObjectIds, state.selectedObjectsLocked) {
                                         var total = Offset.Zero
                                         var previousScaleX = 1f
@@ -2132,55 +2203,24 @@ private fun PageCanvas(
                 if (state.selectedObjectIds.isNotEmpty() && state.selectedInk == null) {
                     val selected = state.selectedPrimeObjects.firstOrNull()
                     if (selected != null) {
-                        var colorMenu by remember(selected.id) { mutableStateOf(false) }
                         Surface(color = Color(0xFF161618), contentColor = Color.White,
                             shape = MaterialTheme.shapes.medium, tonalElevation = 4.dp,
                             modifier = Modifier.offset((groupBounds?.left ?: selected.x).dp,
-                                ((groupBounds?.top ?: selected.y).dp - 52.dp).coerceAtLeast(0.dp))
+                                ((groupBounds?.top ?: selected.y).dp - 42.dp).coerceAtLeast(0.dp))
                                 .testTag(WorkspaceTestTags.ObjectToolkit)) {
-                            Row(Modifier.padding(3.dp)) {
+                            Row(Modifier.padding(horizontal = 3.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
                                 val colorSource = state.selectedColorableObject
                                 if (colorSource != null) {
-                                    Box {
-                                        val swatch = when (colorSource) {
-                                            is Outline.Shape -> Color(com.vivenotes.data.automaticColorOr(
-                                                colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
-                                            is Outline.Table -> Color(com.vivenotes.data.automaticColorOr(
-                                                colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
-                                            is Outline.Equation -> colorSource.colorArgb?.let(::Color) ?: shapeInk
-                                            else -> Color.Black
-                                        }
-                                        TooltipIconButton("Change object colour", onClick = { colorMenu = true },
-                                            tooltipPosition = TooltipAnchorPosition.Above,
-                                            modifier = Modifier.size(40.dp)
-                                                .testTag(WorkspaceTestTags.ObjectColor)) {
-                                            Box(Modifier.size(18.dp).clip(CircleShape).background(swatch))
-                                        }
-                                        ScaledDropdownMenu(expanded = colorMenu, onDismissRequest = { colorMenu = false }) {
-                                            ObjectColors.chunked(5).forEach { colors ->
-                                                Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                                    colors.forEach { (name, argb) ->
-                                                        HoverTooltip(name) {
-                                                            Box(Modifier.size(40.dp).padding(4.dp)
-                                                                .clip(CircleShape)
-                                                                .background(Color(argb))
-                                                                .clickable(role = Role.Button) {
-                                                                    colorMenu = false
-                                                                    onColorObjects(argb)
-                                                                }
-                                                                .semantics { contentDescription = name })
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            if (colorSource is Outline.Shape) {
-                                                CustomShapeColorField("Border", "object-shape-custom-border") {
-                                                    colorMenu = false
-                                                    onColorObjects(it)
-                                                }
-                                            }
-                                        }
+                                    val swatch = when (colorSource) {
+                                        is Outline.Shape -> Color(com.vivenotes.data.automaticColorOr(
+                                            colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
+                                        is Outline.Table -> Color(com.vivenotes.data.automaticColorOr(
+                                            colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
+                                        is Outline.Equation -> colorSource.colorArgb?.let(::Color) ?: shapeInk
+                                        else -> Color.Black
                                     }
+                                    SelectionColorButton(swatch, shapeInk, onColorObjects)
                                 }
                                 if (state.selectedObjectIds.size == 1 && state.selectedTextOutlineIds.isEmpty()) {
                                     if (selected is Outline.Table) TableObjectTools(selected, onTableAction)
@@ -2190,23 +2230,26 @@ private fun PageCanvas(
                                     state.selectedTextOutlineIds.isEmpty()) {
                                     ShapeObjectTools(selected, onShapeLineType, onShapeWidth, onShapeFill)
                                 }
-                                TooltipIconButton("Copy selection", onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
-                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
+                                state.selectedImages.takeIf { it.isNotEmpty() }?.let { images ->
+                                    PictureObjectTools(images.map { it.backgroundArgb }.distinct().singleOrNull(), onImageBackground)
+                                }
+                                TooltipIconButton(Strings.copy_selection, onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
+                                    modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
                                     Icon(DocumentSymbols.ContentCopy, contentDescription = null,
                                         modifier = Modifier.size(18.dp))
                                 }
                                 if (state.canLockSelectedObjects) {
-                                    TooltipIconButton(if (state.selectedObjectsLocked) "Unlock selection" else "Lock selection",
+                                    TooltipIconButton(if (state.selectedObjectsLocked) Strings.unlock_selection else Strings.lock_selection,
                                         onClick = onToggleObjectLock, tooltipPosition = TooltipAnchorPosition.Above,
-                                        modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectLock)) {
+                                        modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectLock)) {
                                         Icon(if (state.selectedObjectsLocked) ObjectSymbols.Lock
                                             else ObjectSymbols.LockOpen,
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp))
                                     }
                                 }
-                                TooltipIconButton("Delete selection", onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
-                                    modifier = Modifier.size(40.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
+                                TooltipIconButton(Strings.delete_selection, onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
+                                    modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
                                     Icon(ObjectSymbols.Delete, contentDescription = null,
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(18.dp))
@@ -2234,7 +2277,7 @@ private fun PageCanvas(
                                 }
                             }
                             pastePoint = null
-                        }, modifier = Modifier.testTag(WorkspaceTestTags.CanvasPaste)) { Text("Paste") }
+                        }, modifier = Modifier.testTag(WorkspaceTestTags.CanvasPaste)) { Text(Strings.paste) }
                     }
                 }
             }
@@ -2250,7 +2293,7 @@ private fun PageCanvas(
                 (bounds.right + inkDragOffset.x) * scale - horizontalScroll.value,
                 (bounds.bottom + inkDragOffset.y) * scale - verticalScroll.value)
             val ink = canvasPalette(page.document.style, canvasDark).ink
-            InkSelectionToolkit(selection, viewBounds, viewportPx, ObjectColors, ink,
+            InkSelectionToolkit(selection, viewBounds, viewportPx, ink,
                 enabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy && !inkMoveBusy,
                 showColor = state.selectedTextOutlineIds.isEmpty(), onBoundsChange = { inkToolkitBoundsInView = it },
                 showGroup = state.inkOnlySelection && (selection.targetIds.size > 1 || selection.isGrouped),
@@ -2269,13 +2312,13 @@ private fun PageCanvas(
                         }
                     }
                 },
-                onCopy = onCopyObjects, onDelete = onDeleteObjects, onColor = { argb ->
+                onCopy = onCopyObjects, onDelete = onDeleteObjects, onColor = { argb, followsTheme ->
                     if (!inkMoveBusy) {
                         inkMoveBusy = true
                         inkMoveScope.launch {
                             try {
-                                val change = withContext(Dispatchers.Default) { selection.recolor(argb) }
-                                currentInkRecolor(selection, argb, change)
+                                val change = withContext(Dispatchers.Default) { selection.recolor(argb, followsTheme) }
+                                currentInkRecolor(selection, argb, followsTheme, change)
                             } finally { inkMoveBusy = false }
                         }
                     }
@@ -2301,10 +2344,10 @@ private fun PageCanvas(
                         .testTag(WorkspaceTestTags.ZoomIndicator)
                         .semantics {
                             contentDescription = ResetZoomLabel
-                            stateDescription = "Canvas zoom ${(zoom * 100).roundToInt()} percent"
+                            stateDescription = Strings.canvas_zoom_value_percent((zoom * 100).roundToInt())
                         },
                 ) {
-                    Text("${(zoom * 100).roundToInt()}%",
+                    Text(Strings.value((zoom * 100).roundToInt()),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
@@ -2315,14 +2358,14 @@ private fun PageCanvas(
 }
 
 /** The zoom indicator's action, which is also its tooltip. */
-internal const val ResetZoomLabel = "Reset zoom to 100%"
+internal val ResetZoomLabel get() = Strings.reset_zoom_to_100
 
 /** Between a text box's edge and its text. */
 private val TextBoxPadding = 8.dp
 
 /** Android's wording, for a page whose stored body could not be decoded. */
-internal const val UnreadablePageMessage =
-    "This page could not be read, so editing is disabled to protect its contents."
+internal val UnreadablePageMessage =
+    Strings.this_page_could_not_be_read_so_editing_is_disabled_to
 
 /**
  * Tells the user that notes storage failed, for as long as it keeps failing; the next read or

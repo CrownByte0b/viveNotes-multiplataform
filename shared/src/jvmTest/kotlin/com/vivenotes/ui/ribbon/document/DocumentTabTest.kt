@@ -24,6 +24,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -278,7 +279,9 @@ class DocumentTabTest {
         var observed = initial
         setWorkspace(initial, pictures = library) { observed = it }
 
+        // Android 35e7147: the button opens a menu of sources, and "On device" is the file dialog.
         onNodeWithTag(DocumentRibbonTags.Picture).performScrollTo().assertIsEnabled().performClick()
+        onNodeWithTag(DocumentRibbonTags.PictureDevice).performClick()
         waitUntil(timeoutMillis = 5_000) { observed.selectedPage!!.document.outlines.any { it is Outline.Image } }
         val image = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Image>().single()
         assertEquals(id, image.attachmentId)
@@ -294,6 +297,37 @@ class DocumentTabTest {
         val through = pixels[pixels.width * 3 / 4, pixels.height / 2]
         assertTrue(through.isCloseTo(Color(paper)), "expected the paper through the picture, got $through")
         assertEquals(1, library.chosen)
+    }
+
+    @Test
+    fun aPictureBackgroundIsAFilledFrameSeenOnlyThroughTheTransparentPixels() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        val id = "e".repeat(64)
+        val library = FakePictures(null, mapOf(id to redPng(40, 20)))
+        val paper = 0xFFFFF3C4.toInt()
+        val withPicture = document.updatePage(document.selectedPageId) { page ->
+            page.copy(document = page.document.copy(style = page.document.style.copy(
+                backgroundArgb = paper, ruleLines = RuleLines.None)))
+        }.insertPicture(document.selectedPageId, ImportedPicture(id, 40, 20), 0f, 0f)
+        val image = withPicture.selectedPage!!.document.outlines.filterIsInstance<Outline.Image>().single()
+        var observed = withPicture.selectObject(image.id)
+        setWorkspace(observed, pictures = library) { observed = it }
+        val frame = onNodeWithTag(WorkspaceTestTags.primeObject(image.id))
+        fun pixel(xFraction: Float): Color = frame.captureToImage().toPixelMap()
+            .let { it[(it.width * xFraction).toInt(), it.height / 2] }
+        waitUntil(timeoutMillis = 5_000) { pixel(.25f).isCloseTo(Color.Red) }
+        assertTrue(pixel(.75f).isCloseTo(Color(paper)), "no background yet: the paper shows through")
+
+        onNodeWithTag(PictureObjectTags.Background).performClick()
+        onNodeWithContentDescription("Blue").performClick()
+        waitUntil(timeoutMillis = 5_000) { pixel(.75f).isCloseTo(Color(0xFF2962FF)) }
+        assertTrue(pixel(.25f).isCloseTo(Color.Red), "opaque pixels stay in front of the background")
+        assertEquals(0xFF2962FF.toInt(), observed.selectedPage!!.document.outlines
+            .filterIsInstance<Outline.Image>().single().backgroundArgb)
+
+        onNodeWithTag(PictureObjectTags.Background).performClick()
+        onNodeWithText("No background").performClick()
+        waitUntil(timeoutMillis = 5_000) { pixel(.75f).isCloseTo(Color(paper)) }
+        assertEquals(null, observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Image>().single().backgroundArgb)
     }
 
     @Test
@@ -313,6 +347,7 @@ class DocumentTabTest {
         setWorkspace(document, pictures = library) { observed = it }
 
         onNodeWithTag(DocumentRibbonTags.Picture).performScrollTo().performClick()
+        onNodeWithTag(DocumentRibbonTags.PictureDevice).performClick()
         waitUntil(timeoutMillis = 5_000) { library.chosen == 1 }
         runOnIdle { assertEquals(document.selectedPage!!.document, observed.selectedPage!!.document) }
     }
@@ -320,6 +355,7 @@ class DocumentTabTest {
     private class FakePictures(private val next: ImportedPicture?, private val files: Map<String, ByteArray>) : PictureLibrary {
         var chosen = 0
         override suspend fun choose(): ImportedPicture? = next.also { chosen++ }
+        override suspend fun import(bytes: ByteArray): ImportedPicture? = next
         override suspend fun bytes(attachmentId: String): ByteArray? = files[attachmentId]
     }
 

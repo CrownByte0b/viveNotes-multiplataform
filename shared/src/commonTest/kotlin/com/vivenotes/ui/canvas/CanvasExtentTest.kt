@@ -45,7 +45,8 @@ class CanvasExtentTest {
         val extent = PageExtent.of(PageStyle(paper = PaperSize.A6), contentRight = 300f, contentBottom = past)
         assertFalse(extent.bound)
         assertEquals(a6, extent.sheet)
-        assertEquals(past, extent.page.height.value)
+        // DpSize packs both axes as Float32, including targets with wider intermediate arithmetic.
+        assertEquals(DpSize(PageExtent.CanvasMinWidth, past.dp), extent.page)
     }
 
     @Test

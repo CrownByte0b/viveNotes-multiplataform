@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -74,7 +75,7 @@ internal fun PenKit(index: Int, settings: InkSettings, canvasInk: Color, onChang
     val pen = settings.pen(index)
     val color = if (pen.colorFollowsTheme) canvasInk else Color(pen.colorArgb)
     fun update(value: InkPenSettings) = onChange(settings.withPen(index, value))
-    ReferenceToolKit("Pen ${index + 1}") {
+    ReferenceToolKit(Strings.pen_value(index + 1), "draw-toolkit-pen-${index + 1}") {
         StrokePreview(pen, canvasInk)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -95,23 +96,23 @@ internal fun PenKit(index: Int, settings: InkSettings, canvasInk: Color, onChang
         Spacer(Modifier.height(8.dp))
         ToolkitLineTypes(pen.lineType, InkControlsTags::line) { update(pen.copy(lineType = it)) }
         Spacer(Modifier.height(4.dp))
-        ToolkitToggle("Hold for straight line", pen.holdForStraightLine, InkControlsTags.Hold,
-            "Draw a line and pause with the pen still down for a second: the stroke is replaced by a straight line you can move and resize. Lift without pausing and the freehand stroke stays. Nearly horizontal and nearly vertical lines are levelled.") {
+        ToolkitToggle(Strings.hold_for_straight_line, pen.holdForStraightLine, InkControlsTags.Hold,
+            Strings.draw_a_line_and_pause_with_the_pen_still_down_for) {
             update(pen.copy(holdForStraightLine = it))
         }
-        ToolkitSlider("Thickness", pen.sizeDp, 1f..8f, .5f, InkControlsTags.Width, color) { update(pen.copy(sizeDp = it)) }
+        ToolkitSlider(Strings.thickness, pen.sizeDp, 1f..8f, .5f, InkControlsTags.Width, color) { update(pen.copy(sizeDp = it)) }
         Spacer(Modifier.height(2.dp))
-        if (pen.brush == InkBrush.Calligraphy) ToolkitNumberPicker("Pressure", pen.pressure, 0..5, InkControlsTags.Pressure,
-            "How much harder pressing thickens the line. 0 turns off pressure response; the broad nib still makes downstrokes and cross-strokes different.") {
+        if (pen.brush == InkBrush.Calligraphy) ToolkitNumberPicker(Strings.pressure, pen.pressure, 0..5, InkControlsTags.Pressure,
+            Strings.how_much_harder_pressing_thickens_the_line_0_turns_off_pressure) {
             update(pen.copy(pressure = it))
         }
-        ToolkitNumberPicker("Stabilization", pen.stabilization, 0..5, InkControlsTags.Stabilization,
-            "Smooths out shake. A little goes a long way — high settings make the ink lag behind the pen.") { update(pen.copy(stabilization = it)) }
+        ToolkitNumberPicker(Strings.stabilization, pen.stabilization, 0..5, InkControlsTags.Stabilization,
+            Strings.smooths_out_shake_a_little_goes_a_long_way_high_settings) { update(pen.copy(stabilization = it)) }
         Spacer(Modifier.height(2.dp))
         Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Color", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-            Icon(DrawToolkitSymbols.Add, "Add color", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            Text(Strings.color, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            Icon(DrawToolkitSymbols.Add, Strings.add_color, tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp).alpha(.42f))
         }
         ToolkitPalette(settings.palette, color.toArgb(), InkControlsTags::color, InkControlsTags.WheelButton,
@@ -141,16 +142,16 @@ private fun StrokePreview(pen: InkPenSettings, automatic: Color) {
 @Composable
 internal fun HighlighterKit(settings: InkSettings, onChange: (InkSettings) -> Unit) {
     val value = settings.highlighter
-    ToolKit("Highlighter") {
+    ToolKit(Strings.highlighter) {
         Box(Modifier.fillMaxWidth().height(56.dp).background(Color.White, MaterialTheme.shapes.small)
             .testTag(InkControlsTags.Preview), contentAlignment = Alignment.Center) {
-            Text("Highlight your notes", color = Color.Black,
+            Text(Strings.highlight_your_notes, color = Color.Black,
                 modifier = Modifier.drawBehind {
                     val band = value.sizeDp.dp.toPx()
                     drawRect(Color(value.colorArgb), Offset(0f, (size.height - band) / 2f), Size(size.width, band))
                 }.padding(horizontal = 8.dp))
         }
-        KitSlider("Thickness", value.sizeDp, 6f..40f, 1f, InkControlsTags.Width) {
+        KitSlider(Strings.thickness, value.sizeDp, 6f..40f, 1f, InkControlsTags.Width) {
             onChange(settings.copy(highlighter = value.copy(sizeDp = it)))
         }
         ColorSwatches(HighlighterColors, value.colorArgb) { onChange(settings.copy(highlighter = value.copy(colorArgb = it))) }
@@ -159,7 +160,7 @@ internal fun HighlighterKit(settings: InkSettings, onChange: (InkSettings) -> Un
 
 @Composable
 internal fun EraserKit(settings: InkSettings, onChange: (InkSettings) -> Unit) {
-    ToolKit("Eraser") {
+    ToolKit(Strings.eraser) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             EraserMode.entries.forEach { mode ->
                 Choice(mode.label, settings.eraser.mode == mode, DrawRibbonTags.eraserMode(mode)) {
@@ -167,9 +168,9 @@ internal fun EraserKit(settings: InkSettings, onChange: (InkSettings) -> Unit) {
                 }
             }
         }
-        Text(if (settings.eraser.mode == EraserMode.Normal) "Cut through ink" else "Erase touched ink pieces",
+        Text(if (settings.eraser.mode == EraserMode.Normal) Strings.cut_through_ink else Strings.erase_touched_ink_pieces,
             style = MaterialTheme.typography.bodySmall)
-        KitSlider("Size", settings.eraser.sizeDp, 4f..64f, 1f, "draw-eraser-size") {
+        KitSlider(Strings.size, settings.eraser.sizeDp, 4f..64f, 1f, "draw-eraser-size") {
             onChange(settings.copy(eraser = settings.eraser.copy(sizeDp = it)))
         }
     }
@@ -177,16 +178,16 @@ internal fun EraserKit(settings: InkSettings, onChange: (InkSettings) -> Unit) {
 
 @Composable
 internal fun RulerKit(settings: InkSettings, onChange: (InkSettings) -> Unit) {
-    ToolKit("Ruler") {
+    ToolKit(Strings.ruler) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             RulerKind.entries.forEach { kind ->
-                Choice(kind.name, settings.ruler.kind == kind, "draw-ruler-${kind.name}") {
+                Choice(if (kind == RulerKind.Straight) Strings.straight else Strings.protractor, settings.ruler.kind == kind, "draw-ruler-${kind.name}") {
                     onChange(settings.copy(ruler = settings.ruler.copy(kind = kind)))
                 }
             }
         }
         if (settings.ruler.kind == RulerKind.Protractor)
-            KitSlider("Diameter", settings.ruler.diameterDp.toFloat(), 240f..1200f, 40f, "draw-ruler-size") {
+            KitSlider(Strings.diameter, settings.ruler.diameterDp.toFloat(), 240f..1200f, 40f, "draw-ruler-size") {
                 onChange(settings.copy(ruler = settings.ruler.copy(diameterDp = it.roundToInt())))
             }
     }
@@ -215,7 +216,7 @@ internal fun KitStepper(label: String, value: Int, tag: String, onChange: (Int) 
         Text(label, style = MaterialTheme.typography.bodyMedium)
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton({ onChange(value - 1) }, enabled = value > 0, modifier = Modifier.testTag("$tag-minus")) { Text("−") }
-            Text(if (value == 0) "Off" else "$value", Modifier.testTag(tag))
+            Text(if (value == 0) Strings.off else "$value", Modifier.testTag(tag))
             TextButton({ onChange(value + 1) }, enabled = value < 5, modifier = Modifier.testTag("$tag-plus")) { Text("+") }
         }
     }
@@ -224,7 +225,7 @@ internal fun KitStepper(label: String, value: Int, tag: String, onChange: (Int) 
 @Composable
 internal fun KitSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, step: Float, tag: String, onChange: (Float) -> Unit) {
     var draft by remember(value) { mutableFloatStateOf(value) }
-    Text("$label · ${draft.toString().removeSuffix(".0")} dp", style = MaterialTheme.typography.bodyMedium)
+    Text(Strings.value_value_dp(label, draft.toString().removeSuffix(".0")), style = MaterialTheme.typography.bodyMedium)
     Slider(draft, { draft = (range.start + ((it - range.start) / step).roundToInt() * step).coerceIn(range) },
         valueRange = range, steps = ((range.endInclusive - range.start) / step).roundToInt() - 1,
         onValueChangeFinished = { if (draft != value) onChange(draft) },
@@ -242,7 +243,7 @@ internal fun ColorSwatches(colors: List<Int>, selectedArgb: Int, onPick: (Int) -
                         if (color == selectedArgb) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         MaterialTheme.shapes.small).clickable(role = Role.Button) { onPick(color) }
                     .testTag(InkControlsTags.color(color)).semantics {
-                        contentDescription = "Color #${(color and 0xffffff).toString(16).padStart(6, '0')}"
+                        contentDescription = Strings.color_value((color and 0xffffff).toString(16).padStart(6, '0'))
                         selected = color == selectedArgb
                     })
             }
@@ -257,10 +258,10 @@ private fun CustomInkColorField(tag: String, onChange: (Int) -> Unit) {
     var hex by remember { mutableStateOf("") }
     val parsed = parseInkColor(hex)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(hex, { if (it.length <= 7) hex = it }, label = { Text("Color hex") },
+        OutlinedTextField(hex, { if (it.length <= 7) hex = it }, label = { Text(Strings.color_hex) },
             singleLine = true, isError = hex.isNotEmpty() && parsed == null,
             modifier = Modifier.size(140.dp, 58.dp).testTag(tag))
         TextButton({ parsed?.let(onChange) }, enabled = parsed != null,
-            modifier = Modifier.testTag("$tag-apply")) { Text("Apply") }
+            modifier = Modifier.testTag("$tag-apply")) { Text(Strings.apply) }
     }
 }

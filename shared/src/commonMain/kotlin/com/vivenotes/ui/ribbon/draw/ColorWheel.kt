@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,7 +65,7 @@ fun ColumnScope.ColorWheelContent(
     fun commit() = latestPick(argbOf(hue, saturation, brightness))
 
     val current = Color.hsvSafe(hue, saturation, brightness)
-    val wheelDescription = "Color wheel"
+    val wheelDescription = Strings.color_wheel
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -146,7 +147,7 @@ fun ColumnScope.ColorWheelContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            TextButton(onClick = onDone, modifier = Modifier.testTag(InkControlsTags.WheelDone)) { Text("Done") }
+            TextButton(onClick = onDone, modifier = Modifier.testTag(InkControlsTags.WheelDone)) { Text(Strings.done) }
         }
     }
 }
@@ -163,7 +164,7 @@ private fun BrightnessBar(
     val latestEnd by rememberUpdatedState(onEnd)
     val lit = Color.hsvSafe(hue, saturation, 1f)
     val thumbOutline = MaterialTheme.colorScheme.outlineVariant
-    val brightnessDescription = "Brightness"
+    val brightnessDescription = Strings.brightness
 
     Canvas(
         modifier = Modifier

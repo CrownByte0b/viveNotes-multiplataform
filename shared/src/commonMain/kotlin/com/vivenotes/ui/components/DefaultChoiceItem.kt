@@ -1,5 +1,6 @@
 package com.vivenotes.ui.components
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,11 +35,11 @@ internal fun DefaultChoiceItem(
     Row(
         Modifier.width(220.dp).heightIn(min = 40.dp)
             .combinedClickable(role = Role.Button, onClick = onChoose, onLongClick = onSetDefault,
-                onLongClickLabel = "Make $label the default")
+                onLongClickLabel = Strings.make_value_the_default(label))
             .semantics {
                 this.selected = selected
                 stateDescription = listOfNotNull(
-                    "Selected".takeIf { selected }, "Default".takeIf { isDefault }).joinToString(", ")
+                    Strings.selected.takeIf { selected }, Strings.default.takeIf { isDefault }).joinToString(", ")
             }
             .testTag(tag).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -48,7 +49,7 @@ internal fun DefaultChoiceItem(
         else Spacer(Modifier.size(18.dp))
         Text(label, modifier = Modifier.padding(start = 8.dp).weight(1f),
             style = MaterialTheme.typography.bodyMedium)
-        if (isDefault) Text("Default", modifier = Modifier.padding(start = 12.dp),
+        if (isDefault) Text(Strings.default, modifier = Modifier.padding(start = 12.dp),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

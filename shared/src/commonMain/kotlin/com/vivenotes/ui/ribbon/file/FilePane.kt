@@ -1,17 +1,31 @@
 package com.vivenotes.ui.ribbon.file
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.vivenotes.data.db.ClosedNotebook
+import com.vivenotes.ui.icons.AccountSymbols
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -39,86 +53,168 @@ object FilePaneTags {
     fun restoreDeleted(id: String) = "file-deleted-restore-$id"
     fun closed(id: String) = "file-closed-$id"
     fun reopen(id: String) = "file-closed-reopen-$id"
+    const val OnDeviceHeading = "file-closed-on-device"
+    const val InCloudHeading = "file-closed-in-cloud"
+    fun moveToCloud(id: String) = "file-closed-to-cloud-$id"
+    fun bringBack(id: String) = "file-closed-back-$id"
+    fun cloudBusy(id: String) = "file-closed-busy-$id"
 }
 
 @Composable
 internal fun FilePaneContent(state: FilePaneState, actions: FileActions, onRestoreRevision: () -> Unit) {
     val pane = state.pane ?: return
     ToolPane(title = when (pane) {
-        FilePane.VersionHistory -> "Version History"
-        FilePane.DeletedItems -> "Deleted Items"
-        FilePane.ClosedNotebooks -> "Closed Notebooks"
+        FilePane.VersionHistory -> Strings.version_history
+        FilePane.DeletedItems -> Strings.deleted_items
+        FilePane.ClosedNotebooks -> Strings.closed_notebooks
     }, onClose = actions::closePane, modifier = Modifier.testTag(FilePaneTags.Pane)) {
         when (pane) {
             FilePane.VersionHistory -> {
-                Description("Earlier saved versions of this page, newest first. Restoring a version also keeps the current page in history.")
+                Description(Strings.earlier_saved_versions_of_this_page_newest_first_restoring_a_version)
                 when {
-                    state.loading && state.selectedRevisionId == null -> Status("Loading versions…")
-                    state.revisions.isEmpty() && state.error == null -> Status("No earlier versions yet", FilePaneTags.Empty)
+                    state.loading && state.selectedRevisionId == null -> Status(Strings.loading_versions)
+                    state.revisions.isEmpty() && state.error == null -> Status(Strings.no_earlier_versions_yet, FilePaneTags.Empty)
                     else -> state.revisions.forEach { revision ->
                         val selected = revision.id == state.selectedRevisionId
-                        Entry(state.dateLabels[revision.createdAt] ?: "Saved version", "${revision.byteCount} bytes",
+                        Entry(state.dateLabels[revision.createdAt] ?: Strings.saved_version, Strings.value_bytes(revision.byteCount),
                             selected, !state.busy, FilePaneTags.revision(revision.id)) { actions.selectRevision(revision.id) }
                     }
                 }
                 if (state.selectedRevisionId != null) {
                     Spacer(Modifier.height(12.dp))
                     when {
-                        state.loading -> Status("Loading preview…")
+                        state.loading -> Status(Strings.loading_preview)
                         state.preview != null -> {
                             val doc = state.preview
-                            val text = doc.plainText().trim().ifBlank { "No text in this version." }
-                            Entry(text.take(600), "${doc.outlines.count { it !is Outline.Text }} placed objects",
+                            val text = doc.plainText().trim().ifBlank { Strings.no_text_in_this_version }
+                            Entry(text.take(600), Strings.value_placed_objects(doc.outlines.count { it !is Outline.Text }),
                                 false, false, FilePaneTags.Preview) { }
                         }
                     }
                     Button(onClick = onRestoreRevision, enabled = state.preview != null && !state.busy,
                         modifier = Modifier.fillMaxWidth().testTag(FilePaneTags.RestoreRevision)) {
-                        Text("Restore this version")
+                        Text(Strings.restore_this_version)
                     }
                 }
             }
             FilePane.DeletedItems -> {
-                Description("Deleted notebooks, sections and pages can be restored for 7 days.")
+                Description(Strings.deleted_notebooks_sections_and_pages_can_be_restored_for_7_days)
                 when {
-                    state.loading -> Status("Loading deleted items…")
-                    state.deletedItems.isEmpty() && state.error == null -> Status("Deleted Items is empty", FilePaneTags.Empty)
+                    state.loading -> Status(Strings.loading_deleted_items)
+                    state.deletedItems.isEmpty() && state.error == null -> Status(Strings.deleted_items_is_empty, FilePaneTags.Empty)
                     else -> state.deletedItems.forEach { item ->
                         val location = when (item.key.kind) {
-                            DeletedItemKind.Notebook -> "${item.sectionCount} sections · ${item.pageCount} pages"
-                            DeletedItemKind.Section -> "In ${item.notebookName ?: "notebook"} · ${item.pageCount} pages"
-                            DeletedItemKind.Page -> "In ${item.sectionName ?: "section"} · ${item.notebookName ?: "notebook"}"
+                            DeletedItemKind.Notebook -> Strings.value_sections_value_pages(item.sectionCount, item.pageCount)
+                            DeletedItemKind.Section -> Strings.in_value_value_pages(item.notebookName ?: Strings.notebook_528093, item.pageCount)
+                            DeletedItemKind.Page -> Strings.in_value_value(item.sectionName ?: Strings.section, item.notebookName ?: Strings.notebook_528093)
                         }
-                        Entry(item.name.ifBlank { "Untitled page" },
-                            "${item.key.kind} · $location · Deleted ${state.dateLabels[item.deletedAt].orEmpty()}",
+                        Entry(item.name.ifBlank { Strings.untitled_page },
+                            Strings.value_value_deleted_value(when (item.key.kind) {
+                                DeletedItemKind.Notebook -> Strings.notebook_kind
+                                DeletedItemKind.Section -> Strings.section_kind
+                                DeletedItemKind.Page -> Strings.page_kind
+                            }, location, state.dateLabels[item.deletedAt].orEmpty()),
                             false, false, FilePaneTags.deleted(item.key.id)) { }
                         OutlinedButton(onClick = { actions.restoreDeletedItem(item) }, enabled = !state.busy,
                             modifier = Modifier.fillMaxWidth().testTag(FilePaneTags.restoreDeleted(item.key.id))) {
-                            Text("Restore")
+                            Text(Strings.restore)
                         }
                     }
                 }
             }
             FilePane.ClosedNotebooks -> {
-                Description("Closed notebooks stay saved and can be reopened here.")
+                Description(Strings.closed_notebooks_stay_saved_and_can_be_reopened_here)
                 when {
-                    state.loading -> Status("Loading closed notebooks…")
-                    state.closedNotebooks.isEmpty() && state.error == null -> Status("No closed notebooks", FilePaneTags.Empty)
-                    else -> state.closedNotebooks.forEach { row ->
-                        Entry(row.notebook.name, "${row.sectionCount} sections · ${row.pageCount} pages · Closed ${row.notebook.closedAt?.let { state.dateLabels[it] }.orEmpty()}",
-                            false, false, FilePaneTags.closed(row.notebook.id)) { }
-                        OutlinedButton(onClick = { actions.reopenNotebook(row.notebook.id) },
-                            enabled = !state.busy && row.contentOnDevice,
-                            modifier = Modifier.fillMaxWidth().testTag(FilePaneTags.reopen(row.notebook.id))) {
-                            Text(if (row.contentOnDevice) "Reopen" else "Content unavailable on this device")
-                        }
-                    }
+                    state.loading -> Status(Strings.loading_closed_notebooks)
+                    state.closedNotebooks.isEmpty() && state.error == null -> Status(Strings.no_closed_notebooks, FilePaneTags.Empty)
+                    else -> ClosedNotebookGroups(state, actions)
                 }
             }
         }
         state.message?.let { Status(it, FilePaneTags.Status) }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(top = 8.dp).testTag(FilePaneTags.Status)) }
+    }
+}
+
+/**
+ * Android's Closed Notebooks screen in the pane: two groups rather than one list with a badge,
+ * because the two states differ in what they can do — a notebook on the device opens at once, while
+ * one in the cloud has to be downloaded first. One cloud operation runs at a time, so every other
+ * row's buttons wait while one row shows it is busy.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ClosedNotebookGroups(state: FilePaneState, actions: FileActions) {
+    val connected = actions.cloudConnected?.collectAsState()?.value == true
+    val busyId = state.cloudBusyNotebookId
+    val anyBusy = busyId != null || state.busy
+    val onDevice = state.closedNotebooks.filter { it.contentOnDevice }
+    val inCloud = state.closedNotebooks.filterNot { it.contentOnDevice }
+
+    fun detail(row: ClosedNotebook) = Strings.value_sections_value_pages_closed_value(row.sectionCount, row.pageCount,
+        row.notebook.closedAt?.let { state.dateLabels[it] }.orEmpty())
+
+    if (onDevice.isNotEmpty()) {
+        Heading(Strings.closed_notebooks_on_device, FilePaneTags.OnDeviceHeading)
+        onDevice.forEach { row ->
+            val id = row.notebook.id
+            Entry(row.notebook.name, detail(row), false, false, FilePaneTags.closed(id)) { }
+            if (busyId == id) {
+                LoadingIndicator(Modifier.padding(vertical = 4.dp).size(24.dp).testTag(FilePaneTags.cloudBusy(id)))
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { actions.reopenNotebook(id) }, enabled = !anyBusy,
+                        modifier = Modifier.weight(1f).testTag(FilePaneTags.reopen(id))) {
+                        Text(Strings.reopen)
+                    }
+                    // Only with a server: without one there is nowhere to put the contents.
+                    if (actions.cloudConnected != null) {
+                        Button(onClick = { actions.moveNotebookToCloud(id) }, enabled = connected && !anyBusy,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary,
+                                contentColor = MaterialTheme.colorScheme.onTertiary),
+                            modifier = Modifier.weight(1f).testTag(FilePaneTags.moveToCloud(id))) {
+                            Text(Strings.closed_notebook_move_to_cloud)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (inCloud.isNotEmpty()) {
+        Spacer(Modifier.height(6.dp))
+        // The one place the pane explains itself, and only when there is something under it to
+        // explain. Without a server the sentence changes rather than the buttons quietly doing nothing.
+        Heading(Strings.closed_notebooks_in_cloud, FilePaneTags.InCloudHeading,
+            supporting = if (connected) Strings.closed_notebooks_in_cloud_supporting else Strings.closed_notebooks_no_account)
+        inCloud.forEach { row ->
+            val id = row.notebook.id
+            Entry(row.notebook.name, detail(row), false, false, FilePaneTags.closed(id)) { }
+            if (busyId == id) {
+                LoadingIndicator(Modifier.padding(vertical = 4.dp).size(24.dp).testTag(FilePaneTags.cloudBusy(id)))
+            } else {
+                FilledTonalButton(onClick = { actions.bringNotebookBack(id) }, enabled = connected && !anyBusy,
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
+                    modifier = Modifier.fillMaxWidth().testTag(FilePaneTags.bringBack(id))) {
+                    Icon(AccountSymbols.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(Strings.closed_notebook_bring_back)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Heading(text: String, tag: String, supporting: String? = null) {
+    Column(Modifier.padding(top = 8.dp, bottom = 2.dp)) {
+        Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag(tag))
+        supporting?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp))
+        }
     }
 }
 
@@ -154,7 +250,7 @@ internal fun FileConfirmDialog(title: String, detail: String, verb: String, onDi
         iconTint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
         content = { Text(detail, style = MaterialTheme.typography.bodyMedium) },
         actions = {
-            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+            OutlinedButton(onClick = onDismiss) { Text(Strings.cancel) }
             Button(onClick = onConfirm, modifier = Modifier.testTag(tag)) { Text(verb) }
         })
 }

@@ -1,5 +1,7 @@
 package com.vivenotes.ai
 
+import com.vivenotes.localization.Strings
+
 /**
  * Which graph turns a formula bitmap into LaTeX. Listed best first, which is the order the Models
  * pane shows them in and the order [formulaEngineInUse] falls back through.
@@ -24,17 +26,17 @@ enum class FormulaEngine(val stemPx: Float) {
 /** The name a person reads for a formula model, in the Models pane and in log lines. */
 val FormulaEngine.displayName: String
     get() = when (this) {
-        FormulaEngine.UniMerNetSmall -> "UniMERNet Small"
-        FormulaEngine.UniMerNetTiny -> "UniMERNet-T"
-        FormulaEngine.FormulaNetS -> "PP-FormulaNet-S"
+        FormulaEngine.UniMerNetSmall -> Strings.unimernet_small
+        FormulaEngine.UniMerNetTiny -> Strings.unimernet_t
+        FormulaEngine.FormulaNetS -> Strings.pp_formulanet_s
     }
 
 /** What each is measurably better at — `simulations/formula-models` — as Android's pane says it. */
 val FormulaEngine.strength: String
     get() = when (this) {
-        FormulaEngine.UniMerNetSmall -> "Best on algebra"
-        FormulaEngine.UniMerNetTiny -> "Smaller download"
-        FormulaEngine.FormulaNetS -> "Reads matrices"
+        FormulaEngine.UniMerNetSmall -> Strings.best_on_algebra
+        FormulaEngine.UniMerNetTiny -> Strings.smaller_download
+        FormulaEngine.FormulaNetS -> Strings.reads_matrices
     }
 
 /** Both UniMERNet variants read best at stem 3–4 on the handwriting corpus. */

@@ -42,8 +42,8 @@ class PaneTouchTest {
 
         onNodeWithTag(WorkspaceTestTags.NotebookPane).performTouchInput { swipeLeft() }
         onNodeWithTag(WorkspaceTestTags.NotebookPane).assertDoesNotExist()
-        onNodeWithTag(WorkspaceTestTags.PagePane).assertExists()
-        runOnIdle { assertEquals(false to true, observed.navigationVisible to observed.pageListVisible) }
+        onNodeWithTag(WorkspaceTestTags.PagePane).assertDoesNotExist()
+        runOnIdle { assertEquals(false to false, observed.navigationVisible to observed.pageListVisible) }
     }
 
     @Test

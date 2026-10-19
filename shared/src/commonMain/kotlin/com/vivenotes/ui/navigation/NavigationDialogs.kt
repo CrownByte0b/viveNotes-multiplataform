@@ -1,5 +1,6 @@
 package com.vivenotes.ui.navigation
 
+import com.vivenotes.localization.Strings
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,7 +43,7 @@ import com.vivenotes.workspace.NavigationItem
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.nameOf
 
-internal const val UntitledPage = "Untitled page"
+internal val UntitledPage get() = Strings.untitled_page
 
 /** The rename, delete or new item the navigation panes asked for, held until its dialog closes. */
 internal class NavigationRequests {
@@ -58,11 +59,18 @@ internal sealed interface NewItem {
 }
 
 /** What the menus and dialogs call [this]. */
-internal val NavigationItem.noun: String
+internal val NavigationItem.renameLabel: String
     get() = when (this) {
-        is NavigationItem.Notebook -> "notebook"
-        is NavigationItem.Section -> "section"
-        is NavigationItem.Page -> "page"
+        is NavigationItem.Notebook -> Strings.rename_notebook
+        is NavigationItem.Section -> Strings.rename_section
+        is NavigationItem.Page -> Strings.rename_page
+    }
+
+internal val NavigationItem.deleteLabel: String
+    get() = when (this) {
+        is NavigationItem.Notebook -> Strings.delete_notebook
+        is NavigationItem.Section -> Strings.delete_section
+        is NavigationItem.Page -> Strings.delete_page
     }
 
 /**
@@ -82,10 +90,10 @@ internal fun NavigationDialogs(
             SideEffect { requests.renaming = null }
         } else {
             NameDialog(
-                title = "Rename ${item.noun}",
+                title = item.renameLabel,
                 icon = ContextSymbols.Edit,
                 initial = current,
-                confirmLabel = "Rename",
+                confirmLabel = Strings.rename,
                 confirmTag = NavigationTestTags.ConfirmRename,
                 defaultName = null,
                 onDismiss = { requests.renaming = null },
@@ -102,10 +110,10 @@ internal fun NavigationDialogs(
             SideEffect { requests.creating = null }
         } else {
             NameDialog(
-                title = if (notebookId == null) "New notebook" else "New section",
+                title = if (notebookId == null) Strings.new_notebook else Strings.new_section,
                 icon = if (notebookId == null) NavigationSymbols.Book else NavigationSymbols.Add,
                 initial = "",
-                confirmLabel = "Create",
+                confirmLabel = Strings.create,
                 confirmTag = NavigationTestTags.ConfirmCreate,
                 defaultName = if (notebookId == null) NEW_NOTEBOOK_NAME else NEW_SECTION_NAME,
                 onDismiss = { requests.creating = null },
@@ -170,7 +178,7 @@ private fun NameDialog(
                 value = value,
                 onValueChange = { value = it },
                 singleLine = true,
-                label = { Text("Name") },
+                label = { Text(Strings.name) },
                 placeholder = defaultName?.let { { Text(it) } },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { if (valid) onConfirm(value.text) }),
@@ -191,7 +199,7 @@ private fun NameDialog(
                 onClick = onDismiss,
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier.testTag(NavigationTestTags.Cancel),
-            ) { Text("Cancel") }
+            ) { Text(Strings.cancel) }
             Button(
                 onClick = { onConfirm(value.text) },
                 enabled = valid,
@@ -216,7 +224,7 @@ private fun DeleteDialog(
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     DesktopDialogFrame(
-        title = "Delete $name?",
+        title = Strings.delete_value(name),
         icon = ObjectSymbols.Delete,
         iconTint = MaterialTheme.colorScheme.error,
         onDismiss = onDismiss,
@@ -225,9 +233,9 @@ private fun DeleteDialog(
         content = {
             Text(
                 when (item) {
-                    is NavigationItem.Notebook -> "This notebook, its sections and all of their pages will be deleted."
-                    is NavigationItem.Section -> "This section and all of its pages will be deleted."
-                    is NavigationItem.Page -> "This page will be deleted."
+                    is NavigationItem.Notebook -> Strings.this_notebook_its_sections_and_all_of_their_pages_will_be
+                    is NavigationItem.Section -> Strings.this_section_and_all_of_its_pages_will_be_deleted
+                    is NavigationItem.Page -> Strings.this_page_will_be_deleted
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -239,7 +247,7 @@ private fun DeleteDialog(
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier.focusRequester(focus).testTag(NavigationTestTags.Cancel),
             ) {
-                Text("Cancel")
+                Text(Strings.cancel)
             }
             Button(
                 onClick = onConfirm,
@@ -249,7 +257,7 @@ private fun DeleteDialog(
                     contentColor = Color.White,
                 ),
                 modifier = Modifier.testTag(NavigationTestTags.ConfirmDelete),
-            ) { Text("Delete") }
+            ) { Text(Strings.delete) }
         },
     )
 }

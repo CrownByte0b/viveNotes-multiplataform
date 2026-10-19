@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import com.vivenotes.localization.Strings
 import com.vivenotes.math.MathEngine
 import com.vivenotes.math.MathOperationResult
 
@@ -23,5 +24,5 @@ internal suspend fun calculate(recognized: String, engine: MathEngine): Calculat
 
 internal fun withoutTrailingEquals(latex: String): String = latex.trimEnd().removeSuffix("=").trimEnd()
 
-internal const val NOTHING_TO_RUN = "Nothing to calculate automatically. Open it in the panel for every action."
+internal val NOTHING_TO_RUN get() = Strings.nothing_to_calculate_automatically_open_it_in_the_panel_for_every
 internal val AUTOMATIC_MATH_ACTIONS = listOf("solve", "evaluate", "simplify")
