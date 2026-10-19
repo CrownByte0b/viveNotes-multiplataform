@@ -16,7 +16,7 @@ kotlinx-serialization = "1.11.0"
 material3 = "1.13.0-alpha02"
 mocha = "11.7.6"
 # The Android app's `onnxruntime-android` line, which its recognition models were validated on.
-onnxruntime = "1.27.0"
+onnxruntime = "1.31.0"
 ratex = "0.1.14"
 # The Android app's Room line (2.8.1 there), so both builds compile the same schema. Room 2.8 is
 # tested against androidx.sqlite 2.6.
