@@ -1,0 +1,38 @@
+name: lint
+on:
+  push:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+    steps:
+      - uses: actions/checkout@v7
+      # gradle/gradle-daemon-jvm.properties requires an Azul JDK 27 for the Gradle daemon.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: 27
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+      # UI text, resource references and translation placeholders. Needs no ByteInk.
+      - name: Resource lint
+        run: ./gradlew lint
+      - name: Install actionlint
+        run: |
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$archive"
+          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
+      - name: Workflow lint
+        run: '"$RUNNER_TEMP/actionlint" -color'

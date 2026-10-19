@@ -5,7 +5,7 @@ jvmTarget = "25"
 androidx-lifecycle = "2.11.0"
 # The Android app's DataStore line: its sync account record is this library's Preferences file.
 datastore = "1.1.1"
-composeMultiplatform = "1.12.1"
+composeMultiplatform = "1.13.0-alpha02"
 junit = "4.13.2"
 kotlin = "2.4.21"
 # KSP2 versions independently of Kotlin; 2.3.10 is the first release that handles Kotlin 2.4.

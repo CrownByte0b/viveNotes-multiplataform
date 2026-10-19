@@ -84,7 +84,7 @@ internal fun MathPanelButton(onClick: () -> Unit, modifier: Modifier = Modifier,
 @Composable
 internal fun MathDecimalToggle(checked: Boolean, onChange: (Boolean) -> Unit) {
     ToggleButton(checked, onChange, shapes = ToggleButtonDefaults.shapesFor(ButtonDefaults.ExtraSmallContainerHeight),
-        colors = ToggleButtonDefaults.toggleButtonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        colors = ToggleButtonDefaults.colors(containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer, checkedContainerColor = MaterialTheme.colorScheme.tertiary,
             checkedContentColor = MaterialTheme.colorScheme.onTertiary),
         contentPadding = ButtonDefaults.contentPaddingFor(ButtonDefaults.ExtraSmallContainerHeight),

@@ -163,7 +163,7 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
                         HoverTooltip(Strings.show_decimal) {
                             ToggleButton(decimal, { decimal = it },
                                 shapes = ToggleButtonDefaults.shapesFor(ButtonDefaults.ExtraSmallContainerHeight),
-                                colors = ToggleButtonDefaults.toggleButtonColors(
+                                colors = ToggleButtonDefaults.colors(
                                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                                     checkedContainerColor = MaterialTheme.colorScheme.tertiary,

@@ -89,7 +89,7 @@ internal fun Modifier.followPointer(pointer: CanvasPointer): Modifier = pointerI
 
 private val BadgeShape = RoundedCornerShape(5.dp)
 private val BadgeSize = 20.dp
-private val GlyphSize = 14.dp
+private val GlyphSize = 16.dp
 /** Right of and below the pointer's tip, clear of the arrow drawn down and right from it. */
 private val PointerGap = 16.dp
 /** Left of or above the tip, where no arrow is, when the canvas's edge leaves no room the usual way. */

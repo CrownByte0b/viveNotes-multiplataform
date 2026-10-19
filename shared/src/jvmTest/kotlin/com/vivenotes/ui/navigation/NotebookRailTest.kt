@@ -89,9 +89,9 @@ class NotebookRailTest {
         }
         assertEquals(14f, fontSize("Alpha"), 0.01f)
         assertEquals(14f * 1.3f, fontSize("Field notes"), 0.01f)
-        val book = onNodeWithTag(NavigationTestTags.notebookBook("nb")).getUnclippedBoundsInRoot()
-        assertEquals(16f * 1.3f, book.width.value, 0.5f)
-        assertEquals(16f * 1.3f, book.height.value, 0.5f)
+        val book = onNodeWithTag(NavigationTestTags.notebookBook("nb"), useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertEquals(16f * 1.3f, (book.right - book.left).value, 0.5f)
+        assertEquals(16f * 1.3f, (book.bottom - book.top).value, 0.5f)
         // The larger name still fits its row.
         val name = onNodeWithText("Field notes", useUnmergedTree = true).getUnclippedBoundsInRoot()
         val row = onNodeWithTag(NavigationTestTags.notebook("nb")).getUnclippedBoundsInRoot()

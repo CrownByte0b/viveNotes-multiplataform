@@ -8,11 +8,13 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertRangeInfoEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
@@ -22,6 +24,8 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.SemanticsActions
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.navigation.NavigationTestTags
@@ -35,6 +39,35 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class InterfaceDialogTest {
+    @Test
+    fun customSliderStateFollowsEditsAndExternalResetWhileTheDialogStaysOpen() =
+        runDesktopComposeUiTest(width = 900, height = 800) {
+            var preview = InterfaceSettings()
+            setContent {
+                var settings by remember { mutableStateOf(preview) }
+                ViveNotesTheme(darkTheme = true) {
+                    InterfaceDialog(settings, { settings = it; preview = it }, {}, {})
+                }
+            }
+            val sliders = listOf(
+                Triple(InterfaceTags.DisplayScale, InterfaceSettings.DisplayScaleRange, 0.75f),
+                Triple(InterfaceTags.UiScale, InterfaceSettings.UiScaleRange, 1f),
+                Triple(InterfaceTags.FontScale, InterfaceSettings.FontScaleRange, 1f),
+            )
+            for ((tag, range) in sliders) {
+                onNodeWithTag(tag).performSemanticsAction(SemanticsActions.SetProgress) { it(range.endInclusive) }
+                onNodeWithTag(tag).assertRangeInfoEquals(ProgressBarRangeInfo(range.endInclusive, range))
+            }
+            runOnIdle { assertEquals(InterfaceSettings(2.5f, 1.5f, 1.8f), preview) }
+            onNodeWithTag(InterfaceTags.Reset).performClick()
+            for ((tag, range, default) in sliders) {
+                onNodeWithTag(tag).assertRangeInfoEquals(ProgressBarRangeInfo(default, range))
+                onNodeWithTag(tag).performSemanticsAction(SemanticsActions.SetProgress) { it(range.start) }
+                onNodeWithTag(tag).assertRangeInfoEquals(ProgressBarRangeInfo(range.start, range))
+            }
+            runOnIdle { assertEquals(InterfaceSettings(0.5f, 0.5f, 0.5f), preview) }
+        }
+
     @Test
     fun sunMoonSwitchPreviewsAndAppliesLightThemeThenResetFollowsSystem() =
         runDesktopComposeUiTest(width = 1400, height = 900) {

@@ -154,7 +154,7 @@ fun ContextMenuItem(
         shape = MaterialTheme.shapes.medium,
         modifier = modifier,
         leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(MenuDefaults.LeadingIconSize)) },
-        trailingIcon = shortcut?.let { keys -> { Text(keys, style = MaterialTheme.typography.bodySmall) } },
+        trailingContent = shortcut?.let { keys -> { Text(keys, style = MaterialTheme.typography.bodySmall) } },
         enabled = enabled,
         colors = colors,
     )

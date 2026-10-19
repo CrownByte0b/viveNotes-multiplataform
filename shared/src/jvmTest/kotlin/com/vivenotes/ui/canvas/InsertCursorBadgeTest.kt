@@ -48,7 +48,7 @@ class InsertCursorBadgeTest {
         onNodeWithTag(textBadge).assertIsDisplayed().getUnclippedBoundsInRoot().let {
             assertEquals(bounds.left.value + 316f, it.left.value, 1f, "the badge is not right of the pointer")
             assertEquals(bounds.top.value + 416f, it.top.value, 1f, "the badge is not below the pointer")
-            assertEquals(20f, it.width.value, 0.5f)
+            assertEquals(20f, (it.right - it.left).value, 0.5f)
         }
         canvas.performMouseInput { moveTo(Offset(520f, 250f)) }
         onNodeWithTag(textBadge).getUnclippedBoundsInRoot().let {
@@ -102,7 +102,7 @@ class InsertCursorBadgeTest {
         setWorkspace(WorkspaceState.demo().toggleTextTool())
         val canvas = onNodeWithTag(WorkspaceTestTags.PageCanvas)
         val bounds = canvas.getUnclippedBoundsInRoot()
-        val corner = Offset(bounds.width.value - 4f, bounds.height.value - 4f)
+        val corner = Offset((bounds.right - bounds.left).value - 4f, (bounds.bottom - bounds.top).value - 4f)
         canvas.performMouseInput { moveTo(corner) }
         onNodeWithTag(textBadge).assertIsDisplayed().getUnclippedBoundsInRoot().let {
             assertTrue(it.right <= bounds.right && it.bottom <= bounds.bottom, "badge $it leaves the canvas $bounds")

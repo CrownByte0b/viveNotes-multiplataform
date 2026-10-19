@@ -293,7 +293,7 @@
     <string name="latex">LaTeX</string>
     <string name="preview">Preview</string>
     <string name="unable_to_render_this_equation">Unable to render this equation</string>
-    <string name="place_on_page">Place on page</string>
+    <string name="place_on_page">Insert</string>
     <string name="update">Update</string>
     <string name="nothing_to_calculate_automatically_open_it_in_the_panel_for_every">Nothing to calculate automatically. Open it in the panel for every action.</string>
     <string name="hold_for_straight_line">Hold for straight line</string>

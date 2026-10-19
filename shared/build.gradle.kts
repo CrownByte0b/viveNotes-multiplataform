@@ -115,6 +115,10 @@ room {
 }
 
 kotlin {
+    compilerOptions {
+        optIn.add("androidx.compose.material3.ExperimentalMaterial3Api")
+    }
+
     jvm {
         compilerOptions {
             jvmTarget = JvmTarget.fromTarget(libs.versions.jvmTarget.get())

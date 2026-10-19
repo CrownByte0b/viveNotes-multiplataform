@@ -1,9 +1,11 @@
 package com.vivenotes.pdf
 
+import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.platform.registerSkikoComposeImplementation
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
@@ -143,6 +145,12 @@ class PdfTextLayout internal constructor(
 
 /** SpannableCodec's export styles mapped to Compose's desktop paragraph engine. */
 internal class PdfTextMeasurer {
+    init {
+        // PDF measurement also runs before a Compose host exists, including native Wayland startup.
+        @OptIn(InternalComposeUiApi::class)
+        registerSkikoComposeImplementation()
+    }
+
     private val measurer = TextMeasurer(createFontFamilyResolver(), Density(1f), LayoutDirection.Ltr)
     private var fonts: Map<String, FontFamily>? = null
 

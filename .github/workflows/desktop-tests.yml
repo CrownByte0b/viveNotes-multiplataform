@@ -1,15 +1,39 @@
 name: desktop tests
-# Paused: shared/jvmMain needs ByteInk (and its native libink.so), which is unfinished and
-# unpublished, so runners can't resolve it. Restore `push:` once ByteInk is available to CI.
 on:
+  push:
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
-    name: JVM desktop tests
-    runs-on: ubuntu-latest
+    name: JVM desktop tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
+      packages: read
+    env:
+      # settings.gradle.kts reads ByteInk from GitHub Packages when GITHUB_ACTOR and GITHUB_TOKEN
+      # are set; the registry wants a login even for public packages. Local builds keep using the
+      # 0.1.0-SNAPSHOT in ~/.m2, so bump this after publishing a new ByteInk version.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ORG_GRADLE_PROJECT_byteinkVersion: 0.1.0-alpha.1
+    defaults:
+      run:
+        shell: bash
     steps:
+      # Without .gitattributes the Windows runner checks out CRLF, which breaks ./gradlew under
+      # bash and the byte-exact fixtures.
+      - name: Keep LF line endings
+        if: runner.os == 'Windows'
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+          git config --global core.longpaths true
       - uses: actions/checkout@v7
       # gradle/gradle-daemon-jvm.properties requires an Azul JDK 27 for the Gradle daemon.
       - uses: actions/setup-java@v6
@@ -21,13 +45,21 @@ jobs:
           cache-provider: basic
       # The math engine's tests have uv install the pinned CPython and SymPy; without uv they skip.
       - uses: astral-sh/setup-uv@v7
+      # Window class, popup and touch tests skip without a display.
+      - name: Install Xvfb
+        if: runner.os == 'Linux'
+        run: command -v xvfb-run >/dev/null || { sudo apt-get update && sudo apt-get install -y xvfb; }
       - name: Run desktop tests
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s '-screen 0 1920x1200x24' ./gradlew :shared:jvmTest :desktopApp:test --continue
+      - name: Run desktop tests
+        if: runner.os == 'Windows'
         run: ./gradlew :shared:jvmTest :desktopApp:test --continue
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: desktop-test-reports
+          name: desktop-test-reports-${{ runner.os }}
           path: |
             shared/build/reports/tests/
             shared/build/test-results/

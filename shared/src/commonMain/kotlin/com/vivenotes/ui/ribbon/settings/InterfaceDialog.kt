@@ -19,11 +19,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -133,6 +135,8 @@ private fun ScaleSlider(
     tag: String,
     onChange: (Float) -> Unit,
 ) {
+    val sliderState = remember(range) { SliderState(value = value, trackRange = range) }
+    sliderState.value = value
     val trackAlignment = if (LocalLayoutDirection.current == LayoutDirection.Rtl) Alignment.CenterEnd
         else Alignment.CenterStart
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.medium) {
@@ -140,7 +144,7 @@ private fun ScaleSlider(
             Text(Strings.value_value_b8d94b(label, (value * 100).roundToInt()), style = MaterialTheme.typography.titleSmall)
             Text(description, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Slider(value = value, onValueChange = onChange, valueRange = range,
+            Slider(state = sliderState, onValueChange = onChange,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).testTag(tag)
                     .semantics { contentDescription = label },
                 thumb = {
