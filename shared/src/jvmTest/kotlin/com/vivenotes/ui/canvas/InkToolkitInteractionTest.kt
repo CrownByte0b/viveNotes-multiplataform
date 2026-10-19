@@ -22,6 +22,7 @@ import com.vivenotes.math.*
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
 import com.vivenotes.model.ink.InkPage
+import com.vivenotes.ui.components.assertIsIndeterminateWavyBar
 import com.vivenotes.ui.ribbon.draw.DrawMath
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
@@ -190,6 +191,7 @@ class InkToolkitInteractionTest {
         setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }, aiModels = Models(), drawMath = math) } }
         onNodeWithTag(WorkspaceTestTags.InkMath).performClick()
         waitUntil(timeoutMillis = 5000) { math.reads.size == 1 }
+        onNodeWithTag("ink-math-loading").assertIsIndeterminateWavyBar()
         runOnIdle { state.value = state.value.selectPointer() }
         onNodeWithTag("ink-math-loading").assertDoesNotExist()
         runOnIdle { state.value = state.value.selectInkAt(40f, 240f) }

@@ -40,6 +40,7 @@ private class MathPaneState(initial: String) {
     var requestVersion = 0L
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun MathPane(initial: String, math: DrawMath, showInterpretation: Boolean = false,
                       log: DebugLog = remember { DebugLog() }, onClose: () -> Unit) {
@@ -129,7 +130,7 @@ internal fun MathPane(initial: String, math: DrawMath, showInterpretation: Boole
                 }
             }
         }
-        if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 6.dp))
+        if (state.busy) LinearWavyProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag(MathPaneTags.Busy))
         state.error?.let { MathSection(Strings.operation_failed) { MathError(it) } }
         state.result?.let { answer ->
             MathSection(MathText.translate(answer.title)) {

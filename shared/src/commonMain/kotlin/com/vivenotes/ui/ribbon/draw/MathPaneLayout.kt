@@ -38,6 +38,7 @@ internal object MathPaneTags {
     const val Result = "draw-math-result"
     const val Decimal = "draw-math-decimal"
     const val Error = "draw-math-error"
+    const val Busy = "draw-math-busy"
     fun action(id: String) = "draw-math-action-$id"
 }
 

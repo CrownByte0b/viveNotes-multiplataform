@@ -38,7 +38,7 @@ import com.vivenotes.ui.icons.ShellSymbols
 import com.vivenotes.ui.theme.LocalDesktopColors
 import com.vivenotes.workspace.RibbonTab
 
-/** The window's top bar: navigation toggle, app name, the ribbon's tabs, and canvas undo/redo. */
+/** The window's top bar: navigation toggle, canvas undo/redo, and ribbon tabs. */
 @Composable
 internal fun TopNavigation(
     activeTab: RibbonTab,
@@ -82,11 +82,14 @@ internal fun TopNavigation(
                     contentDescription = null,
                     modifier = Modifier.size(18.dp).testTag(WorkspaceTestTags.NavigationIcon))
             }
-            Text(
-                text = Strings.vivenotes,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(start = 4.dp, end = 12.dp),
-            )
+            TooltipIconButton(Strings.undo_canvas_action, onClick = onUndo, enabled = canUndo,
+                modifier = Modifier.testTag(WorkspaceTestTags.StructuralUndo)) {
+                Icon(ShellSymbols.Undo, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+            TooltipIconButton(Strings.redo_canvas_action, onClick = onRedo, enabled = canRedo,
+                modifier = Modifier.testTag(WorkspaceTestTags.StructuralRedo)) {
+                Icon(ShellSymbols.Redo, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()).pointerInput(Unit) {
@@ -121,14 +124,6 @@ internal fun TopNavigation(
             TooltipIconButton(Strings.search_notebook, onClick = onSearch, enabled = searchAvailable,
                 modifier = Modifier.testTag(com.vivenotes.ui.search.SearchTags.Open)) {
                 Icon(ShellSymbols.Search, contentDescription = null, modifier = Modifier.size(20.dp))
-            }
-            TooltipIconButton(Strings.undo_canvas_action, onClick = onUndo, enabled = canUndo,
-                modifier = Modifier.testTag(WorkspaceTestTags.StructuralUndo)) {
-                Icon(ShellSymbols.Undo, contentDescription = null, modifier = Modifier.size(18.dp))
-            }
-            TooltipIconButton(Strings.redo_canvas_action, onClick = onRedo, enabled = canRedo,
-                modifier = Modifier.testTag(WorkspaceTestTags.StructuralRedo)) {
-                Icon(ShellSymbols.Redo, contentDescription = null, modifier = Modifier.size(18.dp))
             }
             // A dot rather than pressed-state chrome: that chrome means "this control is on", and the
             // account button is not a toggle — it opens a screen. A badge says something is true

@@ -7,11 +7,11 @@ import java.io.File
 internal data class ProfileDirectories(val data: File, val config: File, val cache: File)
 
 /** Separate identities and storage for development runs and the installed app. */
-internal enum class DesktopProfile(val windowClass: String, private val titleText: () -> String) {
-    PRODUCTION("vivenotes", { Strings.vive_notes }),
-    DEVELOPMENT("vivenotes-dev", { Strings.vive_notes_dev });
+internal enum class DesktopProfile(val windowClass: String) {
+    PRODUCTION("vivenotes"),
+    DEVELOPMENT("vivenotes-dev");
 
-    val windowTitle: String get() = titleText()
+    val windowTitle: String get() = Strings.vive_notes
 
     val developmentBuild: Boolean get() = this == DEVELOPMENT
 

@@ -14,6 +14,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun InkMathPane(selection: InkSelection, math: DrawMath, showInterpretation: Boolean = false,
                          log: DebugLog = remember { DebugLog() }, onClose: () -> Unit) {
@@ -43,7 +44,7 @@ internal fun InkMathPane(selection: InkSelection, math: DrawMath, showInterpreta
     else MathPaneFrame(onClose) {
         val failure = error
         if (failure == null) {
-            LinearProgressIndicator(Modifier.fillMaxWidth().testTag("ink-math-loading"))
+            LinearWavyProgressIndicator(Modifier.fillMaxWidth().testTag("ink-math-loading"))
             Text(Strings.reading_handwriting)
         } else {
             Text(failure, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("ink-math-error"))

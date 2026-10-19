@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
 
 class DesktopProfileTest {
     @Test
-    fun developmentAndProductionHaveDistinctNamesAndDirectories() {
+    fun profilesShareTheAppTitleWithDistinctWindowClassesAndDirectories() {
         val root = Files.createTempDirectory("vivenotes-profiles").toFile()
         val production = DesktopProfile.PRODUCTION.directories(root)
         val development = DesktopProfile.DEVELOPMENT.directories(root)
@@ -22,7 +22,7 @@ class DesktopProfileTest {
         assertEquals("vivenotes", DesktopProfile.PRODUCTION.windowClass)
         assertEquals("Vive Notes", DesktopProfile.PRODUCTION.windowTitle)
         assertEquals("vivenotes-dev", DesktopProfile.DEVELOPMENT.windowClass)
-        assertEquals("Vive Notes Dev", DesktopProfile.DEVELOPMENT.windowTitle)
+        assertEquals("Vive Notes", DesktopProfile.DEVELOPMENT.windowTitle)
         assertEquals(File(root, "devdb"), development.data)
         assertEquals(File(root, "devdb/config"), development.config)
         assertEquals(File(root, "devdb/cache"), development.cache)

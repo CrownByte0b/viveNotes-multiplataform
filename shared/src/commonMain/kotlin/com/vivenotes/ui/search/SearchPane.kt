@@ -29,9 +29,11 @@ object SearchTags {
     const val Query = "search-query"
     const val Close = "search-close"
     const val Status = "search-status"
+    const val Progress = "search-progress"
     fun hit(hit: ContentHit) = "search-hit-${hit.unit.pageId}-${hit.unit.boxId}-${hit.unit.blockIndex}-${hit.unit.kind}"
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SearchPane(
     service: ContentSearchService,
@@ -82,7 +84,7 @@ fun SearchPane(
                 }
             }
             Text(status, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag(SearchTags.Status))
-            if (results.searching) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (results.searching) LinearWavyProgressIndicator(Modifier.fillMaxWidth().testTag(SearchTags.Progress))
             if (results.error != null) TextButton(onClick = { retry++ }) { Text(Strings.retry_search) }
             if (results.failedImages > 0) TextButton(onClick = {
                 scope.launch {

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.model.*
 import com.vivenotes.model.search.*
 import com.vivenotes.richtext.TextSelection
+import com.vivenotes.ui.components.assertIsIndeterminateWavyBar
 import com.vivenotes.ui.search.SearchPane
 import com.vivenotes.ui.search.SearchTags
 import com.vivenotes.ui.shell.WorkspaceScreen
@@ -139,8 +140,10 @@ class SearchPaneTest {
             onNodeWithTag(SearchTags.Query).performTextReplacement("new")
             waitUntil(timeoutMillis = 10_000) { "old" in cancellations && "new" in requests }
             onNodeWithTag(SearchTags.Status).assertTextContains("Pictures 2/4", substring = true)
+            onNodeWithTag(SearchTags.Progress).assertIsIndeterminateWavyBar()
             progress.value = SearchResults(imagesTotal = 4, imagesDone = 4, failedImages = 1)
             waitForIdle()
+            onNodeWithTag(SearchTags.Progress).assertDoesNotExist()
             onNodeWithText("No matches").assertIsDisplayed()
             onNodeWithText("Retry pictures").performClick()
             waitUntil(timeoutMillis = 10_000) { retries == 1 }

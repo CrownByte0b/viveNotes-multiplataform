@@ -6,6 +6,7 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.math.*
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.ui.canvas.INK_LAYER_TAG
+import com.vivenotes.ui.components.assertIsIndeterminateWavyBar
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.InkSettings
 import kotlinx.coroutines.CompletableDeferred
@@ -15,6 +16,30 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class DrawMathCancellationTest {
+    @Test
+    fun aRunningAnalysisShowsTheWavyBusyIndicatorUntilItsActionsArrive() = runDesktopComposeUiTest(width = 600, height = 800) {
+        val gate = CompletableDeferred<Unit>()
+        var started = false
+        val math = object : DrawMath {
+            override val engine = object : MathEngine {
+                override suspend fun analyze(latex: String): MathAnalysis {
+                    started = true
+                    gate.await()
+                    return MathAnalysis(actions = listOf(MathAction("expand", "Expand")))
+                }
+                override suspend fun execute(latex: String, actionId: String) = MathOperationResult(latex = latex)
+            }
+            override suspend fun readFormula(ink: InkPage) = ""
+        }
+        setContent { ViveNotesTheme { MathPane("x+1", math) {} } }
+        mainClock.advanceTimeBy(300)
+        waitUntil(timeoutMillis = 5000) { started }
+        onNodeWithTag(MathPaneTags.Busy).assertIsIndeterminateWavyBar()
+        runOnIdle { gate.complete(Unit) }
+        onNodeWithTag(MathPaneTags.action("expand")).assertExists()
+        onNodeWithTag(MathPaneTags.Busy).assertDoesNotExist()
+    }
+
     @Test
     fun aCancelledNativeRecognitionCannotPublishItsAnswerOrEnableANewerRequest() = runDesktopComposeUiTest(width = 700, height = 700) {
         val gates = List(2) { CompletableDeferred<Unit>() }
