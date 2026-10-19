@@ -53,6 +53,7 @@ internal class WorkspaceShortcuts(
             ShortcutAction.Underline -> onEditorCommand { it.toggleSelectedMark(Mark.Underline) }
             ShortcutAction.Indent -> onStateChange { it.indentSelectedText(1) }
             ShortcutAction.Outdent -> onStateChange { it.indentSelectedText(-1) }
+            ShortcutAction.ExitList -> onStateChange { it.insertPlainParagraph() }
         }
         return true
     }

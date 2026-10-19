@@ -324,4 +324,70 @@ class RichTextBufferTest {
         assertEquals(listOf("x", "y"), pasted.blocks.map { it.id })
         assertEquals(TextSelection(5), pasted.selection)
     }
+
+    /** Ctrl+Enter: the line after the caret is a plain paragraph, the list item before it untouched. */
+    @Test
+    fun aPlainParagraphLeavesTheListWhereEnterWouldMakeAnotherItem() {
+        val list = editor(Block(id = "a", type = BlockType.Bullet, indent = 1, align = Align.Center,
+            runs = listOf(Run("item", setOf(Mark.Bold)))))
+
+        val atEnd = list.select(TextSelection(4)).insertPlainParagraph()
+        assertEquals("item\n", atEnd.text)
+        assertEquals(listOf(BlockType.Bullet, BlockType.Paragraph), atEnd.blocks.map { it.type })
+        assertEquals("a", atEnd.blocks.first().id)
+        assertEquals(listOf(1, 1), atEnd.blocks.map { it.indent }, "the indent carries on as with Enter")
+        assertEquals(Align.Center, atEnd.blocks.last().align)
+        assertEquals(TextSelection(5), atEnd.selection)
+        assertEquals("item\nnext", atEnd.replace("next").text)
+        assertEquals(BlockType.Paragraph, atEnd.replace("next").blocks.last().type)
+        assertEquals(BlockType.Bullet, list.select(TextSelection(4)).replace("\n").blocks.last().type,
+            "Enter itself still makes another item")
+
+        val inMiddle = list.select(TextSelection(2)).insertPlainParagraph()
+        assertEquals(listOf("it", "em"), inMiddle.blocks.map { it.text })
+        assertEquals(listOf(BlockType.Bullet, BlockType.Paragraph), inMiddle.blocks.map { it.type })
+        assertEquals(setOf(Mark.Bold), inMiddle.blocks.last().runs.single().marks)
+
+        val overSelection = list.select(TextSelection(1, 3)).insertPlainParagraph()
+        assertEquals("i\nm", overSelection.text)
+        assertEquals(TextSelection(2), overSelection.selection)
+    }
+
+    @Test
+    fun aPlainParagraphAlsoLeavesToDosQuotesCodeAndHeadings() {
+        listOf(BlockType.Todo, BlockType.Quote, BlockType.Code, BlockType.Heading1, BlockType.Numbered).forEach { type ->
+            val block = Block(id = "b", type = type, runs = listOf(Run("text")),
+                checked = if (type == BlockType.Todo) true else null)
+            val split = editor(block).select(TextSelection(4)).insertPlainParagraph()
+            assertEquals(type, split.blocks.first().type)
+            assertEquals(block.checked, split.blocks.first().checked, "the item keeps its tick")
+            assertEquals(BlockType.Paragraph, split.blocks.last().type, "after $type")
+            assertEquals(null, split.blocks.last().checked)
+        }
+    }
+
+    /** What another app copied as one heading or item is that paragraph, pasted onto an empty line. */
+    @Test
+    fun formattedTextFromAnotherAppKeepsTheStyleOfAWholeParagraph() {
+        val heading = listOf(Block(id = "h", type = BlockType.Heading2, runs = listOf(Run("Title"))))
+
+        val onEmpty = editor(Block.of("before"), Block(id = "e"), Block.of("after")).select(TextSelection(7))
+            .insertFormatted(heading)
+        assertEquals("before\nTitle\nafter", onEmpty.text)
+        assertEquals(listOf(BlockType.Paragraph, BlockType.Heading2, BlockType.Paragraph), onEmpty.blocks.map { it.type })
+        assertEquals("e", onEmpty.blocks[1].id)
+
+        val overWholeLine = editor(Block.of("replace me")).select(TextSelection(0, 10)).insertFormatted(heading)
+        assertEquals(BlockType.Heading2, overWholeLine.blocks.single().type)
+
+        val intoText = editor(Block.of("see here")).select(TextSelection(4)).insertFormatted(heading)
+        assertEquals("see Titlehere", intoText.text)
+        assertEquals(BlockType.Paragraph, intoText.blocks.single().type, "words in a sentence take the sentence's style")
+
+        val plain = editor(Block(id = "b", type = BlockType.Bullet)).insertFormatted(listOf(Block.of("words")))
+        assertEquals(BlockType.Bullet, plain.blocks.single().type, "a plain paragraph leaves the item its bullet")
+
+        val two = editor(Block(id = "e")).insertFormatted(listOf(Block.of("Head", BlockType.Heading1), Block.of("item", BlockType.Bullet)))
+        assertEquals(listOf(BlockType.Heading1, BlockType.Bullet), two.blocks.map { it.type })
+    }
 }

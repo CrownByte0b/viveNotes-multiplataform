@@ -41,4 +41,19 @@ class PreviewProjectionTest {
         assertTrue(projected.paragraphStyles.all { it.end > it.start })
         assertEquals(sourceText, source.text)
     }
+
+    /** A click on the preview starts editing at the source character it shows. */
+    @Test fun aPreviewOffsetLeadsBackToItsSource() {
+        // "See $x$ here." with the formula drawn, then a link icon after "here".
+        val ranges = listOf(4 until 7, 12 until 12)
+        listOf(0, 3, 4, 7, 8, 11, 12, 13).forEach { source ->
+            assertEquals(source, sourceOffset(projectedOffset(source, ranges), ranges), "source $source")
+        }
+        // Shown: "See " ▢ " here" ▢ "." — the formula at 4, the icon at 10.
+        assertEquals(4, sourceOffset(4, ranges), "before the formula is before its source")
+        assertEquals(7, sourceOffset(5, ranges), "after the formula is after its source")
+        assertEquals(12, sourceOffset(10, ranges))
+        assertEquals(12, sourceOffset(11, ranges), "after the link icon is the link's end")
+        assertEquals(13, sourceOffset(12, ranges))
+    }
 }

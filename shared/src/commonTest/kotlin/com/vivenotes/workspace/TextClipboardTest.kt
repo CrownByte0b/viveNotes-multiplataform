@@ -87,4 +87,42 @@ class TextClipboardTest {
         val idle = WorkspaceState.demo()
         assertSame(idle, idle.pasteText("text", keepFormatting = true))
     }
+
+    private val webPage = "<h2>Steps</h2><ul><li>Open <b>it</b></li><li>Close it</li></ul>"
+
+    /** A browser's copy: the HTML says what the plain text cannot, in the font and size at the caret. */
+    @Test
+    fun textAnotherAppCopiedWithItsHtmlKeepsItsHeadingsListsAndMarks() {
+        val caretMarks = setOf(Mark.FontFamily("serif"), Mark.FontSize(24))
+        val box = WorkspaceState.demo().focusBody().selectText(TextSelection(0)).replaceSelectedText("\n")
+            .selectText(TextSelection(0)).let { it.copy(typingMarks = caretMarks) }
+
+        val pasted = box.pasteText("Steps\nOpen it\nClose it", keepFormatting = true, clipboardHtml = webPage)
+
+        val blocks = pasted.richText!!.blocks
+        assertEquals(listOf("Steps", "", "Open it", "Close it"), blocks.take(4).map { it.text },
+            "the page's space between the heading and the list is a blank line")
+        assertEquals(listOf(BlockType.Heading2, BlockType.Paragraph, BlockType.Bullet, BlockType.Bullet),
+            blocks.take(4).map { it.type })
+        assertEquals(caretMarks + Mark.Bold, blocks[2].runs.last().marks)
+        assertEquals(caretMarks, blocks[0].runs.single().marks)
+        assertEquals(TextSelection("Steps\n\nOpen it\nClose it".length), pasted.editorSelection)
+    }
+
+    @Test
+    fun theHtmlIsLeftOutForPlainPastesAndTextCopiedHere() {
+        val box = WorkspaceState.demo().focusBody().selectText(TextSelection(0))
+
+        val plain = box.pasteText("Steps", keepFormatting = false, clipboardHtml = webPage)
+        assertEquals(BlockType.Paragraph, plain.richText!!.blocks.first().type)
+        assertEquals("Steps", plain.richText!!.blocks.first().text.take(5))
+
+        val copied = formatted.copySelectedText()
+        val end = copied.richText!!.text.length
+        val ours = copied.selectText(TextSelection(end)).pasteText("Review", keepFormatting = true, clipboardHtml = webPage)
+        assertEquals(setOf(Mark.Bold), ours.richText!!.blocks.last().runs.last().marks, "the workspace's own copy wins")
+
+        val empty = box.pasteText("only text", keepFormatting = true, clipboardHtml = "<img src=\"x.png\">")
+        assertEquals("only text", empty.richText!!.blocks.first().text.take(9), "HTML without text leaves the text")
+    }
 }

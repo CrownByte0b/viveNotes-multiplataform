@@ -10,6 +10,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,10 +23,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.vivenotes.ai.AiModels
+import com.vivenotes.data.ClipboardHtml
 import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.account.AccountHost
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
@@ -78,6 +81,8 @@ fun App(
     debugLog: DebugLog = remember { DebugLog() },
     developmentBuild: Boolean = false,
     pdfExporter: com.vivenotes.pdf.PdfExportService? = null,
+    /** The system clipboard's HTML, for pasting another app's formatting; without it, its text comes plain. */
+    clipboardHtml: ClipboardHtml? = null,
 ) {
     val state by session.state.collectAsState()
     val fileActions = remember(session, notebookFiles, pdfExporter) {
@@ -95,7 +100,7 @@ fun App(
                     Modifier.testTag(AppTestTags.Opening).semantics { contentDescription = Strings.opening_your_notebooks },
                 )
             }
-        } else {
+        } else CompositionLocalProvider(LocalClipboardHtml provides clipboardHtml) {
             WorkspaceScreen(state = workspace, onStateChange = session::update, navigation = session, pictures = pictures,
                 thumbnails = thumbnails,
                 interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange,

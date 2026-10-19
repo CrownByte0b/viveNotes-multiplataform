@@ -84,7 +84,8 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
             onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
             accountHost = notes.sync?.accountHost,
             aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
-            appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild)
+            appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild,
+            clipboardHtml = notes.clipboardHtml)
     }
     return host
 }

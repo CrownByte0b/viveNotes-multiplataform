@@ -35,6 +35,9 @@ class KeyBindingsTest {
         assertEquals("Ctrl+B", shown[ShortcutAction.Bold])
         assertEquals("Tab", shown[ShortcutAction.Indent])
         assertEquals("Shift+Tab", shown[ShortcutAction.Outdent])
+        assertEquals("Ctrl+Enter", shown[ShortcutAction.ExitList])
+        assertEquals(ShortcutAction.ExitList,
+            KeyBindings.Default.actionFor(KeyChord(ShortcutKey.NumPadEnter, ctrl = true)))
         assertEquals("Ctrl+Shift+V", shown[ShortcutAction.PastePlainText])
         assertEquals("Esc", shown[ShortcutAction.SelectTool])
         assertEquals("Delete", shown[ShortcutAction.DeleteSelection])

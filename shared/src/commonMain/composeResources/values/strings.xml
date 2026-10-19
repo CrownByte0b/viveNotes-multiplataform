@@ -612,6 +612,7 @@
     <string name="indent">Indent</string>
     <string name="paragraph">Paragraph</string>
     <string name="outdent">Outdent</string>
+    <string name="exit_list">Exit list</string>
     <string name="your_notebooks_could_not_be_opened">Your notebooks could not be opened</string>
     <string name="your_notebooks_could_not_be_read">Your notebooks could not be read</string>
     <string name="this_section_s_pages_could_not_be_read">This section's pages could not be read</string>

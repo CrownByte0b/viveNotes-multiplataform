@@ -162,7 +162,10 @@ enum class ShortcutAction(
     Underline({ Strings.underline }, ShortcutGroup.Formatting, ShortcutScope.TextBox, false, ctrl(ShortcutKey.U)),
 
     Indent({ Strings.indent }, ShortcutGroup.Paragraph, ShortcutScope.TextBox, true, KeyChord(ShortcutKey.Tab)),
-    Outdent({ Strings.outdent }, ShortcutGroup.Paragraph, ShortcutScope.TextBox, true, KeyChord(ShortcutKey.Tab, shift = true));
+    Outdent({ Strings.outdent }, ShortcutGroup.Paragraph, ShortcutScope.TextBox, true, KeyChord(ShortcutKey.Tab, shift = true)),
+    // A new paragraph without the list's marker: Enter would make another item.
+    ExitList({ Strings.exit_list }, ShortcutGroup.Paragraph, ShortcutScope.TextBox, true, ctrl(ShortcutKey.Enter),
+        ctrl(ShortcutKey.NumPadEnter));
 
     val label: String get() = labelText()
     val group: String get() = shortcutGroup.label

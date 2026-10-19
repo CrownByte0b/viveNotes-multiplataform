@@ -1,6 +1,7 @@
 package com.vivenotes.workspace
 
 import com.vivenotes.model.Block
+import com.vivenotes.richtext.pastedHtmlBlocks
 
 /**
  * Text copied from a text box: the plain [text] that went to the system clipboard, and the same
@@ -26,13 +27,18 @@ fun WorkspaceState.copySelectedText(): WorkspaceState {
  * Pastes [clipboardText] — what the system clipboard holds — over the selection of the focused box.
  *
  * With [keepFormatting], text this workspace copied comes back as it was copied: marks, lists and
- * paragraph styles. Anything else, and everything when [keepFormatting] is off, is pasted as plain
- * text in the formatting at the caret, as if it had been typed there.
+ * paragraph styles. Text another app copied with its HTML, [clipboardHtml] — a web page, a document
+ * — comes with the headings, lists and marks it showed there, in the font and size at the caret
+ * ([pastedHtmlBlocks]). Anything else, and everything when [keepFormatting] is off, is pasted as
+ * plain text in the formatting at the caret, as if it had been typed there.
  */
-fun WorkspaceState.pasteText(clipboardText: String, keepFormatting: Boolean): WorkspaceState {
+fun WorkspaceState.pasteText(clipboardText: String, keepFormatting: Boolean, clipboardHtml: String? = null): WorkspaceState {
     val text = clipboardText.replace("\r\n", "\n").replace('\r', '\n')
     if (text.isEmpty()) return this
     val buffer = richText ?: return this
-    val formatted = textClipboard?.takeIf { keepFormatting && it.text == text }
-    return withRichText(if (formatted != null) buffer.insertFragment(formatted.blocks) else buffer.replace(text))
+    if (keepFormatting) {
+        textClipboard?.takeIf { it.text == text }?.let { return withRichText(buffer.insertFragment(it.blocks)) }
+        clipboardHtml?.let { pastedHtmlBlocks(it, buffer.activeMarks) }?.let { return withRichText(buffer.insertFormatted(it)) }
+    }
+    return withRichText(buffer.replace(text))
 }

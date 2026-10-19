@@ -13,6 +13,7 @@ import com.vivenotes.model.Align
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Mark
 import com.vivenotes.richtext.TextSelection
+import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.EditorDefaults
@@ -68,7 +69,7 @@ internal fun DocumentTab(
     onPictureDialog: (PictureDialog) -> Unit = {},
     log: DebugLog = DebugLog(),
 ) {
-    val clipboard = TextClipboardActions(LocalClipboardManager.current, onEditorCommand)
+    val clipboard = TextClipboardActions(LocalClipboardManager.current, onEditorCommand, LocalClipboardHtml.current)
     val scope = rememberCoroutineScope()
     val currentState by rememberUpdatedState(state)
     fun WorkspaceState.withRibbonSelection(selection: TextSelection?): WorkspaceState =

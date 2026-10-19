@@ -10,6 +10,7 @@ import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.*
 import com.vivenotes.model.*
 import com.vivenotes.richtext.findAutoEquationCandidates
+import com.vivenotes.ui.canvas.HeadingColor
 import io.ratex.DisplayList
 import io.ratex.RaTeXEngine
 import io.ratex.compose.drawDisplayList
@@ -176,8 +177,9 @@ internal class PdfTextMeasurer {
                     val decoration = listOfNotNull(TextDecoration.Underline.takeIf { Mark.Underline in marks || linked },
                         TextDecoration.LineThrough.takeIf { Mark.Strikethrough in marks })
                     pushStyle(SpanStyle(
+                        // Headings in the canvas's heading blue, unless their text has a colour.
                         color = if (linked) Color(colors.accentArgb) else marks.filterIsInstance<Mark.TextColor>()
-                            .firstOrNull()?.let { Color(it.argb) } ?: Color(colors.textArgb),
+                            .firstOrNull()?.let { Color(it.argb) } ?: if (heading > 1) HeadingColor else Color(colors.textArgb),
                         background = marks.filterIsInstance<Mark.Highlight>().firstOrNull()?.let { Color(it.argb) }
                             ?: if (block.type == BlockType.Code) Color(colors.codeBackgroundArgb) else Color.Unspecified,
                         fontSize = fontSize.sp,

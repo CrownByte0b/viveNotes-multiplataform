@@ -42,11 +42,16 @@ internal data class TextMenuRequest(val outlineId: String, val at: Offset, val s
 /**
  * Where a right-click at [point] leaves the caret, as desktop editors do it: inside the current
  * selection keeps that selection, so Copy copies it; anywhere else puts the caret there, so Paste
- * pastes there. [current] is null when the box is not being edited; [layout] is the box's text,
+ * pastes there. [current] is null when the box is not being edited; [layout] is the box's [text],
  * laid out with its top left at the origin [point] is measured from.
  */
-internal fun selectionForRightClick(current: TextSelection?, layout: TextLayoutResult?, point: Offset): TextSelection {
-    val clicked = layout?.getOffsetForPosition(point)
+internal fun selectionForRightClick(
+    current: TextSelection?,
+    layout: TextLayoutResult?,
+    text: String,
+    point: Offset,
+): TextSelection {
+    val clicked = layout?.let { caretAt(it, text, point) }
     return when {
         current != null && !current.collapsed && (clicked == null || clicked in current.min..current.max) -> current
         clicked != null -> TextSelection(clicked)

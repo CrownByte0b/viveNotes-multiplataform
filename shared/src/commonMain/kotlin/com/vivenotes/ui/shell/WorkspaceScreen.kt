@@ -109,6 +109,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.isTertiaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.key.onKeyEvent
@@ -226,9 +227,13 @@ import com.vivenotes.workspace.ShapeToolSettings
 import com.vivenotes.workspace.titleFloor
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.DpSize
+import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.ui.canvas.TextContextMenu
 import com.vivenotes.ui.canvas.TextMenuRequest
+import com.vivenotes.ui.canvas.TextCaretKeys
+import com.vivenotes.ui.canvas.caretAt
+import com.vivenotes.ui.canvas.scrollOnlyForTyping
 import com.vivenotes.ui.canvas.selectionForRightClick
 import com.vivenotes.ui.canvas.selectedCanvasBounds
 import com.vivenotes.ui.components.onSecondaryPress
@@ -572,7 +577,7 @@ private fun WorkspaceContent(
     }
     val currentBindings by rememberUpdatedState(bindings)
     val shortcuts = WorkspaceShortcuts({ currentState }, onStateChange, ::applyEditorCommand, navigation,
-        viewActions, TextClipboardActions(LocalClipboardManager.current, ::applyEditorCommand),
+        viewActions, TextClipboardActions(LocalClipboardManager.current, ::applyEditorCommand, LocalClipboardHtml.current),
         onSearch = if (search == null) null else { {
             fileActions?.closePane()
             openPane = DockedPane.Search
@@ -853,6 +858,12 @@ private fun WorkspaceContent(
                             (if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)).selectText(selection)
                         }
                     },
+                    onEditTextAt = { id, selection ->
+                        onStateChange { current ->
+                            (if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)).selectText(selection)
+                        }
+                        editorFocusRequest++
+                    },
                     onBodyChange = { id, value ->
                         onStateChange { current ->
                             val focused = if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)
@@ -1059,6 +1070,8 @@ private fun PageCanvas(
     onTextLinkRequest: (String, TextSelection, LinkTarget) -> Unit,
     /** A right-click in a text box: edit that box, with this range selected. */
     onOpenTextMenu: (String, TextSelection) -> Unit,
+    /** Edit a text box with this range selected, and give it the keyboard. */
+    onEditTextAt: (String, TextSelection) -> Unit,
     onBodyChange: (String, TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1067,6 +1080,7 @@ private fun PageCanvas(
     val textMeasurer = rememberTextMeasurer()
     val currentToggleTodo by rememberUpdatedState(onToggleTodo)
     val currentTextShortcut by rememberUpdatedState(onTextShortcut)
+    val currentEditTextAt by rememberUpdatedState(onEditTextAt)
     val pictureAssets = rememberPictureAssets(
         page?.document?.outlines.orEmpty().filterIsInstance<Outline.Image>().map { it.attachmentId }.distinct(),
         pictures,
@@ -1174,7 +1188,18 @@ private fun PageCanvas(
             titleFocus.requestFocus()
         }
     }
-    val textClipboard = TextClipboardActions(LocalClipboardManager.current, onTextCommand)
+    val textClipboard = TextClipboardActions(LocalClipboardManager.current, onTextCommand, LocalClipboardHtml.current)
+    val caretKeys = remember(page?.id) { TextCaretKeys() }
+    /** Up, Down or End in the text box being edited, when [TextCaretKeys] moves the caret for it. */
+    fun moveCaret(id: String, event: KeyEvent): Boolean {
+        val snapshot = currentState
+        if (snapshot.focusedTextOutlineId != id || snapshot.editorComposition != null) return false
+        val layout = textLayouts[id] ?: return false
+        val buffer = snapshot.richTextFor(id) ?: return false
+        val moved = caretKeys.move(event, layout, buffer.text, buffer.selection) ?: return false
+        currentEditTextAt(id, moved)
+        return true
+    }
     // The text box whose field holds the keyboard. Esc and a tap on the page end the editing but
     // not the field's focus, and the field would go on taking keys — Ctrl+Z as its own text undo,
     // and typing — so once its box is no longer the one being edited, the canvas takes the focus.
@@ -1783,6 +1808,9 @@ private fun PageCanvas(
                             .onSizeChanged { size ->
                                 measuredTextHeights[outline.id] = with(density) { size.height.toDp().value }
                             }
+                            // Clicking or focusing a box leaves the page where it is; typing still
+                            // keeps the caret in view.
+                            .scrollOnlyForTyping { currentState.richTextFor(outline.id)?.text }
                             // Ours in place of the text field's own menu, which it never sees.
                             .onSecondaryPress(outline.id) { position ->
                                 val snapshot = currentState
@@ -1790,6 +1818,7 @@ private fun PageCanvas(
                                 val selection = selectionForRightClick(
                                     current = snapshot.editorSelection.takeIf { snapshot.focusedTextOutlineId == outline.id },
                                     layout = textLayouts[outline.id],
+                                    text = snapshot.richTextFor(outline.id)?.text.orEmpty(),
                                     point = position - Offset(inset, inset),
                                 )
                                 onOpenTextMenu(outline.id, selection)
@@ -1811,13 +1840,16 @@ private fun PageCanvas(
                                 ink = palette.ink,
                                 availableWidthDp = outline.width - 2 * TextBoxPadding.value,
                                 thumbnails = thumbnails,
-                                onEdit = { onFocusTextBox(outline.id) },
+                                onEdit = { offset -> onEditTextAt(outline.id, TextSelection(offset)) },
                                 onOpenVideo = { url -> runCatching { uriHandler.openUri(url) } },
                                 modifier = Modifier.fillMaxWidth().padding(TextBoxPadding).zIndex(1f),
                                 storedEquations = richText?.storedEquationPreviews().orEmpty(),
                                 links = richText?.linkSpans().orEmpty(),
                                 linkColor = richColors.link,
                                 onOpenLink = { url -> runCatching { uriHandler.openUri(url) } },
+                                blocks = outline.blocks,
+                                colors = richColors,
+                                onToggleTodo = { blockId -> currentToggleTodo(outline.id, blockId) },
                             )
                         } else false
                         BasicTextField(
@@ -1854,7 +1886,25 @@ private fun PageCanvas(
                                             val todo = todoAt(layout, snapshot.blocks, down.position, this)
                                             val link = if (currentEvent.keyboardModifiers.isCtrlPressed)
                                                 snapshot.linkAtPoint(layout, down.position) else null
-                                            if (todo == null && link == null) return@awaitEachGesture
+                                            if (todo == null && link == null) {
+                                                // The field puts a click on an empty line past its
+                                                // separator, on the next line. Once the field has
+                                                // placed its caret, a click that did not drag puts
+                                                // it on the line clicked.
+                                                val caret = caretAt(layout, snapshot.text, down.position)
+                                                if (currentEvent.keyboardModifiers.isShiftPressed || caret ==
+                                                    layout.getOffsetForPosition(down.position).coerceIn(0, snapshot.text.length)
+                                                ) return@awaitEachGesture
+                                                do {
+                                                    val change = awaitPointerEvent(PointerEventPass.Final).changes
+                                                        .firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+                                                    if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                                                        return@awaitEachGesture
+                                                    }
+                                                } while (change.pressed)
+                                                currentEditTextAt(outline.id, TextSelection(caret))
+                                                return@awaitEachGesture
+                                            }
                                             down.consume()
                                             val up = waitForUpOrCancellation(PointerEventPass.Initial) ?: return@awaitEachGesture
                                             up.consume()
@@ -1872,9 +1922,10 @@ private fun PageCanvas(
                             modifier = Modifier.fillMaxWidth()
                                 .alpha(if (showingPreview) 0f else 1f)
                                 .padding(TextBoxPadding)
-                                // Ahead of the field's own keys: Tab indents, as on Android, and copy
-                                // and paste keep the formatting the field's own would drop.
-                                .onPreviewKeyEvent { event -> currentTextShortcut(event) }
+                                // Ahead of the field's own keys: Tab indents, as on Android, copy and
+                                // paste keep the formatting the field's own would drop, and Up, Down
+                                // and End stay on the lines they aim for.
+                                .onPreviewKeyEvent { event -> moveCaret(outline.id, event) || currentTextShortcut(event) }
                                 .then(if (focused) Modifier.focusRequester(editorFocusRequester) else Modifier)
                                 .onFocusChanged {
                                     if (it.isFocused) {

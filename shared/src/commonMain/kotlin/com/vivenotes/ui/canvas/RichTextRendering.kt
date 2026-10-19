@@ -59,6 +59,21 @@ internal const val BODY_TEXT_SP = 15f
 /** Colours for what a block's formatting adds to its text. */
 internal data class RichTextColors(val accent: Color, val link: Color, val codeBackground: Color)
 
+/** Headings 1–3 are drawn in this blue, unless their text was given a colour of its own. */
+internal val HeadingColor = Color(0xFF0071E3)
+
+/**
+ * Android's `headingScale`: a heading is its text's own size times this, as on Android and in PDF
+ * export, so a heading over text given a size stays larger than the text around it.
+ */
+internal val BlockType.headingScale: Float?
+    get() = when (this) {
+        BlockType.Heading1 -> 1.55f
+        BlockType.Heading2 -> 1.30f
+        BlockType.Heading3 -> 1.12f
+        else -> null
+    }
+
 internal val BlockType.isList: Boolean
     get() = this == BlockType.Bullet || this == BlockType.Numbered || this == BlockType.Todo
 
@@ -85,20 +100,15 @@ internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): Annotated
                 },
                 textIndent = if (block.leadingSp() > 0f) TextIndent(leading, leading) else null,
             ))
+            val heading = block.type.headingScale
             pushStyle(SpanStyle(
-                fontWeight = when (block.type) {
-                    BlockType.Heading1, BlockType.Heading2, BlockType.Heading3 -> FontWeight.Bold
-                    else -> null
-                },
-                fontSize = when (block.type) {
-                    BlockType.Heading1 -> 30.sp
-                    BlockType.Heading2 -> 24.sp
-                    BlockType.Heading3 -> 20.sp
-                    else -> TextUnit.Unspecified
-                },
+                fontWeight = if (heading != null) FontWeight.Bold else null,
+                fontSize = heading?.let { (BODY_TEXT_SP * it).sp } ?: TextUnit.Unspecified,
+                color = if (heading != null) HeadingColor else Color.Unspecified,
                 fontFamily = if (block.type == BlockType.Code) FontFamily.Monospace else null,
                 background = if (block.type == BlockType.Code) colors.codeBackground else Color.Unspecified,
             ))
+            val scale = heading ?: 1f
             block.runs.forEach { run ->
                 val marks = run.marks
                 val selectedSize = marks.filterIsInstance<Mark.FontSize>().firstOrNull()?.sp
@@ -123,8 +133,8 @@ internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): Annotated
                         }
                     },
                     fontSize = when {
-                        script -> ((selectedSize ?: BODY_TEXT_SP.toInt()) * 0.8f).sp
-                        selectedSize != null -> selectedSize.sp
+                        script -> ((selectedSize ?: BODY_TEXT_SP.toInt()) * 0.8f * scale).sp
+                        selectedSize != null -> (selectedSize * scale).sp
                         else -> TextUnit.Unspecified
                     },
                     baselineShift = when {
@@ -159,14 +169,66 @@ internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): Annotated
  * already start a new line, so the separator needs no line break of its own. The swap is one
  * character for one, so offsets map to themselves: the field edits, selects, copies and reports
  * the real newlines, and a click past a line's end still lands before its separator.
+ *
+ * An empty last block is the one paragraph left with no character at all, and Compose puts the
+ * caret of an empty paragraph at its edge, ignoring the paragraph's indent: the caret of a new list
+ * item stood to the left of its bullet. That block gets a zero-width space of its own after the
+ * text, which no editor offset maps to, so its caret is measured from where its text begins.
  */
 internal object BlockSeparators : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText = TransformedText(
-        AnnotatedString(text.text.replace('\n', ZERO_WIDTH_SPACE), text.spanStyles, text.paragraphStyles),
-        OffsetMapping.Identity,
-    )
+    override fun filter(text: AnnotatedString): TransformedText {
+        val shown = text.text.replace('\n', ZERO_WIDTH_SPACE)
+        if (text.isNotEmpty() && text.text.last() != '\n') {
+            return TransformedText(AnnotatedString(shown, text.spanStyles, text.paragraphStyles), OffsetMapping.Identity)
+        }
+        val end = text.length
+        return TransformedText(
+            AnnotatedString(shown + ZERO_WIDTH_SPACE, text.spanStyles,
+                text.paragraphStyles.map { if (it.end == end) it.copy(end = end + 1) else it }),
+            EndPadding(end),
+        )
+    }
+
+    /** The added character is past the editor's text: every editor offset stays where it was. */
+    private class EndPadding(private val length: Int) : OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int = offset
+        override fun transformedToOriginal(offset: Int): Int = minOf(offset, length)
+    }
 
     private const val ZERO_WIDTH_SPACE = '\u200B'
+}
+
+/**
+ * Where the last line [line] of a block ends for the caret: before the block's separator, which
+ * the text layout counts as part of the line, although the caret after it is on the next line.
+ */
+internal fun visibleLineEnd(layout: TextLayoutResult, text: String, line: Int): Int {
+    val end = layout.getLineEnd(line, visibleEnd = true).coerceIn(0, text.length)
+    return if (end > layout.getLineStart(line) && text[end - 1] == '\n') end - 1 else end
+}
+
+/**
+ * The caret a click at [point] means: on the line clicked. Compose maps a click on an empty line
+ * past its zero-width separator (see [BlockSeparators]), which is the start of the next line.
+ */
+internal fun caretAt(layout: TextLayoutResult, text: String, point: Offset): Int {
+    val offset = layout.getOffsetForPosition(point).coerceIn(0, text.length)
+    val line = layout.getLineForVerticalPosition(point.y)
+    return if (layout.getLineForOffset(offset) == line) offset else visibleLineEnd(layout, text, line)
+}
+
+/**
+ * Where Up or Down moves the caret from [caret]: [lines] lines away, as near [x] as that line
+ * goes. Compose's own lands past the separator of a line shorter than [x] \u2014 a line too far \u2014 and
+ * never on an empty line, which ends where it starts.
+ */
+internal fun caretOnLine(layout: TextLayoutResult, text: String, caret: Int, x: Float, lines: Int): Int {
+    val line = layout.getLineForOffset(caret.coerceIn(0, text.length)) + lines
+    if (line < 0) return 0
+    if (line >= layout.lineCount) return text.length
+    val offset = layout.getOffsetForPosition(Offset(x, (layout.getLineTop(line) + layout.getLineBottom(line)) / 2f))
+        .coerceIn(0, text.length)
+    return if (layout.getLineForOffset(offset) == line) offset else visibleLineEnd(layout, text, line)
 }
 
 /** Where each block's text sits in the editor string: blocks are joined by one newline. */
@@ -197,19 +259,26 @@ internal fun listOrdinals(blocks: List<Block>): List<Int?> {
 private fun Block.markerSp(): Float =
     runs.firstOrNull()?.marks?.filterIsInstance<Mark.FontSize>()?.firstOrNull()?.sp?.toFloat() ?: BODY_TEXT_SP
 
-/** Bullets, "1." ordinals, to-do boxes and quote stripes, in the margin [Block.leadingSp] reserved. */
+/**
+ * Bullets, "1." ordinals, to-do boxes and quote stripes, in the margin [Block.leadingSp] reserved.
+ * [layoutOffset] says where an editor offset is in [layout]'s text, for a layout of the read-only
+ * preview, whose rendered equations and cards stand in for stretches of the source.
+ */
 internal fun DrawScope.drawBlockDecorations(
     layout: TextLayoutResult,
     blocks: List<Block>,
     colors: RichTextColors,
     ink: Color,
     measurer: TextMeasurer,
+    layoutOffset: (Int) -> Int = { it },
 ) {
     val ordinals = listOrdinals(blocks)
     var index = 0
-    blocks.forEachWithRange { block, start, end ->
+    blocks.forEachWithRange { block, editorStart, editorEnd ->
         val ordinal = ordinals[index++]
         if (!block.type.isList && block.type != BlockType.Quote) return@forEachWithRange
+        val start = layoutOffset(editorStart)
+        val end = layoutOffset(editorEnd)
         if (start > layout.layoutInput.text.length) return@forEachWithRange
         val line = layout.getLineForOffset(start)
         val top = layout.getLineTop(line)
@@ -251,10 +320,17 @@ internal fun DrawScope.drawBlockDecorations(
     }
 }
 
-/** The to-do whose box is under [point], in the text layout's coordinates. */
-internal fun todoAt(layout: TextLayoutResult, blocks: List<Block>, point: Offset, density: Density): String? =
+/** The to-do whose box is under [point], in the text layout's coordinates; see [drawBlockDecorations]. */
+internal fun todoAt(
+    layout: TextLayoutResult,
+    blocks: List<Block>,
+    point: Offset,
+    density: Density,
+    layoutOffset: (Int) -> Int = { it },
+): String? =
     with(density) {
-        blocks.forEachWithRange { block, start, _ ->
+        blocks.forEachWithRange { block, editorStart, _ ->
+            val start = layoutOffset(editorStart)
             if (block.type != BlockType.Todo || start > layout.layoutInput.text.length) return@forEachWithRange
             val line = layout.getLineForOffset(start)
             val left = (INDENT_STEP_SP * block.indent).sp.toPx()

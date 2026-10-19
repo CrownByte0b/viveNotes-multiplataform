@@ -54,6 +54,21 @@ class PdfRenderingTest {
         assertEquals(listOf(null, null, null, 1, 2, null, 1), layout.paragraphs.map { it.ordinal })
     }
 
+    /** The canvas's heading blue exports too; a colour given to the heading's text stays its own. */
+    @Test
+    fun headingsExportInTheCanvasHeadingBlue() = runBlocking {
+        val red = 0xFFE53935.toInt()
+        val layout = PdfTextMeasurer().layout(listOf(
+            Block("h2", type = BlockType.Heading2, runs = listOf(Run("Blue"), Run("Red", setOf(Mark.TextColor(red))))),
+            Block("plain", runs = listOf(Run("Ink"))),
+        ), 600f, PdfCanvasColors.forPage(style))
+        val heading = layout.paragraphs[0].layout.layoutInput.text.spanStyles
+        assertEquals(0xFF0071E3.toInt(), heading.first { it.start == 0 }.item.color.toArgb())
+        assertEquals(red, heading.first { it.start == 4 }.item.color.toArgb())
+        assertEquals(PdfCanvasColors.forPage(style).textArgb,
+            layout.paragraphs[1].layout.layoutInput.text.spanStyles.single().item.color.toArgb())
+    }
+
     @Test
     fun invalidInlineEquationsKeepTheirLatexFallbackAndPaperDefaultsComeFromThePage() = runBlocking {
         fixture { repository, _, page, _, exporter ->

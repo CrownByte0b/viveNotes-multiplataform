@@ -93,6 +93,20 @@ data class RichTextBuffer(
         it.copy(type = next, checked = if (next == BlockType.Todo) it.checked ?: false else null)
     }
 
+    /**
+     * Ctrl+Enter: ends the paragraph at the caret as Enter does, but the paragraph that follows is
+     * a plain one — no bullet, number, to-do box, quote, code or heading — which is how a list is
+     * left without first emptying an item. It keeps the indent and alignment Enter would carry on.
+     * A selection is replaced, as by typing.
+     */
+    fun insertPlainParagraph(): RichTextBuffer {
+        val split = replace("\n")
+        val index = split.locate(split.selection.min).index
+        return split.copy(blocks = split.blocks.mapIndexed { position, block ->
+            if (position == index) block.copy(type = BlockType.Paragraph, checked = null) else block
+        })
+    }
+
     /** Ticks or unticks the to-do [blockId]; any other block is left alone. */
     fun toggleChecked(blockId: String): RichTextBuffer = copy(blocks = blocks.map { block ->
         if (block.id == blockId && block.type == BlockType.Todo) block.copy(checked = block.checked != true)
@@ -231,6 +245,26 @@ data class RichTextBuffer(
         val insertedLength = fragment.sumOf { it.editorText.length } + fragment.lastIndex
         // Typing on continues in the formatting just pasted, as it would after that text was typed.
         return copy(blocks = changed).select(TextSelection(range.min + insertedLength))
+    }
+
+    /**
+     * Text another app copied with its formatting — [pastedHtmlBlocks] — pasted as [insertFragment]
+     * pastes this app's own, except that a single heading, list item, quote or code line pasted
+     * where it fills its paragraph keeps its style: it was copied as that paragraph, where a piece
+     * of a paragraph copied here is words out of one.
+     */
+    fun insertFormatted(fragment: List<Block>): RichTextBuffer {
+        val single = fragment.singleOrNull()?.takeIf { it.type != BlockType.Paragraph }
+            ?: return insertFragment(fragment)
+        val range = selection.clamped(text.length)
+        val from = locate(range.min)
+        val to = locate(range.max)
+        val pasted = insertFragment(fragment)
+        if (from.offset != 0 || to.offset != blocks[to.index].editorText.length) return pasted
+        val index = pasted.locate(pasted.selection.min).index
+        return pasted.copy(blocks = pasted.blocks.mapIndexed { position, block ->
+            if (position == index) block.styledAs(single) else block
+        })
     }
 
     /** Apply the smallest contiguous text change reported by a platform input field. */

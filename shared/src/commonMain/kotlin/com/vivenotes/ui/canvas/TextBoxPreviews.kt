@@ -21,13 +21,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -39,9 +42,11 @@ import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vivenotes.data.VideoThumbnailSource
+import com.vivenotes.model.Block
 import com.vivenotes.model.findVideoLinks
 import com.vivenotes.model.Mark
 import com.vivenotes.richtext.findAutoEquationCandidates
@@ -53,7 +58,13 @@ import io.ratex.compose.rememberBlockingRaTeXDisplayList
 import io.ratex.measure
 import org.jetbrains.compose.resources.decodeToImageBitmap
 
-/** Read-only projection of a text box. Its backing editor keeps the exact source and marks. */
+/**
+ * Read-only projection of a text box. Its backing editor keeps the exact source and marks.
+ *
+ * The preview stands in for the editor, which it hides, so it draws [blocks]' list markers and
+ * quote stripes itself and ticks a to-do whose box is clicked. [onEdit] gets the source offset
+ * clicked, where editing starts.
+ */
 @Composable
 internal fun TextBoxPreviews(
     source: AnnotatedString,
@@ -61,13 +72,16 @@ internal fun TextBoxPreviews(
     ink: Color,
     availableWidthDp: Float,
     thumbnails: VideoThumbnailSource?,
-    onEdit: () -> Unit,
+    onEdit: (Int) -> Unit,
     onOpenVideo: (String) -> Unit,
     modifier: Modifier = Modifier,
     storedEquations: List<EquationPreview> = emptyList(),
     links: List<LinkSpan> = emptyList(),
     linkColor: Color = Color(0xFF1A5FB4),
     onOpenLink: (String) -> Unit = {},
+    blocks: List<Block> = emptyList(),
+    colors: RichTextColors = RichTextColors(Color(0xFF4CAF50), linkColor, ink.copy(alpha = 0.1f)),
+    onToggleTodo: (String) -> Unit = {},
 ): Boolean {
     val equations = remember(source.text, storedEquations) {
         findAutoEquationCandidates(source.text).map {
@@ -146,27 +160,48 @@ internal fun TextBoxPreviews(
     val ranges = ordered.map { it.start until it.end }
     val projected = previewProjection(source, ranges)
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var pressedAt by remember { mutableStateOf<Offset?>(null) }
+    val measurer = rememberTextMeasurer()
     val displayLinks = links.map { link ->
         Triple(projectedOffset(link.start, ranges), projectedOffset(link.end, ranges), link.href)
     }
+    val currentBlocks by rememberUpdatedState(blocks)
+    val currentToggleTodo by rememberUpdatedState(onToggleTodo)
     BasicText(projected,
         inlineContent = ordered.mapIndexed { index, entry -> "preview-$index" to entry.content }.toMap(),
         onTextLayout = { layout = it },
-        style = style, modifier = modifier.pointerInput(displayLinks) {
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                if (!currentEvent.keyboardModifiers.isCtrlPressed) return@awaitEachGesture
-                val textLayout = layout ?: return@awaitEachGesture
-                val offset = textLayout.getOffsetForPosition(down.position)
-                val link = displayLinks.firstOrNull { (start, end, _) ->
-                    offset in start until end && textLayout.getBoundingBox(offset).contains(down.position)
-                } ?: return@awaitEachGesture
-                down.consume()
-                val up = waitForUpOrCancellation(PointerEventPass.Initial) ?: return@awaitEachGesture
-                up.consume()
-                onOpenLink(link.third)
+        style = style, modifier = modifier
+            .drawBehind {
+                layout?.let { drawBlockDecorations(it, blocks, colors, ink, measurer) { offset -> projectedOffset(offset, ranges) } }
             }
-        }.clickable { onEdit() }.testTag("text-box-preview"))
+            .pointerInput(displayLinks, ranges) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    pressedAt = down.position
+                    val textLayout = layout ?: return@awaitEachGesture
+                    val todo = todoAt(textLayout, currentBlocks, down.position, this) { projectedOffset(it, ranges) }
+                    val link = if (todo != null || !currentEvent.keyboardModifiers.isCtrlPressed) null else {
+                        val offset = textLayout.getOffsetForPosition(down.position)
+                        displayLinks.firstOrNull { (start, end, _) ->
+                            offset in start until end && textLayout.getBoundingBox(offset).contains(down.position)
+                        }
+                    }
+                    if (todo == null && link == null) return@awaitEachGesture
+                    down.consume()
+                    val up = waitForUpOrCancellation(PointerEventPass.Initial) ?: return@awaitEachGesture
+                    up.consume()
+                    todo?.let { currentToggleTodo(it) }
+                    link?.let { onOpenLink(it.third) }
+                }
+            }
+            .clickable {
+                val textLayout = layout
+                val at = pressedAt
+                // Editing starts where the box was clicked. Separators are zero-width spaces here,
+                // as in the editor; [caretAt] reads them as the newlines they stand for.
+                onEdit(if (textLayout == null || at == null) 0
+                    else sourceOffset(caretAt(textLayout, projected.text.replace('\u200B', '\n'), at), ranges))
+            }.testTag("text-box-preview"))
     return true
 }
 
@@ -205,6 +240,21 @@ internal fun projectedOffset(sourceOffset: Int, ranges: List<IntRange>): Int {
         removed += end - range.first - 1
     }
     return sourceOffset - removed
+}
+
+/**
+ * [projectedOffset] the other way: the source offset at [displayOffset]. Just after an object's
+ * character is just after the source it stands for.
+ */
+internal fun sourceOffset(displayOffset: Int, ranges: List<IntRange>): Int {
+    var removed = 0
+    ranges.forEach { range ->
+        val start = range.first - removed
+        if (displayOffset <= start) return displayOffset + removed
+        if (displayOffset == start + 1) return range.last + 1
+        removed += range.last - range.first
+    }
+    return displayOffset + removed
 }
 
 private data class PreviewEntry(val start: Int, val end: Int, val content: InlineTextContent)

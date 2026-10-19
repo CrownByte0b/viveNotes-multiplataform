@@ -1003,6 +1003,10 @@ data class WorkspaceState(
     fun indentSelectedText(delta: Int): WorkspaceState =
         richText?.indent(delta)?.let(::withRichText) ?: this
 
+    /** Ctrl+Enter: a plain paragraph after the caret, out of the list — [RichTextBuffer.insertPlainParagraph]. */
+    fun insertPlainParagraph(): WorkspaceState =
+        richText?.insertPlainParagraph()?.let(::withRichText) ?: this
+
     /** Links the selection, changes the link at the caret, or inserts [label] linked there. */
     fun insertLink(label: String, url: String): WorkspaceState =
         richText?.insertLink(label, url)?.let(::withRichText) ?: this
