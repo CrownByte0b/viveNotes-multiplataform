@@ -1,6 +1,8 @@
 import importlib.util
 import io
 import json
+import shutil
+import struct
 from pathlib import Path
 import subprocess
 import tarfile
@@ -32,6 +34,73 @@ class PackagingTest(unittest.TestCase):
         self.assertEqual(build.APP_ID, metadata.findtext("id"))
         self.assertEqual(f"{build.APP_ID}.desktop", metadata.findtext("launchable"))
         self.assertTrue(metadata.findtext("project_license").startswith("LicenseRef-proprietary="))
+
+    def test_flathub_listing_has_identity_licensing_branding_and_desktop_support(self):
+        metadata = ET.parse(HERE / f"{build.APP_ID}.metainfo.xml").getroot()
+        self.assertEqual("desktop-application", metadata.get("type"))
+        self.assertLessEqual(len(metadata.findtext("summary")), 35)
+        self.assertEqual("CC0-1.0", metadata.findtext("metadata_license"))
+        self.assertEqual("CROWNBYTE LLC", metadata.findtext("developer/name"))
+        self.assertEqual("net.vivenotes", metadata.find("developer").get("id"))
+        self.assertEqual("oars-1.1", metadata.find("content_rating").get("type"))
+        colors = metadata.findall("branding/color")
+        self.assertEqual({"light", "dark"}, {c.get("scheme_preference") for c in colors})
+        self.assertNotEqual(colors[0].text, colors[1].text)
+        self.assertEqual("en", metadata.findtext("languages/lang"))
+        self.assertEqual("540", metadata.findtext("requires/display_length"))
+        self.assertEqual({"pointing", "keyboard", "touch"}, {c.text for c in metadata.findall("supports/control")})
+        description = " ".join(metadata.find("description").itertext())
+        self.assertIn("209 MB", description)
+        self.assertIn("automatically on first run", description)
+        self.assertIn("offline", description)
+        desktop = (HERE / f"{build.APP_ID}.desktop").read_text()
+        self.assertIn("Comment=" + metadata.findtext("summary") + "\n", desktop)
+        self.assertIn("Categories=Office;\n", desktop)
+        self.assertEqual({"only-arches": ["x86_64"]}, json.loads((HERE / "flathub.json").read_text()))
+
+    def test_staged_metadata_contains_resolved_release_launcher_icon_and_architectures(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)
+            build.stage_metadata(output, "1.2.3", "2026-10-20")
+            metadata = output / f"payload/share/metainfo/{build.APP_ID}.metainfo.xml"
+            text = metadata.read_text()
+            self.assertNotIn("@VERSION@", text)
+            self.assertNotIn("@DATE@", text)
+            release = ET.parse(metadata).getroot().find("releases/release")
+            self.assertEqual({"version": "1.2.3", "date": "2026-10-20"}, release.attrib)
+            self.assertTrue(release.findtext("description/p"))
+            icon = output / f"payload/share/icons/hicolor/512x512/apps/{build.APP_ID}.png"
+            data = icon.read_bytes()
+            self.assertEqual(b"\x89PNG\r\n\x1a\n", data[:8])
+            self.assertEqual((512, 512), struct.unpack(">II", data[16:24]))
+            self.assertEqual((HERE / f"{build.APP_ID}.png").read_bytes(), data)
+            desktop = output / f"payload/share/applications/{build.APP_ID}.desktop"
+            self.assertEqual((HERE / desktop.name).read_text(), desktop.read_text())
+            self.assertEqual((HERE / "flathub.json").read_bytes(), (output / "flathub.json").read_bytes())
+            self.assertFalse(list((output / "payload").rglob("*.in")))
+
+    def test_staged_metainfo_and_desktop_pass_available_system_validators(self):
+        validators = [shutil.which("appstreamcli"), shutil.which("desktop-file-validate")]
+        if not all(validators):
+            self.skipTest("AppStream and desktop-file validators are not installed")
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)
+            build.stage_metadata(output, "1.2.3", "2026-10-20")
+            for args in [
+                [validators[0], "validate", "--no-net", str(output / f"payload/share/metainfo/{build.APP_ID}.metainfo.xml")],
+                [validators[1], str(output / f"payload/share/applications/{build.APP_ID}.desktop")],
+            ]:
+                result = subprocess.run(args, capture_output=True, text=True)
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_screenshot_template_is_explicitly_pending_and_has_one_default(self):
+        screenshots = ET.parse(HERE / "screenshots.xml.in").getroot()
+        self.assertEqual("screenshots", screenshots.tag)
+        defaults = screenshots.findall("screenshot[@type='default']")
+        self.assertEqual(1, len(defaults))
+        self.assertEqual("source", defaults[0].find("image").get("type"))
+        self.assertEqual("@SCREENSHOT_URL@", defaults[0].findtext("image"))
+        self.assertEqual("@SCREENSHOT_CAPTION@", defaults[0].findtext("caption"))
 
     def test_archives_are_rejected_when_checksum_does_not_match(self):
         with tempfile.TemporaryDirectory() as folder:

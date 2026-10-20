@@ -7,9 +7,12 @@ use the `devel` branch. This is a local/CI distribution path, not a Flathub subm
 
 ## Build and test
 
-Install Python 3.12+, the project's build JDK 27, Flatpak, ImageMagick (6 or 7),
+Install Python 3.12+, the project's build JDK 27, Flatpak,
 `appstreamcli` and `desktop-file-validate`. Gradle must be able to resolve ByteInk
-through local Maven or authenticated GitHub Packages, as for normal desktop builds.
+through local Maven or authenticated GitHub Packages, as for normal desktop builds. The published
+ByteInk pin is `0.1.0-alpha.1` for both `byteink-compose` and `byteink-kit`; both GitHub workflows
+already select it. See [SUBMISSION.md](SUBMISSION.md#byteink-version-to-pin) for the package links,
+local override and the anonymous-access limitation for Flathub.
 
 ```sh
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
@@ -84,10 +87,13 @@ automatically through uv. Model download/verification progress uses Material 3 E
    store metadata. The current Source First license is described as a custom proprietary
    license in AppStream; no open-source relicensing is implied. Confirm domain control
    for `vivenotes.net` before submission/verification.
-4. For Flathub, replace the generated local binary-payload source with a pinned public
-   source commit and an offline dependency manifest. ByteInk's authenticated GitHub
-   Packages artifacts are not usable by Flathub's public offline builders. Provide
-   publicly downloadable pinned dependencies or a reproducible ByteInk source build.
+4. For Flathub, replace the generated local binary-payload source with pinned sources and
+   offline dependency manifests. ByteInk's public source repository is available at
+   `https://github.com/CrownByte0b/ByteInk.git`, pinned to publication commit
+   `1cf7ffbde7487fa28809cd1f8e7c12cef7bbcbe8`; use the existing composite-build opt-in.
+   See [SUBMISSION.md](SUBMISSION.md#public-source-pin-for-flathub) for the source object.
+   Prefetch Gradle/Maven/native toolchain dependencies and build the Linux natives offline.
+   GitHub Packages authentication does not prevent using this public source route.
    Follow Flathub's source-build requirements for the app and bundled runtimes/tools.
 5. Run current Flathub manifest/AppStream/build lint, resolve findings, submit the reviewed
    manifest and maintain it. For direct distribution, host and sign an OSTree repository
@@ -106,3 +112,10 @@ Official references, consulted 2026-10-20:
 - [File chooser portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.FileChooser.html)
 - [JetBrains Runtime releases](https://github.com/JetBrains/JetBrainsRuntime/releases)
 - [uv 0.12.19](https://github.com/astral-sh/uv/releases/tag/0.12.19)
+
+## Flathub listing files
+
+See [SUBMISSION.md](SUBMISSION.md) for the prepared metadata, screenshot handoff and which files
+belong upstream versus in the future Flathub submission repository. The 512 px app icon is
+prepared in `net.vivenotes.ViveNotes.png`; normal builds copy this existing asset without needing
+ImageMagick. Screenshot URLs remain pending the author's own images.

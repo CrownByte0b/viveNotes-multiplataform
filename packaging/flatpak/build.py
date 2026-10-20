@@ -79,6 +79,19 @@ def jar_notices(payload):
     (notices / "SHA256SUMS").write_text("\n".join(inventory) + "\n")
 
 
+def stage_metadata(output, version, release_date):
+    payload = output / "payload"
+    for kind, suffix in [("applications", "desktop"), ("metainfo", "metainfo.xml")]:
+        target = payload / "share" / kind / f"{APP_ID}.{suffix}"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        source = (HERE / target.name).read_text()
+        target.write_text(source.replace("@VERSION@", version).replace("@DATE@", release_date))
+    icon = payload / f"share/icons/hicolor/512x512/apps/{APP_ID}.png"
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(HERE / f"{APP_ID}.png", icon)
+    shutil.copy2(HERE / "flathub.json", output)
+
+
 def stage(args, output):
     version = args.version or re.search(r"^version=(.+)$", (ROOT / "gradle.properties").read_text(), re.M)[1]
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][a-zA-Z0-9.-]+)?", version):
@@ -109,19 +122,10 @@ def stage(args, output):
     (payload / "bin").mkdir(exist_ok=True)
     shutil.copy2(HERE / "vivenotes", payload / "bin/vivenotes")
     (payload / "bin/vivenotes").chmod(0o755)
-    for kind, suffix in [("applications", "desktop"), ("metainfo", "metainfo.xml")]:
-        target = payload / "share" / kind / f"{APP_ID}.{suffix}"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        text = (HERE / target.name).read_text()
-        epoch = int(os.environ.get("SOURCE_DATE_EPOCH") or subprocess.check_output(
-            ["git", "show", "--no-show-signature", "-s", "--format=%ct", "HEAD"], cwd=ROOT, text=True).strip())
-        date = datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).date().isoformat()
-        target.write_text(text.replace("@VERSION@", version).replace("@DATE@", date))
-    icon = payload / f"share/icons/hicolor/512x512/apps/{APP_ID}.png"
-    icon.parent.mkdir(parents=True, exist_ok=True)
-    # ImageMagick only resizes the existing project icon; it does not create new artwork.
-    run(shutil.which("magick") or "convert", ROOT / "shared/src/commonMain/composeResources/drawable/vivenotes_icon.png",
-        "-resize", "512x512", icon)
+    epoch = int(os.environ.get("SOURCE_DATE_EPOCH") or subprocess.check_output(
+        ["git", "show", "--no-show-signature", "-s", "--format=%ct", "HEAD"], cwd=ROOT, text=True).strip())
+    date = datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).date().isoformat()
+    stage_metadata(output, version, date)
     shutil.copy2(HERE / f"{APP_ID}.json", output)
     run("desktop-file-validate", payload / f"share/applications/{APP_ID}.desktop")
     run("appstreamcli", "validate", "--no-net", payload / f"share/metainfo/{APP_ID}.metainfo.xml")
@@ -130,7 +134,7 @@ def stage(args, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, epilog=(
-        "Requires Python 3.12+, JDK 27, ImageMagick, appstreamcli, desktop-file-validate, "
+        "Requires Python 3.12+, JDK 27, appstreamcli, desktop-file-validate, "
         "flatpak and org.freedesktop.Platform//26.08. ByteInk must resolve through local Maven "
         "or GitHub Packages. Output: desktopApp/build/flatpak/."))
     parser.add_argument("--version")

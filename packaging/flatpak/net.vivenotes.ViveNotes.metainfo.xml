@@ -1,21 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 CROWNBYTE LLC -->
 <component type="desktop-application">
   <id>net.vivenotes.ViveNotes</id>
   <name>Vive Notes</name>
-  <summary>Write, draw and organize your notebooks</summary>
+  <summary>Write and organize your notes</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>LicenseRef-proprietary=https://github.com/CrownByte0b/viveNotes-multiplataform/blob/master/LICENSE.md</project_license>
-  <developer id="net.vivenotes"><name>CROWNBYTE LLC</name></developer>
+  <developer id="net.vivenotes">
+    <name>CROWNBYTE LLC</name>
+  </developer>
   <description>
-    <p>Keep notebooks with rich text, handwriting, pictures, tables and equations.
-    Organize pages into sections, work locally, and import or export Vive notebooks.</p>
-    <p>Export pages to PDF and use handwriting recognition and math tools.
-    Some recognition models and the math runtime require a download.</p>
+    <p>Collect class notes, work through equations and sketch ideas in notebooks.
+    Combine typed text and handwriting on the same page, with pictures, tables and shapes.</p>
+    <ul>
+      <li>Organize notebooks into sections and pages.</li>
+      <li>Format text, draw with a mouse or stylus, and use a ruler or protractor.</li>
+      <li>Search typed notes, handwriting and text in pictures.</li>
+      <li>Recognize handwritten formulas and work with math tools.</li>
+      <li>Export pages to PDF and transfer notebooks using Vive files.</li>
+    </ul>
+    <p>Notebooks are stored locally and can be edited offline. Handwriting and picture
+    text recognition are built in. The UniMERNet Small math recognition model downloads
+    automatically on first run (about 209 MB), and the math runtime also needs an initial
+    download. Other formula recognition models are optional.</p>
   </description>
   <launchable type="desktop-id">net.vivenotes.ViveNotes.desktop</launchable>
   <url type="homepage">https://vivenotes.net</url>
   <url type="bugtracker">https://github.com/CrownByte0b/viveNotes-multiplataform/issues</url>
+  <url type="vcs-browser">https://github.com/CrownByte0b/viveNotes-multiplataform</url>
+  <branding>
+    <color type="primary" scheme_preference="light">#B1D2F9</color>
+    <color type="primary" scheme_preference="dark">#1A3556</color>
+  </branding>
   <content_rating type="oars-1.1"/>
-  <supports><control>pointing</control><control>keyboard</control><control>touch</control></supports>
-  <releases><release version="@VERSION@" date="@DATE@"/></releases>
+  <languages>
+    <lang percentage="100">en</lang>
+  </languages>
+  <requires>
+    <display_length compare="ge" side="shortest">540</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+  <releases>
+    <release version="@VERSION@" date="@DATE@">
+      <description>
+        <p>Linux desktop version with notebooks, rich text, handwriting and PDF export.</p>
+      </description>
+    </release>
+  </releases>
 </component>
