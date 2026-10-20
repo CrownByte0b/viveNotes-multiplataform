@@ -91,7 +91,8 @@ class InkColorRenderingTest {
             if (index > 0) onNodeWithTag(ViewRibbonTags.SwitchBackground).performClick()
             val expected = canvasPalette(document.style, dark).ink
             val pixels = onNodeWithTag(WorkspaceTestTags.PageCanvas).captureToImage().toPixelMap()
-            assertEquals(expected, pixels[201, 225], "table follows text")
+            // The grid starts inside the table's 16 dp handle gutter, as on Android and in PDF export.
+            assertEquals(expected, pixels[217, 241], "table follows text")
             assertEquals(expected, pixels[210, 320], "shape follows text")
             assertEquals(expected, pixels[250, 400], "ink follows text")
             runOnIdle {

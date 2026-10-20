@@ -704,7 +704,8 @@ class WorkspaceScreenTest {
             onNodeWithTag(WorkspaceTestTags.primeObject(shape.id)).performClick()
             val toolkit = onNodeWithTag(WorkspaceTestTags.ObjectToolkit).assertIsDisplayed()
                 .captureToImage().toPixelMap()
-            assertEquals(0xFF161618.toInt(), toolkit[toolkit.width / 2, 1].toArgb())
+            // Android's ObjectTooltip pill, the same dark surface as the Ink Class toolkit.
+            assertEquals(0xFF202124.toInt(), toolkit[toolkit.width / 2, 1].toArgb())
             onNodeWithTag(WorkspaceTestTags.ObjectColor).performClick()
             onNodeWithContentDescription("Red").performClick()
             runOnIdle { assertEquals(0xFFE53935.toInt(),

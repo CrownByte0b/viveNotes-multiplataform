@@ -54,7 +54,7 @@ class PrimeObjectContractTest {
             val state = workspace(listOf(pinned.withLockGroup("pinned"), free))
             assertEquals(setOf(free.id), state.selectObjectsInLasso(loop(80f, 200f, 1000f, 500f)).selectedObjectIds)
             val alone = state.selectObjectsInLasso(loop(pinned.x - 10f, pinned.y - 10f,
-                pinned.x + pinned.width + 10f, pinned.y + pinned.primeHeight() + 10f))
+                pinned.x + pinned.primeWidth() + 10f, pinned.y + pinned.primeHeight() + 10f))
             assertEquals(setOf(pinned.id), alone.selectedObjectIds)
             assertTrue(alone.selectedObjectsLocked)
         }

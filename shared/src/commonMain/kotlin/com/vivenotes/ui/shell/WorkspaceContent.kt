@@ -324,6 +324,7 @@ internal fun WorkspaceContent(
                     )
                     CompositionLocalProvider(LocalDensity provides pageDensity) {
                         WorkspacePage(
+                            debugLog = debugLog,
                             state = state,
                             onStateChange = onStateChange,
                             searchHit = searchHit,

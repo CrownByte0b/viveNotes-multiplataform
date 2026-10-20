@@ -67,9 +67,18 @@ fun Outline.movedBy(dx: Float, dy: Float): Outline = when (this) {
     is Outline.Text, is Outline.Ink -> this
 }
 
+/**
+ * The strip Android reserves above and left of every table's grid for its column and row handles.
+ * A table's `(x, y)` is the corner of this box, so its grid starts this far in (`TableContainer`).
+ */
+const val TABLE_GUTTER = 16f
+
+/** How wide an outline's box is on the page: a table's includes its handle gutter. */
+fun Outline.primeWidth(): Float = if (this is Outline.Table) TABLE_GUTTER + width else width
+
 fun Outline.primeHeight(): Float = when (this) {
     is Outline.Shape -> height
-    is Outline.Table -> height
+    is Outline.Table -> TABLE_GUTTER + height
     is Outline.Equation -> height
     is Outline.Image -> height
     is Outline.Text -> minHeight

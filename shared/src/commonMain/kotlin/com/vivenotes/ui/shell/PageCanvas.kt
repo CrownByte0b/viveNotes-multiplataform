@@ -102,10 +102,12 @@ import com.vivenotes.workspace.CanvasViewport
 import com.vivenotes.workspace.InkPenSettings
 import com.vivenotes.workspace.PageContent
 import com.vivenotes.workspace.RulerKind
+import com.vivenotes.workspace.TableEdit
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.isPrimeObject
 import com.vivenotes.workspace.movedBy
 import com.vivenotes.workspace.primeHeight
+import com.vivenotes.workspace.primeWidth
 import com.vivenotes.workspace.titleFloor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -167,7 +169,7 @@ internal fun PageCanvas(
     onSelectObjectsInLasso: (List<InkSample>, Map<String, Float>) -> Unit = { _, _ -> },
     onDrawObject: (Float, Float) -> Unit = { _, _ -> },
     onSpaceInsertion: (SpaceInsertion) -> Unit = {},
-    onTableAction: (String) -> Unit = {},
+    onTableEdit: (TableEdit) -> Unit = {},
     onEquationChange: (com.vivenotes.workspace.PendingDrawEquation) -> Unit = {},
     onImageBackground: (Int?) -> Unit = {},
     onToggleTodo: (outlineId: String, blockId: String) -> Unit,
@@ -377,13 +379,17 @@ internal fun PageCanvas(
     }
     SideEffect { canvasOrigin.read = { toPage(Offset.Zero) } }
 
+    // A held row or column lasts while its table alone stays selected and still has it.
+    val heldTable = interaction.heldTableAxis.heldIn(state)
+    if (interaction.heldTableAxis != null && heldTable == null) SideEffect { interaction.heldTableAxis = null }
+
     // The page's size and edge, from everything on it: whether a chosen sheet still holds the
     // content decides whether it bounds the page or is only drawn as a guide.
     val inkEdge = remember(page?.ink) { page?.ink?.contentEdge() ?: Offset.Zero }
     val extent = page?.document?.let { document ->
         PageExtent.of(
             document.style,
-            contentRight = maxOf(inkEdge.x, document.outlines.maxOfOrNull { it.x + it.width } ?: 0f),
+            contentRight = maxOf(inkEdge.x, document.outlines.maxOfOrNull { it.x + it.primeWidth() } ?: 0f),
             contentBottom = maxOf(inkEdge.y, document.outlines.maxOfOrNull { outline ->
                 outline.y + if (outline is Outline.Text) measuredTextHeights[outline.id]
                     ?: maxOf(150f, outline.minHeight) else measuredTextHeights[outline.id] ?: outline.primeHeight()
@@ -405,7 +411,7 @@ internal fun PageCanvas(
             val focusedText = outline is Outline.Text && snapshot.focusedTextOutlineId == outline.id
             val margin = if (focusedText) 16f else 0f
             val chromeTop = if (focusedText) 32f else if (outline.id in snapshot.selectedObjectIds) 52f else 0f
-            point.x >= outline.x - margin && point.x <= outline.x + outline.width + margin &&
+            point.x >= outline.x - margin && point.x <= outline.x + outline.primeWidth() + margin &&
                 point.y >= outline.y - chromeTop &&
                 point.y <= outline.y + height + margin
         } == true
@@ -431,7 +437,7 @@ internal fun PageCanvas(
                 maxOf(10f, outline.borderWidth / 2f + 9f) else 10f
             val height = measuredTextHeights[outline.id] ?: outline.primeHeight()
             outline.id in snapshot.selectedObjectIds && outline.isPrimeObject() &&
-                point.x in (outline.x - margin)..(outline.x + outline.width + margin) &&
+                point.x in (outline.x - margin)..(outline.x + outline.primeWidth() + margin) &&
                 point.y in (outline.y - margin)..(outline.y + height + margin)
         }
         return groupBody || groupCorner || textGrip || primeBounds
@@ -674,6 +680,14 @@ internal fun PageCanvas(
                         onDeleteTextBox = onDeleteTextBox
                     )
                     CanvasPrimeObjects(
+                        heldTable = heldTable,
+                        onHoldTable = { axis ->
+                            focusManager.clearFocus()
+                            canvasFocusRequester.requestFocus()
+                            interaction.heldTableAxis = axis
+                            if (axis != null && currentState.selectedObjectIds != setOf(axis.tableId)) onSelectObject(axis.tableId)
+                        },
+                        onTableEdit = onTableEdit,
                         state = state,
                         workspaceState = currentStateValue,
                         displayedOutlines = displayedOutlines,
@@ -717,9 +731,12 @@ internal fun PageCanvas(
                     CanvasObjectToolkit(
                         state = state,
                         groupBounds = groupBounds,
+                        measuredTextHeights = measuredTextHeights,
                         shapeInk = shapeInk,
+                        heldTable = heldTable,
                         onColorObjects = onColorObjects,
-                        onTableAction = onTableAction,
+                        onTableEdit = onTableEdit,
+                        onReleaseTable = { interaction.heldTableAxis = null },
                         onEquationChange = onEquationChange,
                         onShapeLineType = onShapeLineType,
                         onShapeWidth = onShapeWidth,

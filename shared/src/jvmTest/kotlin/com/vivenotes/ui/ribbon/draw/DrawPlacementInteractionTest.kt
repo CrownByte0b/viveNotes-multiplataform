@@ -33,10 +33,11 @@ class DrawPlacementInteractionTest {
         onNodeWithTag(WorkspaceTestTags.primeObject(table.id)).assertIsDisplayed()
         table.rows.flatMap { it.cells }.forEach { onNodeWithTag(TableTags.cell(it.id)).assertDoesNotExist() }
 
-        onNodeWithTag("draw-table-edit").performClick()
-        onNodeWithTag("draw-table-edit-add-row").performClick()
-        onNodeWithTag("draw-table-edit-add-column").performClick()
-        onNodeWithTag("draw-table-edit-add-column").performKeyInput { pressKey(Key.Escape) }
+        onNodeWithTag(TableTags.RowMenu).performClick()
+        onNodeWithTag(TableTags.RowBelow).performClick()
+        onNodeWithTag(TableTags.ColumnMenu).performClick()
+        onNodeWithTag(TableTags.ColumnRight).performClick()
+        onNodeWithTag(TableTags.ColumnRight).assertDoesNotExist()
         runOnIdle {
             val edited = state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single()
             assertEquals(table.rowCount + 1, edited.rowCount)
@@ -91,8 +92,8 @@ class DrawPlacementInteractionTest {
         onNodeWithTag(TableTags.cell(table.cellAt(0, 0)!!.id)).performKeyInput { pressKey(Key.Tab) }
         runOnIdle { assertEquals(table.cellAt(0, 1)!!.id, state.value.focusedTextOutlineId) }
         runOnIdle { state.value = state.value.selectObject(table.id) }
-        onNodeWithTag("draw-table-edit").performClick()
-        onNodeWithTag("draw-table-edit-add-row").performClick()
+        onNodeWithTag(TableTags.RowMenu).performClick()
+        onNodeWithTag(TableTags.RowBelow).performClick()
         runOnIdle { assertEquals(4, state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single().rowCount) }
     }
 

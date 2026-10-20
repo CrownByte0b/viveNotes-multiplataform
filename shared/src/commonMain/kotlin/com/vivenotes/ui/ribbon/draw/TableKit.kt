@@ -26,7 +26,21 @@ internal object TableTags {
     const val Fill = "draw-table-fill"
     const val Columns = "draw-table-columns"
     const val Rows = "draw-table-rows"
+    const val Move = "table-move-handle"
+    const val SelectionOutline = "table-selection-outline"
+    const val RowMenu = "object-table-rows"
+    const val ColumnMenu = "object-table-columns"
+    const val RowBelow = "object-table-row-below"
+    const val RowDelete = "object-table-row-delete"
+    const val ColumnRight = "object-table-column-right"
+    const val ColumnDelete = "object-table-column-delete"
+    const val HeaderRow = "object-table-header-row"
+    const val HeaderColumn = "object-table-header-column"
+    const val BorderWidth = "object-table-border-width"
+    const val ObjectFill = "object-table-fill"
     fun cell(id: String) = "draw-table-cell-$id"
+    fun columnHandle(tableId: String, index: Int) = "table-column-handle-$tableId-$index"
+    fun rowHandle(tableId: String, index: Int) = "table-row-handle-$tableId-$index"
 }
 
 @Composable

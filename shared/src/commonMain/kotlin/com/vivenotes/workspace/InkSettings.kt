@@ -92,6 +92,11 @@ data class TableToolSettings(
     fun normalized(): TableToolSettings {
         val cols = columns.coerceIn(1, com.vivenotes.model.Outline.Table.MAX_COLUMNS)
         return copy(columns = cols, rows = rows.coerceIn(1, minOf(com.vivenotes.model.Outline.Table.MAX_ROWS,
-            com.vivenotes.model.Outline.Table.MAX_CELLS / cols)), borderWidth = borderWidth.coerceIn(1, 8))
+            com.vivenotes.model.Outline.Table.MAX_CELLS / cols)), borderWidth = borderWidth.coerceIn(MIN_BORDER_WIDTH, MAX_BORDER_WIDTH))
+    }
+
+    companion object {
+        const val MIN_BORDER_WIDTH = 1
+        const val MAX_BORDER_WIDTH = 8
     }
 }
