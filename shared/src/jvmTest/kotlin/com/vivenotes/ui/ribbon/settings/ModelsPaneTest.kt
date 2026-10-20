@@ -22,6 +22,8 @@ import com.vivenotes.ai.AiModelInstallState
 import com.vivenotes.ai.AiModels
 import com.vivenotes.ai.AiModelsState
 import com.vivenotes.ai.FormulaEngine
+import com.vivenotes.ui.components.assertIsDeterminateWavyBar
+import com.vivenotes.ui.components.assertIsIndeterminateWavyBar
 import com.vivenotes.ui.components.ToolPaneTags
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.theme.ViveNotesTheme
@@ -142,6 +144,26 @@ class ModelsPaneTest {
 
         models.state.value = models.state.value.withFormula(FormulaEngine.UniMerNetTiny, AiModelInstallState.Verifying)
         onNodeWithTag(ModelsTags.progress(FormulaEngine.UniMerNetTiny)).assertTextContains("Verifying…")
+    }
+
+    @Test
+    fun everyModelUsesExpressiveWavesForDownloadAndVerification() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        setWorkspace()
+        openModels()
+        for (engine in FormulaEngine.entries) {
+            for (fraction in listOf(0f, 0.5f, 1f)) {
+                models.state.value = models.state.value.withFormula(engine,
+                    AiModelInstallState.Downloading((fraction * 1000).toLong(), 1000))
+                onNodeWithTag(ModelsTags.progress(engine))
+                    .assertTextContains("Downloading ${(fraction * 100).toInt()}%")
+                onNodeWithTag(ModelsTags.progressIndicator(engine), useUnmergedTree = true)
+                    .assertIsDeterminateWavyBar(fraction)
+            }
+            models.state.value = models.state.value.withFormula(engine, AiModelInstallState.Verifying)
+            onNodeWithTag(ModelsTags.progress(engine)).assertTextContains("Verifying…")
+            onNodeWithTag(ModelsTags.progressIndicator(engine), useUnmergedTree = true)
+                .assertIsIndeterminateWavyBar()
+        }
     }
 
     @Test

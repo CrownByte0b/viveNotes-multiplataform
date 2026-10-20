@@ -1,0 +1,9 @@
+<!-- Fill in the screenshot URL and caption, then insert this block into the MetaInfo component.
+     Use a direct, publicly reachable HTTPS image URL. For a Git repository, pin a tag or commit.
+     This template is deliberately excluded from installed metadata until screenshots are supplied. -->
+<screenshots>
+  <screenshot type="default">
+    <image type="source">@SCREENSHOT_URL@</image>
+    <caption>@SCREENSHOT_CAPTION@</caption>
+  </screenshot>
+</screenshots>

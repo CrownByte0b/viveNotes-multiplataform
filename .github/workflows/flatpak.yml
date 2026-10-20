@@ -1,0 +1,67 @@
+name: Linux Flatpak
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ORG_GRADLE_PROJECT_byteinkVersion: 0.1.0-alpha.1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: 27
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: 0.12.19
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak appstream desktop-file-utils imagemagick xvfb
+          # Ubuntu 24.04 ships ImageMagick 6 (convert); build.py also supports ImageMagick 7.
+      - name: Install Flatpak runtime
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive flathub org.freedesktop.Platform//26.08
+      - name: Run JVM tests and lint
+        run: xvfb-run -a ./gradlew lint :shared:jvmTest :desktopApp:test --continue
+      - name: Build Flatpak bundle
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            python3 -B packaging/flatpak/build.py --version "${GITHUB_REF_NAME#v}"
+          else
+            python3 -B packaging/flatpak/build.py
+          fi
+      - name: Smoke test the sandbox
+        run: xvfb-run -a python3 -B packaging/flatpak/smoke_test.py
+      - name: Upload Flatpak and metadata
+        uses: actions/upload-artifact@v7
+        with:
+          name: ViveNotes-Linux-x86_64
+          path: |
+            desktopApp/build/flatpak/*.flatpak
+            desktopApp/build/flatpak/*.json
+            desktopApp/build/flatpak/payload/share/licenses/net.vivenotes.ViveNotes/dependencies/SHA256SUMS
+            desktopApp/build/flatpak/smoke-test.log
+      - name: Upload failed test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: flatpak-failure-reports
+          path: |
+            shared/build/reports/tests/
+            desktopApp/build/reports/tests/
+            desktopApp/build/flatpak/smoke-test.log

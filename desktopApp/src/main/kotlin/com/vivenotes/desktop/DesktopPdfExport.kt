@@ -2,8 +2,6 @@ package com.vivenotes.desktop
 
 import com.vivenotes.localization.Strings
 import com.vivenotes.pdf.PdfExportService
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.swing.Swing
 import kotlinx.coroutines.withContext
 import java.awt.FileDialog
 import java.awt.Frame
@@ -17,7 +15,7 @@ internal class DesktopPdfExport(
 ) : PdfExportService by exporter {
     private var directory: File? = null
     override suspend fun chooseDestination(suggestedName: String): String? =
-        try { withContext(Dispatchers.Swing) { chooseSave(suggestedName, directory) }
+        try { withContext(FlatpakFileDialogs.dispatcher) { chooseSave(suggestedName, directory) }
             ?.let(::withPdfExtension)
             ?.also { directory = it.absoluteFile.parentFile }
             ?.path
@@ -28,8 +26,8 @@ internal class DesktopPdfExport(
         try { exporter.write(plan, destination, onProgress) } finally { onUpdate() }
 }
 
-internal fun withPdfExtension(chosen: File): File {
-    if (chosen.name.endsWith(".pdf", ignoreCase = true)) return chosen
+internal fun withPdfExtension(chosen: File, preserveName: Boolean = FlatpakFileDialogs.enabled): File {
+    if (preserveName || chosen.name.endsWith(".pdf", ignoreCase = true)) return chosen
     val parent = chosen.absoluteFile.parentFile
     var candidate = File(parent, "${chosen.name}.pdf")
     var copy = 1
@@ -38,6 +36,7 @@ internal fun withPdfExtension(chosen: File): File {
 }
 
 internal fun choosePdfDestination(owner: Frame?, suggestedName: String, directory: File?): File? {
+    if (FlatpakFileDialogs.enabled) return FlatpakFileDialogs.choose(Strings.export_pdf, listOf("pdf"), suggestedName)
     val dialog = FileDialog(owner, Strings.export_pdf, FileDialog.SAVE)
     dialog.directory = (directory ?: File(System.getProperty("user.home"))).path
     dialog.file = suggestedName

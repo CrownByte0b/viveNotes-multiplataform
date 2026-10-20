@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+exec /app/jbr/bin/java \
+    --enable-native-access=ALL-UNNAMED \
+    --add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED \
+    --add-exports=java.desktop/sun.awt=ALL-UNNAMED \
+    --add-opens=java.desktop/sun.awt.wl=ALL-UNNAMED \
+    -Dvivenotes.profile=production \
+    -Dvivenotes.uv=/app/bin/uv \
+    -cp '/app/lib/*' com.vivenotes.desktop.MainKt "$@"

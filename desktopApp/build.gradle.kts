@@ -1,4 +1,5 @@
 import java.io.File
+import java.security.MessageDigest
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -119,6 +120,7 @@ tasks.test {
         "gradle/karma/managed-chromium.js", "gradle/browser-test-page.gradle.kts",
         "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js"))
     inputs.file(rootProject.file("tools/lint/ResourceLint.java"))
+    inputs.files(fileTree(rootProject.file("packaging/flatpak")))
     systemProperty("vivenotes.test.projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
     systemProperty("vivenotes.test.gradleHome", gradle.gradleHomeDir!!.absolutePath)
@@ -191,4 +193,23 @@ afterEvaluate {
             }
         }
     }
+}
+
+// Flatpak bundles the complete JBR separately; keep this payload independent of jpackage's JDK.
+tasks.register<Sync>("stageFlatpak") {
+    group = "distribution"
+    description = "Stage the production JVM jars for Linux Flatpak packaging"
+    dependsOn(tasks.jar)
+    into(layout.buildDirectory.dir("flatpak/payload/lib"))
+    // Different Maven groups can publish the same jar name (AndroidX/JetBrains lifecycle).
+    // Keep both on the flat classpath; identical artifacts can be copied once.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(configurations.runtimeClasspath) {
+        eachFile {
+            val digest = MessageDigest.getInstance("SHA-256")
+                .digest(file.readBytes()).take(8).joinToString("") { "%02x".format(it) }
+            name = "$digest-$name"
+        }
+    }
+    from(tasks.jar)
 }

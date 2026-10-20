@@ -18,7 +18,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,6 +55,7 @@ object ModelsTags {
     fun delete(engine: FormulaEngine): String = "models-formula-delete-${engine.name}"
     fun use(engine: FormulaEngine): String = "models-formula-use-${engine.name}"
     fun progress(engine: FormulaEngine): String = "models-formula-progress-${engine.name}"
+    fun progressIndicator(engine: FormulaEngine): String = "${progress(engine)}-indicator"
 }
 
 /**
@@ -207,17 +209,20 @@ private fun DownloadButton(label: String, tag: String, onClick: () -> Unit) {
     }
 }
 
-/** What is happening and, when it is known, how far along: a plain bar without one. */
+/** Download progress uses determinate waves; verification uses indeterminate waves. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ProgressLine(label: String, fraction: Float?, tag: String?) {
     Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}
         .then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(6.dp))
+        val indicator = Modifier.fillMaxWidth()
+            .then(if (tag != null) Modifier.testTag("$tag-indicator") else Modifier)
         if (fraction == null) {
-            LinearProgressIndicator(Modifier.fillMaxWidth())
+            LinearWavyProgressIndicator(indicator)
         } else {
-            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+            LinearWavyProgressIndicator(progress = { fraction }, modifier = indicator)
         }
     }
 }

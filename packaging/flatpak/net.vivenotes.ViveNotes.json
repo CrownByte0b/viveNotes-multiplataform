@@ -1,0 +1,23 @@
+{
+    "id": "net.vivenotes.ViveNotes",
+    "runtime": "org.freedesktop.Platform",
+    "runtime-version": "26.08",
+    "sdk": "org.freedesktop.Sdk",
+    "command": "vivenotes",
+    "separate-locales": false,
+    "finish-args": [
+        "--socket=wayland",
+        "--socket=fallback-x11",
+        "--share=ipc",
+        "--share=network",
+        "--device=dri"
+    ],
+    "modules": [
+        {
+            "name": "vivenotes",
+            "buildsystem": "simple",
+            "build-commands": ["cp -a payload/. /app/"],
+            "sources": [{"type": "dir", "path": "payload", "dest": "payload"}]
+        }
+    ]
+}

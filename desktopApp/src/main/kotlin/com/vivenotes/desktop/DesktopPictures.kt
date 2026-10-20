@@ -7,7 +7,6 @@ import com.vivenotes.data.OnlineImages
 import com.vivenotes.data.PictureCamera
 import com.vivenotes.data.PictureLibrary
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.swing.Swing
 import kotlinx.coroutines.withContext
 import java.awt.FileDialog
 import java.awt.Frame
@@ -32,7 +31,7 @@ internal class DesktopPictures(
 ) : PictureLibrary {
 
     override suspend fun choose(): ImportedPicture? {
-        val file = withContext(Dispatchers.Swing) { chooseFile() } ?: return null
+        val file = withContext(FlatpakFileDialogs.dispatcher) { chooseFile() } ?: return null
         val bytes = withContext(Dispatchers.IO) { runCatching { file.readBytes() }.getOrNull() } ?: return null
         return store.import(bytes)
     }
@@ -50,6 +49,7 @@ internal val PictureExtensions = listOf("png", "jpg", "jpeg", "webp", "gif", "bm
  * Wayland toolkit alike, and the native dialog on Windows. Null when the user cancels.
  */
 internal fun choosePictureFile(owner: Frame?): File? {
+    if (FlatpakFileDialogs.enabled) return FlatpakFileDialogs.choose(Strings.insert_picture, PictureExtensions)
     val dialog = FileDialog(owner, Strings.insert_picture, FileDialog.LOAD)
     dialog.isMultipleMode = false
     dialog.setFilenameFilter { _, name -> name.substringAfterLast('.', "").lowercase() in PictureExtensions }

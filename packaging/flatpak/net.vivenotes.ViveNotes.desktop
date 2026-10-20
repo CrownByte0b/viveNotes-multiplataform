@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Vive Notes
+Comment=Write and organize your notes
+Exec=vivenotes
+Icon=net.vivenotes.ViveNotes
+Terminal=false
+Categories=Office;
+Keywords=Notes;Notebooks;Handwriting;Math;
+StartupWMClass=net.vivenotes.ViveNotes
+StartupNotify=true
