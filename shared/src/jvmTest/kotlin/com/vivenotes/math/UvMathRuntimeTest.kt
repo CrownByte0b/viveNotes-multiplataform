@@ -167,6 +167,29 @@ class UvMathRuntimeTest {
     }
 
     @Test
+    fun packagedUvWorksWithoutAUserInstallationAndExplicitOverridesStillWin() {
+        val resources = temporary.newFolder("app resources")
+        val bundled = File(resources, "bin/uv.exe").executable()
+        val path = temporary.newFolder("user bin")
+        File(path, "uv.exe").executable()
+        val version: (File) -> String? = { "uv 0.12.19" }
+        assertEquals(UvLookup.Found(bundled, UvVersion(0, 12, 19)),
+            UvLookup.find(explicit = null, path = "", home = temporary.root,
+                windows = true, resources = resources, version = version))
+        assertEquals(UvLookup.Found(bundled, UvVersion(0, 12, 19)),
+            UvLookup.find(explicit = null, path = path.path, home = temporary.root,
+                windows = true, resources = resources, version = version))
+        val override = File(temporary.root, "custom.exe").executable()
+        assertEquals(UvLookup.Found(override, UvVersion(0, 12, 19)),
+            UvLookup.find(explicit = override.path, path = path.path, home = temporary.root,
+                windows = true, resources = resources, version = version))
+        val missing = File(temporary.root, "missing.exe").path
+        assertEquals(UvLookup.Unavailable("No uv at $missing."),
+            UvLookup.find(explicit = missing, path = path.path, home = temporary.root,
+                windows = true, resources = resources, version = version))
+    }
+
+    @Test
     fun anExplicitPathIsUsedOrReportedButNeverSearchedPast() {
         val elsewhere = File(temporary.newFolder("tools"), "uv-custom").executable()
         val version: (File) -> String? = { "uv 0.9.0" }

@@ -54,7 +54,11 @@ jobs:
         run: xvfb-run -a -s '-screen 0 1920x1200x24' ./gradlew :shared:jvmTest :desktopApp:test --continue
       - name: Run desktop tests
         if: runner.os == 'Windows'
-        run: ./gradlew :shared:jvmTest :desktopApp:test --continue
+        shell: pwsh
+        run: |
+          ./packaging/windows/prepare-test-desktop.ps1
+          ./gradlew.bat :shared:jvmTest :desktopApp:test --continue
+          if ($LASTEXITCODE -ne 0) { throw 'JVM checks failed.' }
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v7

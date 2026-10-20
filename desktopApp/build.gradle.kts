@@ -1,7 +1,66 @@
 import java.io.File
+import java.net.URI
 import java.security.MessageDigest
 import java.util.Properties
+import java.util.zip.ZipFile
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+abstract class PrepareWindowsResources : DefaultTask() {
+    @get:Input abstract val uvUrl: Property<String>
+    @get:Input abstract val uvSha256: Property<String>
+    @get:InputFiles @get:PathSensitive(PathSensitivity.NONE)
+    abstract val notices: ConfigurableFileCollection
+    @get:InputFiles @get:PathSensitive(PathSensitivity.NONE)
+    abstract val jars: ConfigurableFileCollection
+    @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun prepare() {
+        val output = outputDirectory.get().asFile.resolve("windows-x64")
+        output.deleteRecursively()
+        val archive = temporaryDir.resolve("uv.zip")
+        URI(uvUrl.get()).toURL().openConnection().apply {
+            connectTimeout = 30_000
+            readTimeout = 60_000
+        }.getInputStream().use { source -> archive.outputStream().use(source::copyTo) }
+        val hash = MessageDigest.getInstance("SHA-256").digest(archive.readBytes())
+            .joinToString("") { "%02x".format(it) }
+        check(hash == uvSha256.get()) { "SHA-256 mismatch for Windows uv archive" }
+        output.resolve("bin").mkdirs()
+        ZipFile(archive).use { zip ->
+            val uv = checkNotNull(zip.getEntry("uv.exe")) { "Windows uv archive lacks uv.exe" }
+            zip.getInputStream(uv).use { source -> output.resolve("bin/uv.exe").outputStream().use(source::copyTo) }
+        }
+        val licenses = output.resolve("licenses").apply { mkdirs() }
+        notices.files.forEach { it.copyTo(licenses.resolve(it.name), overwrite = true) }
+        val noticeIndex = mutableListOf("file\tjar-sha256\tjar\tentry")
+        val inventory = jars.files.sortedBy { it.name }.map { jar ->
+            val digest = MessageDigest.getInstance("SHA-256").digest(jar.readBytes())
+                .joinToString("") { "%02x".format(it) }
+            ZipFile(jar).use { zip ->
+                zip.entries().asSequence().filter { !it.isDirectory }.forEach { entry ->
+                    val name = entry.name.replace('\\', '/')
+                    if (name.split('/').none { it == ".." || ':' in it } && !name.startsWith('/') &&
+                        Regex("(^|/)(license|notice|copying|copyright)([./_-]|$)", RegexOption.IGNORE_CASE).containsMatchIn(name)) {
+                        // WiX still opens inputs through MAX_PATH-limited APIs. Keep installed
+                        // filenames short; the index retains the original jar and notice path.
+                        val entryId = MessageDigest.getInstance("SHA-256").digest(name.toByteArray())
+                            .take(8).joinToString("") { "%02x".format(it) }
+                        val relative = "dependencies/${digest.take(16)}/$entryId.txt"
+                        val target = licenses.resolve(relative)
+                        target.parentFile.mkdirs()
+                        zip.getInputStream(entry).use { source -> target.outputStream().use(source::copyTo) }
+                        noticeIndex += "$relative\t$digest\t${jar.name}\t$name"
+                    }
+                }
+            }
+            "$digest  ${jar.name}"
+        }
+        licenses.resolve("SHA256SUMS").writeText(inventory.joinToString("\n", postfix = "\n"))
+        licenses.resolve("NOTICES.tsv").writeText(noticeIndex.joinToString("\n", postfix = "\n"))
+    }
+}
 
 plugins {
     alias(libs.plugins.kotlinJvm)
@@ -48,6 +107,18 @@ val jbrJvmArgs = listOf("--add-opens=java.desktop/sun.awt.wl=ALL-UNNAMED")
 
 val appVersion = project.version.toString()
 
+val prepareWindowsResources = tasks.register<PrepareWindowsResources>("prepareWindowsResources") {
+    group = "distribution"
+    description = "Stage checksum-verified Windows uv and bundled dependency notices"
+    uvUrl.set("https://github.com/astral-sh/uv/releases/download/0.12.19/uv-x86_64-pc-windows-msvc.zip")
+    uvSha256.set("6dbb02d79e419522f1c500f0adb1cddcff0cda7d59b0d66ea7f5e3b4a1b2f5f0")
+    notices.from(rootProject.files("LICENSE.md", "shared/src/jvmMain/resources/ai/NOTICE.md"))
+    notices.from(rootProject.fileTree("LICENSES"))
+    notices.from(rootProject.fileTree("packaging/flatpak/licenses") { include("uv-*.txt") })
+    jars.from(configurations.runtimeClasspath)
+    outputDirectory.set(layout.buildDirectory.dir("windows/resources"))
+}
+
 /**
  * Deployment values that are not the same on every machine, as the Android app's build reads them:
  * a `-P` on the command line, then `local.properties` at the repository root (gitignored here), then
@@ -84,7 +155,27 @@ compose.desktop {
         mainClass = "com.vivenotes.desktop.MainKt"
         jvmArgs += launchJvmArgs
         nativeDistributions {
+            targetFormats(TargetFormat.Msi)
+            packageName = "Vive Notes"
             packageVersion = appVersion
+            description = "Handwritten and typed notes with offline math recognition"
+            vendor = "CROWNBYTE LLC"
+            licenseFile.set(rootProject.file("LICENSE.md"))
+            // Reflection, FFM, XML/PDF, HTTPS and the Windows Java Access Bridge need modules
+            // that jdeps cannot reliably infer from the classpath.
+            includeAllModules = true
+            windows {
+                iconFile.set(rootProject.file("packaging/windows/ViveNotes.ico"))
+                perUserInstall = true
+                dirChooser = true
+                menuGroup = "Vive Notes"
+                menu = true
+                shortcut = true
+                upgradeUuid = "6d1f580e-dc54-4d47-bc21-c84aef8f8011"
+            }
+            if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
+                appResourcesRootDir.set(prepareWindowsResources.flatMap { it.outputDirectory })
+            }
         }
         // Release jars are the compiled jars, unshrunk. Compose's default ProGuard (7.8) cannot read
         // the Gradle JDK's Java 27 classes, and the JVM rejects what 7.10 writes: its optimizer
@@ -121,6 +212,9 @@ tasks.test {
         "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js"))
     inputs.file(rootProject.file("tools/lint/ResourceLint.java"))
     inputs.files(fileTree(rootProject.file("packaging/flatpak")))
+    inputs.files(fileTree(rootProject.file("packaging/windows")))
+    inputs.file(rootProject.file(".github/workflows/windows-msi.yml"))
+    inputs.file(rootProject.file(".github/workflows/desktop-tests.yml"))
     systemProperty("vivenotes.test.projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
     systemProperty("vivenotes.test.gradleHome", gradle.gradleHomeDir!!.absolutePath)

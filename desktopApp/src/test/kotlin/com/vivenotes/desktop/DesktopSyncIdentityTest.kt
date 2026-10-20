@@ -36,7 +36,7 @@ class DesktopSyncIdentityTest {
     ) = DesktopSyncIdentity.current(
         profile = profile,
         appVersion = "0.1.0",
-        read = { file: File -> files[file.path] },
+        read = { file: File -> files[file.invariantSeparatorsPath] },
         environment = { environment[it] },
         property = { properties[it] },
         windowsMachineGuid = { machineGuid },
