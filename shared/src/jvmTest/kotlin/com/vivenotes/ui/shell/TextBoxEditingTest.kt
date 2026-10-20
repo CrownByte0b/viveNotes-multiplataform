@@ -132,7 +132,7 @@ class TextBoxEditingTest {
      */
     @Test
     fun clickingATallBoxLeavesThePageWhereItIs() = runDesktopComposeUiTest(width = 1400, height = 900) {
-        val lines = (1..90).map { Block.of("line $it") }.toTypedArray()
+        val lines = (1..180).map { Block.of("line $it") }.toTypedArray()
         val state = page(*lines)
         var observed = state
         setWorkspace(state) { observed = it }
@@ -156,10 +156,19 @@ class TextBoxEditingTest {
         // Low in the window, Enter pushes the caret out of it, and the page follows the caret.
         canvas.performMouseInput { click(Offset(200f, canvasHeight - 30f)) }
         waitForIdle()
+        onNodeWithTag(WorkspaceTestTags.BodyEditor).assertIsFocused()
         val beforeTyping = box.getUnclippedBoundsInRoot()
+        val beforeCaret = observed.editorSelection.start
+        val beforeLength = observed.richTextFor(state.boxId())!!.text.length
         repeat(8) { onNodeWithTag(WorkspaceTestTags.BodyEditor).performKeyInput { pressKey(Key.Enter) } }
         waitForIdle()
-        assertTrue(box.getUnclippedBoundsInRoot().top < beforeTyping.top, "typing below the window should scroll to the caret")
+        assertEquals(beforeLength + 8, observed.richTextFor(state.boxId())!!.text.length,
+            "the focused box must receive all eight newlines")
+        val afterTyping = box.getUnclippedBoundsInRoot()
+        assertTrue(afterTyping.top < beforeTyping.top,
+            "typing below the window should scroll to the caret: before=$beforeTyping after=$afterTyping " +
+                "caret=$beforeCaret->${observed.editorSelection.start} " +
+                "length=$beforeLength->${observed.richTextFor(state.boxId())!!.text.length}")
     }
 
     /** Reported: the caret of a new, empty list item stood left of its bullet. */

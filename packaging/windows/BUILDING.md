@@ -12,7 +12,9 @@ repository configured by `settings.gradle.kts`.
 ./packaging/windows/smoke-test.ps1
 ```
 
-Or run `./gradlew.bat :desktopApp:packageReleaseMsi` directly. The wrapper copies the
+Or set `WIX_PATH` to WiX's bin directory and run `./gradlew.bat :desktopApp:packageReleaseMsi`
+directly. The wrapper sets this automatically so Compose uses the installed WiX version.
+It copies the
 installer to `desktopApp/build/windows/ViveNotes-0.1.0-x64.msi` with a SHA-256 file.
 Use `build.ps1 -Version 0.1.1` for another version. MSI accepts only numeric
 `MAJOR.MINOR.BUILD`, bounded by `255.255.65535`; prerelease tags are rejected.

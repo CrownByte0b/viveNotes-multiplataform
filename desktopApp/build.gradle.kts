@@ -34,6 +34,7 @@ abstract class PrepareWindowsResources : DefaultTask() {
         }
         val licenses = output.resolve("licenses").apply { mkdirs() }
         notices.files.forEach { it.copyTo(licenses.resolve(it.name), overwrite = true) }
+        val noticeIndex = mutableListOf("file\tjar-sha256\tjar\tentry")
         val inventory = jars.files.sortedBy { it.name }.map { jar ->
             val digest = MessageDigest.getInstance("SHA-256").digest(jar.readBytes())
                 .joinToString("") { "%02x".format(it) }
@@ -42,15 +43,22 @@ abstract class PrepareWindowsResources : DefaultTask() {
                     val name = entry.name.replace('\\', '/')
                     if (name.split('/').none { it == ".." || ':' in it } && !name.startsWith('/') &&
                         Regex("(^|/)(license|notice|copying|copyright)([./_-]|$)", RegexOption.IGNORE_CASE).containsMatchIn(name)) {
-                        val target = licenses.resolve("dependencies/$digest-${jar.name}/$name")
+                        // WiX still opens inputs through MAX_PATH-limited APIs. Keep installed
+                        // filenames short; the index retains the original jar and notice path.
+                        val entryId = MessageDigest.getInstance("SHA-256").digest(name.toByteArray())
+                            .take(8).joinToString("") { "%02x".format(it) }
+                        val relative = "dependencies/${digest.take(16)}/$entryId.txt"
+                        val target = licenses.resolve(relative)
                         target.parentFile.mkdirs()
                         zip.getInputStream(entry).use { source -> target.outputStream().use(source::copyTo) }
+                        noticeIndex += "$relative\t$digest\t${jar.name}\t$name"
                     }
                 }
             }
             "$digest  ${jar.name}"
         }
         licenses.resolve("SHA256SUMS").writeText(inventory.joinToString("\n", postfix = "\n"))
+        licenses.resolve("NOTICES.tsv").writeText(noticeIndex.joinToString("\n", postfix = "\n"))
     }
 }
 
@@ -105,7 +113,8 @@ val prepareWindowsResources = tasks.register<PrepareWindowsResources>("prepareWi
     uvUrl.set("https://github.com/astral-sh/uv/releases/download/0.12.19/uv-x86_64-pc-windows-msvc.zip")
     uvSha256.set("6dbb02d79e419522f1c500f0adb1cddcff0cda7d59b0d66ea7f5e3b4a1b2f5f0")
     notices.from(rootProject.files("LICENSE.md", "shared/src/jvmMain/resources/ai/NOTICE.md"))
-    notices.from(rootProject.fileTree("packaging/flatpak/licenses"))
+    notices.from(rootProject.fileTree("LICENSES"))
+    notices.from(rootProject.fileTree("packaging/flatpak/licenses") { include("uv-*.txt") })
     jars.from(configurations.runtimeClasspath)
     outputDirectory.set(layout.buildDirectory.dir("windows/resources"))
 }
@@ -205,6 +214,7 @@ tasks.test {
     inputs.files(fileTree(rootProject.file("packaging/flatpak")))
     inputs.files(fileTree(rootProject.file("packaging/windows")))
     inputs.file(rootProject.file(".github/workflows/windows-msi.yml"))
+    inputs.file(rootProject.file(".github/workflows/desktop-tests.yml"))
     systemProperty("vivenotes.test.projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
     systemProperty("vivenotes.test.gradleHome", gradle.gradleHomeDir!!.absolutePath)

@@ -24,6 +24,7 @@ foreach ($tool in @('candle.exe', 'light.exe')) {
         throw "Missing $tool. Install WiX Toolset 3.14.1 and add its bin directory to PATH."
     }
 }
+$env:WIX_PATH = Split-Path (Get-Command candle.exe).Source -Parent
 Push-Location $root
 try {
     & ./gradlew.bat :desktopApp:packageReleaseMsi "-Pversion=$Version" --console=plain

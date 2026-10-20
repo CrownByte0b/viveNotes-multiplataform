@@ -62,10 +62,16 @@ class WindowsPackagingTest {
         assertFalse(File(resources, "bin/unwanted.exe").exists())
         assertEquals(license.readText(), File(resources, "licenses/LICENSE.md").readText())
         val digest = sha256(jar)
+        fun noticePath(entry: String) = File(resources,
+            "licenses/dependencies/${digest.take(16)}/${sha256(entry.toByteArray()).take(16)}.txt")
         assertEquals("library license",
-            File(resources, "licenses/dependencies/$digest-dependency.jar/META-INF/LICENSE.txt").readText())
+            noticePath("META-INF/LICENSE.txt").readText())
         assertEquals("notice",
-            File(resources, "licenses/dependencies/$digest-dependency.jar/META-INF/NOTICE").readText())
+            noticePath("META-INF/NOTICE").readText())
+        assertTrue(File(resources, "licenses/NOTICES.tsv").readText().contains("$digest\tdependency.jar\tMETA-INF/LICENSE.txt"))
+        assertTrue(resources.walkTopDown().filter { it.isFile }.all {
+            it.relativeTo(resources).invariantSeparatorsPath.length <= 80
+        }, "WiX source paths must leave room for the checkout and app image directories")
         assertEquals("$digest  dependency.jar\n", File(resources, "licenses/SHA256SUMS").readText())
         assertFalse(File(resources, "licenses/NOTICE").exists())
         assertFalse(resources.walkTopDown().any { it.name == "Code.class" })
@@ -88,6 +94,9 @@ class WindowsPackagingTest {
         assertTrue(workflow.contains("runs-on: windows-2025"))
         assertTrue(workflow.contains("./packaging/windows/build.ps1"))
         assertTrue(workflow.contains("./packaging/windows/smoke-test.ps1"))
+        assertTrue(workflow.contains("./packaging/windows/prepare-test-desktop.ps1"))
+        assertTrue(File(root, ".github/workflows/desktop-tests.yml").readText()
+            .contains("./packaging/windows/prepare-test-desktop.ps1"))
     }
 
     private fun runGradle(fixture: File, init: File): Int {
@@ -113,6 +122,8 @@ class WindowsPackagingTest {
         }
     }
 
-    private fun sha256(file: File): String = MessageDigest.getInstance("SHA-256").digest(file.readBytes())
+    private fun sha256(file: File): String = sha256(file.readBytes())
+
+    private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes)
         .joinToString("") { "%02x".format(it) }
 }
