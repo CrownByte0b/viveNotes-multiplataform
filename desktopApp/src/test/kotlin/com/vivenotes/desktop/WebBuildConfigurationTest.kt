@@ -1,6 +1,7 @@
 package com.vivenotes.desktop
 
 import java.io.File
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
@@ -14,7 +15,11 @@ class WebBuildConfigurationTest {
     @Test
     fun rootBuildAssemblesWebAndRunsPortableTestsWithManagedBrowsersAndEnoughCompilerMemory() {
         val project = File(System.getProperty("vivenotes.test.projectRoot"))
-        val fixture = temp.newFolder("app")
+        val directory = temp.newFolder("app")
+        // Gradle canonicalizes project directories. Exercise an alias locally too; Windows
+        // CI supplies a similar alias through its RUNNER~1 temporary-directory path.
+        val fixture = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) directory
+            else Files.createSymbolicLink(File(temp.root, "app alias").toPath(), directory.toPath()).toFile()
         for (path in listOf(
             "settings.gradle.kts", "build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
             "shared/build.gradle.kts", "webApp/build.gradle.kts", "desktopApp/build.gradle.kts",
@@ -58,7 +63,9 @@ class WebBuildConfigurationTest {
             }
             assertTrue("browserInstall|$module|true" in report, report.toString())
             assertTrue("task|:$module:kotlinInstallPlaywrightBrowsers|true" in report, report.toString())
-            assertTrue("browserModule|$module|${File(fixture, "build/js/node_modules/playwright").absolutePath}" in report)
+            val browserModule = report.single { it.startsWith("browserModule|$module|") }.substringAfterLast('|')
+            assertEquals(File(fixture, "build/js/node_modules/playwright").canonicalFile,
+                File(browserModule).canonicalFile, report.toString())
             assertTrue("runner|:$module:jsBrowserTest|KotlinPlaywrightJsTestFramework" in report, report.toString())
             assertTrue("runner|:$module:wasmJsBrowserTest|KotlinKarma" in report, report.toString())
         }
