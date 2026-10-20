@@ -85,6 +85,7 @@ object WorkspaceTestTags {
     const val ObjectLock = "workspace-object-lock"
     const val ObjectToolkit = "workspace-object-toolkit"
     const val ObjectColor = "workspace-object-color"
+    const val ObjectColorDivider = "workspace-object-color-divider"
     const val InkGroup = "workspace-ink-group"
     const val InkMath = "workspace-ink-math"
     const val InkColorDivider = "workspace-ink-color-divider"

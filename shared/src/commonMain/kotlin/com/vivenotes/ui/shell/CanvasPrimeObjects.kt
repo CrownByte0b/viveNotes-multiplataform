@@ -49,6 +49,8 @@ import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.drawDocumentShape
 import com.vivenotes.ui.canvas.primeResizePointer
 import com.vivenotes.ui.ribbon.draw.*
+import com.vivenotes.workspace.TABLE_GUTTER
+import com.vivenotes.workspace.TableEdit
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.isPrimeObject
 import com.vivenotes.workspace.primeHeight
@@ -75,6 +77,9 @@ internal fun CanvasPrimeObjects(
     onTextShortcut: (KeyEvent) -> Boolean,
     onMoveShapeEnd: (String, Boolean, Float, Float, Boolean) -> Unit,
     onMoveShapeArm: (String, ShapeArm, Float, Boolean) -> Unit,
+    heldTable: TableAxis?,
+    onHoldTable: (TableAxis?) -> Unit,
+    onTableEdit: (TableEdit) -> Unit,
 ) {
     val currentState by workspaceState
     val density = LocalDensity.current
@@ -87,13 +92,19 @@ internal fun CanvasPrimeObjects(
         val drawnShape = outline is Outline.Shape && outline.segments.isNotEmpty()
         // Leave half the stroke and rounded surface clip outside the actual geometry.
         val visualPad = if (drawnShape) (outline as Outline.Shape).borderWidth / 2f + 2f else 0f
-        val x = (outline.x - visualPad).dp
-        val y = (outline.y - visualPad).dp
+        // A table's grid sits inside the gutter its (x, y) reserves for the row and column handles.
+        val inset = if (outline is Outline.Table) TABLE_GUTTER else -visualPad
+        val x = (outline.x + inset).dp
+        val y = (outline.y + inset).dp
         val width = (outline.width + 2f * visualPad).coerceAtLeast(24f).dp
         val tableRows = if (outline is Outline.Table) measuredTableRows(outline, richColors) else emptyList()
         val objectHeight = if (outline is Outline.Table) tableRows.sum() else outline.primeHeight()
-        if (outline is Outline.Table) SideEffect { measuredTextHeights[outline.id] = objectHeight }
+        if (outline is Outline.Table) SideEffect { measuredTextHeights[outline.id] = TABLE_GUTTER + objectHeight }
         val height = (objectHeight + 2f * visualPad).coerceAtLeast(24f).dp
+        // A table alone in the selection, or one being typed in, shows its handles.
+        val tableActive = outline is Outline.Table && groupBounds == null && state.selectedInk == null &&
+            state.selectedTextOutlineIds.isEmpty() && (state.selectedObjectIds == setOf(outline.id) ||
+                outline.locate(state.focusedTextOutlineId.orEmpty()) != null)
         val label = when (outline) {
             is Outline.Shape -> outline.kind.label
             is Outline.Table -> Strings.table
@@ -111,8 +122,8 @@ internal fun CanvasPrimeObjects(
             tonalElevation = if (drawnPicture) 0.dp else if (selected && groupBounds == null) 3.dp else 1.dp,
             modifier = Modifier.offset(x, y).size(width, height)
                 .testTag(WorkspaceTestTags.primeObject(outline.id))
-                // A picture shows its own edges; only its selection is outlined.
-                .then(if (drawnObject && (!selected || groupBounds != null)) Modifier else Modifier.border(
+                // A picture shows its own edges; only its selection is outlined. A table's is dashed, in its chrome.
+                .then(if (drawnObject && (!selected || groupBounds != null || outline is Outline.Table)) Modifier else Modifier.border(
                     if (selected && groupBounds == null) 2.dp else 1.dp,
                     if (selected && groupBounds == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                     MaterialTheme.shapes.small))
@@ -144,7 +155,8 @@ internal fun CanvasPrimeObjects(
                     PictureContent(pictureAssets[outline.attachmentId], outline.backgroundArgb)
                 } else if (outline is Outline.Table) {
                     TableContent(outline, tableRows, shapeInk, state, richColors, editorFocusRequester,
-                        onFocusTextBox, onBodyChange, onTextShortcut)
+                        onFocusTextBox, onBodyChange, onTextShortcut, heldTable?.takeIf { it.tableId == outline.id },
+                        MaterialTheme.colorScheme.primary.copy(alpha = .22f))
                 } else if (outline is Outline.Equation) {
                     EquationContent(outline.latex, outline.colorArgb?.let(::Color) ?: shapeInk, Modifier.fillMaxSize(), stretch = true)
                 } else if (outline is Outline.Shape && drawnShape) {
@@ -181,8 +193,24 @@ internal fun CanvasPrimeObjects(
                     })
             }
         }
+        if (outline is Outline.Table && tableActive) {
+            TableChrome(outline, tableRows, heldTable?.takeIf { it.tableId == outline.id },
+                grabbable = outline.lockGroup == null,
+                onHold = onHoldTable,
+                onColumnWidth = { column, columnWidth, first ->
+                    onTableEdit(TableEdit.ColumnWidth(outline.id, column, columnWidth, recordHistory = first))
+                },
+                onRowMinHeight = { row, minHeight, first ->
+                    onTableEdit(TableEdit.RowMinHeight(outline.id, row, minHeight, recordHistory = first))
+                },
+                onMove = { dx, dy, first -> currentMoveObject(outline.id, dx, dy, first) },
+                onScale = { sx, sy, first ->
+                    if (outline.id !in currentState.selectedObjectIds) currentSelectObject(outline.id)
+                    currentResizeObjects(outline.x, outline.y, sx, sy, first)
+                })
+        }
         if (selected && outline.lockGroup == null && groupBounds == null && state.selectedTextOutlineIds.isEmpty() &&
-            (outline !is Outline.Shape || !outline.kind.hasEnds)) {
+            outline !is Outline.Table && (outline !is Outline.Shape || !outline.kind.hasEnds)) {
             val corners = listOf(
                 x to y, x + width to y, x to y + height, x + width to y + height,
             )

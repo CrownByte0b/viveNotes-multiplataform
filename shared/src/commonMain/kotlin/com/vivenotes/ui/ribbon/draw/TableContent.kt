@@ -1,13 +1,14 @@
 package com.vivenotes.ui.ribbon.draw
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -52,23 +53,51 @@ internal fun measuredTableRows(table: Outline.Table, colors: RichTextColors): Li
     }
 }
 
+/**
+ * The grid: its cells, with the fill, header tint, [held] band and rules drawn once behind them
+ * (Android `TableGrid`), so every rule is the same width wherever two cells meet.
+ */
 @Composable
 internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Color, state: WorkspaceState,
     colors: RichTextColors, focusRequester: FocusRequester, onFocus: (String) -> Unit,
     onChange: (String, TextFieldValue) -> Unit, onShortcut: (KeyEvent) -> Boolean,
+    held: TableAxis? = null, heldTint: Color = Color.Transparent,
 ) {
     val border = Color(automaticColorOr(table.borderArgb, table.borderFollowsTheme, canvasInk.toArgb()))
     val editing = table.lockGroup == null && (
         state.selectedObjectIds == setOf(table.id) && state.selectedTextOutlineIds.isEmpty() && state.selectedInk == null ||
             table.locate(state.focusedTextOutlineId.orEmpty()) != null)
-    Column(Modifier.fillMaxSize().then(table.fillArgb?.let { Modifier.background(Color(it)) } ?: Modifier)) {
+    Column(Modifier.fillMaxSize().drawBehind {
+        table.fillArgb?.let { drawRect(Color(it)) }
+        val tops = rows.runningFold(0f) { top, height -> top + height.dp.toPx() }
+        val lefts = table.columns.runningFold(0f) { left, width -> left + width.dp.toPx() }
+        val headerTint = border.copy(alpha = .10f)
+        if (table.headerRow && rows.isNotEmpty()) drawRect(headerTint, Offset.Zero, Size(size.width, tops[1]))
+        if (table.headerColumn && table.columns.isNotEmpty()) drawRect(headerTint, Offset.Zero, Size(lefts[1], size.height))
+        // Over the header tint and under the rules, so the band never greys out the text it marks.
+        when (held) {
+            is TableAxis.Row -> if (held.index in rows.indices)
+                drawRect(heldTint, Offset(0f, tops[held.index]), Size(size.width, tops[held.index + 1] - tops[held.index]))
+            is TableAxis.Column -> if (held.index in table.columns.indices)
+                drawRect(heldTint, Offset(lefts[held.index], 0f), Size(lefts[held.index + 1] - lefts[held.index], size.height))
+            null -> Unit
+        }
+        val stroke = table.borderWidth.dp.toPx().coerceAtLeast(1f)
+        // Half a stroke in at each edge, so the outer rules are not clipped in half by the box.
+        lefts.forEach { x ->
+            val at = x.coerceIn(stroke / 2f, (size.width - stroke / 2f).coerceAtLeast(stroke / 2f))
+            drawLine(border, Offset(at, 0f), Offset(at, size.height), stroke)
+        }
+        tops.forEach { y ->
+            val at = y.coerceIn(stroke / 2f, (size.height - stroke / 2f).coerceAtLeast(stroke / 2f))
+            drawLine(border, Offset(0f, at), Offset(size.width, at), stroke)
+        }
+    }) {
         table.rows.forEachIndexed { r, row ->
             Row(Modifier.fillMaxWidth().height(rows[r].dp)) {
                 row.cells.forEachIndexed { c, cell ->
                     val header = (r == 0 && table.headerRow) || (c == 0 && table.headerColumn)
-                    Box(Modifier.width(table.columns.getOrElse(c) { 160f }.dp).fillMaxHeight()
-                        .background(if (header) border.copy(alpha = .10f) else Color.Transparent)
-                        .border(table.borderWidth.dp, border)) {
+                    Box(Modifier.width(table.columns.getOrElse(c) { 160f }.dp).fillMaxHeight()) {
                         if (!table.inkOnly) {
                             val focused = state.focusedTextOutlineId == cell.id
                             val buffer = state.richTextFor(cell.id) ?: RichTextBuffer(cell.blocks)

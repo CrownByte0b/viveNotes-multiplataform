@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Rect
 import com.vivenotes.model.Outline
 import com.vivenotes.workspace.isPrimeObject
 import com.vivenotes.workspace.primeHeight
+import com.vivenotes.workspace.primeWidth
 
 /** The visible bounds of a selection containing more than one canvas object, in page dp. */
 internal fun selectedCanvasBounds(
@@ -21,7 +22,7 @@ internal fun selectedCanvasBounds(
             Rect(x, y, x + outline.width.coerceIn(120f, 2000f),
                 y + (measuredTextHeights[outline.id] ?: maxOf(outline.minHeight, 150f)))
         } else {
-            Rect(outline.x, outline.y, outline.x + outline.width.coerceAtLeast(24f),
+            Rect(outline.x, outline.y, outline.x + outline.primeWidth().coerceAtLeast(24f),
                 outline.y + (measuredTextHeights[outline.id] ?: outline.primeHeight()).coerceAtLeast(24f))
         }
     }

@@ -110,7 +110,7 @@ class PrimeObjectInteractionTest {
                 assertEquals(setOf(table.id), state.value.selectedObjectIds)
                 assertNull(state.value.focusedTextOutlineId)
             }
-            onNodeWithTag("draw-table-edit").assertIsDisplayed()
+            onNodeWithTag(TableTags.RowMenu).assertIsDisplayed()
             onNodeWithTag(tag, useUnmergedTree = true).performMouseInput { click(center) }
             onNodeWithTag(tag).performTextInput("Typed through the cell")
             runOnIdle {

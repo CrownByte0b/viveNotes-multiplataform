@@ -8,6 +8,8 @@ import com.vivenotes.model.withRowRemoved
 import com.vivenotes.model.withColumnInserted
 import com.vivenotes.model.withCellBlocks
 import com.vivenotes.model.withColumnRemoved
+import com.vivenotes.model.withColumnWidth
+import com.vivenotes.model.withRowMinHeight
 import com.vivenotes.model.ink.encloses
 import com.vivenotes.model.ink.inkLassoCloses
 import com.vivenotes.model.ink.InkSample
@@ -351,17 +353,30 @@ data class WorkspaceState(
             else outline }
     }
 
-    fun editSelectedTable(action: String): WorkspaceState = editOutlines { outlines -> outlines.map { outline ->
-        if (outline is Outline.Table && outline.id in selectedObjectIds && outline.lockGroup == null) when (action) {
-            "add-row" -> outline.withRowInserted(outline.rowCount)
-            "remove-row" -> outline.withRowRemoved(outline.rowCount - 1)
-            "add-column" -> outline.withColumnInserted(outline.columnCount)
-            "remove-column" -> outline.withColumnRemoved(outline.columnCount - 1)
-            "header-row" -> outline.copy(headerRow = !outline.headerRow)
-            "header-column" -> outline.copy(headerColumn = !outline.headerColumn)
-            else -> outline
-        } else outline
-    } }
+    fun editTable(edit: TableEdit): WorkspaceState {
+        val recordHistory = when (edit) {
+            is TableEdit.ColumnWidth -> edit.recordHistory
+            is TableEdit.RowMinHeight -> edit.recordHistory
+            else -> true
+        }
+        return editOutlines(recordHistory) { outlines -> outlines.map { outline ->
+            if (outline !is Outline.Table || outline.id != edit.tableId) outline else when (edit) {
+                is TableEdit.InsertRow -> outline.withRowInserted(edit.at)
+                is TableEdit.DeleteRow -> outline.withRowRemoved(edit.at)
+                is TableEdit.InsertColumn -> outline.withColumnInserted(edit.at)
+                is TableEdit.DeleteColumn -> outline.withColumnRemoved(edit.at)
+                is TableEdit.ColumnWidth ->
+                    if (outline.lockGroup == null) outline.withColumnWidth(edit.column, edit.width) else outline
+                is TableEdit.RowMinHeight ->
+                    if (outline.lockGroup == null) outline.withRowMinHeight(edit.row, edit.minHeight) else outline
+                is TableEdit.BorderWidth -> outline.copy(borderWidth = edit.width.coerceIn(
+                    TableToolSettings.MIN_BORDER_WIDTH, TableToolSettings.MAX_BORDER_WIDTH).toFloat())
+                is TableEdit.Fill -> outline.copy(fillArgb = edit.argb)
+                is TableEdit.HeaderRow -> outline.copy(headerRow = edit.on)
+                is TableEdit.HeaderColumn -> outline.copy(headerColumn = edit.on)
+            }
+        } }
+    }
 
     fun updateSelectedEquation(latex: String, width: Float, height: Float): WorkspaceState {
         if (latex.isBlank() || !width.isFinite() || !height.isFinite()) return this
@@ -767,7 +782,7 @@ data class WorkspaceState(
         val cleaned = discardEmptyFocusedTextBox()
         val outlines = cleaned.selectedPage?.document?.outlines ?: return cleaned
         val objects = outlines.filter { it.isPrimeObject() }
-        val hit = objects.filter { it.x < right && it.x + it.width > left && it.y < bottom &&
+        val hit = objects.filter { it.x < right && it.x + it.primeWidth() > left && it.y < bottom &&
             it.y + it.primeHeight() > top }
         val textIds = outlines.filterIsInstance<Outline.Text>().filter { text ->
             !text.isUnwritten() && text.x < right && text.x + text.width > left &&
@@ -790,7 +805,7 @@ data class WorkspaceState(
         val page = cleaned.selectedPage ?: return cleaned
         val outlines = page.document.outlines
         val hit = outlines.filter { outline ->
-            path.encloses(InkSelectionBounds(outline.x, outline.y, outline.x + outline.width,
+            path.encloses(InkSelectionBounds(outline.x, outline.y, outline.x + outline.primeWidth(),
                 outline.y + (measuredHeights[outline.id] ?: if (outline is Outline.Text) maxOf(outline.minHeight, 150f) else outline.primeHeight())))
         }
         val ink = page.ink

@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.IntSize
 import com.vivenotes.model.SpaceCut
 import com.vivenotes.model.ink.Ruler
 import com.vivenotes.ui.canvas.TextMenuRequest
+import com.vivenotes.ui.ribbon.draw.TableAxis
 import com.vivenotes.workspace.CanvasViewport
 import com.vivenotes.workspace.PageSummary
 import com.vivenotes.workspace.WorkspaceState
@@ -38,6 +39,7 @@ internal class CanvasInteractionState(
     val titleValueState: MutableState<TextFieldValue>,
     val keyboardTextBoxState: MutableState<String?>,
     val textMenuState: MutableState<TextMenuRequest?>,
+    val heldTableAxisState: MutableState<TableAxis?>,
     val reachedXState: MutableIntState,
     val reachedYState: MutableIntState
 ) {
@@ -58,6 +60,7 @@ internal class CanvasInteractionState(
     var titleValue by titleValueState
     var keyboardTextBox by keyboardTextBoxState
     var textMenu by textMenuState
+    var heldTableAxis by heldTableAxisState
     var reachedX by reachedXState
     var reachedY by reachedYState
 }
@@ -81,6 +84,7 @@ internal fun rememberCanvasInteractionState(page: PageSummary?, state: Workspace
     val titleValueState = remember(page?.id) { mutableStateOf(TextFieldValue(page?.title.orEmpty())) }
     val keyboardTextBoxState = remember(page?.id) { mutableStateOf<String?>(null) }
     val textMenuState = remember(page?.id) { mutableStateOf<TextMenuRequest?>(null) }
+    val heldTableAxisState = remember(page?.id) { mutableStateOf<TableAxis?>(null) }
     val reachedXState = remember(page?.id) { mutableIntStateOf(0) }
     val reachedYState = remember(page?.id) { mutableIntStateOf(0) }
     return CanvasInteractionState(
@@ -101,6 +105,7 @@ internal fun rememberCanvasInteractionState(page: PageSummary?, state: Workspace
         titleValueState,
         keyboardTextBoxState,
         textMenuState,
+        heldTableAxisState,
         reachedXState,
         reachedYState,
     )

@@ -34,6 +34,7 @@ import javax.swing.SwingUtilities
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -141,7 +142,14 @@ class PrimeResizePointerTest {
         )
         for (outline in objects) {
             host.update(workspace(listOf(outline)).selectObject(outline.id))
-            repeat(4) { corner ->
+            // A table's top and left edges carry its row and column handles, so it scales from the
+            // bottom-right alone, as on Android; the other corners are no handles at all.
+            val corners = if (outline is Outline.Table) listOf(3) else (0..3).toList()
+            host.bounds(WorkspaceTestTags.objectCorner(outline.id, 3))
+            (0..3).filterNot { it in corners }.forEach {
+                SwingUtilities.invokeAndWait { assertNull(host.boundsNow(WorkspaceTestTags.objectCorner(outline.id, it))) }
+            }
+            corners.forEach { corner ->
                 val tag = WorkspaceTestTags.objectCorner(outline.id, corner)
                 host.resize(tag, corner) { host.state.value.selectedPage!!.document.outlines.single().width }
             }

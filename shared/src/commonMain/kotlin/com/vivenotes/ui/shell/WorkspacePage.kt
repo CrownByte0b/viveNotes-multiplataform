@@ -1,5 +1,6 @@
 package com.vivenotes.ui.shell
 
+import com.vivenotes.diagnostics.DebugLog
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -40,6 +41,7 @@ internal fun WorkspacePage(
     onInkMath: (InkSelection) -> Unit,
     applyEditorCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
     onLinkRequest: (LinkEditorRequest) -> Unit,
+    debugLog: DebugLog = DebugLog(),
 ) {
     PageCanvas(
         state = state,
@@ -117,7 +119,10 @@ internal fun WorkspacePage(
         },
         onDrawObject = { x, y -> onStateChange { it.placeDrawObject(x, y) } },
         onSpaceInsertion = { insertion -> onStateChange { it.applySpaceInsertion(insertion) } },
-        onTableAction = { action -> onStateChange { it.editSelectedTable(action) } },
+        onTableEdit = { edit ->
+            edit.logLine?.let { line -> debugLog.event("table") { line } }
+            onStateChange { it.editTable(edit) }
+        },
         onEquationChange = { equation -> onStateChange { it.updateSelectedEquation(equation.latex, equation.width, equation.height) } },
         onImageBackground = { argb -> onStateChange { it.setSelectedImageBackground(argb) } },
         onSelectObjectsInLasso = { path, heights -> onStateChange { it.selectObjectsInLasso(path, heights) } },

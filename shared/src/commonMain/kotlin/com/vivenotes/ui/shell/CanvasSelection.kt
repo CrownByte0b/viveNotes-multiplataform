@@ -3,14 +3,17 @@ package com.vivenotes.ui.shell
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -18,7 +21,10 @@ import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -29,11 +35,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.vivenotes.localization.Strings
@@ -48,7 +57,10 @@ import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.ui.ribbon.document.PictureObjectTools
 import com.vivenotes.ui.ribbon.draw.*
 import com.vivenotes.ui.ribbon.draw.ShapeObjectTools
+import com.vivenotes.workspace.TableEdit
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.primeHeight
+import com.vivenotes.workspace.primeWidth
 
 @Composable
 internal fun CanvasGroupSelection(
@@ -150,13 +162,21 @@ internal fun CanvasGroupSelection(
     }
 }
 
+/**
+ * The base object toolkit (Android `ObjectTooltip`): a dark pill centred above the selection, or
+ * below it when there is no room above, with colour, a divider, copy and lock, then the kind's own
+ * actions, then delete.
+ */
 @Composable
 internal fun CanvasObjectToolkit(
     state: WorkspaceState,
     groupBounds: Rect?,
+    measuredTextHeights: Map<String, Float>,
     shapeInk: Color,
+    heldTable: TableAxis?,
     onColorObjects: (Int, Boolean) -> Unit,
-    onTableAction: (String) -> Unit,
+    onTableEdit: (TableEdit) -> Unit,
+    onReleaseTable: () -> Unit,
     onEquationChange: (com.vivenotes.workspace.PendingDrawEquation) -> Unit,
     onShapeLineType: (LineType) -> Unit,
     onShapeWidth: (Int) -> Unit,
@@ -169,13 +189,23 @@ internal fun CanvasObjectToolkit(
     if (state.selectedObjectIds.isNotEmpty() && state.selectedInk == null) {
         val selected = state.selectedPrimeObjects.firstOrNull()
         if (selected != null) {
-            Surface(color = Color(0xFF161618), contentColor = Color.White,
-                shape = MaterialTheme.shapes.medium, tonalElevation = 4.dp,
-                modifier = Modifier.offset((groupBounds?.left ?: selected.x).dp,
-                    ((groupBounds?.top ?: selected.y).dp - 42.dp).coerceAtLeast(0.dp))
+            val bounds = groupBounds ?: Rect(selected.x, selected.y, selected.x + selected.primeWidth(),
+                selected.y + (measuredTextHeights[selected.id] ?: selected.primeHeight()))
+            var toolkitSize by remember { mutableStateOf(IntSize.Zero) }
+            Surface(color = Color(0xFF202124), contentColor = Color(0xFFE8EAED),
+                shape = RoundedCornerShape(20.dp), shadowElevation = 8.dp,
+                modifier = Modifier
+                    .offset {
+                        val gap = 12.dp.roundToPx()
+                        val above = bounds.top.dp.roundToPx() - toolkitSize.height - gap
+                        IntOffset((bounds.center.x.dp.roundToPx() - toolkitSize.width / 2).coerceAtLeast(0),
+                            if (above >= 0) above else bounds.bottom.dp.roundToPx() + gap)
+                    }
+                    .onSizeChanged { toolkitSize = it }
                     .testTag(WorkspaceTestTags.ObjectToolkit)) {
-                Row(Modifier.padding(horizontal = 3.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     val colorSource = state.selectedColorableObject
                     if (colorSource != null) {
                         val swatch = when (colorSource) {
@@ -187,17 +217,8 @@ internal fun CanvasObjectToolkit(
                             else -> Color.Black
                         }
                         SelectionColorButton(swatch, shapeInk, onColorObjects)
-                    }
-                    if (state.selectedObjectIds.size == 1 && state.selectedTextOutlineIds.isEmpty()) {
-                        if (selected is Outline.Table) TableObjectTools(selected, onTableAction)
-                        if (selected is Outline.Equation) EquationObjectTools(selected, onEquationChange)
-                    }
-                    if (selected is Outline.Shape && state.selectedObjectIds.size == 1 &&
-                        state.selectedTextOutlineIds.isEmpty()) {
-                        ShapeObjectTools(selected, onShapeLineType, onShapeWidth, onShapeFill)
-                    }
-                    state.selectedImages.takeIf { it.isNotEmpty() }?.let { images ->
-                        PictureObjectTools(images.map { it.backgroundArgb }.distinct().singleOrNull(), onImageBackground)
+                        Spacer(Modifier.padding(horizontal = 4.dp).width(1.dp).height(22.dp)
+                            .background(Color(0xFF5F6368)).testTag(WorkspaceTestTags.ObjectColorDivider))
                     }
                     TooltipIconButton(Strings.copy_selection, onClick = onCopyObjects, tooltipPosition = TooltipAnchorPosition.Above,
                         modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectCopy)) {
@@ -214,10 +235,21 @@ internal fun CanvasObjectToolkit(
                                 modifier = Modifier.size(18.dp))
                         }
                     }
+                    if (state.selectedObjectIds.size == 1 && state.selectedTextOutlineIds.isEmpty()) {
+                        if (selected is Outline.Table) TableObjectTools(selected, heldTable, onTableEdit, onReleaseTable)
+                        if (selected is Outline.Equation) EquationObjectTools(selected, onEquationChange)
+                    }
+                    if (selected is Outline.Shape && state.selectedObjectIds.size == 1 &&
+                        state.selectedTextOutlineIds.isEmpty()) {
+                        ShapeObjectTools(selected, onShapeLineType, onShapeWidth, onShapeFill)
+                    }
+                    state.selectedImages.takeIf { it.isNotEmpty() }?.let { images ->
+                        PictureObjectTools(images.map { it.backgroundArgb }.distinct().singleOrNull(), onImageBackground)
+                    }
                     TooltipIconButton(Strings.delete_selection, onClick = onDeleteObjects, tooltipPosition = TooltipAnchorPosition.Above,
                         modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectDelete)) {
                         Icon(ObjectSymbols.Delete, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
+                            tint = Color(0xFFFFA8A8),
                             modifier = Modifier.size(18.dp))
                     }
                 }
