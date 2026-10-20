@@ -272,7 +272,7 @@ internal class DesktopNotes(
                 thumbnails = DesktopVideoThumbnails(File(directories.data, "video_thumbnails")), log = log,
                 sync = DesktopSync(library, profile, DesktopSyncIdentity.current(profile, DesktopBuildInfo.version), log),
                 aiModels = AiModelStore(File(directories.data, AiModelStore.DIRECTORY),
-                    AiSettingsFile(File(directories.config, "ai.properties")), log = log),
+                    AiSettingsFile(File(directories.config, "ai.properties")), log = log, autoDownload = true),
                 mathRuntime = UvMathRuntime(File(directories.data, UvMathRuntime.DIRECTORY), log))
         }
     }

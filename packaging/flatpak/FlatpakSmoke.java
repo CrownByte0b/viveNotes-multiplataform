@@ -14,6 +14,10 @@ public final class FlatpakSmoke {
         // This test checks the UI and SQLite without triggering a Python download.
         Files.createDirectories(data.resolve("math_engine"));
         Files.writeString(data.resolve("math_engine/removed"), "");
+        // The UI probe stays offline; production first runs automatically download Small.
+        Path config = Path.of(System.getenv("XDG_CONFIG_HOME"), "vivenotes");
+        Files.createDirectories(config);
+        Files.writeString(config.resolve("ai.properties"), "deletedFormulaModels=UniMerNetSmall\n");
         if (new ProcessBuilder("/app/bin/uv", "--version").inheritIO().start().waitFor() != 0)
             throw new AssertionError("Bundled uv does not run");
         if (Arrays.asList(args).contains("--x11")) {

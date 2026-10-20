@@ -138,6 +138,46 @@ class AiModelStoreTest {
     }
 
     @Test
+    fun aFailedFirstRunSmallDownloadRetriesOnTheNextLaunch() = runBlocking<Unit> {
+        val root = File(temporary.root, AiModelStore.DIRECTORY)
+        store(root, downloader = refusing, autoDownload = true).use { store ->
+            val state = withTimeout(SETTLE_TIMEOUT_MS) {
+                store.state.first { it.uniMerNetSmall is AiModelInstallState.Failed }
+            }
+            assertFalse(state.formulaReady)
+            assertNull(store.installedUniMerNetFiles(FormulaEngine.UniMerNetSmall))
+            assertTrue(root.listFiles().orEmpty().none { it.name.endsWith(".part") })
+        }
+        assertEquals(listOf(AiModelCatalog.UNIMERNET_SMALL_ENCODER.fileName), attempted.toList())
+
+        attempted.clear()
+        store(root, downloader = writing, autoDownload = true).use { store ->
+            val state = installed(store, FormulaEngine.UniMerNetSmall)
+            assertEquals(FormulaEngine.UniMerNetSmall, state.formulaEngine)
+            assertTrue(state.formulaReady)
+            assertEquals(AiModelInstallState.NotInstalled, state.uniMerNet)
+            assertEquals(AiModelInstallState.NotInstalled, state.formulaLatex)
+        }
+        assertEquals(AiModelCatalog.formulaArtifacts(FormulaEngine.UniMerNetSmall).map { it.fileName }, attempted.toList())
+    }
+
+    @Test
+    fun deletingAutomaticallyInstalledSmallStopsDownloadsAcrossRelaunch() = runBlocking<Unit> {
+        val root = File(temporary.root, AiModelStore.DIRECTORY)
+        val preferences = InMemoryAiModelPreferences()
+        store(root, downloader = writing, autoDownload = true, preferences = preferences).use { store ->
+            installed(store, FormulaEngine.UniMerNetSmall)
+            store.delete(FormulaEngine.UniMerNetSmall)
+            eventually { FormulaEngine.UniMerNetSmall in preferences.load().deletedFormulaEngines }
+        }
+        attempted.clear()
+        store(root, downloader = refusing, autoDownload = true, preferences = preferences).use { store ->
+            assertEquals(AiModelInstallState.NotInstalled, settle(store).uniMerNetSmall)
+        }
+        assertTrue("fetched $attempted after deleting Small", attempted.isEmpty())
+    }
+
+    @Test
     fun autoDownloadHonoursADeletedDefault() = runBlocking<Unit> {
         val deleted = InMemoryAiModelPreferences(AiModelChoices(deletedFormulaEngines = setOf(FormulaEngine.UniMerNetSmall)))
         store(autoDownload = true, preferences = deleted).use { settle(it) }

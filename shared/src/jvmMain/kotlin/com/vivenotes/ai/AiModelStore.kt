@@ -68,9 +68,9 @@ class AiModelStore internal constructor(
     private val bundled: BundledModelFiles,
     private val log: DebugLog,
     /**
-     * Whether a launch without the default formula model fetches it by itself, as Android does on
-     * unmetered Wi-Fi. Off on the desktop for now: nothing reads a formula yet, and the JVM has no
-     * metered-connection signal, so the Models pane's Download is the only way a model arrives.
+     * Whether a launch without the default formula model fetches it by itself. Desktop startup
+     * enables this; stores used only for text recognition can leave it off. The user's explicit
+     * deletion prevents future automatic downloads.
      */
     private val autoDownload: Boolean,
     private val downloader: ArtifactDownloader,

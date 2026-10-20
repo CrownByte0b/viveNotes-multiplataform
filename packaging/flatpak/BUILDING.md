@@ -67,8 +67,10 @@ Flatpak supplies private XDG directories under `~/.var/app/net.vivenotes.ViveNot
 Vive Notes uses a `vivenotes` subdirectory within data/config/cache. Existing native or
 development notes are not migrated automatically. Export/import `.vive` files to transfer.
 JBR's license/legal directory, project license, font licenses, uv licenses, AI notice,
-and notices embedded in dependency jars are included. Formula models and the Python math
-environment retain the app's existing optional download behavior.
+and notices embedded in dependency jars are included. UniMERNet Small downloads automatically in the background on first run (about 209 MB); a
+previous deletion is respected, installed files are reused, and failed downloads retry on the
+next launch. Other formula models remain optional. The Python math environment also installs
+automatically through uv. Model download/verification progress uses Material 3 Expressive waves.
 
 ## Plan for public release and Flathub
 
