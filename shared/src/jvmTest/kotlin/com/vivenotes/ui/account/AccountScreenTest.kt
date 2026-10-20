@@ -30,11 +30,13 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import com.vivenotes.data.billing.CheckoutProvider
 import com.vivenotes.data.billing.ManagedSubscriptionState
 import com.vivenotes.data.sync.ConnectFailure
 import com.vivenotes.data.sync.AccountDeletionFailure
 import com.vivenotes.data.sync.AccountAuthProvider
 import com.vivenotes.data.sync.ManagedSubscriptionStatus
+import com.vivenotes.data.sync.PaidProvider
 import com.vivenotes.data.sync.PaidSubscriptionState
 import com.vivenotes.data.sync.PermanentSyncFailure
 import com.vivenotes.data.sync.ServerConnection
@@ -649,6 +651,133 @@ class AccountScreenTest {
         assertEquals(0, subscriptions)
     }
 
+    /** An install Google Play did not make sells through Stripe, and nothing on the card says Google. */
+    @Test
+    fun anInstallThatSellsByCardOffersCardCheckoutInPlaceOfPlay() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        connection = ServerConnection.Connected("https://sync.vivenotes.net", "Pixel Tablet")
+        managedSubscription = ManagedSubscriptionState(
+            visible = true,
+            formattedPrice = "\$5.49",
+            checkout = CheckoutProvider.Stripe,
+            cardPrice = "\$4.99",
+            cardManagementAvailable = true,
+        )
+        setScreen()
+
+        onNodeWithText(Strings.account_subscription_price("\$4.99"))
+            .performScrollTo()
+            .assertIsDisplayed()
+        onNodeWithText(Strings.account_subscription_price("\$5.49"))
+            .assertDoesNotExist()
+        val purchase = onNodeWithTag(AccountTags.SUBSCRIBE)
+        purchase.performScrollTo()
+            .assertTextContains(Strings.account_subscription_subscribe_card)
+            .assertIsEnabled()
+        onNodeWithTag(AccountTags.CARD_CHECKOUT_MARK, useUnmergedTree = true).assertIsDisplayed()
+        onNodeWithTag(AccountTags.GOOGLE_PLAY_MARK, useUnmergedTree = true).assertDoesNotExist()
+        purchase.performScrollTo().performClick()
+
+        assertEquals(1, subscriptions)
+    }
+
+    @Test
+    fun openingCardCheckoutShowsProgressInsteadOfTheLabel() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        connection = ServerConnection.Connected("https://sync.vivenotes.net", "Pixel Tablet")
+        managedSubscription = ManagedSubscriptionState(
+            visible = true,
+            checkout = CheckoutProvider.Stripe,
+            cardPrice = "\$4.99",
+            purchasing = true,
+        )
+        setScreen()
+
+        val purchase = onNodeWithTag(AccountTags.SUBSCRIBE)
+            .performScrollTo()
+            .assertIsNotEnabled()
+        // Desktop: Compose Multiplatform's LoadingIndicator merges its own semantics, so the
+        // description is announced from the indicator inside the button rather than the button.
+        purchase.onChild().assertContentDescriptionEquals(Strings.account_subscription_opening_checkout)
+        onNodeWithText(Strings.account_subscription_subscribe_card).assertDoesNotExist()
+    }
+
+    @Test
+    fun aRenewingCardPlanShowsItsPriceAndOpensItsOwnPortal() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        connection = ServerConnection.Connected("https://sync.vivenotes.net", "Pixel Tablet")
+        managedSubscription = ManagedSubscriptionState(
+            visible = true,
+            status = cardStatus(PaidSubscriptionState.Active, autoRenewing = true),
+            formattedPrice = "\$5.49",
+            checkout = CheckoutProvider.Stripe,
+            cardPrice = "\$4.99",
+            cardManagementAvailable = true,
+        )
+        setScreen()
+
+        onNodeWithText(Strings.account_subscription_price_short("\$4.99"))
+            .performScrollTo()
+            .assertIsDisplayed()
+        onNodeWithTag(AccountTags.SUBSCRIBE).assertDoesNotExist()
+        onNodeWithTag(AccountTags.MANAGE_SUBSCRIPTION)
+            .performScrollTo()
+            .assertTextContains(Strings.account_subscription_manage_link)
+            .performClick()
+        assertEquals(1, managedSubscriptions)
+    }
+
+    /** Play's policy covers the copy Play installed: a card plan is shown there but not linked to. */
+    @Test
+    fun aCardPlanSeenFromAPlayInstallHasNoLinkToItsPortal() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        connection = ServerConnection.Connected("https://sync.vivenotes.net", "Pixel Tablet")
+        managedSubscription = ManagedSubscriptionState(
+            visible = true,
+            status = cardStatus(PaidSubscriptionState.Active, autoRenewing = true),
+            formattedPrice = "\$5.49",
+            productAvailable = true,
+        )
+        setScreen()
+
+        onNodeWithTag(AccountTags.SUBSCRIPTION_STATUS)
+            .performScrollTo()
+            .assertTextContains(Strings.account_subscription_active_headline)
+        onNodeWithTag(AccountTags.MANAGE_SUBSCRIPTION).assertDoesNotExist()
+        onNodeWithTag(AccountTags.SUBSCRIBE).assertDoesNotExist()
+    }
+
+    @Test
+    fun aCardPaymentBeingRetriedIsExplainedInStripesTerms() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        connection = ServerConnection.Connected("https://sync.vivenotes.net", "Pixel Tablet")
+        managedSubscription = ManagedSubscriptionState(
+            visible = true,
+            status = cardStatus(PaidSubscriptionState.Grace, autoRenewing = true),
+            checkout = CheckoutProvider.Stripe,
+            cardManagementAvailable = true,
+        )
+        setScreen()
+
+        onNodeWithText(Strings.account_subscription_card_grace)
+            .performScrollTo()
+            .assertIsDisplayed()
+        onNodeWithText(Strings.account_subscription_paid_grace)
+            .assertDoesNotExist()
+        onNodeWithTag(AccountTags.MANAGE_SUBSCRIPTION)
+            .performScrollTo()
+            .assertTextContains(Strings.account_subscription_fix_payment)
+            .performClick()
+        assertEquals(1, managedSubscriptions)
+    }
+
+    private fun cardStatus(paidState: PaidSubscriptionState, autoRenewing: Boolean) =
+        ManagedSubscriptionStatus(
+            active = true,
+            validUntil = "2026-12-03T12:00:00Z",
+            paidState = paidState,
+            paidValidUntil = "2026-12-03T12:00:00Z",
+            promotionalValidUntil = null,
+            autoRenewing = autoRenewing,
+            productId = "price_monthly",
+            paidProvider = PaidProvider.Stripe,
+        )
+
     @Test
     fun couponFieldSubmitsTheTypedCode() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
         connection = ServerConnection.Connected("https://sync.vivenotes.net", "Pixel Tablet")
@@ -1003,6 +1132,32 @@ class AccountScreenTest {
 
         onNodeWithTag(AccountTags.SUBSCRIBE_ON_ANDROID).performScrollTo().assertIsDisplayed()
         onNodeWithTag(AccountTags.SUBSCRIBE).assertDoesNotExist()
+        onNodeWithTag(AccountTags.COUPON_TOGGLE).performScrollTo().assertIsDisplayed()
+    }
+
+    /**
+     * Desktop: still no Google Play, but a managed server that sells by card is a checkout the
+     * desktop can open, so the card offers it instead of sending the person to Android.
+     */
+    @Test
+    fun withoutAPlayStoreAServerThatSellsByCardIsSubscribedToHere() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        purchasesAvailable = false
+        connection = ServerConnection.Connected("https://sync.vivenotes.net", "fedora (3f2a)")
+        managedSubscription = ManagedSubscriptionState(
+            visible = true,
+            checkout = CheckoutProvider.Stripe,
+            cardPrice = "\$4.99",
+            cardManagementAvailable = true,
+        )
+        setScreen()
+
+        onNodeWithTag(AccountTags.SUBSCRIBE_ON_ANDROID).assertDoesNotExist()
+        onNodeWithText(Strings.account_subscription_price("\$4.99")).performScrollTo().assertIsDisplayed()
+        onNodeWithTag(AccountTags.SUBSCRIBE)
+            .performScrollTo()
+            .assertTextContains(Strings.account_subscription_subscribe_card)
+            .performClick()
+        assertEquals(1, subscriptions)
         onNodeWithTag(AccountTags.COUPON_TOGGLE).performScrollTo().assertIsDisplayed()
     }
 

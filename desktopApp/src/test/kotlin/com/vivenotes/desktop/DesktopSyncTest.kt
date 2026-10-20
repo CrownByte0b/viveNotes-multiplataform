@@ -3,15 +3,20 @@ package com.vivenotes.desktop
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import com.vivenotes.data.NotesLibrary
+import com.vivenotes.data.billing.CheckoutProvider
 import com.vivenotes.data.sync.InstallationDetails
+import com.vivenotes.data.sync.PaidProvider
 import com.vivenotes.data.sync.SyncAccount
 import com.vivenotes.data.sync.SyncAccountStore
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
@@ -127,6 +132,64 @@ class DesktopSyncTest {
         }
     }
 
+    /**
+     * Card checkout over the desktop's own wiring: no copy of the desktop came from Google Play, so a
+     * managed server that sells by card is offered, Subscribe opens its Checkout page, and coming back
+     * to the app has the server read the outcome from Stripe.
+     */
+    @Test
+    fun aManagedServerThatSellsByCardIsSubscribedToFromTheDesktop() = runBlocking {
+        server.sellsByCard = true
+        val library = NotesLibrary.open(File(root, "notes"))
+        try {
+            register(library)
+            val sync = desktopSync(library)
+            val subscription = sync.subscription
+            withTimeout(10_000) { subscription.state.first { it.visible && !it.loading } }
+            assertEquals(CheckoutProvider.Stripe, subscription.state.value.checkout)
+            assertTrue(subscription.state.value.cardManagementAvailable)
+
+            val pages = CopyOnWriteArrayList<String>()
+            val opener = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+                subscription.browserPages.collect { pages += it }
+            }
+            subscription.purchase()
+            withTimeout(10_000) { while (pages.isEmpty()) delay(10) }
+            assertEquals(listOf(server.checkoutUrl), pages)
+            assertTrue("POST /v1/billing/stripe/checkout-sessions Bearer $TOKEN" in server.billingCalls)
+
+            server.paidByCard = true
+            subscription.onForeground()
+            withTimeout(10_000) { subscription.state.first { it.purchaseConfirmed } }
+            assertEquals(PaidProvider.Stripe, subscription.state.value.status?.paidProvider)
+            assertTrue("POST /v1/billing/stripe/subscriptions/refresh Bearer $TOKEN" in server.billingCalls)
+
+            opener.cancel()
+            sync.stop()
+        } finally {
+            library.close()
+        }
+    }
+
+    /** A server without a Stripe account leaves the desktop where it was: plans are bought on Android. */
+    @Test
+    fun aManagedServerWithoutCardBillingOffersNoCheckout() = runBlocking {
+        val library = NotesLibrary.open(File(root, "notes"))
+        try {
+            register(library)
+            val sync = desktopSync(library)
+            val state = withTimeout(10_000) { sync.subscription.state.first { it.visible && !it.loading } }
+
+            assertEquals(CheckoutProvider.GooglePlay, state.checkout)
+            assertEquals(null, state.cardPrice)
+            assertEquals(null, state.failure)
+            assertTrue("GET /v1/billing/stripe/plan Bearer $TOKEN" in server.billingCalls)
+            sync.stop()
+        } finally {
+            library.close()
+        }
+    }
+
     private fun desktopSync(library: NotesLibrary) = DesktopSync(
         library = library,
         profile = DesktopProfile.DEVELOPMENT,
@@ -164,6 +227,10 @@ class DesktopSyncTest {
         val authorizations = CopyOnWriteArrayList<String>()
         @Volatile var revoked = false
         @Volatile var holdPushes = false
+        @Volatile var sellsByCard = false
+        @Volatile var paidByCard = false
+        /** "<method> <path> <Authorization>" of every billing request. */
+        val billingCalls = CopyOnWriteArrayList<String>()
         private val pushed = CountDownLatch(1)
         private val pushStarted = CountDownLatch(1)
         private val pushRelease = CountDownLatch(1)
@@ -173,9 +240,12 @@ class DesktopSyncTest {
             executor = Executors.newCachedThreadPool()
             createContext("/v1/changes/watch") { exchange -> watch(exchange) }
             createContext("/v1/changes") { exchange -> push(exchange) }
+            createContext("/v1/subscription") { exchange -> billing(exchange) }
+            createContext("/v1/billing/stripe") { exchange -> billing(exchange) }
             start()
         }
         val url = "http://127.0.0.1:${server.address.port}"
+        val checkoutUrl = "https://checkout.stripe.com/c/pay/cs_test_desktop"
 
         fun awaitPush() = check(pushed.await(10, TimeUnit.SECONDS)) { "no push arrived" }
         fun awaitPushStarted() = check(pushStarted.await(10, TimeUnit.SECONDS)) { "no push started" }
@@ -234,6 +304,26 @@ class DesktopSyncTest {
             reply(exchange, 200, JsonObject(mapOf("applied" to applied, "rejected" to JsonArray(emptyList()),
                 "cursor" to kotlinx.serialization.json.JsonPrimitive(cursor))).toString())
             pushed.countDown()
+        }
+
+        /** The managed server's answers, as `cloudServer-viveNotes` gives them with card billing on or off. */
+        private fun billing(exchange: HttpExchange) {
+            val path = exchange.requestURI.path
+            billingCalls += "${exchange.requestMethod} $path ${exchange.requestHeaders.getFirst("Authorization")}"
+            exchange.requestBody.readBytes()
+            val unpaid = """{"state":"inactive","autoRenewing":false}"""
+            val paid = """{"state":"active","validUntil":"2026-11-20T12:00:00Z","paidState":"active",""" +
+                """"paidValidUntil":"2026-11-20T12:00:00Z","paidProvider":"stripe","autoRenewing":true}"""
+            when {
+                path == "/v1/subscription" -> reply(exchange, 200, if (paidByCard) paid else unpaid)
+                !sellsByCard -> reply(exchange, 503, """{"error":"billing_unavailable","message":"card billing is not configured"}""")
+                path == "/v1/billing/stripe/plan" ->
+                    reply(exchange, 200, """{"unitAmount":499,"currency":"usd","interval":"month","intervalCount":1}""")
+                path == "/v1/billing/stripe/checkout-sessions" ->
+                    reply(exchange, 200, """{"url":"$checkoutUrl","expiresAt":"2026-10-20T19:00:00Z"}""")
+                path == "/v1/billing/stripe/subscriptions/refresh" -> reply(exchange, 200, if (paidByCard) paid else unpaid)
+                else -> reply(exchange, 404, """{"error":"not_found","message":"no such route"}""")
+            }
         }
 
         private fun reply(exchange: HttpExchange, status: Int, body: String) {

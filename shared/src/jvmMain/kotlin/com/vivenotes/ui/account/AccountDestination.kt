@@ -1,6 +1,7 @@
 // Ported from the account half of the Android app's `ui/NotesApp.kt`: the state it keeps one level
 // above the Account destination, and every callback it hands `AccountScreen`. The desktop has no
-// Activity to pass Credential Manager and no Play purchase sheet; everything else is Android's.
+// Activity to pass Credential Manager, no Play purchase sheet, and no Custom Tab for Stripe's pages
+// (see `StripePages.kt`); everything else is Android's.
 package com.vivenotes.ui.account
 
 import androidx.compose.runtime.Composable
@@ -11,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalWindowInfo
 import com.vivenotes.data.billing.CLOUD_STORAGE_SUBSCRIPTION_ID
 import com.vivenotes.data.billing.ManagedSubscriptionController
 import com.vivenotes.data.sync.AccountAuthProvider
@@ -19,6 +21,7 @@ import com.vivenotes.data.sync.CloudArchiveResult
 import com.vivenotes.data.sync.CloudSignInResult
 import com.vivenotes.data.sync.ConnectFailure
 import com.vivenotes.data.sync.DisconnectResult
+import com.vivenotes.data.sync.PaidProvider
 import com.vivenotes.data.sync.PasswordResetResult
 import com.vivenotes.data.sync.ServerConnection
 import com.vivenotes.data.sync.SyncAccounts
@@ -44,7 +47,7 @@ class SyncAccountHost(
     private val accounts: SyncAccounts,
     private val subscription: ManagedSubscriptionController,
     scope: CoroutineScope,
-    /** Opens a page in the person's browser — the Play subscription page. */
+    /** Opens a page in the person's browser — the Play subscription page, and Stripe's pages. */
     private val openBrowser: (URI) -> Unit,
 ) : AccountHost {
 
@@ -128,8 +131,16 @@ private fun AccountDestination(
     val storedAccount by syncAccounts.account.collectAsState(initial = null)
     val syncStatus by syncAccounts.status.collectAsState()
     // Application-scoped and refreshed when the process/account starts. Account navigation only
-    // observes this cache; coupon actions update it through their explicit flows.
+    // observes this cache; purchase and coupon actions update it through their explicit flows.
     val subscriptionState by managedSubscription.state.collectAsState()
+
+    // Stripe Checkout and the customer portal open in the browser. Coming back to this window is
+    // when the controller asks the server what happened there.
+    StripePageEffects(
+        subscription = managedSubscription,
+        openBrowser = openBrowser,
+        foreground = LocalWindowInfo.current.isWindowFocused,
+    )
 
     // A revocation delivered by the stream or an automatic run still has to reach the screen. The
     // token is already gone by the time this runs, so this is only about saying why the form came
@@ -248,12 +259,18 @@ private fun AccountDestination(
         purchasesAvailable = false,
         onSubscribe = managedSubscription::purchase,
         onManageSubscription = {
-            openBrowser(
-                URI(
-                    "https://play.google.com/store/account/subscriptions" +
-                        "?sku=$CLOUD_STORAGE_SUBSCRIPTION_ID&package=$ANDROID_PACKAGE",
-                ),
-            )
+            // Each paid plan is managed where it was bought: Stripe's portal for a card plan,
+            // Play's subscription centre for everything else.
+            if (subscriptionState.status?.paidProvider == PaidProvider.Stripe) {
+                managedSubscription.manageCardSubscription()
+            } else {
+                openBrowser(
+                    URI(
+                        "https://play.google.com/store/account/subscriptions" +
+                            "?sku=$CLOUD_STORAGE_SUBSCRIPTION_ID&package=$ANDROID_PACKAGE",
+                    ),
+                )
+            }
         },
         onRedeemCoupon = managedSubscription::redeemCoupon,
         onConnect = { serverUrl, email, password ->

@@ -303,7 +303,11 @@ sealed interface ChangeStreamEvent {
     ) : ChangeStreamEvent
 }
 
-/** The provider-authoritative state of the managed account's Google Play subscription. */
+/**
+ * The provider-authoritative state of the managed account's paid subscription. A card plan through
+ * Stripe is reported in the same states as a Google Play one; [ManagedSubscriptionStatus.paidProvider]
+ * says which it is.
+ */
 enum class PaidSubscriptionState {
     Pending,
     Active,
@@ -313,6 +317,15 @@ enum class PaidSubscriptionState {
     Canceled,
     Expired,
     PendingCanceled,
+    Unknown,
+}
+
+/** Who bills the paid subscription, and so whose page manages it. */
+enum class PaidProvider {
+    GooglePlay,
+    Stripe,
+
+    /** A provider a newer server knows and this build does not. */
     Unknown,
 }
 
@@ -331,6 +344,25 @@ data class ManagedSubscriptionStatus(
     val promotionalValidUntil: String?,
     val autoRenewing: Boolean,
     val productId: String?,
+    /** Null when there is no paid source, along with [paidState]. */
+    val paidProvider: PaidProvider? = null,
+)
+
+/**
+ * The recurring price card checkout sells. [unitAmount] is in the currency's smallest unit, as Stripe
+ * reports it — cents for USD.
+ */
+data class StripePlan(
+    val unitAmount: Long,
+    val currency: String,
+    val interval: String,
+    val intervalCount: Long,
+)
+
+/** A Stripe-hosted page — Checkout or the customer portal — that the app opens in a browser. */
+data class StripeRedirect(
+    val url: String,
+    val expiresAt: String?,
 )
 
 data class CouponGrant(
@@ -348,6 +380,9 @@ enum class SubscriptionFailure {
     CouponAlreadyRedeemed,
     InvalidPurchase,
     PurchaseAlreadyClaimed,
+
+    /** A paid subscription is still charging; a second one would bill twice for the same plan. */
+    AlreadySubscribed,
     BillingUnavailable,
     InvalidRequest,
     Unreachable,
@@ -626,6 +661,76 @@ class SyncServerClient(
         ) { payload ->
             syncJson.decodeFromString(SubscriptionResponse.serializer(), payload).toDomain()
         }
+    }
+
+    /**
+     * The price card checkout sells. `503 billing_unavailable` — mapped to
+     * [SubscriptionFailure.BillingUnavailable] — means the server sells nothing by card, which is
+     * how the app learns whether to offer card checkout at all.
+     */
+    suspend fun getStripePlan(
+        serverBaseUrl: String,
+        token: String,
+    ): SubscriptionResult<StripePlan> = subscriptionRequest(
+        authenticatedRequest(serverBaseUrl, "/v1/billing/stripe/plan", token),
+    ) { payload ->
+        syncJson.decodeFromString(StripePlanResponse.serializer(), payload).let {
+            StripePlan(it.unitAmount, it.currency, it.interval, it.intervalCount)
+        }
+    }
+
+    /**
+     * A Stripe Checkout page for the monthly plan. Opening it grants nothing: the subscription reaches
+     * the server from Stripe, and [refreshStripeSubscriptions] reads the outcome back.
+     */
+    suspend fun createStripeCheckoutSession(
+        serverBaseUrl: String,
+        token: String,
+    ): SubscriptionResult<StripeRedirect> = subscriptionRequest(
+        authenticatedRequest(
+            serverBaseUrl = serverBaseUrl,
+            path = "/v1/billing/stripe/checkout-sessions",
+            token = token,
+            method = "POST",
+            body = EMPTY_JSON_OBJECT,
+        ),
+    ) { payload ->
+        syncJson.decodeFromString(StripeRedirectResponse.serializer(), payload).toDomain()
+    }
+
+    /** The Stripe customer portal, where a card plan is cancelled, renewed, or given a new card. */
+    suspend fun createStripePortalSession(
+        serverBaseUrl: String,
+        token: String,
+    ): SubscriptionResult<StripeRedirect> = subscriptionRequest(
+        authenticatedRequest(
+            serverBaseUrl = serverBaseUrl,
+            path = "/v1/billing/stripe/portal-sessions",
+            token = token,
+            method = "POST",
+            body = EMPTY_JSON_OBJECT,
+        ),
+    ) { payload ->
+        syncJson.decodeFromString(StripeRedirectResponse.serializer(), payload).toDomain()
+    }
+
+    /**
+     * Has the server read this account's card subscriptions from Stripe itself, for the moment the
+     * app returns from Checkout or the portal: the answer does not wait on a webhook still in flight.
+     */
+    suspend fun refreshStripeSubscriptions(
+        serverBaseUrl: String,
+        token: String,
+    ): SubscriptionResult<ManagedSubscriptionStatus> = subscriptionRequest(
+        authenticatedRequest(
+            serverBaseUrl = serverBaseUrl,
+            path = "/v1/billing/stripe/subscriptions/refresh",
+            token = token,
+            method = "POST",
+            body = EMPTY_JSON_OBJECT,
+        ),
+    ) { payload ->
+        syncJson.decodeFromString(SubscriptionResponse.serializer(), payload).toDomain()
     }
 
     /**
@@ -1683,7 +1788,7 @@ class SyncServerClient(
         )
     }
 
-    /** The three managed subscription operations share transport and error-code semantics. */
+    /** The managed subscription operations share transport and error-code semantics. */
     private inline fun <T> subscriptionRequest(
         raw: RawServerResult,
         decodeSuccess: (String) -> T,
@@ -1707,6 +1812,7 @@ class SyncServerClient(
                     "coupon_already_redeemed" -> SubscriptionFailure.CouponAlreadyRedeemed
                     "invalid_purchase" -> SubscriptionFailure.InvalidPurchase
                     "purchase_already_claimed" -> SubscriptionFailure.PurchaseAlreadyClaimed
+                    "already_subscribed" -> SubscriptionFailure.AlreadySubscribed
                     "billing_unavailable" -> SubscriptionFailure.BillingUnavailable
                     "invalid_request" -> SubscriptionFailure.InvalidRequest
                     null -> when {
@@ -2003,6 +2109,9 @@ internal fun ByteArray.toHex(): String = buildString(size * 2) {
 
 private const val HEX = "0123456789abcdef"
 
+/** The body of a POST whose request carries nothing; the server reads the caller from its token. */
+private val EMPTY_JSON_OBJECT = "{}".encodeToByteArray()
+
 private sealed interface RawServerResult {
     data class Response(val status: Int, val payload: String) : RawServerResult
     data object InvalidAddress : RawServerResult
@@ -2144,6 +2253,11 @@ private data class SubscriptionResponse(
     val promotionalValidUntil: String? = null,
     val autoRenewing: Boolean = false,
     val productId: String? = null,
+    /**
+     * Absent from a server that predates card billing, whose every paid source was Google Play — so
+     * a paid state without a provider is read as Play rather than as unknown.
+     */
+    val paidProvider: String? = null,
 ) {
     fun toDomain(): ManagedSubscriptionStatus = ManagedSubscriptionStatus(
         active = state == "active",
@@ -2153,7 +2267,29 @@ private data class SubscriptionResponse(
         promotionalValidUntil = promotionalValidUntil,
         autoRenewing = autoRenewing,
         productId = productId,
+        paidProvider = when {
+            paidState == null -> null
+            paidProvider == null || paidProvider == "google_play" -> PaidProvider.GooglePlay
+            paidProvider == "stripe" -> PaidProvider.Stripe
+            else -> PaidProvider.Unknown
+        },
     )
+}
+
+@Serializable
+private data class StripePlanResponse(
+    val unitAmount: Long,
+    val currency: String,
+    val interval: String,
+    val intervalCount: Long,
+)
+
+@Serializable
+private data class StripeRedirectResponse(
+    val url: String,
+    val expiresAt: String? = null,
+) {
+    fun toDomain(): StripeRedirect = StripeRedirect(url, expiresAt)
 }
 
 private fun paidSubscriptionState(value: String): PaidSubscriptionState = when (value) {
