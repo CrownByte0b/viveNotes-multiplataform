@@ -85,6 +85,14 @@ compose.desktop {
         nativeDistributions {
             packageVersion = appVersion
         }
+        // Release jars are the compiled jars, unshrunk. Compose's default ProGuard (7.8) cannot read
+        // the Gradle JDK's Java 27 classes, and the JVM rejects what 7.10 writes: its optimizer
+        // breaks okio (Guardsquare/proguard#533), its preverifier writes wrong stack map frames for
+        // PageCanvas (a Kotlin local reusing the upper slot of a dead long), and shrinking without
+        // preverification drops every method's frames.
+        buildTypes.release.proguard {
+            isEnabled = false
+        }
     }
 }
 
@@ -156,8 +164,9 @@ val isLinuxWaylandSession = System.getProperty("os.name").startsWith("Linux", ig
         !providers.environmentVariable("WAYLAND_DISPLAY").orNull.isNullOrBlank())
 
 // Gradle fixes the Java launcher before task actions run, so the runtime is chosen while
-// configuring. Compose registers `run` after evaluation and sets its executable in that
-// registration, which would override a configureEach action. JBR also hosts the `--x11` fallback,
+// configuring. Compose registers `run` and `runRelease` after evaluation and sets their executable in
+// that registration, which would override a configureEach action. `runRelease` runs the release jars
+// with the installed app's (production) profile. JBR also hosts the `--x11` fallback,
 // whose XToolkit Main.kt selects explicitly. The doFirst action captures only locals: the
 // configuration cache cannot serialize this script.
 afterEvaluate {
@@ -165,7 +174,7 @@ afterEvaluate {
         systemProperty("vivenotes.profile", "dev")
         workingDir = rootProject.projectDir
     }
-    listOf("run", "runProduction").forEach { taskName ->
+    listOf("run", "runProduction", "runRelease").forEach { taskName ->
         tasks.named<JavaExec>(taskName) {
             val waylandSession = isLinuxWaylandSession
             val jbrHome = if (waylandSession) findJetBrainsRuntime() else null
