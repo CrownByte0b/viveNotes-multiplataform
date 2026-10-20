@@ -8,12 +8,18 @@ import java.awt.Toolkit
  */
 internal const val WINDOW_CLASS = "vivenotes"
 
+/** Flatpak desktop entries and windows must have the same application ID. */
+internal fun linuxWindowClass(
+    profile: DesktopProfile,
+    flatpakId: String? = System.getenv("FLATPAK_ID"),
+): String = if (profile == DesktopProfile.PRODUCTION && !flatpakId.isNullOrBlank()) flatpakId else profile.windowClass
+
 /**
  * Sets the profile's app id for native Wayland. JetBrains Runtime's WLToolkit reads the `awt.app.id`
  * property as each window is created, so this only has to come before the first one.
  */
 internal fun useWaylandWindowClass(profile: DesktopProfile = DesktopProfile.PRODUCTION) {
-    System.setProperty("awt.app.id", profile.windowClass)
+    System.setProperty("awt.app.id", linuxWindowClass(profile))
 }
 
 /**
@@ -27,6 +33,6 @@ internal fun useX11WindowClass(profile: DesktopProfile = DesktopProfile.PRODUCTI
     return runCatching {
         val field = Class.forName("sun.awt.X11.XToolkit").getDeclaredField("awtAppClassName")
         field.isAccessible = true
-        field.set(null, profile.windowClass)
+        field.set(null, linuxWindowClass(profile))
     }.onFailure { System.err.println("ViveNotes: the X11 window class stays the default: $it") }.isSuccess
 }

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>net.vivenotes.ViveNotes</id>
+  <name>Vive Notes</name>
+  <summary>Write, draw and organize your notebooks</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary=https://github.com/CrownByte0b/viveNotes-multiplataform/blob/master/LICENSE.md</project_license>
+  <developer id="net.vivenotes"><name>CROWNBYTE LLC</name></developer>
+  <description>
+    <p>Keep notebooks with rich text, handwriting, pictures, tables and equations.
+    Organize pages into sections, work locally, and import or export Vive notebooks.</p>
+    <p>Export pages to PDF and use handwriting recognition and math tools.
+    Some recognition models and the math runtime require a download.</p>
+  </description>
+  <launchable type="desktop-id">net.vivenotes.ViveNotes.desktop</launchable>
+  <url type="homepage">https://vivenotes.net</url>
+  <url type="bugtracker">https://github.com/CrownByte0b/viveNotes-multiplataform/issues</url>
+  <content_rating type="oars-1.1"/>
+  <supports><control>pointing</control><control>keyboard</control><control>touch</control></supports>
+  <releases><release version="@VERSION@" date="@DATE@"/></releases>
+</component>
