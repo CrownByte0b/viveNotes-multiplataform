@@ -20,7 +20,7 @@ class FlatpakFileDialogsTest {
 
     @Test
     fun selectedPortalPathsPreserveSpacesUnicodeAndNewlines() {
-        val chosen = "/run/user/1000/doc/abc/My notes λ\n.vive"
+        val chosen = File("/run/user/1000/doc/abc/My notes λ\n.vive").absolutePath
         val result = FlatpakFileDialogs.chooseWith("Import", listOf("vive"), null) { command ->
             assertEquals("/usr/bin/zenity", command.first())
             assertTrue("--file-filter=*.vive" in command)
@@ -32,12 +32,13 @@ class FlatpakFileDialogsTest {
 
     @Test
     fun savesConfirmOverwriteAndPassTheSuggestedNameAsOneArgument() {
+        val chosen = File("/run/user/1000/doc/abc/Notes.pdf").absolutePath
         val result = FlatpakFileDialogs.chooseWith("Export PDF", listOf("pdf"), "../Notes $(literal).pdf") { command ->
             assertTrue("--save" in command)
             assertTrue("--confirm-overwrite" in command)
             assertTrue("--filename=Notes $(literal).pdf" in command)
             assertTrue("--title=Export PDF" in command)
-            0 to "/run/user/1000/doc/abc/Notes.pdf\n"
+            0 to "$chosen\n"
         }
         assertEquals("Notes.pdf", result!!.name)
     }

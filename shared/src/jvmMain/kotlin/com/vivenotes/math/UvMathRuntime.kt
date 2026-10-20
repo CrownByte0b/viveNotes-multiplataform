@@ -295,6 +295,7 @@ sealed interface UvLookup {
             path: String? = System.getenv("PATH"),
             home: File = File(System.getProperty("user.home")),
             windows: Boolean = System.getProperty("os.name").startsWith("Windows", ignoreCase = true),
+            resources: File? = System.getProperty("compose.application.resources.dir")?.let(::File),
             version: (File) -> String? = ::versionOutput,
         ): UvLookup {
             val name = if (windows) "uv.exe" else "uv"
@@ -302,8 +303,9 @@ sealed interface UvLookup {
                 File(explicit).takeIf { it.isFile && it.canExecute() }
                     ?: return Unavailable(Strings.no_uv_at_value(explicit))
             } else {
-                path.orEmpty().split(File.pathSeparatorChar).filter(String::isNotBlank).map { File(it, name) }
-                    .plus(listOf(File(home, ".local/bin/$name"), File(home, ".cargo/bin/$name")))
+                (listOfNotNull(resources?.resolve("bin/$name")) +
+                    path.orEmpty().split(File.pathSeparatorChar).filter(String::isNotBlank).map { File(it, name) }
+                    .plus(listOf(File(home, ".local/bin/$name"), File(home, ".cargo/bin/$name"))))
                     .firstOrNull { it.isFile && it.canExecute() }
                     ?: return Unavailable(Strings.installing_the_math_engine_needs_uv_get_it_from_docs_astral)
             }

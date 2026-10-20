@@ -1,0 +1,88 @@
+name: Windows MSI
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths:
+      - .github/workflows/windows-msi.yml
+      - packaging/windows/**
+      - desktopApp/build.gradle.kts
+      - gradle.properties
+      - gradle/libs.versions.toml
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  installer:
+    runs-on: windows-2025
+    permissions:
+      contents: read
+      packages: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ORG_GRADLE_PROJECT_byteinkVersion: 0.1.0-alpha.1
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Keep LF line endings
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+          git config --global core.longpaths true
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: 27
+          architecture: x64
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: 0.12.19
+      - name: Install WiX
+        run: |
+          choco install wixtoolset --version=3.14.1 --no-progress --yes --allow-downgrade
+          if ($LASTEXITCODE -ne 0) { throw 'WiX installation failed.' }
+          $wix = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+          if (-not (Test-Path "$wix/candle.exe")) { throw "WiX tools missing: $wix" }
+          $wix | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Prepare native UI test desktop
+        run: ./packaging/windows/prepare-test-desktop.ps1
+      - name: Run JVM tests and lint
+        run: |
+          ./gradlew.bat lint :shared:jvmTest :desktopApp:test --continue
+          if ($LASTEXITCODE -ne 0) { throw 'JVM checks failed.' }
+      - name: Build MSI
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            ./packaging/windows/build.ps1 -Version $env:GITHUB_REF_NAME.Substring(1)
+          } else {
+            ./packaging/windows/build.ps1
+          }
+      - name: Install, launch and uninstall MSI
+        run: ./packaging/windows/smoke-test.ps1
+      - name: Upload MSI and checksum
+        uses: actions/upload-artifact@v7
+        with:
+          name: ViveNotes-Windows-x64
+          if-no-files-found: error
+          path: |
+            desktopApp/build/windows/*.msi
+            desktopApp/build/windows/*.sha256
+            desktopApp/build/windows/smoke/*.log
+      - name: Upload failure reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-msi-failure-reports
+          path: |
+            shared/build/reports/tests/
+            shared/build/test-results/
+            desktopApp/build/reports/tests/
+            desktopApp/build/test-results/
+            desktopApp/build/windows/smoke/
+            desktopApp/build/compose/logs/

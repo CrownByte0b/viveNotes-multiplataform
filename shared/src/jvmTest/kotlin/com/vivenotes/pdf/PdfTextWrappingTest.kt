@@ -37,15 +37,17 @@ class PdfTextWrappingTest {
     @Test
     fun wrappedLargeTextKeepsReadableLineSpacing() = runBlocking {
         val fontSize = 24f
-        val layout = PdfTextMeasurer().layout(listOf(Block("large", runs = listOf(Run(
-            "Large text needs enough space between every wrapped line. ".repeat(8),
-            setOf(Mark.FontSize(fontSize.toInt())))))), 400f, PdfCanvasColors.forPage(PageStyle()))
-        val paragraph = layout.paragraphs.single().layout
-        assertTrue(paragraph.lineCount > 2)
-        for (line in 1 until paragraph.lineCount) {
-            val spacing = paragraph.getLineBaseline(line) - paragraph.getLineBaseline(line - 1)
-            assertTrue(spacing >= fontSize * PageMeasurer.LINE_SPACING_MULTIPLIER - .01f,
-                "wrapped lines must use the actual font size, not the 15 sp fallback (spacing=$spacing)")
+        for (family in listOf("sans-serif", "serif", "monospace", "inter", "lora", "jetbrains_mono")) {
+            val layout = PdfTextMeasurer().layout(listOf(Block("large", runs = listOf(Run(
+                "Large text needs enough space between every wrapped line. ".repeat(8),
+                setOf(Mark.FontSize(fontSize.toInt()), Mark.FontFamily(family)))))), 400f, PdfCanvasColors.forPage(PageStyle()))
+            val paragraph = layout.paragraphs.single().layout
+            assertTrue(paragraph.lineCount > 2)
+            for (line in 1 until paragraph.lineCount) {
+                val spacing = paragraph.getLineBaseline(line) - paragraph.getLineBaseline(line - 1)
+                assertTrue(spacing >= fontSize * PageMeasurer.LINE_SPACING_MULTIPLIER - .01f,
+                    "wrapped lines must use the actual font size, not the 15 sp fallback (font=$family, spacing=$spacing)")
+            }
         }
     }
 
