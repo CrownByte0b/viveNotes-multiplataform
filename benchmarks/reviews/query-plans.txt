@@ -1,0 +1,62 @@
+Storage/sync EXPLAIN evidence; no production data accessed.
+Generated from the exact committed schema-2 createSql/index createSql and current DAO SQL.
+Schema: /home/mahalo/repos/viveHub/multiplataform-vive/shared/schemas/com.vivenotes.data.db.NotesDatabase/2.json
+Schema SHA256: 74af6454ee1d8b0b585dfd608f78721d216af505122b3541337b7599723447dd
+Room schema version: 2; identity: 838efa4694ec57940c0f7f9cfba1fc33
+SQLite engine: Python stdlib sqlite3 3.51.2
+Qualification: this is the host SQLite engine, not the app bundled SQLite engine.
+It confirms this schema/query has a scan/sorter on this engine; the parent should retain
+bundled-driver plans with its JVM baseline if exact engine parity is required.
+No elapsed-time benchmark or JVM test was run. Plans are from an empty scratch DB.
+
+SyncDao.outbox
+SELECT * FROM sync_outbox ORDER BY CASE kind WHEN 'notebook' THEN 0 WHEN 'section' THEN 1 WHEN 'page' THEN 2 WHEN 'pageContent' THEN 3 WHEN 'inkStroke' THEN 4 WHEN 'inkErase' THEN 5 WHEN 'inkMove' THEN 6 WHEN 'attachment' THEN 7 ELSE 8 END, entityId LIMIT :limit
+Bindings: {'limit': 512}
+(4, 0, 216, 'SCAN sync_outbox')
+(44, 0, 0, 'USE TEMP B-TREE FOR ORDER BY')
+
+PageRevisionDao.unindexed
+SELECT * FROM page_revisions WHERE pictureIds IS NULL LIMIT :limit
+Bindings: {'limit': 64}
+(3, 0, 216, 'SCAN page_revisions')
+
+PageContentDao.picturePlacingBodies
+SELECT * FROM page_content WHERE docJson LIKE '%attachmentId%'
+Bindings: {}
+(2, 0, 216, 'SCAN page_content')
+
+InkStrokeDao.nextSeq
+SELECT COALESCE(MAX(seq), -1) + 1 FROM ink_strokes WHERE pageId = :pageId
+Bindings: {'pageId': 'fixture-page'}
+(3, 0, 54, 'SEARCH ink_strokes USING COVERING INDEX index_ink_strokes_pageId_seq_id (pageId=?)')
+
+InkStrokeDao.byPage
+SELECT * FROM ink_strokes WHERE pageId = :pageId AND deletedAt IS NULL ORDER BY seq, id
+Bindings: {'pageId': 'fixture-page'}
+(4, 0, 62, 'SEARCH ink_strokes USING INDEX index_ink_strokes_pageId_seq_id (pageId=?)')
+
+Exact schema DDL used:
+CREATE TABLE IF NOT EXISTS `notebooks` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `colorArgb` INTEGER NOT NULL, `sortIndex` INTEGER NOT NULL, `expanded` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `closedAt` INTEGER, `cloudOnlyAt` INTEGER, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS `sections` (`id` TEXT NOT NULL, `notebookId` TEXT NOT NULL, `name` TEXT NOT NULL, `colorArgb` INTEGER NOT NULL, `sortIndex` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`notebookId`) REFERENCES `notebooks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE INDEX IF NOT EXISTS `index_sections_notebookId` ON `sections` (`notebookId`)
+CREATE TABLE IF NOT EXISTS `pages` (`id` TEXT NOT NULL, `sectionId` TEXT NOT NULL, `title` TEXT NOT NULL, `sortIndex` INTEGER NOT NULL, `preview` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`sectionId`) REFERENCES `sections`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE INDEX IF NOT EXISTS `index_pages_sectionId` ON `pages` (`sectionId`)
+CREATE TABLE IF NOT EXISTS `page_content` (`pageId` TEXT NOT NULL, `docJson` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, `format` TEXT NOT NULL, PRIMARY KEY(`pageId`), FOREIGN KEY(`pageId`) REFERENCES `pages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `page_revisions` (`id` TEXT NOT NULL, `pageId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `format` TEXT NOT NULL, `encoding` TEXT NOT NULL, `byteCount` INTEGER NOT NULL, `sha256` TEXT NOT NULL, `payload` BLOB NOT NULL, `inkFormat` TEXT NOT NULL DEFAULT 'none/1', `inkEncoding` TEXT NOT NULL DEFAULT 'none', `inkByteCount` INTEGER NOT NULL DEFAULT 0, `inkSha256` TEXT NOT NULL DEFAULT '', `inkPayload` BLOB NOT NULL DEFAULT X'', `pictureIds` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`pageId`) REFERENCES `pages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE INDEX IF NOT EXISTS `index_page_revisions_pageId_createdAt` ON `page_revisions` (`pageId`, `createdAt`)
+CREATE TABLE IF NOT EXISTS `ink_strokes` (`id` TEXT NOT NULL, `pageId` TEXT NOT NULL, `seq` INTEGER NOT NULL, `brushFamily` TEXT NOT NULL, `brushVersion` INTEGER NOT NULL, `sizeDp` REAL NOT NULL, `colorArgb` INTEGER NOT NULL, `colorFollowsTheme` INTEGER, `epsilon` REAL NOT NULL, `stabilization` INTEGER NOT NULL, `minX` REAL NOT NULL, `minY` REAL NOT NULL, `maxX` REAL NOT NULL, `maxY` REAL NOT NULL, `points` BLOB NOT NULL, `enc` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `groupId` TEXT, `deletedAt` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`pageId`) REFERENCES `pages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE INDEX IF NOT EXISTS `index_ink_strokes_pageId_seq_id` ON `ink_strokes` (`pageId`, `seq`, `id`)
+CREATE TABLE IF NOT EXISTS `ink_erases` (`id` TEXT NOT NULL, `pageId` TEXT NOT NULL, `mode` TEXT NOT NULL DEFAULT 'Normal', `sizeDp` REAL NOT NULL, `points` BLOB NOT NULL, `enc` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`pageId`) REFERENCES `pages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE INDEX IF NOT EXISTS `index_ink_erases_pageId` ON `ink_erases` (`pageId`)
+CREATE TABLE IF NOT EXISTS `ink_erase_targets` (`eraseId` TEXT NOT NULL, `strokeId` TEXT NOT NULL, PRIMARY KEY(`eraseId`, `strokeId`), FOREIGN KEY(`eraseId`) REFERENCES `ink_erases`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `ink_moves` (`id` TEXT NOT NULL, `pageId` TEXT NOT NULL, `dxDp` REAL NOT NULL, `dyDp` REAL NOT NULL, `scaleX` REAL NOT NULL DEFAULT 1, `scaleY` REAL NOT NULL DEFAULT 1, `anchorX` REAL NOT NULL DEFAULT 0, `anchorY` REAL NOT NULL DEFAULT 0, `points` BLOB NOT NULL, `enc` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`pageId`) REFERENCES `pages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE INDEX IF NOT EXISTS `index_ink_moves_pageId` ON `ink_moves` (`pageId`)
+CREATE TABLE IF NOT EXISTS `ink_move_targets` (`moveId` TEXT NOT NULL, `strokeId` TEXT NOT NULL, PRIMARY KEY(`moveId`, `strokeId`), FOREIGN KEY(`moveId`) REFERENCES `ink_moves`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `attachments` (`id` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `pixelWidth` INTEGER NOT NULL, `pixelHeight` INTEGER NOT NULL, `byteCount` INTEGER NOT NULL, `refCount` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `releasedAt` INTEGER, PRIMARY KEY(`id`))
+CREATE TABLE IF NOT EXISTS `attachment_text` (`attachmentId` TEXT NOT NULL, `text` TEXT NOT NULL, `lineCount` INTEGER NOT NULL, `confidence` REAL NOT NULL, `engine` TEXT NOT NULL, `status` TEXT NOT NULL, `durationMs` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`attachmentId`), FOREIGN KEY(`attachmentId`) REFERENCES `attachments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `ink_text` (`pageId` TEXT NOT NULL, `regionsJson` TEXT NOT NULL, `regionCount` INTEGER NOT NULL, `confidence` REAL NOT NULL, `layoutHash` TEXT NOT NULL, `engine` TEXT NOT NULL, `status` TEXT NOT NULL, `durationMs` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`pageId`), FOREIGN KEY(`pageId`) REFERENCES `pages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `ink_text_generation` (`pageId` TEXT NOT NULL, `generation` INTEGER NOT NULL, PRIMARY KEY(`pageId`), FOREIGN KEY(`pageId`) REFERENCES `pages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )
+CREATE TABLE IF NOT EXISTS `local_metadata` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))
+CREATE TABLE IF NOT EXISTS `sync_state` (`singleton` INTEGER NOT NULL, `accountId` TEXT NOT NULL, `cursor` INTEGER NOT NULL, `applyingRemote` INTEGER NOT NULL, PRIMARY KEY(`singleton`))
+CREATE TABLE IF NOT EXISTS `sync_entity_states` (`kind` TEXT NOT NULL, `entityId` TEXT NOT NULL, `serverVersion` INTEGER NOT NULL, `serverJson` TEXT NOT NULL, PRIMARY KEY(`kind`, `entityId`))
+CREATE TABLE IF NOT EXISTS `sync_outbox` (`kind` TEXT NOT NULL, `entityId` TEXT NOT NULL, `generation` INTEGER NOT NULL, `changedAt` INTEGER NOT NULL, PRIMARY KEY(`kind`, `entityId`))

@@ -1,0 +1,24 @@
+{
+  "shared": {
+    "tests": 1802,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 2
+  },
+  "desktop": {
+    "tests": 151,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 5
+  },
+  "pythonToolingTests": {
+    "tests": 3,
+    "failures": 0,
+    "errors": 0
+  },
+  "inkScenarioForks": {
+    "tests": 3,
+    "failures": 0,
+    "errors": 0
+  }
+}

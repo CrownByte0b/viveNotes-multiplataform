@@ -1,0 +1,811 @@
+{
+  "schema": "vive-desktop-summary/1",
+  "sourceCommit": "0f5e37070b2532b001eb7db998048edd91b1c103",
+  "forks": 3,
+  "cases": [
+    {
+      "name": "ai.decode_formula_tokenizer",
+      "units": 1000,
+      "fixtureSha256": "ca058235a50f54d4e23ca5e519928d08197064fae29495b5baf0c9cf9bd29147",
+      "medianMs": 0.16703295999999998,
+      "forkMedianMs": [
+        0.16612986,
+        0.16703295999999998,
+        0.16814498039215686
+      ],
+      "forkP95BatchAverageMs": [
+        0.18348184,
+        0.18583572,
+        0.188342568627451
+      ],
+      "medianAllocatedBytes": 970360.32
+    },
+    {
+      "name": "ai.decode_formula_tokenizer",
+      "units": 10000,
+      "fixtureSha256": "62d48e46466bb54b9d252de23955544ea4f805d807ec73f8d856586aa9082194",
+      "medianMs": 1.6124405,
+      "forkMedianMs": [
+        1.6148718333333332,
+        1.5723593333333332,
+        1.6124405
+      ],
+      "forkP95BatchAverageMs": [
+        1.8264303333333332,
+        2.0194621666666666,
+        1.8223493333333332
+      ],
+      "medianAllocatedBytes": 8981042.666666666
+    },
+    {
+      "name": "ai.decode_formula_tokenizer",
+      "units": 50000,
+      "fixtureSha256": "b71af5b9a62c2638dff630db70e140217218f15e9412a94f88f7e6cf2cc83ab9",
+      "medianMs": 8.995993,
+      "forkMedianMs": [
+        17.022635,
+        8.950397,
+        8.995993
+      ],
+      "forkP95BatchAverageMs": [
+        19.330509,
+        19.045979,
+        18.247712
+      ],
+      "medianAllocatedBytes": 51918864.0
+    },
+    {
+      "name": "canvas.move_with_text_preview",
+      "units": 10000,
+      "fixtureSha256": "4b61df89b116d304486ebae12f276d2ea1d648a4a504b739755f04c5023294d6",
+      "medianMs": 0.0056876015625,
+      "forkMedianMs": [
+        0.0056876015625,
+        0.0054660859375,
+        0.0057106171875
+      ],
+      "forkP95BatchAverageMs": [
+        0.0094276796875,
+        0.0092806796875,
+        0.0091120078125
+      ],
+      "medianAllocatedBytes": 71608.125
+    },
+    {
+      "name": "canvas.move_with_text_preview",
+      "units": 100000,
+      "fixtureSha256": "2e91afee9ecf01516b70c524ecf78eb409f4540fda1d1f8a3cb707ddbc0c6315",
+      "medianMs": 0.0474032734375,
+      "forkMedianMs": [
+        0.04889696875,
+        0.0463420390625,
+        0.0474032734375
+      ],
+      "forkP95BatchAverageMs": [
+        0.05282975,
+        0.0493366328125,
+        0.051247140625
+      ],
+      "medianAllocatedBytes": 701608.125
+    },
+    {
+      "name": "canvas.move_with_text_preview",
+      "units": 1000000,
+      "fixtureSha256": "8221037a39eb751a935b4ca01d2435f81a4734a4246af8a863763b5a6784b0aa",
+      "medianMs": 0.4466424761904762,
+      "forkMedianMs": [
+        0.4618035,
+        0.44070880952380953,
+        0.4466424761904762
+      ],
+      "forkP95BatchAverageMs": [
+        0.5192436,
+        0.4763860952380953,
+        0.4760173333333333
+      ],
+      "medianAllocatedBytes": 7001608.761904762
+    },
+    {
+      "name": "canvas.resolve_table_buffers",
+      "units": 20,
+      "fixtureSha256": "0dda68ff3c412346b07b974f37e651e56cd1f1c53254f0aa7144a57ca5466479",
+      "medianMs": 0.007962234375,
+      "forkMedianMs": [
+        0.007962234375,
+        0.0071571953125,
+        0.008263828125
+      ],
+      "forkP95BatchAverageMs": [
+        0.0082747109375,
+        0.0096945078125,
+        0.0083823359375
+      ],
+      "medianAllocatedBytes": 26048.125
+    },
+    {
+      "name": "canvas.resolve_table_buffers",
+      "units": 100,
+      "fixtureSha256": "a3eb3ed2bf1d77f84d82d55834cf49262c73ecbb6b249f13eed536fd69a03d82",
+      "medianMs": 0.08143863157894737,
+      "forkMedianMs": [
+        0.08132576923076923,
+        0.08156616129032257,
+        0.08143863157894737
+      ],
+      "forkP95BatchAverageMs": [
+        0.0862159423076923,
+        0.08320120430107526,
+        0.08181808421052632
+      ],
+      "medianAllocatedBytes": 129280.16842105263
+    },
+    {
+      "name": "canvas.resolve_table_buffers",
+      "units": 200,
+      "fixtureSha256": "3038884af15c8a66852ccba8a70975b25e2336dd013773a2138e1a0e0429822c",
+      "medianMs": 0.36426532142857143,
+      "forkMedianMs": [
+        0.36656765384615386,
+        0.3605818148148148,
+        0.36426532142857143
+      ],
+      "forkP95BatchAverageMs": [
+        0.3685098076923077,
+        0.361036,
+        0.3877878928571428
+      ],
+      "medianAllocatedBytes": 279536.5925925926
+    },
+    {
+      "name": "canvas.resolve_text_buffers",
+      "units": 100,
+      "fixtureSha256": "cdf856723bb1d0717355fa091da64b59ff23ceba8644e1508e4d42aaf961c61c",
+      "medianMs": 0.14531945833333335,
+      "forkMedianMs": [
+        0.1441181224489796,
+        0.14786917647058823,
+        0.14531945833333335
+      ],
+      "forkP95BatchAverageMs": [
+        0.16613424489795917,
+        0.17274901960784314,
+        0.1507844375
+      ],
+      "medianAllocatedBytes": 408000.32653061225
+    },
+    {
+      "name": "canvas.resolve_text_buffers",
+      "units": 500,
+      "fixtureSha256": "01608c9105adc2e209e545f5eb6b84eb47024f2c78b921a0dad0a4bed88c1f1b",
+      "medianMs": 3.7805736666666667,
+      "forkMedianMs": [
+        3.7805736666666667,
+        3.7563673333333334,
+        3.867739
+      ],
+      "forkP95BatchAverageMs": [
+        4.274632333333333,
+        4.549340666666667,
+        4.378376
+      ],
+      "medianAllocatedBytes": 10056021.333333334
+    },
+    {
+      "name": "canvas.resolve_text_buffers",
+      "units": 2000,
+      "fixtureSha256": "91f531f10123b93f043fac540f387e8cfc54b050e39178f82bb15d8e9ab3a4da",
+      "medianMs": 59.956001,
+      "forkMedianMs": [
+        59.903112,
+        60.086869,
+        59.956001
+      ],
+      "forkP95BatchAverageMs": [
+        62.366864,
+        61.33452,
+        61.568916
+      ],
+      "medianAllocatedBytes": 200976032.0
+    },
+    {
+      "name": "ink.apply_127th_append",
+      "units": 1000,
+      "fixtureSha256": "2308a6d365f5b50ab93b54ea2b06845f59af7098b6e55271d3242b9001b4a25d",
+      "medianMs": 0.131099,
+      "forkMedianMs": [
+        0.132121,
+        0.131099,
+        0.127853
+      ],
+      "forkP95BatchAverageMs": [
+        0.164873,
+        0.155866,
+        0.144194
+      ],
+      "medianAllocatedBytes": 36032.0
+    },
+    {
+      "name": "ink.apply_127th_append",
+      "units": 10000,
+      "fixtureSha256": "a66b11ef17ec26cea11295a36cd83dd789794aa5ce83bf9e0f0555a9ce356a30",
+      "medianMs": 0.051428,
+      "forkMedianMs": [
+        0.051447,
+        0.051428,
+        0.050215
+      ],
+      "forkP95BatchAverageMs": [
+        0.05765,
+        0.063811,
+        0.056818
+      ],
+      "medianAllocatedBytes": 26504.0
+    },
+    {
+      "name": "ink.apply_127th_append",
+      "units": 40000,
+      "fixtureSha256": "7144b94e5f910437eda6c900e7788e1814ad7421edcc146409371ebd723b3569",
+      "medianMs": 0.020379,
+      "forkMedianMs": [
+        0.024537,
+        0.020379,
+        0.020259
+      ],
+      "forkP95BatchAverageMs": [
+        0.077588,
+        0.03685,
+        0.032682
+      ],
+      "medianAllocatedBytes": 23408.0
+    },
+    {
+      "name": "ink.apply_128th_append",
+      "units": 1000,
+      "fixtureSha256": "405688697d3d3c3f5a9fd9f7853f6c3d9c61a9b589af19e901c7143d47cf1f93",
+      "medianMs": 0.980443,
+      "forkMedianMs": [
+        0.942942,
+        0.990171,
+        0.980443
+      ],
+      "forkP95BatchAverageMs": [
+        1.630428,
+        1.482577,
+        1.4525
+      ],
+      "medianAllocatedBytes": 325200.0
+    },
+    {
+      "name": "ink.apply_128th_append",
+      "units": 10000,
+      "fixtureSha256": "9e894f7031a93db201f114a3623839b060f55b24ec304f5dab83348ba728f2d8",
+      "medianMs": 1.830819,
+      "forkMedianMs": [
+        2.306443,
+        1.830819,
+        1.802565
+      ],
+      "forkP95BatchAverageMs": [
+        60.920213,
+        53.792419,
+        1.983608
+      ],
+      "medianAllocatedBytes": 2741304.0
+    },
+    {
+      "name": "ink.apply_128th_append",
+      "units": 40000,
+      "fixtureSha256": "7681fc5728b41facefa1a14e96c1e3211c366f5785c65c2a8be45615fe7ff8ef",
+      "medianMs": 6.17866,
+      "forkMedianMs": [
+        4.870193,
+        8.635769,
+        6.17866
+      ],
+      "forkP95BatchAverageMs": [
+        5.379923,
+        11.282959,
+        96.240574
+      ],
+      "medianAllocatedBytes": 9410200.0
+    },
+    {
+      "name": "pdf.equal_spaced_groups",
+      "units": 250,
+      "fixtureSha256": "f0939f6ec94a1ee115ddaeb33c2057cfebbb3c6cb964e4c67b99364bcced4763",
+      "medianMs": 0.951414,
+      "forkMedianMs": [
+        0.9031485,
+        0.963703625,
+        0.951414
+      ],
+      "forkP95BatchAverageMs": [
+        0.934622125,
+        1.031347125,
+        1.021852875
+      ],
+      "medianAllocatedBytes": 5125354.0
+    },
+    {
+      "name": "pdf.equal_spaced_groups",
+      "units": 1000,
+      "fixtureSha256": "11d9360e6a783939a803ec516ae3438af369a86691c211d198814b89e67d9c5d",
+      "medianMs": 15.605802,
+      "forkMedianMs": [
+        14.990373,
+        15.906563,
+        15.605802
+      ],
+      "forkP95BatchAverageMs": [
+        15.343284,
+        16.459995,
+        16.151108
+      ],
+      "medianAllocatedBytes": 79814512.0
+    },
+    {
+      "name": "pdf.equal_spaced_groups",
+      "units": 4000,
+      "fixtureSha256": "111d29f1bef7d024cbfb1494bcb6493b816a221a269f561ddd934593b4cc0f0a",
+      "medianMs": 250.307131,
+      "forkMedianMs": [
+        239.069619,
+        250.307131,
+        251.082674
+      ],
+      "forkP95BatchAverageMs": [
+        244.895799,
+        254.983186,
+        257.24306
+      ],
+      "medianAllocatedBytes": 1248317392.0
+    },
+    {
+      "name": "richtext.link_preview_projection",
+      "units": 250,
+      "fixtureSha256": "04e482aba34898f9e54c77403956f40ab46f207ae1099b4c06b84f80ed7828df",
+      "medianMs": 0.0928253448275862,
+      "forkMedianMs": [
+        0.0928253448275862,
+        0.08977191111111112,
+        0.09311885542168676
+      ],
+      "forkP95BatchAverageMs": [
+        0.09326583908045977,
+        0.08991105555555556,
+        0.09922721686746988
+      ],
+      "medianAllocatedBytes": 94072.19277108433
+    },
+    {
+      "name": "richtext.link_preview_projection",
+      "units": 1000,
+      "fixtureSha256": "4fbfe15ed541525e9a451037141b0462d8c82158c278062789cc74ff7d3b506e",
+      "medianMs": 1.27334825,
+      "forkMedianMs": [
+        1.278819875,
+        1.24520225,
+        1.27334825
+      ],
+      "forkP95BatchAverageMs": [
+        1.28314925,
+        1.24796875,
+        1.276307625
+      ],
+      "medianAllocatedBytes": 377026.0
+    },
+    {
+      "name": "richtext.link_preview_projection",
+      "units": 4000,
+      "fixtureSha256": "570339a103e7b21175f061fe2d8c837bc1dc0e1ce6e2dd6fbd1b537dc2981510",
+      "medianMs": 20.595833,
+      "forkMedianMs": [
+        20.595833,
+        20.081586,
+        20.610912
+      ],
+      "forkP95BatchAverageMs": [
+        20.695753,
+        20.533795,
+        21.677249
+      ],
+      "medianAllocatedBytes": 1472128.0
+    },
+    {
+      "name": "richtext.paste_plain_html",
+      "units": 250,
+      "fixtureSha256": "fcfc07b4d9bd6776606d0b2cab9ca1622e2f8e64ab3ca1b9e110e9750668b148",
+      "medianMs": 0.02311603125,
+      "forkMedianMs": [
+        0.02311603125,
+        0.023082453125,
+        0.0232772734375
+      ],
+      "forkP95BatchAverageMs": [
+        0.026356484375,
+        0.0290684375,
+        0.0262018984375
+      ],
+      "medianAllocatedBytes": 372072.625
+    },
+    {
+      "name": "richtext.paste_plain_html",
+      "units": 1000,
+      "fixtureSha256": "9468b696ba178db3b7a853152ad31f4acbb75e28dc063d0c9647d795b1c6c1df",
+      "medianMs": 0.3089919393939394,
+      "forkMedianMs": [
+        0.30063757575757577,
+        0.3089919393939394,
+        0.32397425806451613
+      ],
+      "forkP95BatchAverageMs": [
+        0.3084931212121212,
+        0.3213703333333333,
+        0.3460216451612903
+      ],
+      "medianAllocatedBytes": 5234120.484848484
+    },
+    {
+      "name": "richtext.paste_plain_html",
+      "units": 4000,
+      "fixtureSha256": "8ec2236e9c9232eaebc8c8bbea0ad8427e348c1703fed4fd4a58fdbc6dd2e75a",
+      "medianMs": 4.1885735,
+      "forkMedianMs": [
+        3.9852625,
+        4.1885735,
+        4.2659605
+      ],
+      "forkP95BatchAverageMs": [
+        4.260475,
+        4.483148,
+        4.628074
+      ],
+      "medianAllocatedBytes": 80904288.0
+    },
+    {
+      "name": "richtext.select_caret",
+      "units": 250,
+      "fixtureSha256": "2c4c8883763b0a79b8c0cda327b2a961499b7d6a7d5a3cab2f01c9219ff55895",
+      "medianMs": 0.0271168359375,
+      "forkMedianMs": [
+        0.026819859375,
+        0.0271168359375,
+        0.027324734375
+      ],
+      "forkP95BatchAverageMs": [
+        0.0339224296875,
+        0.03272021875,
+        0.0311707109375
+      ],
+      "medianAllocatedBytes": 169072.125
+    },
+    {
+      "name": "richtext.select_caret",
+      "units": 1000,
+      "fixtureSha256": "932b8ac1146507fe08430f9001bccc8bdb4aae63f8ebfe6298889bb994a4a933",
+      "medianMs": 0.10675391397849461,
+      "forkMedianMs": [
+        0.10675391397849461,
+        0.10630938636363636,
+        0.10917105494505494
+      ],
+      "forkP95BatchAverageMs": [
+        0.11330108602150539,
+        0.11290043181818182,
+        0.11604532967032967
+      ],
+      "medianAllocatedBytes": 674368.1758241758
+    },
+    {
+      "name": "richtext.select_caret",
+      "units": 4000,
+      "fixtureSha256": "2f5fdfb16edaeb398e4ae71e8931b450f6a31211d9a8e37e75a73da6f3c2ae0c",
+      "medianMs": 0.4269015652173913,
+      "forkMedianMs": [
+        0.42387365217391304,
+        0.4269015652173913,
+        0.45322721739130434
+      ],
+      "forkP95BatchAverageMs": [
+        0.44866904347826086,
+        0.4590278260869565,
+        0.5058942608695652
+      ],
+      "medianAllocatedBytes": 2695240.695652174
+    },
+    {
+      "name": "search.long_word_typo",
+      "units": 250,
+      "fixtureSha256": "22b5135170c6d10a640c60a7b3f4cfe0ebf04ace8786bf4762af6a5903073d6a",
+      "medianMs": 0.0057410625,
+      "forkMedianMs": [
+        0.0057349609375,
+        0.0057410625,
+        0.0057422421875
+      ],
+      "forkP95BatchAverageMs": [
+        0.00581221875,
+        0.0059079375,
+        0.0058490078125
+      ],
+      "medianAllocatedBytes": 4768.125
+    },
+    {
+      "name": "search.long_word_typo",
+      "units": 1000,
+      "fixtureSha256": "208ef4cfb927e116a40e9a6cb9e4f50093fc1d73a0ea0ad75f64751c304c30b3",
+      "medianMs": 0.0210329296875,
+      "forkMedianMs": [
+        0.0210329296875,
+        0.020960609375,
+        0.02183234375
+      ],
+      "forkP95BatchAverageMs": [
+        0.0214585859375,
+        0.02126509375,
+        0.0222378046875
+      ],
+      "medianAllocatedBytes": 16280.125
+    },
+    {
+      "name": "search.long_word_typo",
+      "units": 4000,
+      "fixtureSha256": "6b47f5661ba5e7777df212c72888e552034136d80c11c4ebb6f0f94bc4fa3029",
+      "medianMs": 0.08437443697478991,
+      "forkMedianMs": [
+        0.08437443697478991,
+        0.08336180833333333,
+        0.08646728070175438
+      ],
+      "forkP95BatchAverageMs": [
+        0.08755813445378152,
+        0.08733176666666666,
+        0.0905132105263158
+      ],
+      "medianAllocatedBytes": 62224.13445378151
+    },
+    {
+      "name": "search.repeated_substring",
+      "units": 250,
+      "fixtureSha256": "aef531631549ceda2e5843c0bf176ced80aceee6bda69e2e44b8c0a930874bcb",
+      "medianMs": 0.0246153671875,
+      "forkMedianMs": [
+        0.0246153671875,
+        0.0245494609375,
+        0.0246757890625
+      ],
+      "forkP95BatchAverageMs": [
+        0.0248908828125,
+        0.02880871875,
+        0.02484353125
+      ],
+      "medianAllocatedBytes": 12832.125
+    },
+    {
+      "name": "search.repeated_substring",
+      "units": 1000,
+      "fixtureSha256": "528655157c22b21ac68eac539cf8ec2ae90699982046e8959ee9611366a37db3",
+      "medianMs": 0.2688529473684211,
+      "forkMedianMs": [
+        0.2688529473684211,
+        0.24836339999999998,
+        0.2723713243243243
+      ],
+      "forkP95BatchAverageMs": [
+        0.2700947894736842,
+        0.270577375,
+        0.2729061081081081
+      ],
+      "medianAllocatedBytes": 46304.42105263158
+    },
+    {
+      "name": "search.repeated_substring",
+      "units": 4000,
+      "fixtureSha256": "ec1652583ea36b6a832d6e927f8b4622462129e1c6307d570f1eadb992b9a9eb",
+      "medianMs": 3.9124773333333334,
+      "forkMedianMs": [
+        3.9124773333333334,
+        3.5935813333333333,
+        3.961432
+      ],
+      "forkP95BatchAverageMs": [
+        3.9798886666666666,
+        3.8992556666666665,
+        4.0573895
+      ],
+      "medianAllocatedBytes": 173373.33333333334
+    },
+    {
+      "name": "storage.append_ink_checkpoint",
+      "units": 1000,
+      "fixtureSha256": "2e2de195ebe201a4b065bd78c2a98ea8998d1acfb7d19e6a5e522f6984e481af",
+      "medianMs": 2.290832,
+      "forkMedianMs": [
+        2.290832,
+        2.8944,
+        2.212704
+      ],
+      "forkP95BatchAverageMs": [
+        2.795221,
+        13.591124,
+        3.416983
+      ]
+    },
+    {
+      "name": "storage.append_ink_checkpoint",
+      "units": 10000,
+      "fixtureSha256": "a8f2e25b1ef11107002d4d79e444f9807f14e9d3c1e7f1bc27fb255f2413a928",
+      "medianMs": 13.003578,
+      "forkMedianMs": [
+        12.159645,
+        13.89909,
+        13.003578
+      ],
+      "forkP95BatchAverageMs": [
+        14.175905,
+        14.858191,
+        27.964203
+      ]
+    },
+    {
+      "name": "storage.append_ink_checkpoint",
+      "units": 40000,
+      "fixtureSha256": "79709ca318f73e6f7e736fb5552975a8c62f8f04a3bb449f6b424697c0b0e88a",
+      "medianMs": 49.739669,
+      "forkMedianMs": [
+        48.11917,
+        49.739669,
+        50.492359
+      ],
+      "forkP95BatchAverageMs": [
+        52.395516,
+        54.622216,
+        57.014432
+      ]
+    },
+    {
+      "name": "storage.append_ink_coalesced",
+      "units": 1000,
+      "fixtureSha256": "2e2de195ebe201a4b065bd78c2a98ea8998d1acfb7d19e6a5e522f6984e481af",
+      "medianMs": 0.233854,
+      "forkMedianMs": [
+        0.233854,
+        0.269893,
+        0.232122
+      ],
+      "forkP95BatchAverageMs": [
+        0.302474,
+        0.554644,
+        0.386385
+      ]
+    },
+    {
+      "name": "storage.append_ink_coalesced",
+      "units": 10000,
+      "fixtureSha256": "a8f2e25b1ef11107002d4d79e444f9807f14e9d3c1e7f1bc27fb255f2413a928",
+      "medianMs": 0.176425,
+      "forkMedianMs": [
+        0.176425,
+        0.201162,
+        0.174501
+      ],
+      "forkP95BatchAverageMs": [
+        0.241308,
+        0.333163,
+        0.240277
+      ]
+    },
+    {
+      "name": "storage.append_ink_coalesced",
+      "units": 40000,
+      "fixtureSha256": "79709ca318f73e6f7e736fb5552975a8c62f8f04a3bb449f6b424697c0b0e88a",
+      "medianMs": 0.192916,
+      "forkMedianMs": [
+        0.195582,
+        0.172437,
+        0.192916
+      ],
+      "forkP95BatchAverageMs": [
+        0.239115,
+        0.24721,
+        0.238433
+      ]
+    },
+    {
+      "name": "storage.load_document",
+      "units": 100,
+      "fixtureSha256": "cdf856723bb1d0717355fa091da64b59ff23ceba8644e1508e4d42aaf961c61c",
+      "medianMs": 0.420659,
+      "forkMedianMs": [
+        0.418655,
+        0.46833,
+        0.420659
+      ],
+      "forkP95BatchAverageMs": [
+        0.548953,
+        0.523114,
+        0.666186
+      ]
+    },
+    {
+      "name": "storage.load_document",
+      "units": 1000,
+      "fixtureSha256": "10d4a5431d8253a1beeb96ae0fb5500683e7e59f204ec764e42fde7ce56ef2d0",
+      "medianMs": 1.120589,
+      "forkMedianMs": [
+        1.120589,
+        1.39982,
+        0.804589
+      ],
+      "forkP95BatchAverageMs": [
+        5.007083,
+        1.576746,
+        0.959634
+      ]
+    },
+    {
+      "name": "storage.save_checkpoint",
+      "units": 100,
+      "fixtureSha256": "cdf856723bb1d0717355fa091da64b59ff23ceba8644e1508e4d42aaf961c61c",
+      "medianMs": 0.969101,
+      "forkMedianMs": [
+        0.796985,
+        1.05779,
+        0.969101
+      ],
+      "forkP95BatchAverageMs": [
+        1.083689,
+        1.228083,
+        1.312574
+      ]
+    },
+    {
+      "name": "storage.save_checkpoint",
+      "units": 1000,
+      "fixtureSha256": "10d4a5431d8253a1beeb96ae0fb5500683e7e59f204ec764e42fde7ce56ef2d0",
+      "medianMs": 1.694389,
+      "forkMedianMs": [
+        1.694389,
+        2.14692,
+        1.652029
+      ],
+      "forkP95BatchAverageMs": [
+        2.139916,
+        2.396394,
+        1.96299
+      ]
+    },
+    {
+      "name": "storage.save_coalesced",
+      "units": 100,
+      "fixtureSha256": "cdf856723bb1d0717355fa091da64b59ff23ceba8644e1508e4d42aaf961c61c",
+      "medianMs": 0.628744,
+      "forkMedianMs": [
+        0.709347,
+        0.628744,
+        0.621101
+      ],
+      "forkP95BatchAverageMs": [
+        0.854864,
+        0.68425,
+        0.775955
+      ]
+    },
+    {
+      "name": "storage.save_coalesced",
+      "units": 1000,
+      "fixtureSha256": "10d4a5431d8253a1beeb96ae0fb5500683e7e59f204ec764e42fde7ce56ef2d0",
+      "medianMs": 1.431329,
+      "forkMedianMs": [
+        1.419638,
+        1.794831,
+        1.431329
+      ],
+      "forkP95BatchAverageMs": [
+        4.519146,
+        4.938363,
+        3.90501
+      ]
+    }
+  ]
+}

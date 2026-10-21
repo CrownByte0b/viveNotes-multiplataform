@@ -1,0 +1,3 @@
+PASS: 3 fresh JVM reports × 48 cases × 15 positive finite sample values; identical runtime artifacts and fixture hashes.
+PASS: all 315 production/resource/schema and 9 harness SHA-256 hashes match capture.
+PASS: 3 × 8 renderer cases; identical native SHA-256, six held observations/advances each, no held finished scene/raster/path/vector rebuilds, no eraser-preview scene/index rebuilds.

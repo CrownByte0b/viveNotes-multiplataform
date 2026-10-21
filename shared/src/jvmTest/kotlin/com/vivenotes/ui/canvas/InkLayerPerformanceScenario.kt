@@ -174,8 +174,11 @@ class InkLayerPerformanceScenario {
             }
             val erasePreviewCounts = diagnostics.counts() - beforeErase
             val beforeEraseFinish = diagnostics.counts()
+            val eraseReleaseStarted = System.nanoTime()
             frame.performMouseInput { release() }
+            waitUntil(timeoutMillis = 30_000) { edits.any { it is InkEdit.PartialErase } }
             frame.captureToImage()
+            val eraseReleaseToCommittedDrawNanos = System.nanoTime() - eraseReleaseStarted
             val eraseFinishCounts = diagnostics.counts() - beforeEraseFinish
             runOnIdle {
                 val erase = assertNotNull(edits.filterIsInstance<InkEdit.PartialErase>().singleOrNull())
@@ -199,6 +202,8 @@ class InkLayerPerformanceScenario {
                     put("retainedRasterPixelBytes", diagnostics.retainedPixelBytes)
                     put("peakRetainedRasterPixelBytes", diagnostics.peakRetainedPixelBytes)
                     put("fullPageSceneBuilds", diagnostics.baseSceneBuilds)
+                    put("eraseReleaseToCommittedDrawNanos", eraseReleaseToCommittedDrawNanos)
+                    put("eraseCommitTimingScope", "test release dispatch through worker commit and captured Canvas draw, including wait polling/scheduling")
                     put("initial", initialCounts.json()); put("wet", wetCounts.json())
                     put("finish", finishCounts.json()); put("heldWet", heldCounts.json())
                     put("erasePreview", erasePreviewCounts.json()); put("eraseFinish", eraseFinishCounts.json())

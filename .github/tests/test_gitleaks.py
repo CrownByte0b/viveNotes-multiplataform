@@ -11,6 +11,14 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 NOTICE = "shared/src/jvmMain/resources/ai/NOTICE.md"
 SYNC_TEST = "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/SyncServerClientTest.kt"
+BENCHMARK_MANIFEST = "benchmarks/results/2026-10-21/environment.json"
+BENCHMARK_SOURCE_FILES = (
+    "desktopApp/src/main/kotlin/com/vivenotes/desktop/KeyBindingsFile.kt",
+    "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/TextCaretKeys.kt",
+    "shared/src/commonMain/kotlin/com/vivenotes/ui/keyboard/ShortcutKeys.kt",
+    "shared/src/commonMain/kotlin/com/vivenotes/workspace/KeyBindings.kt",
+    "shared/src/jvmMain/kotlin/com/vivenotes/ai/FormulaTokenizerDecoder.kt",
+)
 TOKENIZER_HASHES = (
     "02c318d9cfa95bf323371762b8f838a82709530274d36dba6eca880f0add6cc4",
     "2811d82701ec97c192fa256aa2b4516929373870ae660326cc5b1dc879b95ff2",
@@ -92,6 +100,61 @@ class GitleaksConfigTest(unittest.TestCase):
         self.assertEqual(
             [("generic-api-key", SYNC_TEST)],
             self.scan(SYNC_TEST, f'val api_key = "{token}"'),
+        )
+
+    def benchmark_checksums(self):
+        return json.loads((ROOT / BENCHMARK_MANIFEST).read_text(encoding="utf-8"))["productionFiles"]
+
+    def test_benchmark_manifest_contains_source_hashes_and_scans_clean(self):
+        commit = json.loads((ROOT / BENCHMARK_MANIFEST).read_text(encoding="utf-8"))["sourceCommit"]
+        checksums = self.benchmark_checksums()
+        for path in BENCHMARK_SOURCE_FILES:
+            with self.subTest(path=path):
+                source = subprocess.check_output(["git", "show", f"{commit}:{path}"], cwd=ROOT)
+                self.assertEqual(hashlib.sha256(source).hexdigest(), checksums[path])
+        self.assertEqual([], self.scan(BENCHMARK_MANIFEST, (ROOT / BENCHMARK_MANIFEST).read_text(encoding="utf-8")))
+
+    def test_benchmark_hash_exceptions_require_the_manifest_path(self):
+        checksums = self.benchmark_checksums()
+        content = json.dumps({path: checksums[path] for path in BENCHMARK_SOURCE_FILES}, indent=2)
+        self.assertEqual(
+            [("generic-api-key", "other/environment.json")] * len(BENCHMARK_SOURCE_FILES),
+            self.scan("other/environment.json", content),
+        )
+
+    def test_benchmark_hashes_in_credential_fields_are_still_detected(self):
+        checksums = self.benchmark_checksums()
+        content = "\n".join(f'api_key = "{checksums[path]}"' for path in BENCHMARK_SOURCE_FILES)
+        self.assertEqual(
+            [("generic-api-key", BENCHMARK_MANIFEST)] * len(BENCHMARK_SOURCE_FILES),
+            self.scan(BENCHMARK_MANIFEST, content),
+        )
+
+    def test_benchmark_hash_exceptions_require_the_full_source_path(self):
+        checksums = self.benchmark_checksums()
+        content = json.dumps({f"other/{path}": checksums[path] for path in BENCHMARK_SOURCE_FILES}, indent=2)
+        self.assertEqual(
+            [("generic-api-key", BENCHMARK_MANIFEST)] * len(BENCHMARK_SOURCE_FILES),
+            self.scan(BENCHMARK_MANIFEST, content),
+        )
+
+    def test_benchmark_hash_exceptions_require_exact_source_and_value(self):
+        checksums = self.benchmark_checksums()
+        token = hashlib.sha256(b"benchmark manifest credential control").hexdigest()
+        for path in BENCHMARK_SOURCE_FILES:
+            for value in (token, f'a{checksums[path]}f'):
+                with self.subTest(path=path, altered=value != token):
+                    self.assertEqual(
+                        [("generic-api-key", BENCHMARK_MANIFEST)],
+                        self.scan(BENCHMARK_MANIFEST, json.dumps({path: value}, indent=2)),
+                    )
+
+    def test_extra_token_in_benchmark_manifest_is_still_detected(self):
+        manifest = json.loads((ROOT / BENCHMARK_MANIFEST).read_text(encoding="utf-8"))
+        manifest["api_key"] = hashlib.sha256(b"extra benchmark credential control").hexdigest()
+        self.assertEqual(
+            [("generic-api-key", BENCHMARK_MANIFEST)],
+            self.scan(BENCHMARK_MANIFEST, json.dumps(manifest, indent=2)),
         )
 
 

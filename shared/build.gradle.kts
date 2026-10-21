@@ -248,3 +248,20 @@ tasks.register<Test>("inkPhase2Scenario") {
         .orElse("false").get())
     outputs.upToDateWhen { false }
 }
+
+tasks.register<JavaExec>("performanceBaseline") {
+    group = "verification"
+    description = "Capture opt-in desktop algorithm and file-backed SQLite performance samples."
+    val regular = tasks.named<Test>("jvmTest").get()
+    classpath = regular.classpath
+    dependsOn("jvmTestClasses")
+    mainClass.set("com.vivenotes.performance.PerformanceBaseline")
+    workingDir = rootProject.projectDir
+    minHeapSize = "512m"
+    maxHeapSize = "2g"
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "-Djava.awt.headless=true")
+    args(providers.gradleProperty("performanceBaselineOutput")
+        .orElse(layout.buildDirectory.file("reports/performance-baseline.json").map { it.asFile.absolutePath }).get(),
+        providers.gradleProperty("performanceBaselineFork").orElse("1").get())
+    systemProperty("vivenotes.performance.scratch", layout.buildDirectory.dir("performance-tmp").get().asFile.absolutePath)
+}

@@ -1,5 +1,5 @@
 # gitleaks reads this from the repository root. It keeps every built-in rule and only excuses
-# the fake sync-test credentials and published tokenizer checksums in the AI notice.
+# fake sync-test credentials, published tokenizer checksums, and pinned benchmark source hashes.
 [extend]
 useDefault = true
 
@@ -23,4 +23,18 @@ regexTarget = "secret"
 regexes = [
   '''^02c318d9cfa95bf323371762b8f838a82709530274d36dba6eca880f0add6cc4$''',
   '''^2811d82701ec97c192fa256aa2b4516929373870ae660326cc5b1dc879b95ff2$''',
+]
+
+[[allowlists]]
+description = "Exact source SHA-256 entries in the frozen 2026-10-21 benchmark manifest"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^benchmarks/results/2026-10-21/environment\.json$''']
+regexTarget = "line"
+regexes = [
+  '''^\s*"desktopApp/src/main/kotlin/com/vivenotes/desktop/KeyBindingsFile\.kt":\s*"6ee0ae4032d81428166c1bd374fa81b30f929f8fe63752c7182d0663d13b0336",?\s*$''',
+  '''^\s*"shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/TextCaretKeys\.kt":\s*"224fe997cf323d37c058db7183f1bf18a02210fe60ad4cd58a4ec02c472fd227",?\s*$''',
+  '''^\s*"shared/src/commonMain/kotlin/com/vivenotes/ui/keyboard/ShortcutKeys\.kt":\s*"1f714c574bc297930e253cc280fa8a2ff67c30c5404c73132252d185cb0b7752",?\s*$''',
+  '''^\s*"shared/src/commonMain/kotlin/com/vivenotes/workspace/KeyBindings\.kt":\s*"cfff839e98c37803607c8ac5ff2246858fa5663ffac960a3528ff7abf9e69601",?\s*$''',
+  '''^\s*"shared/src/jvmMain/kotlin/com/vivenotes/ai/FormulaTokenizerDecoder\.kt":\s*"5231334bee94e341e7682322b6af4faa58cdcf26fc5bc7fe8fe37e52c78a5127",?\s*$''',
 ]
