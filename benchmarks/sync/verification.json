@@ -1,0 +1,83 @@
+{
+  "command": ":shared:jvmTest :desktopApp:test lint :desktopApp:assemble --max-workers=1 --offline --console=plain",
+  "result": "BUILD SUCCESSFUL",
+  "elapsed": "2m28s",
+  "suites": {
+    "shared": {
+      "tests": 1949,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 4,
+      "passed": 1945
+    },
+    "desktop": {
+      "tests": 151,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 5,
+      "passed": 146
+    }
+  },
+  "skippedCases": [
+    {
+      "suite": "TEST-com.vivenotes.ai.OnnxRecognitionSmokeTest",
+      "test": "uniMerNetReadsAPrintedFormula[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.ai.OnnxRecognitionSmokeTest",
+      "test": "switchingBetweenTinyAndSmallReloadsTheCorrectGraphsWhileHeld[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.data.sync.DesktopLiveSyncProbeTest",
+      "test": "exchangeOnlyAnOwnedTemporaryNotebookWithTheExistingAndroidApp[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.data.sync.HierarchySyncTest",
+      "test": "profileMetadataWaitBehindOneDelayedDesktopPictureUpload[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "aCameraTakenAwayMidStreamSaysItStopped"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "theCameraOpensAgainTheMomentAWindowLetsItGo"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "aSecondStreamOfTheSameCameraIsToldItIsBusy"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "framesArriveAndTheLastBecomesAPhotoTheStoreKeeps"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "theCameraIsListedByTheNameItsDriverGives"
+    }
+  ],
+  "pythonContractsPassed": 3,
+  "liveCompatibility": {
+    "desktopAuthoredTextVisibleOnAndroid": true,
+    "desktopPictureVisibleOnAndroid": true,
+    "desktopInkVisibleOnAndroid": true,
+    "androidAuthoredStrokeReceivedAndDecodedOnDesktop": true,
+    "decodedStrokeRows": 2,
+    "ownedNotebookTombstonePushed": true,
+    "ownedNotebookAbsentFromAndroidNavigation": true,
+    "androidApp": "existing emulator app, no Android/server source changes",
+    "desktopDatabase": "isolated temporary database",
+    "liveProbeJvmTestsExecuted": 2
+  },
+  "sourceSha256": {
+    "shared/src/commonMain/kotlin/com/vivenotes/data/db/Daos.kt": "5723ca6f236fcb45ea7ac2b1eb5c1dac5374ad355e225ade70972765bc6276f6",
+    "shared/src/commonMain/kotlin/com/vivenotes/data/db/Entities.kt": "68704d5119a9a2f77935c35a087de21bcd62e40ca4a905842e9a9047dcad7d24",
+    "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/AttachmentBlobSync.kt": "a4031763a6ef71569438ef0ad511c2f018130f21ef0c08033bef89bb1ac7d732",
+    "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/HierarchySync.kt": "1c60d6f4c71f5eebd71d3b747747bce9b09bb41947024b4008827dbe24466ae9",
+    "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/SyncMetadataGate.kt": "8fbd867ff9a1fed000b5d87d6b8158d67e448bfb4f40e5d45d2c98845bc31743",
+    "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/HierarchySyncTest.kt": "859499b93902ca445e0a7ae86ccbb3f146e3efff4fdc73d402980cda9973008a",
+    "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/SyncMetadataGateTest.kt": "67a49ffda00076b479f3cce41249942a831dca060136da75704c603deb126e0b",
+    "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/AttachmentDiscoveryConcurrencyTest.kt": "9da215a43c571426b47daca580050457dfd794bac83555220a7d1eec28af9cdb",
+    "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/DesktopLiveSyncProbeTest.kt": "7919a5cbae6badd959dad189bf985ce54b342d2ad0a5b25c532ad8ec6499c2d0"
+  }
+}

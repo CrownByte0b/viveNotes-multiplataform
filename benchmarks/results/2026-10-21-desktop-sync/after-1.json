@@ -1,0 +1,32 @@
+{
+  "samplesNs": [
+    1527783,
+    1342691,
+    1242050,
+    1082356,
+    977187,
+    979211
+  ],
+  "medianNs": 1162203.0,
+  "runtime": {
+    "runtime": "27+35",
+    "vendor": "Azul Systems, Inc.",
+    "vm": "OpenJDK 64-Bit Server VM",
+    "maxHeapBytes": 536870912,
+    "processors": 24,
+    "vmArgs": [
+      "-Dorg.gradle.internal.worker.tmpdir=/home/mahalo/repos/viveHub/multiplataform-vive/shared/build/tmp/jvmTest/work",
+      "-Dvivenotes.test.formulaModels=/home/mahalo/repos/viveHub/multiplataform-vive/devdb/ai_models",
+      "-Dvivenotes.test.mathRuntime=/home/mahalo/repos/viveHub/multiplataform-vive/build/math-engine-test",
+      "--enable-native-access=ALL-UNNAMED",
+      "-Xmx512m",
+      "-Dfile.encoding=UTF-8",
+      "-Duser.country",
+      "-Duser.language=en",
+      "-Duser.variant",
+      "-ea"
+    ]
+  },
+  "fork": 1,
+  "variant": "after"
+}

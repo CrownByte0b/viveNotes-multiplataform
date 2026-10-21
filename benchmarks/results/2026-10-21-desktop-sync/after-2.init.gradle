@@ -1,0 +1,10 @@
+import groovy.json.JsonOutput
+gradle.projectsEvaluated {
+    def task = gradle.rootProject.project(':shared').tasks.named('jvmTest')
+    task.configure {
+        outputs.upToDateWhen { false }
+        doFirst {
+            new File('/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-sync/after-2-classpath.json').text = JsonOutput.toJson(classpath.files.collect { it.absolutePath })
+        }
+    }
+}

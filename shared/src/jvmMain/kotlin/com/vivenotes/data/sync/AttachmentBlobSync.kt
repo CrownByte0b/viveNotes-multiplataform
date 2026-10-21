@@ -115,9 +115,16 @@ class AttachmentBlobSync(
     private val downloadStages = AttachmentDownloadStages()
     private var owner: String? = null
     private var generation = 0L
+    private var fileGeneration = 0L
+    private val downloadTickets = HashMap<String, Any>()
 
     /** Explicit catch-up/repair scans once; streamed ink events never enumerate picture files. */
-    fun reconcileFiles() { filesIndexed = false; downloadStages.reconcile() }
+    fun reconcileFiles() { invalidateFileIndex(); downloadStages.reconcile() }
+
+    internal fun invalidateFileIndex() = synchronized(accountLock) {
+        fileGeneration++
+        filesIndexed = false
+    }
 
     fun noteAttachments(ids: Collection<String>) { candidates += ids }
 
@@ -126,10 +133,19 @@ class AttachmentBlobSync(
         if (owner != next) {
             owner = next
             generation++
-            serverHolds.clear(); deferred.clear(); missing.clear()
+            serverHolds.clear(); deferred.clear(); missing.clear(); downloadTickets.clear()
             filesIndexed = false
         }
         generation
+    }
+
+    internal fun bindAccount(account: SyncAccount): Long = accountGeneration(account)
+
+    internal fun invalidateAccount() = synchronized(accountLock) {
+        owner = null
+        generation++
+        serverHolds.clear(); deferred.clear(); missing.clear(); downloadTickets.clear()
+        filesIndexed = false
     }
 
     private fun checkGeneration(expected: Long) = synchronized(accountLock) {
@@ -173,8 +189,13 @@ class AttachmentBlobSync(
 
     suspend fun ensureUploadedTogether(account: SyncAccount, digests: List<String>, force: Boolean = false,
         noRoomFrom: Long = Long.MAX_VALUE): List<Pair<String, BlobPresence>> {
+        return uploadForGeneration(account, digests, force, noRoomFrom, accountGeneration(account))
+    }
+
+    internal suspend fun uploadForGeneration(account: SyncAccount, digests: List<String>, force: Boolean,
+        noRoomFrom: Long, expected: Long): List<Pair<String, BlobPresence>> {
         val roomLimit = AtomicLong(noRoomFrom)
-        val expected = accountGeneration(account)
+        checkGeneration(expected)
         return try {
             bounded(digests.distinct()) { digest ->
                 val result = ensureUploadedForGeneration(account, digest, force, roomLimit.get(), expected)
@@ -290,9 +311,13 @@ class AttachmentBlobSync(
      * is about that picture and only defers it.
      */
     suspend fun downloadMissing(account: SyncAccount): BlobDownloads {
-        val expected = accountGeneration(account)
+        return downloadMissingForGeneration(account, accountGeneration(account))
+    }
+
+    internal suspend fun downloadMissingForGeneration(account: SyncAccount, expected: Long): BlobDownloads {
+        checkGeneration(expected)
         val downloaded = AtomicInteger()
-        val pending = missingBytes()
+        val pending = missingBytes(expected)
         return try {
             bounded(pending) { id ->
                 val copied = withDigest(id) { transfers.withPermit {
@@ -311,7 +336,13 @@ class AttachmentBlobSync(
     }
 
     private suspend fun downloadOne(account: SyncAccount, id: String, expected: Long): Boolean {
+        val ticket = synchronized(accountLock) {
+            checkGeneration(expected)
+            if (id !in missing) return false
+            Any().also { downloadTickets[id] = it }
+        }
         val owned = try { downloadStages.create(bytes.stagingFor(id), id) } catch (failure: IOException) {
+            synchronized(accountLock) { if (downloadTickets[id] === ticket) downloadTickets.remove(id) }
             Log.w(TAG, "Attachment download staging is unavailable", failure)
             throw DownloadStopped()
         }
@@ -320,20 +351,26 @@ class AttachmentBlobSync(
             val result = client.downloadBlob(account.serverUrl, account.token, id, staged)
             currentCoroutineContext().ensureActive()
             checkGeneration(expected)
+            if (synchronized(accountLock) { downloadTickets[id] !== ticket }) return false
             return when (result) {
                 is ServerResult.Success -> {
                     if (!result.value) {
                         Log.w(TAG, "Server has no bytes for attachment $id")
-                        deferred += id; missing -= id
+                        synchronized(accountLock) {
+                            checkGeneration(expected)
+                            if (downloadTickets[id] === ticket) { deferred += id; missing -= id }
+                        }
                         false
                     } else {
                         val published = synchronized(accountLock) {
                             checkGeneration(expected)
-                            bytes.publish(staged, id)
+                            if (downloadTickets[id] !== ticket) return false
+                            val copied = bytes.publish(staged, id)
+                            if (copied) missing -= id else { deferred += id; missing -= id }
+                            copied
                         }
-                        if (published) missing -= id else {
+                        if (!published) {
                             Log.e(TAG, "Downloaded attachment $id could not be published")
-                            deferred += id; missing -= id
                         }
                         published
                     }
@@ -342,12 +379,16 @@ class AttachmentBlobSync(
                 is ServerResult.Failed -> {
                     if (result.retryable) throw DownloadStopped()
                     Log.e(TAG, "Attachment $id could not be downloaded: ${result.reason}")
-                    deferred += id; missing -= id
+                    synchronized(accountLock) {
+                        checkGeneration(expected)
+                        if (downloadTickets[id] === ticket) { deferred += id; missing -= id }
+                    }
                     false
                 }
             }
         } finally {
             owned.close()
+            synchronized(accountLock) { if (downloadTickets[id] === ticket) downloadTickets.remove(id) }
         }
     }
 
@@ -365,31 +406,45 @@ class AttachmentBlobSync(
      * [serverHolds] is deliberately not cleared: it records what the server has, and this device
      * dropping its copy does not change that.
      */
-    fun discard(ids: Collection<String>): Int = ids.count { id ->
+    fun discard(ids: Collection<String>): Int = synchronized(accountLock) { ids.count { id ->
         if (!isBlobDigest(id)) return@count false
+        fileGeneration++
+        filesIndexed = false
+        downloadTickets.remove(id)
         deferred -= id
         missing -= id
         candidates -= id
         bytes.stagingFor(id).delete()
         bytes.fileFor(id).delete()
-    }
+    } }
 
     /**
      * The pictures this device knows about and does not have, minus the ones it has stopped asking
      * for. An id that cannot be a digest is skipped rather than requested: it could not name a blob,
      * and it must never reach a URL or a file name.
      */
-    private suspend fun missingBytes(): List<String> = scanMutex.withLock {
-        val additions = candidates.toList()
-        candidates.removeAll(additions.toSet())
-        val inspect = if (filesIndexed) additions else attachments.allIds()
-        withContext(Dispatchers.IO) {
-            for (id in inspect) if (id !in deferred && isBlobDigest(id)) {
-                if (!bytes.fileFor(id).exists()) missing += id else missing -= id
+    private suspend fun missingBytes(expected: Long = synchronized(accountLock) { generation }): List<String> = scanMutex.withLock {
+        while (true) {
+            val stamp = synchronized(accountLock) { checkGeneration(expected); fileGeneration }
+            val additions = candidates.toList()
+            candidates.removeAll(additions.toSet())
+            val inspect = if (filesIndexed) additions else (attachments.allIds() + additions).distinct()
+            val presence = withContext(Dispatchers.IO) {
+                inspect.filter { it !in deferred && isBlobDigest(it) }.associateWith { bytes.fileFor(it).exists() }
             }
+            val current = synchronized(accountLock) {
+                checkGeneration(expected)
+                if (stamp != fileGeneration) null else {
+                    for ((id, exists) in presence) {
+                        if (exists || id in deferred) missing -= id else missing += id
+                    }
+                    filesIndexed = true
+                    missing.toList().sorted()
+                }
+            }
+            if (current != null) return@withLock current
         }
-        filesIndexed = true
-        missing.toList().sorted()
+        @Suppress("UNREACHABLE_CODE") emptyList()
     }
 
     /**

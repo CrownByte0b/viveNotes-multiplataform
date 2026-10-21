@@ -66,6 +66,12 @@ interface SyncDao {
     @Query("SELECT * FROM sync_entity_states WHERE kind = :kind AND entityId IN (:ids)")
     suspend fun entityStates(kind: String, ids: List<String>): List<SyncEntityStateEntity>
 
+    @Query("SELECT serverVersion FROM sync_entity_states WHERE kind = :kind AND entityId = :entityId")
+    suspend fun entityServerVersion(kind: String, entityId: String): Long?
+
+    @Query("SELECT entityId, serverVersion FROM sync_entity_states WHERE kind = :kind AND entityId IN (:ids)")
+    suspend fun entityVersions(kind: String, ids: List<String>): List<SyncEntityVersion>
+
     @Upsert
     suspend fun putEntityState(state: SyncEntityStateEntity)
 
@@ -200,6 +206,28 @@ interface SyncDao {
             "CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)",
     )
     suspend fun enqueueIfAbsent(kind: String, entityId: String)
+
+    @Query(
+        "DELETE FROM sync_entity_states WHERE " +
+            "(kind = 'section' AND entityId IN (SELECT id FROM sections WHERE notebookId = :notebookId)) OR " +
+            "(kind = 'page' AND entityId IN (SELECT p.id FROM pages p JOIN sections s ON p.sectionId = s.id WHERE s.notebookId = :notebookId)) OR " +
+            "(kind = 'pageContent' AND entityId IN (SELECT p.id FROM pages p JOIN sections s ON p.sectionId = s.id WHERE s.notebookId = :notebookId)) OR " +
+            "(kind = 'inkStroke' AND entityId IN (SELECT i.id FROM ink_strokes i JOIN pages p ON i.pageId = p.id JOIN sections s ON p.sectionId = s.id WHERE s.notebookId = :notebookId)) OR " +
+            "(kind = 'inkErase' AND entityId IN (SELECT i.id FROM ink_erases i JOIN pages p ON i.pageId = p.id JOIN sections s ON p.sectionId = s.id WHERE s.notebookId = :notebookId)) OR " +
+            "(kind = 'inkMove' AND entityId IN (SELECT i.id FROM ink_moves i JOIN pages p ON i.pageId = p.id JOIN sections s ON p.sectionId = s.id WHERE s.notebookId = :notebookId))",
+    )
+    suspend fun resetNotebookDescendantBases(notebookId: String)
+
+    @Query(
+        "INSERT OR IGNORE INTO sync_outbox(kind, entityId, generation, changedAt) " +
+            "SELECT 'section', id, 1, updatedAt FROM sections WHERE notebookId = :notebookId " +
+            "UNION ALL SELECT 'page', p.id, 1, p.updatedAt FROM pages p JOIN sections s ON p.sectionId = s.id WHERE s.notebookId = :notebookId " +
+            "UNION ALL SELECT 'pageContent', c.pageId, 1, c.updatedAt FROM page_content c JOIN pages p ON c.pageId = p.id JOIN sections s ON p.sectionId = s.id WHERE s.notebookId = :notebookId " +
+            "UNION ALL SELECT 'inkStroke', i.id, 1, COALESCE(i.deletedAt, i.createdAt) FROM ink_strokes i JOIN pages p ON i.pageId = p.id JOIN sections s ON p.sectionId = s.id WHERE s.notebookId = :notebookId " +
+            "UNION ALL SELECT 'inkErase', i.id, 1, COALESCE(i.deletedAt, i.createdAt) FROM ink_erases i JOIN pages p ON i.pageId = p.id JOIN sections s ON p.sectionId = s.id WHERE s.notebookId = :notebookId " +
+            "UNION ALL SELECT 'inkMove', i.id, 1, COALESCE(i.deletedAt, i.createdAt) FROM ink_moves i JOIN pages p ON i.pageId = p.id JOIN sections s ON p.sectionId = s.id WHERE s.notebookId = :notebookId",
+    )
+    suspend fun enqueueNotebookDescendants(notebookId: String)
 
     @Query(
         "INSERT OR IGNORE INTO sync_outbox(kind, entityId, generation, changedAt) " +

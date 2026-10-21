@@ -64,6 +64,9 @@ data class SyncEntityStateEntity(
     val serverJson: String,
 )
 
+/** Version-only sync admission; large document/ink JSON is not copied for freshness checks. */
+data class SyncEntityVersion(val entityId: String, val serverVersion: Long)
+
 /**
  * One locally dirty hierarchy row.
  *

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="HierarchySyncTest[jvm]" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-21T23:08:56.668Z" hostname="fedora" time="2.24">
+  <properties/>
+  <testcase name="profileMetadataWaitBehindOneDelayedDesktopPictureUpload[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="2.238"/>
+  <system-out><![CDATA[DESKTOP_SYNC_CONTENTION injectedUploadDelayMs=250 bytes=1024 warmups=2 samplesNs=[1561898, 1184170, 1600571, 1288899, 884992, 962418]
+DESKTOP_SYNC_RUNTIME {"runtime":"27+35","vendor":"Azul Systems, Inc.","vm":"OpenJDK 64-Bit Server VM","maxHeapBytes":536870912,"processors":24,"vmArgs":["-Dorg.gradle.internal.worker.tmpdir=/home/mahalo/repos/viveHub/multiplataform-vive/shared/build/tmp/jvmTest/work","-Dvivenotes.test.formulaModels=/home/mahalo/repos/viveHub/multiplataform-vive/devdb/ai_models","-Dvivenotes.test.mathRuntime=/home/mahalo/repos/viveHub/multiplataform-vive/build/math-engine-test","--enable-native-access=ALL-UNNAMED","-Xmx512m","-Dfile.encoding=UTF-8","-Duser.country","-Duser.language=en","-Duser.variant","-ea"]}
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

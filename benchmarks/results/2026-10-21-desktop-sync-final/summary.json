@@ -1,0 +1,731 @@
+{
+  "schema": "vive-desktop-sync-contention/1",
+  "harnessSha256": "859499b93902ca445e0a7ae86ccbb3f146e3efff4fdc73d402980cda9973008a",
+  "scope": "Metadata apply wall time while one simulated 1KiB upload waits 250ms; not network throughput or UI frame latency",
+  "warmupsPerFork": 2,
+  "samplesPerFork": 6,
+  "runtime": {
+    "runtime": "27+35",
+    "vendor": "Azul Systems, Inc.",
+    "vm": "OpenJDK 64-Bit Server VM",
+    "maxHeapBytes": 536870912,
+    "processors": 24,
+    "vmArgs": [
+      "-Dorg.gradle.internal.worker.tmpdir=<project>/shared/build/tmp/jvmTest/work",
+      "-Dvivenotes.test.formulaModels=<project>/devdb/ai_models",
+      "-Dvivenotes.test.mathRuntime=<project>/build/math-engine-test",
+      "--enable-native-access=ALL-UNNAMED",
+      "-Xmx512m",
+      "-Dfile.encoding=UTF-8",
+      "-Duser.country",
+      "-Duser.language=en",
+      "-Duser.variant",
+      "-ea"
+    ]
+  },
+  "externalArtifacts": [
+    {
+      "name": "animation-core-desktop-1.13.0-alpha02.jar",
+      "sha256": "b150d685686028475e541935e1d6f2ea48e3ff7e298ec002453fd63cd04d326d"
+    },
+    {
+      "name": "animation-desktop-1.13.0-alpha02.jar",
+      "sha256": "dd7df69721963c30fd8af68d779b45482f5aad156e640abe6786b8655585ce1b"
+    },
+    {
+      "name": "annotation-jvm-1.9.1.jar",
+      "sha256": "1e343917ebf27ba96fe4dc52b1cad7fd32b738fbc6355bb6cd5b3b305d7212d0"
+    },
+    {
+      "name": "annotations-23.0.0.jar",
+      "sha256": "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05"
+    },
+    {
+      "name": "atomicfu-jvm-0.28.0.jar",
+      "sha256": "39576ec46b83412ff7a2909d24cccbba90400e91f9aa67b250309bc0872ecf52"
+    },
+    {
+      "name": "batik-anim-1.19.jar",
+      "sha256": "9b3f6f8c84c0efd88174012a8fbac4427697e5854aef194d57c5f0910c15280a"
+    },
+    {
+      "name": "batik-awt-util-1.19.jar",
+      "sha256": "c9ac9ed24e0b20984e7c65ce2fbe4915003c67f9ae96177bc32bef901b557a9a"
+    },
+    {
+      "name": "batik-bridge-1.19.jar",
+      "sha256": "9ae79c592efbab0804923de85363d524a2cb36ebdc1f27faeec10c1907427e26"
+    },
+    {
+      "name": "batik-codec-1.19.jar",
+      "sha256": "b269b8ce120c49fb0560ec1675fc5d39cb062b536b0d87219290a76c3d98f0a7"
+    },
+    {
+      "name": "batik-constants-1.19.jar",
+      "sha256": "e1d42c4da56dd8b7a3a794285fe3ed05f932d0a2b5ce3face198f02cc501331f"
+    },
+    {
+      "name": "batik-css-1.19.jar",
+      "sha256": "c66afd6ac61d630e62e859db03670fa7a4f7241daaee29b531614e6900b9c6a9"
+    },
+    {
+      "name": "batik-dom-1.19.jar",
+      "sha256": "1dabf83687b2ec5a4ccd4a55e3520f7cd8863a4c23ba7f5e54ef3f882819997a"
+    },
+    {
+      "name": "batik-ext-1.19.jar",
+      "sha256": "e6264faa65d00d187eed932dff96e40da80e17fea66a1d92af4776ddb7811256"
+    },
+    {
+      "name": "batik-extension-1.19.jar",
+      "sha256": "103479524662bb92323b4b0226657bca1b295e40227e56ea2f9bea1e55ae505f"
+    },
+    {
+      "name": "batik-gvt-1.19.jar",
+      "sha256": "c8b1ea700d1c26dffe3a08a543efcaadc5fb77d5949e6a9a300c5e35c289c915"
+    },
+    {
+      "name": "batik-i18n-1.19.jar",
+      "sha256": "eb95e07c29feb276cf91aca9cf5362b43fe17601395aab5d8a6147a6d0859716"
+    },
+    {
+      "name": "batik-parser-1.19.jar",
+      "sha256": "602e331c1c79de4a04525d75266dadbaf969524841155105d31ad54a7731de20"
+    },
+    {
+      "name": "batik-script-1.19.jar",
+      "sha256": "1aacf6445f85d1e029c5691d55505ca1ba140414cba2c9620d7f82fc6aee55f3"
+    },
+    {
+      "name": "batik-shared-resources-1.19.jar",
+      "sha256": "e2dad47cfeff5c7d686e97787996accf85a5b19f602acb30b83fce9c247deecd"
+    },
+    {
+      "name": "batik-svg-dom-1.19.jar",
+      "sha256": "f5cc6730ce1b6c552e9ccc0c41b4e4c233cc6260b6c3a10038ad41ea21364c2a"
+    },
+    {
+      "name": "batik-svggen-1.19.jar",
+      "sha256": "6bf89ede81483da574b25d8645e512e030965e8fbe5605e2938bccaa87ebb6a6"
+    },
+    {
+      "name": "batik-transcoder-1.19.jar",
+      "sha256": "12045f8e21d6c7fd2a729f42317207233f8e3446f3a2f6ea1171000864972274"
+    },
+    {
+      "name": "batik-util-1.19.jar",
+      "sha256": "3f1389bbdbed3c4659a58a50ce12166fd31e3d066994dd63b5144d9245fd3db6"
+    },
+    {
+      "name": "batik-xml-1.19.jar",
+      "sha256": "9b9364f7dec75c41c4a611596bd4dcbf08b51b753b6726573b542998addec6a5"
+    },
+    {
+      "name": "byteink-compose-0.1.0-SNAPSHOT.jar",
+      "sha256": "824fafc5b4853b90a2477584a4d870d2ee86e6b9d8d3d43eb3db03e4d54a09b9"
+    },
+    {
+      "name": "byteink-core-0.1.0-SNAPSHOT.jar",
+      "sha256": "a663faadbf224bdc40f777b06c3aec9d3199d72e2fc7a3c8277fac0bd7fb8dbc"
+    },
+    {
+      "name": "byteink-kit-0.1.0-SNAPSHOT.jar",
+      "sha256": "55f184a1e81248663cb150992ed78dffbc6dc8831a1457ea46be5e549c346f93"
+    },
+    {
+      "name": "collection-jvm-1.6.0.jar",
+      "sha256": "839fcec147704611a222159fa84e3e062f68eee80caa549ddd1222d5210a13df"
+    },
+    {
+      "name": "commons-io-2.17.0.jar",
+      "sha256": "4aa4ca48f3dfd30b78220b7881d8cb93eac4093ec94361b6befa9487998a550b"
+    },
+    {
+      "name": "commons-logging-1.3.5.jar",
+      "sha256": "6d7a744e4027649fbb50895df9497d109f98c766a637062fe8d2eabbb3140ba4"
+    },
+    {
+      "name": "core-common-2.2.0.jar",
+      "sha256": "65308a06b1c00ee186cb9e19321383f043b993813f1522c47f4a3e3303bdba41"
+    },
+    {
+      "name": "datastore-core-jvm-1.1.1.jar",
+      "sha256": "30819f32f0cda25a2fc2e7c4a12045753e48b6b04cd126a1a42f010e441e022c"
+    },
+    {
+      "name": "datastore-core-okio-jvm-1.1.1.jar",
+      "sha256": "5071d03c7be9555fd81e5bd522b490a06a89694e4b937f307da72bc74e33c34a"
+    },
+    {
+      "name": "datastore-preferences-core-jvm-1.1.1.jar",
+      "sha256": "bd2c7f41cb7d6e857903a03aa4da4dddc831445bd4148f1ac8d0a81f509d0628"
+    },
+    {
+      "name": "desktop-jvm-1.13.0-alpha02.jar",
+      "sha256": "ccf74d60d6d48ab7d89eca28cf287aecc405e9d536bec877c76e4163799a4f50"
+    },
+    {
+      "name": "fontbox-3.0.7.jar",
+      "sha256": "8149d9897ab504f7a3f3797d552cd8925ef58149b4de3fb470eb46d747e68f86"
+    },
+    {
+      "name": "fop-core-2.11.jar",
+      "sha256": "dd1aa616877f80caa3adf0e98824a1d6c8d91fca17c363822d66ee125439169e"
+    },
+    {
+      "name": "fop-events-2.11.jar",
+      "sha256": "9fb837588ee12fe6ed9729009e8d28537a3cba752a08ac6ee256ce3d15d0dbdc"
+    },
+    {
+      "name": "fop-util-2.11.jar",
+      "sha256": "f64ec432effe8e4ff1daa0ee8f7f1c91cccdd3c5e628c022598080ba9b6a0167"
+    },
+    {
+      "name": "foundation-desktop-1.13.0-alpha02.jar",
+      "sha256": "e76d9f826de48a15ab2b4013775086a75dc67945b7dc170851be60e142917e8c"
+    },
+    {
+      "name": "foundation-layout-desktop-1.13.0-alpha02.jar",
+      "sha256": "a2de0004c36889c190e7b10765a10767468ff2fa6d677759447d0491ae52b90a"
+    },
+    {
+      "name": "graphics-shapes-desktop-1.1.0.jar",
+      "sha256": "8d7a4d3812cae2e3ef8272e97f6e9917ae45931f17cf1391f0246a92c955d9f4"
+    },
+    {
+      "name": "hamcrest-core-1.3.jar",
+      "sha256": "66fdef91e9739348df7a096aa384a5685f4e875584cce89386a7a47251c4d8e9"
+    },
+    {
+      "name": "ink-brush-jvm-1.1.0-alpha06.jar",
+      "sha256": "e7e5997ecfb6b02d7a55ff6b72f98eef2390fade8d19fc22969c0029a88f030d"
+    },
+    {
+      "name": "ink-geometry-jvm-1.1.0-alpha06.jar",
+      "sha256": "a130db2fb3d28a1393767313dc83da2fff33cfe120f84ff002c35b585a75db8b"
+    },
+    {
+      "name": "ink-nativeloader-jvm-1.1.0-alpha06-byteink.4.jar",
+      "sha256": "5b76f23d221050a300d9dc5b9f0cdcbff12d742c86f38b0660150d24b4f13619"
+    },
+    {
+      "name": "ink-storage-jvm-1.1.0-alpha06.jar",
+      "sha256": "c7ffce2d75c68afa3fb4ba075e71a5070503e9b27915cb4345e8ef67f48225a7"
+    },
+    {
+      "name": "ink-strokes-jvm-1.1.0-alpha06.jar",
+      "sha256": "1cd126545a318af442f0c957b4766445965cb6970540f4d315ce055f98369b60"
+    },
+    {
+      "name": "jbr-api-1.9.0.jar",
+      "sha256": "7e37284e33b5b304ee6174dcaa92db949b257cc4c8991ca865e7daf5113d8279"
+    },
+    {
+      "name": "jna-5.19.1.jar",
+      "sha256": "4fb141dd8ef6b0585ffceea4bc49602fbc6312fa977e2c488794ea3e6aafecae"
+    },
+    {
+      "name": "jspecify-1.0.0.jar",
+      "sha256": "1fad6e6be7557781e4d33729d49ae1cdc8fdda6fe477bb0cc68ce351eafdfbab"
+    },
+    {
+      "name": "junit-4.13.2.jar",
+      "sha256": "8e495b634469d64fb8acfa3495a065cbacc8a0fff55ce1e31007be4c16dc57d3"
+    },
+    {
+      "name": "kotlin-stdlib-2.4.21.jar",
+      "sha256": "bd8250210584cb659847dce9cda660f8e9906e5def7fbebcea93dc6dcb6a88a3"
+    },
+    {
+      "name": "kotlin-stdlib-jdk7-1.8.0.jar",
+      "sha256": "4c889d1d9803f5f2eb6c1592a6b7e62369ac7660c9eee15aba16fec059163666"
+    },
+    {
+      "name": "kotlin-stdlib-jdk8-1.8.0.jar",
+      "sha256": "05b62804441b0c9a1920b6b7d5cf7329a4e24b6258478e32b1f046ca01900946"
+    },
+    {
+      "name": "kotlin-test-2.4.21.jar",
+      "sha256": "4b43f419bf41a9ede07094652db97b5034984a8cdc642f3c5b2bfd4767f6e365"
+    },
+    {
+      "name": "kotlin-test-junit-2.4.21.jar",
+      "sha256": "ed178dcb76ea94acc8e9317178213a65092f4ecd0133ba748b23c40a11865ebd"
+    },
+    {
+      "name": "kotlinx-coroutines-core-jvm-1.11.0.jar",
+      "sha256": "d1d75aa01dffbb4d1c520e67e4c4e7f5f6174718e7cb4632412503f2f0e604fa"
+    },
+    {
+      "name": "kotlinx-coroutines-test-jvm-1.11.0.jar",
+      "sha256": "d4f7ee71da708af4719dceb6d3200c8f9dc5146ea1a812cb628ed53c64196f96"
+    },
+    {
+      "name": "kotlinx-datetime-jvm-0.7.1.jar",
+      "sha256": "3b8b98657c9aff3be7f6b4b575e9f3fb9a3a1f452a801da0f438901734acdade"
+    },
+    {
+      "name": "kotlinx-serialization-cbor-jvm-1.11.0.jar",
+      "sha256": "744e8db1d55f4a23f6656d5ac33723a5c13fdcfab477f7fd3457b49b6bd96723"
+    },
+    {
+      "name": "kotlinx-serialization-core-jvm-1.11.0.jar",
+      "sha256": "f4a801c647d4351327cd9e1ac4113e2be9ea37a64ab0abae269c25a52e28f35d"
+    },
+    {
+      "name": "kotlinx-serialization-json-jvm-1.11.0.jar",
+      "sha256": "563a25b4eb5c9128ae9c2479f3d1a5c44dcd176112b91cf03682e906eba5c935"
+    },
+    {
+      "name": "library-desktop-1.13.0-alpha02.jar",
+      "sha256": "867ec503b15b82f127d660609df5a7b8f10620e392391a0ea1261eb230adfcb1"
+    },
+    {
+      "name": "library-jvm-0.1.14.jar",
+      "sha256": "bc163eb7a196b8186918133bf9031792ba3c7764f36ccc8179809d95ef36bca9"
+    },
+    {
+      "name": "lifecycle-common-jvm-2.11.0.jar",
+      "sha256": "50a826ef0d1bd27ff384e4dd9d147bd1f343cc78d044f7b32a7ec6ce9b3fd2ba"
+    },
+    {
+      "name": "lifecycle-common-jvm-2.11.0.jar",
+      "sha256": "e6a66e67b9f63a0fb6344f165c1d872376e5fe6d235bffb138af45122cf452a9"
+    },
+    {
+      "name": "lifecycle-runtime-compose-desktop-2.11.0.jar",
+      "sha256": "4c94a5fa98b838a34b84eecb0fca5b291b417ab3af8518862b488f85868a2195"
+    },
+    {
+      "name": "lifecycle-runtime-compose-desktop-2.11.0.jar",
+      "sha256": "d5336753ea4d5881ccfb8b0613e034eb241f0d8b4349536df1cd0ec86cf63664"
+    },
+    {
+      "name": "lifecycle-runtime-desktop-2.11.0.jar",
+      "sha256": "09f75a4a8d763cee5d6af36f422139a0205d3f6df2e2c5288cae42836f0b36ea"
+    },
+    {
+      "name": "lifecycle-runtime-desktop-2.11.0.jar",
+      "sha256": "3e5b56c54c826dbc2a8d8162af4d020840dbd3e742b8be3bf78546afdc2f7376"
+    },
+    {
+      "name": "lifecycle-viewmodel-compose-desktop-2.11.0.jar",
+      "sha256": "1b4c58125c7b3693444f40c8ab76881d17fa74726860c24872a3dec3e0fad34b"
+    },
+    {
+      "name": "lifecycle-viewmodel-compose-desktop-2.11.0.jar",
+      "sha256": "b44ae28c255709eba43719179ab5a4a27b7a8d2075e20030e2e265211f320a0f"
+    },
+    {
+      "name": "lifecycle-viewmodel-desktop-2.11.0.jar",
+      "sha256": "175c349266ccbb6a2036615725b7066ee3f3319665c98af42206ab3a582a43c3"
+    },
+    {
+      "name": "lifecycle-viewmodel-desktop-2.11.0.jar",
+      "sha256": "38384ad114f3231a5bfe04608c2c514747574fff3e347a7266e12e6ad35a6a1c"
+    },
+    {
+      "name": "lifecycle-viewmodel-savedstate-desktop-2.11.0.jar",
+      "sha256": "5dbf963e5be555b61ce47e18f8dfa82fad3b5c0e79cbeed7c9dca6c556f53847"
+    },
+    {
+      "name": "lifecycle-viewmodel-savedstate-desktop-2.11.0.jar",
+      "sha256": "ca21720ce7f370cb21cabb5329b959eda624107ec06282e3bdc92582917b1d27"
+    },
+    {
+      "name": "material-desktop-1.13.0-alpha02.jar",
+      "sha256": "8225e3a34458cceb5ead7f7be1c91a19839378afe9ad87e44a8481b8dd5a710d"
+    },
+    {
+      "name": "material-ripple-desktop-1.13.0-alpha02.jar",
+      "sha256": "391ddcd0e8c491cbeda6bce00423a96583818cde3df0f988405c037c55b84a74"
+    },
+    {
+      "name": "material3-desktop-1.13.0-alpha02.jar",
+      "sha256": "674b92477e230ac20f4468aebdf0fcf24fcd873ad81292c508cbd35190eeae3d"
+    },
+    {
+      "name": "material3-ripple-desktop-1.13.0-alpha02.jar",
+      "sha256": "ce07be419b3febad91b489d1da929821f097ff48e7e84d6c9f692360146e3dbd"
+    },
+    {
+      "name": "navigationevent-compose-desktop-1.1.0.jar",
+      "sha256": "0514f5d5c14de3b422c48a4eaf1d9dd2ce265041339e4c51ce30db8da1690874"
+    },
+    {
+      "name": "navigationevent-compose-desktop-1.1.1.jar",
+      "sha256": "1d7d20d7826a2cc63ace9862cddd8a7085a11a3ea2cff258c28b3d58e57f143b"
+    },
+    {
+      "name": "navigationevent-desktop-1.1.1.jar",
+      "sha256": "4c92508d4bd3b9cafb2785e8211057d39ed8465b529660223864a19625cedb5b"
+    },
+    {
+      "name": "okio-jvm-3.4.0.jar",
+      "sha256": "0139ec7a506dbbd54cad62291b019cb850534be097c8c66c1000d5fbe8edef3e"
+    },
+    {
+      "name": "onnxruntime-1.31.0.jar",
+      "sha256": "d3f903af31fe8f01300adb6b2b67297aa5bee7895909afc32e76ef29a3921149"
+    },
+    {
+      "name": "pdfbox-3.0.7.jar",
+      "sha256": "7cefa717622330951b4343abf1e5d36bccb11f4ba245d78aaa73251d08fec623"
+    },
+    {
+      "name": "pdfbox-io-3.0.7.jar",
+      "sha256": "b9a838291978069086efbcd1f62b81b9e4a6016e61dd2c68104ee9f4c2ff997b"
+    },
+    {
+      "name": "qdox-1.12.jar",
+      "sha256": "f9d7ad96f70d69e9c06c10e515b878f33810f1ad677cce9f6ae6772778d570ab"
+    },
+    {
+      "name": "ratex-native-linux-aarch64-0.1.14.jar",
+      "sha256": "eb33f18ed2dce4c75a530097ed48915867e37a7be92363ca0f284550b2de09d1"
+    },
+    {
+      "name": "ratex-native-linux-x86-64-0.1.14.jar",
+      "sha256": "e35be8e334a7b3cc4e87a4a6249cd95792cc1c96d94717d8bb3e4e5320e5604b"
+    },
+    {
+      "name": "ratex-native-windows-x86-64-0.1.14.jar",
+      "sha256": "b80f913b7fdde1f98d922928868de2031f7afad0ea658eb97cb21b322cc78342"
+    },
+    {
+      "name": "room-common-jvm-2.8.5.jar",
+      "sha256": "dc7b4e1a75a790f29c97afd5516b8bf8002d9b6e83e295bc569b33566f3b1ec0"
+    },
+    {
+      "name": "room-runtime-jvm-2.8.5.jar",
+      "sha256": "b320c93bc97cbe75a997eb2107aaacd6964c0411c8a5873f0128fbabbee03fbc"
+    },
+    {
+      "name": "runtime-annotation-jvm-1.13.0-alpha03.jar",
+      "sha256": "e291a6ae01ab71a7f48a568ec9744c6bf9b3f46ef72fbcdeb28c3407ae531c5e"
+    },
+    {
+      "name": "runtime-desktop-1.13.0-alpha02.jar",
+      "sha256": "b34e4050e3e60bb12851d72eca7e8c36f1557acd183de7681cbadd74f289c1f5"
+    },
+    {
+      "name": "runtime-desktop-1.13.0-alpha03.jar",
+      "sha256": "2a6b81958ee0c83ea1effd264e3f949c6b5dfb3fc21c6e6ea6ff13bdee756bb8"
+    },
+    {
+      "name": "runtime-retain-desktop-1.13.0-alpha03.jar",
+      "sha256": "fc4c2aa533a7f6ec52250cc60c3e8f69a3e6b8639aeeeb9570f8ffff07052788"
+    },
+    {
+      "name": "runtime-saveable-desktop-1.13.0-alpha02.jar",
+      "sha256": "55830da67bb21ca67669deb75da337b5eb597198f7fc4c3095daa0bce3fa6c3a"
+    },
+    {
+      "name": "runtime-saveable-desktop-1.13.0-alpha03.jar",
+      "sha256": "4d5ffd368d8a5bf4b45a9b57d779104e38b7308148811f05dbf7016e98e2380f"
+    },
+    {
+      "name": "savedstate-compose-desktop-1.3.6.jar",
+      "sha256": "0f3d045c5fd7e1301ab6c38cd0778067b0484cf39acac1233be71a723a6a8075"
+    },
+    {
+      "name": "savedstate-compose-desktop-1.5.0.jar",
+      "sha256": "67be8f2949943826f652c2b5b6910a1af0872f1457e59445ab227c99023ff42b"
+    },
+    {
+      "name": "savedstate-desktop-1.5.0.jar",
+      "sha256": "58198c6c979a400fc7831f1ca51d8caa972ca0b1fbe3df5e469b53cf552332b5"
+    },
+    {
+      "name": "skiko-awt-0.153.0.jar",
+      "sha256": "9ce3403fa65493ee621e40b4c6c74191363519000c20b0331c1261db4950b9df"
+    },
+    {
+      "name": "skiko-awt-runtime-all-0.153.0.jar",
+      "sha256": "2c4a481b6236a3ef96f23e913752917d20b3dfe45c151fa5c212eb0aa4b6e931"
+    },
+    {
+      "name": "sqlite-bundled-jvm-2.6.2.jar",
+      "sha256": "e61efb0647288b486e595950724cc53c4f15eeeca03ce2184751d02de3cfaa17"
+    },
+    {
+      "name": "sqlite-jvm-2.6.2.jar",
+      "sha256": "53b050b80e666228a12a0ae72d49531b3d69615ba8fb62733f697f8fdc7fd6f3"
+    },
+    {
+      "name": "ui-backhandler-desktop-1.13.0-alpha02.jar",
+      "sha256": "d2ced847edaca42296a907e90559efef6dbfb67c24d9994ba3db09f14c31a47f"
+    },
+    {
+      "name": "ui-desktop-1.13.0-alpha02.jar",
+      "sha256": "c0466f41c34a0293337be268e39a0695be8fbec2dcc61efc7a7d142da3cba469"
+    },
+    {
+      "name": "ui-geometry-desktop-1.13.0-alpha02.jar",
+      "sha256": "2e8fabd49660ca72835679b6227cc3257cb2ccb4d3a611e1749ce00eda3992bb"
+    },
+    {
+      "name": "ui-graphics-desktop-1.13.0-alpha02.jar",
+      "sha256": "e421910550cfe3e0f3a208d22ab2ddb5987e7597f3b67511b76a2ecbbe1d655c"
+    },
+    {
+      "name": "ui-skiko-desktop-1.13.0-alpha02.jar",
+      "sha256": "517a6e7874bfceb4ebd929d4cdb0f57caa32666bb24f26452494de2453d2e1e2"
+    },
+    {
+      "name": "ui-test-desktop-1.13.0-alpha02.jar",
+      "sha256": "70931020122bc48e6aeca2ef40b8fd25d416888190ebdb095223852375b9ba72"
+    },
+    {
+      "name": "ui-text-desktop-1.13.0-alpha02.jar",
+      "sha256": "d87b89b9ed7d8f9aeb54a9d83fb4c0556b64e9f4f48d256c995c1a1e03f48258"
+    },
+    {
+      "name": "ui-tooling-preview-desktop-1.13.0-alpha02.jar",
+      "sha256": "8f01ac4be301a98db5c4a2399801cda0f719ca344db6f33c6592bea20192c54d"
+    },
+    {
+      "name": "ui-unit-desktop-1.13.0-alpha02.jar",
+      "sha256": "18aed0065bc9e36100cd98a713ac9547994e334fb7e0016f46631d854bd3d015"
+    },
+    {
+      "name": "ui-util-desktop-1.13.0-alpha02.jar",
+      "sha256": "24835324992e80e395d44844ab3c04cab48ca8a6fec132f3de18096d94db6e8c"
+    },
+    {
+      "name": "xml-apis-1.4.01.jar",
+      "sha256": "a840968176645684bb01aed376e067ab39614885f9eee44abe35a5f20ebe7fad"
+    },
+    {
+      "name": "xml-apis-ext-1.3.04.jar",
+      "sha256": "d0b4887dc34d57de49074a58affad439a013d0baffa1a8034f8ef2a5ea191646"
+    },
+    {
+      "name": "xmlgraphics-commons-2.11.jar",
+      "sha256": "1a37948ebfedab0cd292cfc5007e65c2fa16a701b94c206152720d3a738561bc"
+    }
+  ],
+  "sourceCommits": {
+    "before": "b35c45de11e546f05b2a16e308ef3d4faba2220a",
+    "after": "b35c45de11e546f05b2a16e308ef3d4faba2220a"
+  },
+  "productionSha256": {
+    "before": {
+      "shared/src/commonMain/kotlin/com/vivenotes/data/db/Daos.kt": "b0db02ddb3b85cbff2f2f1bfd6d317ed64cebd44fa838a034f2dc30dbc30fce3",
+      "shared/src/commonMain/kotlin/com/vivenotes/data/db/Entities.kt": "38c97f97f7e9a817ecec02078f46c496149ce6094e181ed74a6570d848918469",
+      "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/AttachmentBlobSync.kt": "47153b8303d87cb3d2056ae9b5706be9e13312a7410740740311c4332913a00a",
+      "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/HierarchySync.kt": "98cb1e5b36e1cc29f38143ffbf00f7e588953cdebc24b4ecae6264d54650ab94",
+      "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/SyncMetadataGate.kt": null
+    },
+    "after": {
+      "shared/src/commonMain/kotlin/com/vivenotes/data/db/Daos.kt": "5723ca6f236fcb45ea7ac2b1eb5c1dac5374ad355e225ade70972765bc6276f6",
+      "shared/src/commonMain/kotlin/com/vivenotes/data/db/Entities.kt": "68704d5119a9a2f77935c35a087de21bcd62e40ca4a905842e9a9047dcad7d24",
+      "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/AttachmentBlobSync.kt": "a4031763a6ef71569438ef0ad511c2f018130f21ef0c08033bef89bb1ac7d732",
+      "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/HierarchySync.kt": "1c60d6f4c71f5eebd71d3b747747bce9b09bb41947024b4008827dbe24466ae9",
+      "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/SyncMetadataGate.kt": "8fbd867ff9a1fed000b5d87d6b8158d67e448bfb4f40e5d45d2c98845bc31743"
+    }
+  },
+  "sourceChanges": " .../kotlin/com/vivenotes/data/db/Daos.kt           |  28 ++\n .../kotlin/com/vivenotes/data/db/Entities.kt       |   3 +\n .../com/vivenotes/data/sync/AttachmentBlobSync.kt  |  97 +++-\n .../com/vivenotes/data/sync/HierarchySync.kt       | 313 +++++++++---\n .../com/vivenotes/data/sync/HierarchySyncTest.kt   | 527 ++++++++++++++++++++-\n 5 files changed, 892 insertions(+), 76 deletions(-)\n",
+  "forks": {
+    "before": [
+      {
+        "samplesNs": [
+          253815751,
+          252463893,
+          253495133,
+          253355777,
+          252017044,
+          253438865
+        ],
+        "medianNs": 253397321.0,
+        "runtime": {
+          "runtime": "27+35",
+          "vendor": "Azul Systems, Inc.",
+          "vm": "OpenJDK 64-Bit Server VM",
+          "maxHeapBytes": 536870912,
+          "processors": 24,
+          "vmArgs": [
+            "-Dorg.gradle.internal.worker.tmpdir=/tmp/vive-desktop-sync-before-b35c45d/shared/build/tmp/jvmTest/work",
+            "-Dvivenotes.test.formulaModels=/tmp/vive-desktop-sync-before-b35c45d/devdb/ai_models",
+            "-Dvivenotes.test.mathRuntime=/tmp/vive-desktop-sync-before-b35c45d/build/math-engine-test",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Xmx512m",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-ea"
+          ]
+        },
+        "fork": 1,
+        "variant": "before"
+      },
+      {
+        "samplesNs": [
+          254443374,
+          252573411,
+          253473000,
+          253573982,
+          252379743,
+          253287759
+        ],
+        "medianNs": 253380379.5,
+        "runtime": {
+          "runtime": "27+35",
+          "vendor": "Azul Systems, Inc.",
+          "vm": "OpenJDK 64-Bit Server VM",
+          "maxHeapBytes": 536870912,
+          "processors": 24,
+          "vmArgs": [
+            "-Dorg.gradle.internal.worker.tmpdir=/tmp/vive-desktop-sync-before-b35c45d/shared/build/tmp/jvmTest/work",
+            "-Dvivenotes.test.formulaModels=/tmp/vive-desktop-sync-before-b35c45d/devdb/ai_models",
+            "-Dvivenotes.test.mathRuntime=/tmp/vive-desktop-sync-before-b35c45d/build/math-engine-test",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Xmx512m",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-ea"
+          ]
+        },
+        "fork": 2,
+        "variant": "before"
+      },
+      {
+        "samplesNs": [
+          254356830,
+          252664163,
+          253799841,
+          253333726,
+          252248113,
+          253573781
+        ],
+        "medianNs": 253453753.5,
+        "runtime": {
+          "runtime": "27+35",
+          "vendor": "Azul Systems, Inc.",
+          "vm": "OpenJDK 64-Bit Server VM",
+          "maxHeapBytes": 536870912,
+          "processors": 24,
+          "vmArgs": [
+            "-Dorg.gradle.internal.worker.tmpdir=/tmp/vive-desktop-sync-before-b35c45d/shared/build/tmp/jvmTest/work",
+            "-Dvivenotes.test.formulaModels=/tmp/vive-desktop-sync-before-b35c45d/devdb/ai_models",
+            "-Dvivenotes.test.mathRuntime=/tmp/vive-desktop-sync-before-b35c45d/build/math-engine-test",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Xmx512m",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-ea"
+          ]
+        },
+        "fork": 3,
+        "variant": "before"
+      }
+    ],
+    "after": [
+      {
+        "samplesNs": [
+          1561898,
+          1184170,
+          1600571,
+          1288899,
+          884992,
+          962418
+        ],
+        "medianNs": 1236534.5,
+        "runtime": {
+          "runtime": "27+35",
+          "vendor": "Azul Systems, Inc.",
+          "vm": "OpenJDK 64-Bit Server VM",
+          "maxHeapBytes": 536870912,
+          "processors": 24,
+          "vmArgs": [
+            "-Dorg.gradle.internal.worker.tmpdir=/home/mahalo/repos/viveHub/multiplataform-vive/shared/build/tmp/jvmTest/work",
+            "-Dvivenotes.test.formulaModels=/home/mahalo/repos/viveHub/multiplataform-vive/devdb/ai_models",
+            "-Dvivenotes.test.mathRuntime=/home/mahalo/repos/viveHub/multiplataform-vive/build/math-engine-test",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Xmx512m",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-ea"
+          ]
+        },
+        "fork": 1,
+        "variant": "after"
+      },
+      {
+        "samplesNs": [
+          1429076,
+          1512304,
+          1131470,
+          991894,
+          1070774,
+          1020799
+        ],
+        "medianNs": 1101122.0,
+        "runtime": {
+          "runtime": "27+35",
+          "vendor": "Azul Systems, Inc.",
+          "vm": "OpenJDK 64-Bit Server VM",
+          "maxHeapBytes": 536870912,
+          "processors": 24,
+          "vmArgs": [
+            "-Dorg.gradle.internal.worker.tmpdir=/home/mahalo/repos/viveHub/multiplataform-vive/shared/build/tmp/jvmTest/work",
+            "-Dvivenotes.test.formulaModels=/home/mahalo/repos/viveHub/multiplataform-vive/devdb/ai_models",
+            "-Dvivenotes.test.mathRuntime=/home/mahalo/repos/viveHub/multiplataform-vive/build/math-engine-test",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Xmx512m",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-ea"
+          ]
+        },
+        "fork": 2,
+        "variant": "after"
+      },
+      {
+        "samplesNs": [
+          1465104,
+          1159102,
+          1214228,
+          1067038,
+          970855,
+          997356
+        ],
+        "medianNs": 1113070.0,
+        "runtime": {
+          "runtime": "27+35",
+          "vendor": "Azul Systems, Inc.",
+          "vm": "OpenJDK 64-Bit Server VM",
+          "maxHeapBytes": 536870912,
+          "processors": 24,
+          "vmArgs": [
+            "-Dorg.gradle.internal.worker.tmpdir=/home/mahalo/repos/viveHub/multiplataform-vive/shared/build/tmp/jvmTest/work",
+            "-Dvivenotes.test.formulaModels=/home/mahalo/repos/viveHub/multiplataform-vive/devdb/ai_models",
+            "-Dvivenotes.test.mathRuntime=/home/mahalo/repos/viveHub/multiplataform-vive/build/math-engine-test",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Xmx512m",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant",
+            "-ea"
+          ]
+        },
+        "fork": 3,
+        "variant": "after"
+      }
+    ]
+  },
+  "medianOfForkMediansNs": {
+    "before": 253397321.0,
+    "after": 1113070.0
+  }
+}

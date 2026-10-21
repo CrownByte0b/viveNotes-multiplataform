@@ -1,0 +1,6 @@
+// Live phases depend on external server state and must execute on every explicit invocation.
+gradle.projectsEvaluated {
+    gradle.rootProject.project(':shared').tasks.named('jvmTest').configure {
+        outputs.upToDateWhen { false }
+    }
+}

@@ -1,0 +1,79 @@
+> Task :shared:checkJvmMainComposeLibrariesCompatibility
+> Task :shared:kmpPartiallyResolvedDependenciesChecker
+> Task :shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:convertXmlValueResourcesForCommonMain
+> Task :shared:copyNonXmlValueResourcesForCommonMain
+> Task :shared:prepareComposeResourcesTaskForCommonMain
+> Task :shared:generateResourceAccessorsForCommonMain
+> Task :shared:convertXmlValueResourcesForJvmMain NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForJvmMain NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForJvmMain NO-SOURCE
+> Task :shared:generateResourceAccessorsForJvmMain NO-SOURCE
+> Task :shared:generateActualResourceCollectorsForJvmMain
+> Task :shared:generateAppStrings
+> Task :shared:generateComposeResClass
+> Task :shared:generateExpectResourceCollectorsForCommonMain
+> Task :shared:kspKotlinJvm FROM-CACHE
+> Task :shared:compileKotlinJvm FROM-CACHE
+> Task :shared:compileJvmMainJava NO-SOURCE
+> Task :shared:convertXmlValueResourcesForCommonTest NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForCommonTest NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForCommonTest NO-SOURCE
+> Task :shared:generateResourceAccessorsForCommonTest NO-SOURCE
+> Task :shared:convertXmlValueResourcesForJvmTest
+> Task :shared:copyNonXmlValueResourcesForJvmTest NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForJvmTest
+> Task :shared:generateResourceAccessorsForJvmTest
+> Task :shared:assembleJvmMainResources
+> Task :shared:mathEngineResources
+> Task :shared:jvmProcessResources
+> Task :shared:processJvmMainResources SKIPPED
+> Task :shared:jvmMainClasses
+> Task :shared:kspTestKotlinJvm
+> Task :shared:copyRoomSchemas NO-SOURCE
+> Task :shared:checkJvmTestComposeLibrariesCompatibility
+> Task :shared:jvmJar
+
+> Task :shared:compileTestKotlinJvm
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/data/InkToolkitPersistenceTest.kt:101:58 Unnecessary non-null assertion (!!) on a non-null receiver of type 'InkPageGeometry'.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ink/DesktopInkSelectionTest.kt:121:56 Unnecessary non-null assertion (!!) on a non-null receiver of type 'InkSelection'.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ink/InkGroupingTest.kt:31:53 Unnecessary non-null assertion (!!) on a non-null receiver of type 'InkSelection'.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ink/InkToolkitCommandsTest.kt:88:36 Unnecessary non-null assertion (!!) on a non-null receiver of type 'DesktopInkSelection'.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ink/InsertSpaceTest.kt:65:62 Unnecessary non-null assertion (!!) on a non-null receiver of type 'InkPageGeometry'.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/TextDetectionTest.kt:238:23 This extension is shadowed by a member: 'fun distanceTo(other: TextDetection.Point): Float' defined in 'com.vivenotes.model.ocr.TextDetection.Point'.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/performance/PerformanceBaseline.kt:86:26 Redundant creation of Json format. Creating instances for each use can be slow.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkLayerPerformanceScenario.kt:95:26 Redundant creation of Json format. Creating instances for each use can be slow.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/PrimeResizePointerTest.kt:1:36 Suppression of error 'INVISIBLE_REFERENCE' might compile and work, but the compiler behavior is UNSPECIFIED and WILL NOT BE PRESERVED. Please report your use case to the Kotlin issue tracker instead: https://kotl.in/issue
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/TextContextMenuTest.kt:417:20 'interface ClipboardManager : Any' is deprecated. Use Clipboard instead, which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/TextContextMenuTest.kt:423:42 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/TextContextMenuTest.kt:430:35 'interface ClipboardManager : Any' is deprecated. Use Clipboard instead, which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/MathPaneReferenceTest.kt:124:33 'interface ClipboardManager : Any' is deprecated. Use Clipboard instead, which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/MathPaneReferenceTest.kt:126:25 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/settings/HardwarePaneTest.kt:322:20 'interface ClipboardManager : Any' is deprecated. Use Clipboard instead, which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/settings/HardwarePaneTest.kt:333:47 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/settings/HardwarePaneTest.kt:338:35 'interface ClipboardManager : Any' is deprecated. Use Clipboard instead, which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/TextBoxEditingTest.kt:291:20 'interface ClipboardManager : Any' is deprecated. Use Clipboard instead, which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/TextBoxEditingTest.kt:298:42 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/TextBoxEditingTest.kt:305:71 'interface ClipboardManager : Any' is deprecated. Use Clipboard instead, which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/WorkspaceScreenTest.kt:1535:20 'interface ClipboardManager : Any' is deprecated. Use Clipboard instead, which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/WorkspaceScreenTest.kt:1546:46 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/WorkspaceScreenTest.kt:1592:21 'fun BasicTextField(value: String, onValueChange: (String) -> Unit, modifier: Modifier = ..., enabled: Boolean = ..., readOnly: Boolean = ..., textStyle: TextStyle = ..., keyboardOptions: KeyboardOptions = ..., keyboardActions: KeyboardActions = ..., singleLine: Boolean = ..., maxLines: Int = ..., minLines: Int = ..., visualTransformation: VisualTransformation = ..., onTextLayout: (TextLayoutResult) -> Unit = ..., interactionSource: MutableInteractionSource? = ..., cursorBrush: Brush = ..., decorationBox: ComposableFunction1<ComposableFunction0<Unit>, Unit> = ...): Unit' is deprecated. This overload of BasicTextField is deprecated in favor of the overload that uses TextFieldState to hoist its state.
+w: file:///tmp/vive-desktop-sync-before-b35c45d/shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/WorkspaceScreenTest.kt:1602:35 'interface ClipboardManager : Any' is deprecated. Use Clipboard instead, which supports suspend functions.
+
+> Task :shared:compileJvmTestJava NO-SOURCE
+> Task :shared:assembleJvmTestResources
+> Task :shared:jvmTestProcessResources
+> Task :shared:processJvmTestResources SKIPPED
+> Task :shared:jvmTestClasses
+> Task :shared:jvmTest
+
+[Incubating] Problems report is available at: file:///tmp/vive-desktop-sync-before-b35c45d/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.8.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 15s
+25 actionable tasks: 23 executed, 2 from cache

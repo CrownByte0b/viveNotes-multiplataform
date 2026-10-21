@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="HierarchySyncTest[jvm]" tests="82" skipped="1" failures="0" errors="0" timestamp="2026-10-21T23:13:01.106Z" hostname="fedora" time="0.809">
+  <properties/>
+  <testcase name="aPurgedPictureCannotBePublishedByAnAlreadyRunningDownload[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.014"/>
+  <testcase name="anUnqueuedReleasedPictureStillRecordsItsLostFirstAcceptance[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.018"/>
+  <testcase name="aDeviceThatPullsTheCloudOnlyFlagEvictsItsOwnCopy[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.014"/>
+  <testcase name="activatingAnOfflineTreePushesParentsFirstThenCommitsItsPullCursor[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.006"/>
+  <testcase name="aFullAccountStillPushesADeleteQueuedBesideAPictureThatDoesNotFit[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.014"/>
+  <testcase name="aNotebookWithUnsentChangesIsNotEvicted[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="aPushRejectedAsPurgedDropsTheNotebookInsteadOfFailingTheRun[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.01"/>
+  <testcase name="aStaleLaterAutosaveCannotResurrectARemotelyDeletedTextBox[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.009"/>
+  <testcase name="aLaggingStreamCannotRegressTheCursorOrDiscardANewerDirtyBody[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.008"/>
+  <testcase name="anErasedStrokeAndItsUndoBothCross[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.005"/>
+  <testcase name="aKindThisBuildCannotStoreParksTheCursorRatherThanSkippingIt[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.004"/>
+  <testcase name="aNotebookTheServerAlreadyHoldsIsFlushedByATombstoneAndThenCollected[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="anUntouchedStarterIsDroppedRatherThanPushedWhenTheAccountAlreadyHasATree[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.005"/>
+  <testcase name="reopeningANotebookClearsTheFieldOnTheServerRatherThanOmittingIt[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.006"/>
+  <testcase name="aPulledPurgeTakesTheNotebookOffADeviceThatIsNotPushing[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.006"/>
+  <testcase name="aLostAckAfterPurgeCannotClearAReimportedSubtreesNewWork[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.014"/>
+  <testcase name="documentBodiesRoundTripAsOpaqueBytesAfterTheirPage[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.01"/>
+  <testcase name="anEditCommittedWhileAPushIsInFlightRemainsQueuedAndIsSentNext[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.008"/>
+  <testcase name="aChildWhoseParentNeverArrivesFailsInsteadOfSkippingIt[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.004"/>
+  <testcase name="validLargeDocumentsAreSplitBelowTheRequestByteCap[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.192"/>
+  <testcase name="anAttachmentIdThatIsNotADigestIsRefusedBeforeItCanBecomeAFileName[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.003"/>
+  <testcase name="aFreshDevicePullsOnlyOpenNotebookPayloadAndCanDownloadAClosedOneLater[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.01"/>
+  <testcase name="aFlushDoesNotDropTheDeleteOfSomethingAlreadyInAStrandedBatch[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="aLostAckCannotAcknowledgeDescendantsRetainedByAnImportRemap[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.009"/>
+  <testcase name="aPulledPurgeAlsoMovesAnImportedNotebookRatherThanErasingIt[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="streamedDeltaIsCommittedDirectlyWithoutAnotherTransportRead[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.005"/>
+  <testcase name="pulledInkDropsTheHandwritingItsPageWasAlreadyReadAs[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.005"/>
+  <testcase name="aPictureThisDeviceCannotSupplyIsDroppedFromTheReferencesRatherThanWedgingEveryPush[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.009"/>
+  <testcase name="aPureInkStreamEventDoesNotRescanPictureBodiesOrStatExistingFiles[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.009"/>
+  <testcase name="foregroundLocalPushDoesNotAskForRemoteUpdatesFirst[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="anEqualVersionLostAckCannotClearARecycledGeneration[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="aBlockedPictureUploadAllowsMetadataAndRebuildsANeverSentStaleBody[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.011"/>
+  <testcase name="aPushRefusedAsPurgedMovesAnImportedNotebookToANewIdInsteadOfErasingIt[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.009"/>
+  <testcase name="pulledInkNamesItsPageSoAnOpenCanvasCanAbsorbIt[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.004"/>
+  <testcase name="aLostPushReplyReplaysTheExactBatchWithoutRegressingANewerStreamVersion[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="closingANotebookTravelsToTheServerAndBackAsAnOrdinaryField[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.008"/>
+  <testcase name="aParentEditedAfterItsChildrenIsStillAppliedBeforeThem[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.004"/>
+  <testcase name="pictureDownloadsDoNotBlockMetadataAndNewPictureCandidatesSurvive[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="aPurgeTakesThePicturesNothingElseOnTheDeviceStillShows[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.008"/>
+  <testcase name="acceptedInkStateOmitsPointsBeforeAnEchoAndTheNextPushReattachesCanonicalBytes[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.011"/>
+  <testcase name="anAttemptedPictureBatchReplaysBeforeMissingLocalBytesCanRewriteItsPayload[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.008"/>
+  <testcase name="bringingANotebookBackQueuesNothingForTheServer[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.009"/>
+  <testcase name="aSecondPurgeOfTheSameArchiveMovesTheRemapWithIt[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.01"/>
+  <testcase name="pulledRowsStayLocalAndUnknownFieldsSurviveTheNextPush[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.005"/>
+  <testcase name="aPicturesBytesReachTheServerBeforeTheChangeThatNamesThem[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="aRowHeldOnTheStreamIsReleasedByALaterStreamPage[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.005"/>
+  <testcase name="anUntouchedStarterIsStillPushedToAnEmptyAccount[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.004"/>
+  <testcase name="aServerThatLostItsBytesIsRepairedByTheRejectionItSends[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.01"/>
+  <testcase name="bringingANotebookBackDownloadsItsBodiesInkAndPicturesWithoutMovingTheCursor[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.011"/>
+  <testcase name="aDuplicateAcceptedVersionDoesNotOverwriteTheNextLocalGeneration[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.008"/>
+  <testcase name="aFullAccountKeepsThePictureAndItsPageQueuedUntilThereIsRoom[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.008"/>
+  <testcase name="aLegacyLostAckCannotRecreateAcceptedStatesForAPurgedSubtree[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="aReleasedPictureIsPushedAsATombstoneAndNoBytesTravel[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.009"/>
+  <testcase name="aLaggingChildAfterPermanentParentPurgeIsIgnoredBeforeParentAdmission[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="changingAccountsCancelsAnUploadAndKeepsTheNewAccountsMetadata[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="aServerVersionWinsEvenWhenTheDirtyLocalWallClockIsLater[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.004"/>
+  <testcase name="changingRailExpansionIsLocalAndCreatesNoSyncWork[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.006"/>
+  <testcase name="aHeldRowIsNotLookedUpAgainOnEveryPage[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.012"/>
+  <testcase name="aNotebookFlushedBeforeItsFirstPushIsNeverMentionedToTheServer[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.005"/>
+  <testcase name="aPulledAttachmentRowDoesNotOverwriteThisDevicesReferenceCount[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.008"/>
+  <testcase name="duplicateInkAdmissionReadsOnlyBatchedVersionsWithoutAcceptedJson[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.016"/>
+  <testcase name="aChangeAFullAccountRefusesStaysQueued[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="aStrictlyNewerVersionStillWinsTheExistingWholeEntityConflictRule[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.008"/>
+  <testcase name="pulledInkLandsOnThePageIncludingTargetsThisDeviceHasNeverSeen[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.006"/>
+  <testcase name="inkWaitsForThePageThatArrivesInALaterPullPage[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.004"/>
+  <testcase name="aChildIsHeldBackUntilThePageCarryingItsParentArrives[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.004"/>
+  <testcase name="theStoredServerCopyOfAStrokeDoesNotHoldItsPointsTwice[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.006"/>
+  <testcase name="samePageStrokeBatchLooksUpItsDeferredParentChainOnlyOnce[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.011"/>
+  <testcase name="aPictureAnotherNotebookStillShowsIsNotEvictedWithThisOne[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.009"/>
+  <testcase name="aCachedConflictCannotReplaceAnEqualStreamVersionAndLaterLocalEdit[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="profileMetadataWaitBehindOneDelayedDesktopPictureUpload[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.001">
+    <skipped message="org.junit.AssumptionViolatedException: got: &lt;false&gt;, expected: is &lt;true&gt;" type="org.junit.AssumptionViolatedException">org.junit.AssumptionViolatedException: got: &lt;false&gt;, expected: is &lt;true&gt;
+	at org.junit.Assume.assumeThat(Assume.java:106)
+	at org.junit.Assume.assumeTrue(Assume.java:50)
+	at com.vivenotes.data.sync.HierarchySyncTest$profileMetadataWaitBehindOneDelayedDesktopPictureUpload$1.invokeSuspend(HierarchySyncTest.kt:85)
+	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:256)
+	at kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:54)
+	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlockingImpl(Builders.kt:30)
+	at kotlinx.coroutines.BuildersKt.runBlockingImpl(Unknown Source)
+	at kotlinx.coroutines.BuildersKt__Builders_concurrentKt.runBlockingK(Builders.concurrent.kt:172)
+	at kotlinx.coroutines.BuildersKt.runBlockingK(Unknown Source)
+	at kotlinx.coroutines.BuildersKt__Builders_concurrentKt.runBlockingK$default(Builders.concurrent.kt:157)
+	at kotlinx.coroutines.BuildersKt.runBlockingK$default(Unknown Source)
+	at com.vivenotes.data.sync.HierarchySyncTest.profileMetadataWaitBehindOneDelayedDesktopPictureUpload(HierarchySyncTest.kt:84)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
+	at org.junit.internal.runners.statements.RunAfters.evaluate(RunAfters.java:27)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.junit.runners.BlockJUnit4ClassRunner$1.evaluate(BlockJUnit4ClassRunner.java:100)
+	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:366)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:103)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:63)
+	at org.junit.runners.ParentRunner$4.run(ParentRunner.java:331)
+	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:79)
+	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:329)
+	at org.junit.runners.ParentRunner.access$100(ParentRunner.java:66)
+	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:293)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.junit.runners.ParentRunner.run(ParentRunner.java:413)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:137)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:115)
+	at org.gradle.api.internal.tasks.testing.junit.JUnitTestExecutor.runRequest(JUnitTestExecutor.java:174)
+	at org.gradle.api.internal.tasks.testing.junit.JUnitTestExecutor.accept(JUnitTestExecutor.java:84)
+	at org.gradle.api.internal.tasks.testing.junit.JUnitTestExecutor.accept(JUnitTestExecutor.java:47)
+	at org.gradle.api.internal.tasks.testing.junit.AbstractJUnitTestDefinitionProcessor.processTestDefinition(AbstractJUnitTestDefinitionProcessor.java:65)
+	at org.gradle.api.internal.tasks.testing.SuiteTestDefinitionProcessor.processTestDefinition(SuiteTestDefinitionProcessor.java:53)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at org.gradle.internal.dispatch.MethodInvocation.invokeOn(MethodInvocation.java:77)
+	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:28)
+	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:19)
+	at org.gradle.internal.dispatch.ContextClassLoaderDispatch.dispatch(ContextClassLoaderDispatch.java:33)
+	at org.gradle.internal.dispatch.ProxyDispatchAdapter$DispatchingInvocationHandler.invoke(ProxyDispatchAdapter.java:88)
+	at jdk.proxy1/jdk.proxy1.$Proxy4.processTestDefinition(Unknown Source)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker$2.run(TestWorker.java:178)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.executeAndMaintainThreadName(TestWorker.java:126)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:103)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:63)
+	at org.gradle.process.internal.worker.child.ActionExecutionWorker.execute(ActionExecutionWorker.java:56)
+	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:122)
+	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
+	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
+	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
+</skipped>
+  </testcase>
+  <testcase name="aSecondRunUploadsNothingBecauseTheAcceptedRowIsProofTheServerHasTheBytes[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.009"/>
+  <testcase name="aLaterRemoteDocumentWinsAWholeBodyVersionConflict[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.006"/>
+  <testcase name="aPulledPictureIsFetchedAndCountedAgainstTheDocumentThatShowsIt[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.005"/>
+  <testcase name="aNotebookAlreadyOnThisDeviceKeepsItsPayloadWhenTheFirstPullFindsItClosed[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="movingANotebookToTheCloudLeavesTheIndexAndTakesEverythingElse[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.009"/>
+  <testcase name="aDrawnPageUploadsItsStrokesAndOperationsWithTheirTargets[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="anUnsentEditUnderACloudOnlyNotebookIsPushedRatherThanDestroyed[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.008"/>
+  <testcase name="anInstallationIsNotCaughtUpUntilItHasPulledThatAccount[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.004"/>
+  <testcase name="aPurgeStillErasesAnImportedNotebookOnceTheServerHasTakenIt[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.007"/>
+  <testcase name="aLegacyCachedConflictCannotRecreateAPurgedNotebook[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.006"/>
+  <testcase name="membershipRequiredIsNotReportedAsUnreadableServerData[jvm]" classname="com.vivenotes.data.sync.HierarchySyncTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,1 @@
+Superseded by ../2026-10-21-desktop-sync-final/. These original capture files are retained unchanged. The final capture follows additional legacy conflict and released-picture ACK guards and their regression tests.

@@ -22,6 +22,11 @@ import com.vivenotes.data.db.NotesDatabase
 import com.vivenotes.data.db.PageContentEntity
 import com.vivenotes.data.db.deferredNotebookContentKey
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonArray
@@ -48,6 +53,70 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 class HierarchySyncTest {
+
+    @Test
+    fun duplicateInkAdmissionReadsOnlyBatchedVersionsWithoutAcceptedJson() = runBlocking {
+        val versionReads = AtomicInteger()
+        val fullReads = AtomicInteger()
+        val counted = Room.databaseBuilder<NotesDatabase>(name = File(attachmentDirectory, "version-cost.db").absolutePath)
+            .setDriver(StepCountingDriver(BundledSQLiteDriver()) { sql ->
+                if (sql.startsWith("SELECT entityId, serverVersion FROM sync_entity_states")) versionReads.incrementAndGet()
+                if (sql.startsWith("SELECT * FROM sync_entity_states")) fullReads.incrementAndGet()
+            }).setQueryCoroutineContext(kotlinx.coroutines.Dispatchers.IO)
+            .addCallback(NotesDatabase.SYNC_TRIGGER_CALLBACK).build()
+        try {
+            server.seed(notebookChange("n", "Notebook", now), sectionChange("s", "n", "Section", now),
+                pageChange("p", "s", "Page", now))
+            repeat(200) { server.seed(inkStrokeChange("stroke-$it", "p", it, now)) }
+            val sync = HierarchySync(counted, server, RemoteInkSignal(), AttachmentBlobSync(counted, server, pictures))
+            assertTrue(sync.run(account()) is SyncRunResult.Succeeded)
+            val echoes = List(200) { server.current("inkStroke", "stroke-$it")!! }
+            versionReads.set(0); fullReads.set(0)
+            val result = sync.applyStreamPage(account(), PullChangesPage(echoes, counted.syncDao().state()!!.cursor + 1, false))
+            assertTrue(result is SyncRunResult.Succeeded)
+            assertEquals("One result scan reads 200 versions and its end marker", 201, versionReads.get())
+            assertEquals(0, fullReads.get())
+            assertEquals(200, counted.inkStrokeDao().countForPages(listOf("p")))
+        } finally { counted.close() }
+    }
+
+    @Test
+    fun profileMetadataWaitBehindOneDelayedDesktopPictureUpload() = runBlocking {
+        org.junit.Assume.assumeTrue(System.getenv("VIVE_SYNC_CONTENTION_PROFILE") == "1")
+        val notebook = repository.createNotebook("Contention profile")
+        val page = repository.createPage(repository.createSection(notebook, "Section"))
+        assertTrue(hierarchy.run(account()) is SyncRunResult.Succeeded)
+        val samples = ArrayList<Long>()
+        repeat(8) { iteration ->
+            val content = ByteArray(1_024) { position -> (position + iteration).toByte() }
+            val digest = sha256(content)
+            pictures.write(digest, content)
+            placePicture(page, digest)
+            val entered = CompletableDeferred<Unit>()
+            server.beforeUpload = { entered.complete(Unit); delay(250) }
+            val pushing = async { hierarchy.pushPending(account()) }
+            try {
+                withTimeout(5_000) { entered.await() }
+                server.seed(notebookChange(notebook, "Metadata $iteration", now + iteration + 1))
+                val incoming = (server.pullChanges("", "", db.syncDao().state()!!.cursor, 512) as ServerResult.Success).value
+                val started = System.nanoTime()
+                assertTrue(hierarchy.applyStreamPage(account(), incoming.copy(hasMore = true)) is SyncRunResult.Succeeded)
+                val elapsed = System.nanoTime() - started
+                assertEquals("Metadata $iteration", db.notebookDao().byId(notebook)!!.name)
+                assertTrue(withTimeout(5_000) { pushing.await() } is SyncRunResult.Succeeded)
+                if (iteration >= 2) samples += elapsed
+            } finally { pushing.cancelAndJoin() }
+        }
+        println("DESKTOP_SYNC_CONTENTION injectedUploadDelayMs=250 bytes=1024 warmups=2 samplesNs=$samples")
+        println("DESKTOP_SYNC_RUNTIME " + JsonObject(mapOf(
+            "runtime" to JsonPrimitive(System.getProperty("java.runtime.version")),
+            "vendor" to JsonPrimitive(System.getProperty("java.vendor")),
+            "vm" to JsonPrimitive(System.getProperty("java.vm.name")),
+            "maxHeapBytes" to JsonPrimitive(Runtime.getRuntime().maxMemory()),
+            "processors" to JsonPrimitive(Runtime.getRuntime().availableProcessors()),
+            "vmArgs" to JsonArray(java.lang.management.ManagementFactory.getRuntimeMXBean().inputArguments.map(::JsonPrimitive)),
+        )))
+    }
 
     @Test
     fun samePageStrokeBatchLooksUpItsDeferredParentChainOnlyOnce() = runBlocking {
@@ -141,6 +210,427 @@ class HierarchySyncTest {
     fun tearDown() {
         db.close()
         attachmentDirectory.deleteRecursively()
+    }
+
+    @Test
+    fun aLaggingStreamCannotRegressTheCursorOrDiscardANewerDirtyBody() = runBlocking {
+        val page = repository.createPage(repository.createSection(repository.createNotebook("Notebook"), "Section"))
+        hierarchy.run(account())
+        val old = server.current("pageContent", page)!!
+        server.seed(pageContentChange(page, JsonDocumentCodec.encodeToString(PageDoc.empty()), now + 1))
+        hierarchy.run(account())
+        val committedCursor = db.syncDao().state()!!.cursor
+        val authoritative = db.pageContentDao().byId(page)!!
+        val dirty = PageDoc(outlines = listOf(Outline.Text(id = "text", blocks = listOf(com.vivenotes.model.Block.of("local edit")))))
+        repository.saveDoc(page, dirty)
+        val queued = db.syncDao().outboxEntry("pageContent", page)!!
+
+        hierarchy.applyStreamPage(account(), PullChangesPage(listOf(old), committedCursor - 1, false))
+
+        assertEquals(committedCursor, db.syncDao().state()!!.cursor)
+        assertEquals(JsonDocumentCodec.encodeToString(dirty), db.pageContentDao().byId(page)!!.docJson)
+        assertEquals(queued.generation, db.syncDao().outboxEntry("pageContent", page)!!.generation)
+        assertEquals(authoritative.format, db.pageContentDao().byId(page)!!.format)
+    }
+
+    @Test
+    fun aDuplicateAcceptedVersionDoesNotOverwriteTheNextLocalGeneration() = runBlocking {
+        val page = repository.createPage(repository.createSection(repository.createNotebook("Notebook"), "Section"))
+        hierarchy.run(account())
+        fun text(value: String) = PageDoc(outlines = listOf(Outline.Text(id = "text", blocks = listOf(com.vivenotes.model.Block(id = "fixed-block", runs = listOf(com.vivenotes.model.Run(value)))))))
+        repository.saveDoc(page, text("accepted"))
+        hierarchy.pushPending(account())
+        val echo = server.current("pageContent", page)!!
+        val acknowledged = db.syncDao().entityState("pageContent", page)!!.serverVersion
+        repository.saveDoc(page, text("next local generation"))
+        val queued = db.syncDao().outboxEntry("pageContent", page)!!
+        val cursor = db.syncDao().state()!!.cursor
+
+        hierarchy.applyStreamPage(account(), PullChangesPage(listOf(echo), cursor + 1, false))
+
+        assertEquals(JsonDocumentCodec.encodeToString(text("next local generation")), db.pageContentDao().byId(page)!!.docJson)
+        assertEquals(acknowledged, db.syncDao().entityState("pageContent", page)!!.serverVersion)
+        assertEquals(queued.generation, db.syncDao().outboxEntry("pageContent", page)!!.generation)
+        assertEquals(cursor + 1, db.syncDao().state()!!.cursor)
+    }
+
+    @Test
+    fun aStrictlyNewerVersionStillWinsTheExistingWholeEntityConflictRule() = runBlocking {
+        val page = repository.createPage(repository.createSection(repository.createNotebook("Notebook"), "Section"))
+        hierarchy.run(account())
+        repository.saveDoc(page, PageDoc(outlines = listOf(Outline.Text(id = "local", blocks = emptyList()))))
+        val remote = PageDoc(outlines = listOf(Outline.Text(id = "remote", blocks = emptyList())))
+        server.seed(pageContentChange(page, JsonDocumentCodec.encodeToString(remote), now + 2))
+        val incoming = server.current("pageContent", page)!!
+        val cursor = db.syncDao().state()!!.cursor
+
+        hierarchy.applyStreamPage(account(), PullChangesPage(listOf(incoming), cursor + 1, false))
+
+        assertEquals(JsonDocumentCodec.encodeToString(remote), db.pageContentDao().byId(page)!!.docJson)
+        assertNull(db.syncDao().outboxEntry("pageContent", page))
+    }
+
+    @Test
+    fun aLaggingChildAfterPermanentParentPurgeIsIgnoredBeforeParentAdmission() = runBlocking {
+        val notebook = repository.createNotebook("Notebook")
+        val page = repository.createPage(repository.createSection(notebook, "Section"))
+        hierarchy.run(account())
+        val stale = server.current("pageContent", page)!!
+        val staleCursor = db.syncDao().state()!!.cursor
+        server.purgeNotebook(notebook)
+        hierarchy.run(account())
+        val committed = db.syncDao().state()!!.cursor
+        assertNull(db.pageDao().byId(page))
+
+        val result = hierarchy.applyStreamPage(account(), PullChangesPage(listOf(stale), staleCursor, false))
+
+        assertTrue(result is SyncRunResult.Succeeded)
+        assertEquals(committed, db.syncDao().state()!!.cursor)
+        assertNull(db.pageDao().byId(page))
+        assertTrue(db.syncDao().outbox(32).isEmpty())
+    }
+
+    @Test
+    fun aBlockedPictureUploadAllowsMetadataAndRebuildsANeverSentStaleBody() = runBlocking {
+        val notebook = repository.createNotebook("Notebook")
+        val page = repository.createPage(repository.createSection(notebook, "Section"))
+        hierarchy.run(account())
+        val bytes = "desktop upload".toByteArray()
+        val digest = sha256(bytes)
+        pictures.write(digest, bytes)
+        placePicture(page, digest)
+        val remoteDocument = JsonDocumentCodec.encodeToString(PageDoc(outlines = emptyList()))
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        server.beforeUpload = { entered.complete(Unit); release.await() }
+        val pushing = async { hierarchy.pushPending(account()) }
+        try {
+            withTimeout(5_000) { entered.await() }
+            server.seed(notebookChange(notebook, "Remote name during upload", now + 1),
+                pageContentChange(page, remoteDocument, now + 1))
+            val incoming = (server.pullChanges("", "", db.syncDao().state()!!.cursor, 512) as ServerResult.Success).value
+            assertTrue(withTimeout(5_000) {
+                hierarchy.applyStreamPage(account(), incoming.copy(hasMore = true))
+            } is SyncRunResult.Succeeded)
+            assertEquals("Remote name during upload", db.notebookDao().byId(notebook)!!.name)
+            assertEquals(remoteDocument, db.pageContentDao().byId(page)!!.docJson)
+            release.complete(Unit)
+            assertTrue(withTimeout(5_000) { pushing.await() } is SyncRunResult.Succeeded)
+            assertEquals(remoteDocument, decodeDocument(server.current("pageContent", page)!!))
+            assertTrue("The obsolete picture body was never sent", server.pushes.flatten().none {
+                kindOf(it) == "pageContent" && digest in (it["blobRefs"]?.toString().orEmpty())
+            })
+        } finally { release.complete(Unit); pushing.cancelAndJoin() }
+    }
+
+    @Test
+    fun changingAccountsCancelsAnUploadAndKeepsTheNewAccountsMetadata() = runBlocking {
+        hierarchy.run(account())
+        val bytes = "old account upload".toByteArray()
+        val digest = sha256(bytes)
+        pictures.write(digest, bytes)
+        seedPageWithPicture(digest)
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        server.beforeUpload = { entered.complete(Unit); release.await() }
+        val pushing = async { hierarchy.pushPending(account()) }
+        try {
+            withTimeout(5_000) { entered.await() }
+            withTimeout(5_000) { hierarchy.activate("next-account") }
+            withTimeout(5_000) { pushing.join() }
+            assertTrue(pushing.isCancelled)
+            assertEquals("next-account", db.syncDao().state()!!.accountId)
+            assertNull(db.localMetadataDao().value("syncPendingHierarchyBatch"))
+            assertFalse(server.blobs.containsKey(digest))
+            assertTrue("The new account keeps its local work", db.syncDao().outbox(32).isNotEmpty())
+        } finally { release.complete(Unit); pushing.cancelAndJoin() }
+    }
+
+    @Test
+    fun pictureDownloadsDoNotBlockMetadataAndNewPictureCandidatesSurvive() = runBlocking {
+        val first = "first downloaded picture".toByteArray()
+        val second = "second downloaded picture".toByteArray()
+        val firstId = sha256(first)
+        val secondId = sha256(second)
+        server.blobs[firstId] = first
+        server.blobs[secondId] = second
+        server.seed(notebookChange("n", "Remote notebook", now), sectionChange("s", "n", "Section", now),
+            pageChange("p", "s", "Page", now), attachmentChange(firstId, first.size.toLong(), now),
+            pageContentChange("p", JsonDocumentCodec.encodeToString(docWithPicture(firstId)), now))
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        server.beforeDownload = { id -> if (id == firstId) { entered.complete(Unit); release.await() } }
+        val running = async { hierarchy.run(account()) }
+        try {
+            withTimeout(5_000) { entered.await() }
+            server.seed(notebookChange("n", "Text arrived during download", now + 1),
+                attachmentChange(secondId, second.size.toLong(), now + 1),
+                pageContentChange("p", JsonDocumentCodec.encodeToString(docWithPicture(secondId)), now + 1))
+            val incoming = (server.pullChanges("", "", db.syncDao().state()!!.cursor, 512) as ServerResult.Success).value
+            assertTrue(withTimeout(5_000) {
+                hierarchy.applyStreamPage(account(), incoming.copy(hasMore = true))
+            } is SyncRunResult.Succeeded)
+            assertEquals("Text arrived during download", db.notebookDao().byId("n")!!.name)
+            release.complete(Unit)
+            assertTrue(withTimeout(5_000) { running.await() } is SyncRunResult.Succeeded)
+            assertTrue(hierarchy.applyStreamPage(account(), incoming.copy(changes = emptyList(), hasMore = false)) is SyncRunResult.Succeeded)
+            assertArrayEquals(second, pictures.fileFor(secondId).readBytes())
+        } finally { release.complete(Unit); running.cancelAndJoin() }
+    }
+
+    @Test
+    fun aPurgedPictureCannotBePublishedByAnAlreadyRunningDownload() = runBlocking {
+        val content = "purged download".toByteArray()
+        val digest = sha256(content)
+        server.blobs[digest] = content
+        server.seed(notebookChange("n", "Notebook", now), sectionChange("s", "n", "Section", now),
+            pageChange("p", "s", "Page", now), attachmentChange(digest, content.size.toLong(), now),
+            pageContentChange("p", JsonDocumentCodec.encodeToString(docWithPicture(digest)), now))
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        server.beforeDownload = { entered.complete(Unit); release.await() }
+        val running = async { hierarchy.run(account()) }
+        try {
+            withTimeout(5_000) { entered.await() }
+            server.purgeNotebook("n")
+            val incoming = (server.pullChanges("", "", db.syncDao().state()!!.cursor, 512) as ServerResult.Success).value
+            assertTrue(withTimeout(5_000) {
+                hierarchy.applyStreamPage(account(), incoming)
+            } is SyncRunResult.Succeeded)
+            assertNull(db.attachmentDao().byId(digest))
+            release.complete(Unit)
+            assertTrue(withTimeout(5_000) { running.await() } is SyncRunResult.Succeeded)
+            assertFalse(pictures.fileFor(digest).exists())
+        } finally { release.complete(Unit); running.cancelAndJoin() }
+    }
+
+    @Test
+    fun aLostPushReplyReplaysTheExactBatchWithoutRegressingANewerStreamVersion() = runBlocking {
+        val notebook = repository.createNotebook("Initial")
+        server.loseNextReply = true
+        assertTrue(hierarchy.run(account()) is SyncRunResult.Retryable)
+        val originalBatch = server.batchIds.single()
+        val originalPayload = server.pushes.single()
+        server.seed(notebookChange(notebook, "Newer remote", now + 1))
+        val incoming = (server.pullChanges("", "", 0, 512) as ServerResult.Success).value
+        hierarchy.applyStreamPage(account(), incoming)
+        val newerVersion = db.syncDao().entityState("notebook", notebook)!!.serverVersion
+        repository.renameNotebook(notebook, "New local edit")
+
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Succeeded)
+
+        assertEquals(originalBatch, server.batchIds[1])
+        assertEquals(originalPayload, server.pushes[1])
+        assertEquals("New local edit", db.notebookDao().byId(notebook)!!.name)
+        assertEquals("New local edit", server.current("notebook", notebook)!!["name"]!!.jsonPrimitive.content)
+        assertTrue(db.syncDao().entityState("notebook", notebook)!!.serverVersion > newerVersion)
+    }
+
+    @Test
+    fun anEqualVersionLostAckCannotClearARecycledGeneration() = runBlocking {
+        val notebook = repository.createNotebook("Initial")
+        server.loseNextReply = true
+        assertTrue(hierarchy.run(account()) is SyncRunResult.Retryable)
+        val originalBatch = server.batchIds.single()
+        val originalPayload = server.pushes.single()
+        val incoming = (server.pullChanges("", "", 0, 512) as ServerResult.Success).value
+        hierarchy.applyStreamPage(account(), incoming)
+        assertNull(db.syncDao().outboxEntry("notebook", notebook))
+        repository.renameNotebook(notebook, "Edit after equal echo")
+        assertEquals(1L, db.syncDao().outboxEntry("notebook", notebook)!!.generation)
+
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Succeeded)
+
+        assertEquals(originalBatch, server.batchIds[1])
+        assertEquals(originalPayload, server.pushes[1])
+        assertEquals("Edit after equal echo", server.current("notebook", notebook)!!["name"]!!.jsonPrimitive.content)
+        assertTrue(db.syncDao().outbox(32).isEmpty())
+    }
+
+    @Test
+    fun aCachedConflictCannotReplaceAnEqualStreamVersionAndLaterLocalEdit() = runBlocking {
+        val notebook = repository.createNotebook("Initial")
+        hierarchy.run(account())
+        repository.renameNotebook(notebook, "Rejected edit")
+        server.beforeFirstPush = { server.seed(notebookChange(notebook, "Remote winner", now + 1)) }
+        server.loseNextReply = true
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Retryable)
+        val cachedBatch = server.batchIds.last()
+        val incoming = (server.pullChanges("", "", db.syncDao().state()!!.cursor, 512) as ServerResult.Success).value
+        hierarchy.applyStreamPage(account(), incoming)
+        repository.renameNotebook(notebook, "Edit after conflict echo")
+        assertEquals(1L, db.syncDao().outboxEntry("notebook", notebook)!!.generation)
+
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Succeeded)
+
+        assertEquals(cachedBatch, server.batchIds[2])
+        assertEquals("Edit after conflict echo", server.current("notebook", notebook)!!["name"]!!.jsonPrimitive.content)
+        assertTrue(db.syncDao().outbox(32).isEmpty())
+    }
+
+    @Test
+    fun aLostAckAfterPurgeCannotClearAReimportedSubtreesNewWork() = runBlocking {
+        val notebook = repository.createNotebook("Initial")
+        val section = repository.createSection(notebook, "Section")
+        val page = repository.createPage(section, "Page")
+        val notebookRow = db.notebookDao().byId(notebook)!!
+        val sectionRow = db.sectionDao().byId(section)!!
+        val pageRow = db.pageDao().byId(page)!!
+        val contentRow = db.pageContentDao().byId(page)!!
+        server.loseNextReply = true
+        assertTrue(hierarchy.run(account()) is SyncRunResult.Retryable)
+        val batch = server.batchIds.single()
+        val payload = server.pushes.single()
+        server.purgeNotebook(notebook)
+        val incoming = (server.pullChanges("", "", 0, 512) as ServerResult.Success).value
+        hierarchy.applyStreamPage(account(), incoming)
+        assertNull(db.notebookDao().byId(notebook))
+        db.notebookDao().upsert(notebookRow.copy(name = "Imported again"))
+        db.sectionDao().upsert(sectionRow)
+        db.pageDao().upsert(pageRow.copy(title = "Imported page"))
+        db.pageContentDao().upsert(contentRow)
+        markImported(notebook)
+        // Restart the coordinator: purge invalidation must survive in durable local metadata.
+        hierarchy = HierarchySync(db, server, remoteInk, AttachmentBlobSync(db, server, pictures))
+
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Succeeded)
+
+        assertEquals(batch, server.batchIds[1])
+        assertEquals(payload, server.pushes[1])
+        assertNull(db.notebookDao().byId(notebook))
+        val moved = db.sectionDao().byId(section)!!.notebookId
+        assertEquals("Imported again", server.current("notebook", moved)!!["name"]!!.jsonPrimitive.content)
+        assertEquals("Imported page", server.current("page", page)!!["title"]!!.jsonPrimitive.content)
+        assertNotNull(server.current("pageContent", page))
+        assertTrue(db.syncDao().outbox(32).isEmpty())
+        assertNull(db.syncDao().entityState("notebook", notebook))
+    }
+
+    @Test
+    fun aLegacyLostAckCannotRecreateAcceptedStatesForAPurgedSubtree() = runBlocking {
+        val notebook = repository.createNotebook("Initial")
+        val page = repository.createPage(repository.createSection(notebook, "Section"), "Page")
+        server.loseNextReply = true
+        assertTrue(hierarchy.run(account()) is SyncRunResult.Retryable)
+        val legacyPending = db.localMetadataDao().value("syncPendingHierarchyBatch")!!
+        server.purgeNotebook(notebook)
+        val incoming = (server.pullChanges("", "", 0, 512) as ServerResult.Success).value
+        hierarchy.applyStreamPage(account(), incoming)
+        // Simulate a batch persisted by an older build, before purge invalidation was recorded.
+        db.localMetadataDao().put(LocalMetadataEntity("syncPendingHierarchyBatch", legacyPending))
+        hierarchy = HierarchySync(db, server, remoteInk, AttachmentBlobSync(db, server, pictures))
+
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Succeeded)
+
+        assertNull(db.notebookDao().byId(notebook))
+        assertNull(db.pageDao().byId(page))
+        assertNull(db.syncDao().entityState("notebook", notebook))
+        assertNull(db.syncDao().entityState("page", page))
+        assertNull(db.syncDao().entityState("pageContent", page))
+        assertTrue(db.syncDao().outbox(32).isEmpty())
+    }
+
+    @Test
+    fun aLegacyCachedConflictCannotRecreateAPurgedNotebook() = runBlocking {
+        val notebook = repository.createNotebook("Initial")
+        hierarchy.run(account())
+        repository.renameNotebook(notebook, "Rejected edit")
+        server.beforeFirstPush = { server.seed(notebookChange(notebook, "Old remote winner", now + 1)) }
+        server.loseNextReply = true
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Retryable)
+        val legacyPending = db.localMetadataDao().value("syncPendingHierarchyBatch")!!
+        server.purgeNotebook(notebook)
+        val incoming = (server.pullChanges("", "", db.syncDao().state()!!.cursor, 512) as ServerResult.Success).value
+        hierarchy.applyStreamPage(account(), incoming)
+        db.localMetadataDao().put(LocalMetadataEntity("syncPendingHierarchyBatch", legacyPending))
+        hierarchy = HierarchySync(db, server, remoteInk, AttachmentBlobSync(db, server, pictures))
+
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Succeeded)
+
+        assertNull(db.notebookDao().byId(notebook))
+        assertNull(db.syncDao().entityState("notebook", notebook))
+        assertTrue(db.syncDao().outbox(32).isEmpty())
+    }
+
+    @Test
+    fun anUnqueuedReleasedPictureStillRecordsItsLostFirstAcceptance() = runBlocking {
+        hierarchy.run(account())
+        val bytes = "released after a lost first acceptance".toByteArray()
+        val digest = sha256(bytes)
+        pictures.write(digest, bytes)
+        db.attachmentDao().insert(AttachmentEntity(digest, "image/webp", 8, 8, bytes.size.toLong(), 0, now))
+        server.loseNextReply = true
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Retryable)
+        val sweep = AttachmentSweep(db, pictures, { emptySet() },
+            clock = { now + AttachmentSweep.FRESH_IMPORT_MILLIS })
+        sweep.sweep()
+        assertNotNull(db.attachmentDao().byId(digest)!!.releasedAt)
+        assertNull(db.syncDao().outboxEntry("attachment", digest))
+        assertNull(db.syncDao().entityState("attachment", digest))
+
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Succeeded)
+
+        assertNotNull(db.syncDao().entityState("attachment", digest))
+        sweep.sweep()
+        assertNotNull(db.syncDao().outboxEntry("attachment", digest))
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Succeeded)
+        assertTrue(server.current("attachment", digest)!!["deletedAt"] !is JsonNull)
+        assertTrue(db.syncDao().outbox(32).isEmpty())
+    }
+
+    @Test
+    fun aLostAckCannotAcknowledgeDescendantsRetainedByAnImportRemap() = runBlocking {
+        val notebook = repository.createNotebook("Imported")
+        val section = repository.createSection(notebook, "Section")
+        val page = repository.createPage(section, "Page")
+        markImported(notebook)
+        server.loseNextReply = true
+        assertTrue(hierarchy.run(account()) is SyncRunResult.Retryable)
+        val batch = server.batchIds.single()
+        val payload = server.pushes.single()
+        server.purgeNotebook(notebook)
+        val incoming = (server.pullChanges("", "", 0, 512) as ServerResult.Success).value
+        hierarchy.applyStreamPage(account(), incoming)
+        val moved = db.sectionDao().byId(section)!!.notebookId
+        repository.renamePage(page, "Edit after remap")
+        hierarchy = HierarchySync(db, server, remoteInk, AttachmentBlobSync(db, server, pictures))
+
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Succeeded)
+
+        assertEquals(batch, server.batchIds[1])
+        assertEquals(payload, server.pushes[1])
+        assertNotNull(server.current("notebook", moved))
+        assertEquals(moved, server.current("section", section)!!["notebookId"]!!.jsonPrimitive.content)
+        assertEquals("Edit after remap", server.current("page", page)!!["title"]!!.jsonPrimitive.content)
+        assertNotNull(server.current("pageContent", page))
+        assertTrue(db.syncDao().outbox(32).isEmpty())
+        assertNull(db.syncDao().entityState("notebook", notebook))
+    }
+
+    @Test
+    fun anAttemptedPictureBatchReplaysBeforeMissingLocalBytesCanRewriteItsPayload() = runBlocking {
+        val bytes = "accepted picture whose reply was lost".toByteArray()
+        val digest = sha256(bytes)
+        pictures.write(digest, bytes)
+        val page = seedPageWithPicture(digest)
+        server.loseNextReply = true
+        assertTrue(hierarchy.run(account()) is SyncRunResult.Retryable)
+        val batch = server.batchIds.single()
+        val payload = server.pushes.single()
+        assertTrue(pictures.fileFor(digest).delete())
+        hierarchy = HierarchySync(db, server, remoteInk, AttachmentBlobSync(db, server, pictures))
+        server.blobCalls.clear()
+
+        assertTrue(hierarchy.pushPending(account()) is SyncRunResult.Succeeded)
+
+        assertEquals(batch, server.batchIds[1])
+        assertEquals(payload, server.pushes[1])
+        assertTrue("Replaying an attempted batch does not reinterpret its local bytes", server.blobCalls.isEmpty())
+        assertEquals(listOf(digest), (server.current("pageContent", page)!!["blobRefs"] as JsonArray)
+            .map { it.jsonPrimitive.content })
+        assertTrue(db.syncDao().outbox(32).isEmpty())
+        assertTrue(hierarchy.run(account()) is SyncRunResult.Succeeded)
+        assertArrayEquals(bytes, pictures.fileFor(digest).readBytes())
     }
 
     @Test
@@ -907,6 +1397,7 @@ class HierarchySyncTest {
         // was refused `missing_parent` goes with it now that its parent is one the server accepts.
         assertTrue("the whole import must have landed", db.syncDao().outbox(512).isEmpty())
         assertNotNull(db.syncDao().entityState("notebook", movedId))
+        assertEquals(movedId, server.current("section", sectionId)!!["notebookId"]!!.jsonPrimitive.content)
         assertNotNull(db.syncDao().entityState("section", sectionId))
         assertNotNull(db.syncDao().entityState("page", pageId))
 
@@ -941,6 +1432,7 @@ class HierarchySyncTest {
         assertTrue(movedId != "n")
         assertEquals("Demo", db.notebookDao().byId(movedId)!!.name)
         assertEquals(listOf("s"), db.sectionDao().allInNotebook(movedId).map { it.id })
+        assertEquals(movedId, server.current("section", "s")!!["notebookId"]!!.jsonPrimitive.content)
 
         // The cursor moved over the purge: the id was honoured, it is the bytes that stayed. It is
         // past the gravestone at 3 rather than on it, because the push that follows the pull puts
@@ -1850,7 +2342,12 @@ class HierarchySyncTest {
         private val rows = linkedMapOf<Pair<String, String>, JsonObject>()
         private val log = mutableListOf<JsonObject>()
         val pushes = mutableListOf<List<JsonObject>>()
+        val batchIds = mutableListOf<String>()
+        private val replies = HashMap<String, PushChangesReply>()
         var beforeFirstPush: (suspend () -> Unit)? = null
+        var beforeUpload: (suspend (String) -> Unit)? = null
+        var beforeDownload: (suspend (String) -> Unit)? = null
+        var loseNextReply = false
 
         /** Consumed by the next push, so a test can leave a serialized batch stranded on disk. */
         var failNextPush: ServerResult.Failed? = null
@@ -1995,6 +2492,8 @@ class HierarchySyncTest {
             changes: List<JsonObject>,
         ): ServerResult<PushChangesReply> {
             pushes += changes
+            batchIds += batchId
+            replies[batchId]?.let { return ServerResult.Success(it) }
             beforeFirstPush?.also { callback ->
                 beforeFirstPush = null
                 callback()
@@ -2082,7 +2581,13 @@ class HierarchySyncTest {
                 log += stored
                 applied += AppliedServerChange(key.first, key.second, version)
             }
-            return ServerResult.Success(PushChangesReply(applied, rejected, cursor))
+            val reply = PushChangesReply(applied, rejected, cursor)
+            replies[batchId] = reply
+            if (loseNextReply) {
+                loseNextReply = false
+                return ServerResult.Failed(ConnectFailure.Unreachable, retryable = true)
+            }
+            return ServerResult.Success(reply)
         }
 
         override suspend fun revokeDevice(
@@ -2108,6 +2613,7 @@ class HierarchySyncTest {
             digest: String,
             file: File,
         ): ServerResult<Boolean> {
+            beforeUpload?.invoke(digest)
             synchronized(blobLock) {
             blobCalls += "PUT $digest"
             if (storageFull) return ServerResult.Failed(ConnectFailure.StorageFull, retryable = false)
@@ -2130,6 +2636,7 @@ class HierarchySyncTest {
             digest: String,
             target: File,
         ): ServerResult<Boolean> {
+            beforeDownload?.invoke(digest)
             synchronized(blobLock) {
             blobCalls += "GET $digest"
             val bytes = blobs[digest]?.takeIf { digest !in lostBlobs }
@@ -2160,6 +2667,24 @@ class HierarchySyncTest {
 
 /** `PageDao.byId` as Room hands it to SQLite, which is how a parent check reaches the database. */
 private const val PAGE_LOOKUP = "SELECT * FROM pages WHERE id = ?"
+
+/** Counts actual cached-statement execution steps, including statements prepared in an earlier run. */
+private class StepCountingDriver(
+    private val driver: SQLiteDriver,
+    private val onStep: (String) -> Unit,
+) : SQLiteDriver by driver {
+    override fun open(fileName: String): SQLiteConnection {
+        val connection = driver.open(fileName)
+        return object : SQLiteConnection by connection {
+            override fun prepare(sql: String): SQLiteStatement {
+                val statement = connection.prepare(sql)
+                return object : SQLiteStatement by statement {
+                    override fun step(): Boolean { onStep(sql); return statement.step() }
+                }
+            }
+        }
+    }
+}
 
 /** Enough held rows that re-checking each on every page shows: 50 pages would cost 1,275 lookups. */
 private const val HELD_STROKES = 50

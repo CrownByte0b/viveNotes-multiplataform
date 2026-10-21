@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="AttachmentDiscoveryConcurrencyTest[jvm]" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-21T23:13:00.401Z" hostname="fedora" time="0.041">
+  <properties/>
+  <testcase name="anOlderPresenceScanCannotRequeueAPictureDeferredByAnInFlight404[jvm]" classname="com.vivenotes.data.sync.AttachmentDiscoveryConcurrencyTest" time="0.006"/>
+  <testcase name="aCloudRestorePublishesItsPictureCandidateOnlyAfterThePictureTransactionCommits[jvm]" classname="com.vivenotes.data.sync.AttachmentDiscoveryConcurrencyTest" time="0.015"/>
+  <testcase name="aReconcileRequestedDuringPresenceIoCannotBeOverwrittenByTheOlderScan[jvm]" classname="com.vivenotes.data.sync.AttachmentDiscoveryConcurrencyTest" time="0.003"/>
+  <testcase name="aRolledBackCloudPictureTransactionDoesNotLeaveAGhostDownloadCandidate[jvm]" classname="com.vivenotes.data.sync.AttachmentDiscoveryConcurrencyTest" time="0.007"/>
+  <testcase name="aFullScanRetainsCapturedCandidatesWhoseInsertHasNotCommittedYet[jvm]" classname="com.vivenotes.data.sync.AttachmentDiscoveryConcurrencyTest" time="0.004"/>
+  <testcase name="cancellationAfterSqliteCommitStillMakesTheDurablePictureDiscoverable[jvm]" classname="com.vivenotes.data.sync.AttachmentDiscoveryConcurrencyTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
