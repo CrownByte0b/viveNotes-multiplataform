@@ -1,0 +1,24 @@
+{
+  "schema": "vive-blob-overlap/1",
+  "test": "AttachmentConcurrencyTest[jvm]",
+  "timestamp": "2026-10-21T19:54:30.128Z",
+  "scope": "Final implementation at worker limits1and2; one run each, loopback injected latency; not a pre-implementation code capture or internet throughput claim.",
+  "cases": [
+    {
+      "workers": 1,
+      "pictures": 12,
+      "bytesPerPicture": 1024,
+      "serverDelayMs": 20,
+      "peakRequests": 1,
+      "elapsedNanos": 275679309
+    },
+    {
+      "workers": 2,
+      "pictures": 12,
+      "bytesPerPicture": 1024,
+      "serverDelayMs": 20,
+      "peakRequests": 2,
+      "elapsedNanos": 126734481
+    }
+  ]
+}

@@ -10,6 +10,9 @@ import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.pdf.PdfBounds as InkBounds
 import com.vivenotes.model.*
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 
 /**
  * The colours an exported page is painted with.
@@ -62,7 +65,11 @@ class PdfTableGrid(
     val rowHeightsDp: FloatArray,
     val cells: Map<String, PdfTextLayout>,
 ) {
-    val heightDp: Float get() = rowHeightsDp.sum()
+    val rowTopsDp: FloatArray = FloatArray(rowHeightsDp.size + 1).also { tops ->
+        rowHeightsDp.forEachIndexed { index, height -> tops[index + 1] = tops[index] + height }
+    }
+    val heightDp: Float get() = rowTopsDp.last()
+    val paintOutset: Float = cells.values.maxOfOrNull { it.paintOutset } ?: 0f
 }
 
 /**
@@ -86,13 +93,36 @@ class MeasuredPage(
     val groups: List<PdfGroup>,
     /** The sheet this page is already laid out on, or null when it has to be tiled. */
     val boundSheet: InkBounds?,
-    val equations: Map<String, PdfEquation>,
-    val images: Map<String, org.jetbrains.skia.Image>,
+    equations: Map<String, PdfEquation>,
+    images: Map<String, org.jetbrains.skia.Image>,
     val header: PdfPageHeader?,
 ) {
+    internal val drawingEquations = equations.toMutableMap()
+    internal val drawingImages = images.toMutableMap()
+    val equations: Map<String, PdfEquation> get() = drawingEquations
+    val images: Map<String, org.jetbrains.skia.Image> get() = drawingImages
+    internal var drawingAssetsLoaded = false
+    private var indexedPlan: PdfPagePlan? = null
+    private var drawIndex: PdfDrawIndex? = null
+    internal val allContent = PdfDrawContent(doc.outlines, groups)
+    internal fun visibleContent(plan: PdfPagePlan, tile: PdfTile): PdfDrawContent {
+        if (indexedPlan !== plan) {
+            drawIndex = PdfDrawIndex(this, plan)
+            indexedPlan = plan
+        }
+        return drawIndex!!.content(tile)
+    }
+
+    internal fun releaseDrawingAssets() {
+        drawingImages.values.forEach { it.close() }
+        drawingImages.clear()
+        drawingEquations.values.forEach { it.close() }
+        drawingEquations.clear()
+        drawingAssetsLoaded = false
+    }
+
     fun close() {
-        images.values.forEach { it.close() }
-        equations.values.forEach { it.close() }
+        releaseDrawingAssets()
         texts.values.flatMap { it.layout.equations }.forEach { it.close() }
         tables.values.flatMap { it.cells.values }.flatMap { it.equations }.forEach { it.close() }
     }
@@ -176,6 +206,7 @@ class PageMeasurer(
 ) {
     private val density = 1f
     private val text = PdfTextMeasurer()
+    internal var work: PdfWorkCounts? = null
 
     suspend fun measure(
         pageId: String,
@@ -193,13 +224,20 @@ class PageMeasurer(
          */
         loadPictures: Boolean = true,
         fitContent: Boolean = true,
+        loadDrawingAssets: Boolean = true,
     ): MeasuredPage {
+        work?.let { it.measuredPages++ }
         val colors = PdfCanvasColors.forPage(doc.style)
         val items = mutableListOf<PdfItem>()
         val atoms = mutableListOf<PdfAtom>()
 
         val texts = mutableMapOf<String, PdfTextBlock>()
+        val tables = mutableMapOf<String, PdfTableGrid>()
+        val equations = mutableMapOf<String, PdfEquation>()
+        val images = mutableMapOf<String, org.jetbrains.skia.Image>()
+        try {
         suspend fun measureText(outline: Outline.Text, width: Float): PdfAtom {
+            coroutineContext.ensureActive()
             val layout = layoutFor(outline.blocks, width - TEXT_PADDING_DP * 2, colors)
             val left = outline.x + TEXT_PADDING_DP
             val top = outline.y + GRIP_HEIGHT_DP + TEXT_PADDING_DP
@@ -217,9 +255,18 @@ class PageMeasurer(
             )
         }
         val textOutlines = doc.outlines.filterIsInstance<Outline.Text>()
-        textOutlines.forEach { outline -> atoms += measureText(outline, outline.width) }
+        val originalSheet = doc.style.pageSizeDp
+        val measureOriginalText = originalSheet != null && originalSheet.first == paper.widthDp &&
+            originalSheet.second == paper.heightDp
+        val initiallyWrapped = HashSet<String>()
+        val textAtomIndices = HashMap<String, Int>()
+        textOutlines.forEach { outline ->
+            textAtomIndices[outline.id] = atoms.size
+            val wrap = fitContent && !measureOriginalText && outline.width > paper.tileWidthDp
+            if (wrap) initiallyWrapped += outline.id
+            atoms += measureText(outline, if (wrap) paper.tileWidthDp else outline.width)
+        }
 
-        val tables = mutableMapOf<String, PdfTableGrid>()
         doc.outlines.filterIsInstance<Outline.Table>().forEach { table ->
             val grid = measureTable(table, colors)
             tables[table.id] = grid
@@ -251,15 +298,16 @@ class PageMeasurer(
             )
         }
 
-        val equations = mutableMapOf<String, PdfEquation>()
         doc.outlines.filterIsInstance<Outline.Equation>().forEach { equation ->
-            runCatching {
-                PdfEquation.create(
+            coroutineContext.ensureActive()
+            if (loadDrawingAssets) try {
+                equations[equation.id] = PdfEquation.create(
                     latex = equation.latex,
                     fontSizePx = EQUATION_BASE_DP,
                     color = equation.colorArgb ?: colors.textArgb,
                 )
-            }.getOrNull()?.let { equations[equation.id] = it }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { }
             atoms += PdfAtom(
                 id = equation.id,
                 outlineId = equation.id,
@@ -272,8 +320,8 @@ class PageMeasurer(
             )
         }
 
-        val images = mutableMapOf<String, org.jetbrains.skia.Image>()
         doc.outlines.filterIsInstance<Outline.Image>().forEach { image ->
+            coroutineContext.ensureActive()
             val store = attachments
             if (loadPictures && store != null && image.attachmentId !in images) {
                 // Asked for at print resolution rather than at screen resolution: a picture that
@@ -298,11 +346,12 @@ class PageMeasurer(
         atoms += inkAtoms(strokes)
 
         // Determine the bound-sheet exception from the original canvas, before any export reflow.
-        val boundSheet = boundSheetFor(doc.style, paper, atoms.map(PdfAtom::bounds).unionOrNull())
+        val boundSheet = if (measureOriginalText) boundSheetFor(doc.style, paper, atoms.map(PdfAtom::bounds).unionOrNull()) else null
         if (fitContent && boundSheet == null) {
             val wideTexts = textOutlines.filter { it.width > paper.tileWidthDp }
             wideTexts.forEach { outline ->
-                val index = atoms.indexOfFirst { it.outlineId == outline.id }
+                if (outline.id in initiallyWrapped) return@forEach
+                val index = textAtomIndices.getValue(outline.id)
                 atoms[index] = measureText(outline, paper.tileWidthDp)
             }
             if (wideTexts.isNotEmpty()) log.event("pdf") { "wrapped ${wideTexts.size} wide text boxes" }
@@ -340,7 +389,36 @@ class PageMeasurer(
             equations = equations,
             images = images,
             header = header,
-        )
+        ).also { it.drawingAssetsLoaded = loadDrawingAssets && loadPictures }
+        } catch (error: Throwable) {
+            images.values.forEach { it.close() }
+            equations.values.forEach { it.close() }
+            texts.values.forEach { it.layout.equations.forEach(PdfEquation::close) }
+            tables.values.forEach { table -> table.cells.values.forEach { it.equations.forEach(PdfEquation::close) } }
+            throw error
+        }
+    }
+
+    internal suspend fun hydrateDrawingAssets(page: MeasuredPage) {
+        if (page.drawingAssetsLoaded) return
+        for (equation in page.allContent.equations) {
+            coroutineContext.ensureActive()
+            if (equation.id !in page.drawingEquations) try {
+                page.drawingEquations[equation.id] = PdfEquation.create(equation.latex, EQUATION_BASE_DP,
+                    equation.colorArgb ?: page.colors.textArgb)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { }
+        }
+        val store = attachments
+        if (store != null) for (image in page.allContent.pictures) {
+            coroutineContext.ensureActive()
+            if (image.attachmentId in page.drawingImages) continue
+            val target = (maxOf(image.width, image.height) * PRINT_PIXELS_PER_DP)
+                .roundToInt().coerceIn(1, MAX_IMAGE_EDGE)
+            loadImage(store, image.attachmentId, target)?.let { page.drawingImages[image.attachmentId] = it }
+        }
+        page.drawingAssetsLoaded = true
+        work?.let { it.hydratedPages++ }
     }
 
     /** The sheet a bound page fits inside, or null when it does not — the one exception. */

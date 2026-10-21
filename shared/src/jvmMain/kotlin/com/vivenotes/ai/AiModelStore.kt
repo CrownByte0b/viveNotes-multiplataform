@@ -7,6 +7,10 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,12 +20,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
 import java.io.InputStream
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
+import java.util.concurrent.atomic.AtomicLong
 
 /** What a person decided about the formula models: the one they picked, and the ones they deleted. */
 data class AiModelChoices(
@@ -97,6 +104,7 @@ class AiModelStore internal constructor(
     override val state: StateFlow<AiModelsState> = _state.asStateFlow()
 
     private val downloads = mutableMapOf<FormulaEngine, Job>()
+    private val downloadSlots = Semaphore(2)
 
     /** Read-modify-write of [preferences], one at a time, as DataStore's `edit` is. */
     private val preferencesLock = Mutex()
@@ -143,28 +151,39 @@ class AiModelStore internal constructor(
 
     private suspend fun fetch(engine: FormulaEngine, formulaPackage: FormulaPackage) {
         val staging = File(modelsRoot, ".${formulaPackage.directory.name}-${System.nanoTime()}.part")
-        var completedBytes = 0L
+        val completedBytes = AtomicLong()
         try {
             log.event("ai") { "${formulaPackage.name} download started" }
             modelsRoot.mkdirsOrThrow()
             staging.mkdirsOrThrow()
             setPackageState(engine, AiModelInstallState.Downloading(0, formulaPackage.totalBytes))
 
-            formulaPackage.artifacts.forEach { artifact ->
-                downloader.download(
-                    artifact = artifact,
-                    destination = File(staging, artifact.fileName),
-                    onBytes = { currentFileBytes ->
-                        setPackageState(
-                            engine,
-                            AiModelInstallState.Downloading(
-                                downloadedBytes = completedBytes + currentFileBytes,
-                                totalBytes = formulaPackage.totalBytes,
-                            ),
-                        )
-                    },
-                )
-                completedBytes += artifact.bytes
+            val bytes = LongArray(formulaPackage.artifacts.size)
+            var visiblePercent = -1L
+            coroutineScope {
+                val jobs = formulaPackage.artifacts.mapIndexed { index, artifact ->
+                    val began = CompletableDeferred<Unit>()
+                    async {
+                        try {
+                            downloadSlots.withPermit {
+                                downloader.download(artifact, File(staging, artifact.fileName)) { current ->
+                                    synchronized(bytes) {
+                                        bytes[index] = current
+                                        val total = bytes.sum()
+                                        val percent = total * 100 / formulaPackage.totalBytes
+                                        if (percent != visiblePercent) {
+                                            visiblePercent = percent
+                                            setPackageState(engine, AiModelInstallState.Downloading(total, formulaPackage.totalBytes))
+                                        }
+                                    }
+                                    began.complete(Unit)
+                                }
+                                completedBytes.addAndGet(artifact.bytes)
+                            }
+                        } finally { began.complete(Unit) }
+                    }.also { began.await() }
+                }
+                jobs.awaitAll()
             }
 
             setPackageState(engine, AiModelInstallState.Verifying)
@@ -236,6 +255,8 @@ class AiModelStore internal constructor(
         }
         log.event("ai") { "${engine.name} deleted; in use=${_state.value.formulaEngine.name}" }
         scope.launch {
+            FormulaTokenizerDecoder.invalidate(File(packages.getValue(engine).directory,
+                AiModelCatalog.formulaArtifacts(engine).last().fileName))
             packages.getValue(engine).directory.deleteRecursively()
             editPreferences { it.copy(deletedFormulaEngines = it.deletedFormulaEngines + engine) }
         }
@@ -351,6 +372,9 @@ class AiModelStore internal constructor(
     }
 
     private fun installStagedDirectory(staging: File, destination: File) {
+        packages.values.firstOrNull { it.directory == destination }?.artifacts?.lastOrNull()?.let {
+            FormulaTokenizerDecoder.invalidate(File(destination, it.fileName))
+        }
         if (destination.exists()) destination.deleteRecursively()
         try {
             Files.move(staging.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)

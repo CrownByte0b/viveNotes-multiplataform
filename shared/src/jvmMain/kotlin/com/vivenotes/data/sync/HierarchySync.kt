@@ -202,6 +202,9 @@ class HierarchySync(
      * schedules it arrived in a pull that will never be replayed.
      */
     private var downloadsOutstanding = true
+    private var fullPictureReconciliation = true
+    private val changedPicturePages = linkedSetOf<String>()
+    private val unresolvedPicturePages = linkedSetOf<String>()
 
     /** Runs [block] on [dispatcher], serialized against every other entry point by [mutex]. */
     private suspend inline fun <T> serialized(crossinline block: suspend () -> T): T =
@@ -250,11 +253,13 @@ class HierarchySync(
                         if (!page.hasMore) {
                             markCaughtUp(account.accountId)
                             dropStarterSupersededByAccount()
-                            val attachmentsReady = materializeReferencedRemoteAttachments()
+                            val attachmentsReady = if (applied.picturesChanged || downloadsOutstanding) {
+                                materializeReferencedRemoteAttachments()
+                            } else 0
                             // Download only after the stream reaches a stable cursor. A pageContent
                             // can precede its attachment metadata in an older delta, and scanning
                             // after every page would repeat the same presence work.
-                            if (applied.count > 0 || attachmentsReady > 0 || downloadsOutstanding) {
+                            if (applied.picturesChanged || attachmentsReady > 0 || downloadsOutstanding) {
                                 val downloads = blobs.downloadMissing(account)
                                 pictures += downloads.downloaded
                                 downloadsOutstanding = downloads.workRemains
@@ -347,6 +352,8 @@ class HierarchySync(
     suspend fun run(account: SyncAccount): SyncRunResult = serialized {
         try {
             activateLocked(account.accountId)
+            fullPictureReconciliation = true
+            blobs.reconcileFiles()
             forgetBlobVerdicts()
 
             var pulled = 0
@@ -564,7 +571,8 @@ class HierarchySync(
         val discardedPictures = mutableListOf<String>()
         db.withTransaction {
             sync.setApplyingRemote(true)
-            applicable.forEach { change -> applyPulledChange(change) }
+            val parents = DeferredParents()
+            applicable.forEach { change -> applyPulledChange(change, parents) }
             invalidateInkText(remoteInkPages)
             applyPictureCounts()
             purged.forEach { (kind, id) -> discardedPictures += applyPurgeOrRemap(kind, id) }
@@ -575,7 +583,10 @@ class HierarchySync(
         if (discardedPictures.isNotEmpty()) blobs.discard(discardedPictures)
         publishRemoteInk()
 
-        return IncomingPageResult.Applied(applicable.size)
+        if (purged.isNotEmpty()) fullPictureReconciliation = true
+        return IncomingPageResult.Applied(applicable.size, purged.isNotEmpty() || applicable.any {
+            it.kind == SyncKind.PageContent || it.kind == SyncKind.Attachment
+        })
     }
 
     private suspend fun pullIfNeeded(account: SyncAccount): PhaseResult {
@@ -651,7 +662,8 @@ class HierarchySync(
             val discardedPictures = mutableListOf<String>()
             db.withTransaction {
                 sync.setApplyingRemote(true)
-                applicable.forEach { change -> applyPulledChange(change) }
+                val parents = DeferredParents()
+                applicable.forEach { change -> applyPulledChange(change, parents) }
                 invalidateInkText(remoteInkPages)
                 applyPictureCounts()
                 // Last, and after both passes above. A purge is the account's final word on an id,
@@ -784,7 +796,7 @@ class HierarchySync(
     /** How [admit] names a row. The kind is part of it because a page and its body share an id. */
     private fun keyOf(kind: SyncKind, id: String): String = kind.wire + ":" + id
 
-    private suspend fun applyPulledChange(remote: RemoteChange) {
+    private suspend fun applyPulledChange(remote: RemoteChange, parents: DeferredParents) {
         sync.putEntityState(remote.asEntityState())
 
         // A server row newer than this device's base wins the plain whole-entity OCC decision.
@@ -797,14 +809,26 @@ class HierarchySync(
         // entity-state table above and the row is materialized only once the complete delta shows a
         // retained body uses it. The same gate drops page payload and ink for a notebook this
         // installation first discovered after it had already been closed.
-        if (remote.kind != SyncKind.Attachment && !belongsToDeferredNotebook(remote)) {
+        if (remote.kind != SyncKind.Attachment && !belongsToDeferredNotebook(remote, parents)) {
             applyRemoteRow(remote)
+        }
+        when (remote.kind) {
+            SyncKind.Notebook -> parents.deferred.remove(remote.id)
+            SyncKind.Section -> parents.notebookForSection.remove(remote.id)
+            SyncKind.Page -> parents.sectionForPage.remove(remote.id)
+            else -> Unit
         }
         sync.deleteOutbox(remote.kind.wire, remote.id)
     }
 
     /** Whether this payload belongs to a notebook whose bytes this installation did not request. */
-    private suspend fun belongsToDeferredNotebook(change: RemoteChange): Boolean {
+    private class DeferredParents {
+        val sectionForPage = HashMap<String, String?>()
+        val notebookForSection = HashMap<String, String?>()
+        val deferred = HashMap<String, Boolean>()
+    }
+
+    private suspend fun belongsToDeferredNotebook(change: RemoteChange, cache: DeferredParents): Boolean {
         val pageId = when (change.kind) {
             SyncKind.PageContent,
             SyncKind.InkStroke,
@@ -818,9 +842,9 @@ class HierarchySync(
             SyncKind.Attachment,
             -> return false
         }
-        val sectionId = pages.byId(pageId)?.sectionId ?: return false
-        val notebookId = sections.byId(sectionId)?.notebookId ?: return false
-        return metadata.value(deferredNotebookContentKey(notebookId)) != null
+        val sectionId = cache.sectionForPage.getOrPut(pageId) { pages.byId(pageId)?.sectionId } ?: return false
+        val notebookId = cache.notebookForSection.getOrPut(sectionId) { sections.byId(sectionId)?.notebookId } ?: return false
+        return cache.deferred.getOrPut(notebookId) { metadata.value(deferredNotebookContentKey(notebookId)) != null }
     }
 
     /**
@@ -1144,15 +1168,11 @@ class HierarchySync(
     ): BlobPhase {
         var uploaded = 0
         var rebuild = false
-        changes.flatMap(::digestsNamedBy).distinct().forEach { digest ->
-            if (digest in undeliverableBlobs) {
-                // Given up on earlier in this same run. A `pageContent` snapshot has already had it
-                // filtered out, so this is reached by a change serialized before that verdict — the
-                // batch is rebuilt rather than sent to be rejected for a reason already known.
-                rebuild = true
-                return@forEach
-            }
-            when (val presence = blobs.ensureUploaded(account, digest, noRoomFrom = smallestNoRoom)) {
+        val digests = changes.flatMap(::digestsNamedBy).distinct()
+        val offered = digests.filterNot(undeliverableBlobs::contains)
+        rebuild = offered.size != digests.size
+        for ((digest, presence) in blobs.ensureUploadedTogether(account, offered, noRoomFrom = smallestNoRoom)) {
+            when (presence) {
                 is BlobPresence.Present -> if (presence.uploaded) uploaded++
                 BlobPresence.Undeliverable -> {
                     markUndeliverable(digest)
@@ -1184,6 +1204,7 @@ class HierarchySync(
         rejected: List<PendingChange>,
     ): BlobPhase {
         var uploaded = 0
+        val offered = mutableListOf<String>()
         rejected.flatMap(::digestsNamedBy).distinct().forEach { digest ->
             if (digest in undeliverableBlobs) return@forEach
             if (!repairedBlobs.add(digest)) {
@@ -1191,14 +1212,10 @@ class HierarchySync(
                 markUndeliverable(digest)
                 return@forEach
             }
-            when (
-                val presence = blobs.ensureUploaded(
-                    account,
-                    digest,
-                    force = true,
-                    noRoomFrom = smallestNoRoom,
-                )
-            ) {
+            offered += digest
+        }
+        for ((digest, presence) in blobs.ensureUploadedTogether(account, offered, force = true, noRoomFrom = smallestNoRoom)) {
+            when (presence) {
                 is BlobPresence.Present -> if (presence.uploaded) uploaded++
                 BlobPresence.Undeliverable -> markUndeliverable(digest)
                 // The rejected change is still queued, and the next batch is built without it.
@@ -1304,27 +1321,40 @@ class HierarchySync(
         // Rows waiting for room are passed over, and the read reaches that many rows further so they
         // never crowd out what is queued behind them. A read that turns up nothing but newly found
         // ones reads again, further; one that reaches the end of the queue stops.
-        do {
-            val limit = MAX_PUSH_CHANGES + waitingForRoom.size
-            val rows = sync.outbox(limit)
-            for (row in rows) {
-                if (changes.size == MAX_PUSH_CHANGES) break
-                val key = row.kind to row.entityId
-                if (waitingForRoom[key] == row.generation) continue
-                val change = snapshot(row)
-                if (digestsNamedBy(change).any(noRoomBlobs::contains)) {
-                    waitingForRoom[key] = row.generation
-                    continue
+        var full = false
+        for (kind in com.vivenotes.data.db.SYNC_OUTBOX_ORDER) {
+            var afterId: String? = null
+            while (!full) {
+                val rows = afterId?.let { sync.outboxKindAfter(kind, it, MAX_PUSH_CHANGES) }
+                    ?: sync.outboxKind(kind, MAX_PUSH_CHANGES)
+                if (rows.isEmpty()) break
+                for (row in rows) {
+                    val key = row.kind to row.entityId
+                    if (waitingForRoom[key] == row.generation) continue
+                    val change = snapshot(row)
+                    if (digestsNamedBy(change).any(noRoomBlobs::contains)) {
+                        waitingForRoom[key] = row.generation
+                        continue
+                    }
+                    val addition = change.payload.toString().encodeToByteArray().size +
+                        if (changes.isEmpty()) 0 else 1
+                    if (changes.isNotEmpty() && encodedSize + addition > MAX_SYNC_PUSH_BYTES) {
+                        full = true
+                        break
+                    }
+                    changes += change
+                    encodedSize += addition
+                    if (changes.size == MAX_PUSH_CHANGES) { full = true; break }
                 }
-                val addition = change.payload.toString().encodeToByteArray().size +
-                    if (changes.isEmpty()) 0 else 1
-                // A first row is still admitted so the transport/server can return the permanent
-                // size verdict instead of leaving it queued behind an empty batch.
-                if (changes.isNotEmpty() && encodedSize + addition > MAX_SYNC_PUSH_BYTES) break
-                changes += change
-                encodedSize += addition
+                afterId = rows.last().entityId
+                if (rows.size < MAX_PUSH_CHANGES) break
             }
-        } while (changes.isEmpty() && rows.size == limit)
+            if (full) break
+        }
+        if (!full) {
+            // Unknown kinds remain a visible local-data failure instead of being silently stranded.
+            sync.unknownOutboxKinds(1).firstOrNull()?.let { snapshot(it) }
+        }
         if (changes.isEmpty()) return@withTransaction null
         val pending = PendingBatch(
             batchId = batchId,
@@ -1669,6 +1699,7 @@ class HierarchySync(
                 ),
             )
             SyncKind.PageContent -> {
+                changedPicturePages += change.id
                 // Read before the write, because the two documents together are what say which
                 // pictures this page stopped showing and which it started.
                 val replaced = contents.byId(change.id)
@@ -1775,7 +1806,7 @@ class HierarchySync(
              * it here too.
              */
             SyncKind.Attachment -> if (change.deletedAt == null) {
-                attachments.insert(attachmentEntity(change, refCount = 0))
+                if (attachments.insert(attachmentEntity(change, refCount = 0)) != -1L) blobs.noteAttachments(listOf(change.id))
             }
         }
     }
@@ -1802,22 +1833,25 @@ class HierarchySync(
      * if this process resumed on an otherwise empty final page.
      */
     private suspend fun materializeReferencedRemoteAttachments(): Int {
+        val requested = changedPicturePages + unresolvedPicturePages
+        val bodies = if (fullPictureReconciliation) contents.picturePlacingBodies() else {
+            if (requested.isEmpty()) return 0
+            requested.toList().chunked(SQLITE_BIND_CHUNK).flatMap { contents.byIds(it) }
+        }
+        val referencesByPage = bodies.associate { body -> body.pageId to DocumentPictures.idsIn(body.docJson, body.format) }
         val referenceCounts = linkedMapOf<String, Int>()
-        contents.picturePlacingBodies().forEach { body ->
-            DocumentPictures.idsIn(body.docJson, body.format).forEach { id ->
+        referencesByPage.values.forEach { ids ->
+            ids.forEach { id ->
                 referenceCounts[id] = referenceCounts.getOrDefault(id, 0) + 1
             }
         }
-        if (referenceCounts.isEmpty()) return 0
-
         val present = referenceCounts.keys.chunked(SQLITE_BIND_CHUNK)
             .flatMap { ids -> attachments.byIds(ids) }
             .mapTo(hashSetOf()) { row -> row.id }
         val missing = referenceCounts.keys - present
-        if (missing.isEmpty()) return 0
-
         var inserted = 0
-        db.withTransaction {
+        val newlyInserted = mutableListOf<String>()
+        if (missing.isNotEmpty()) db.withTransaction {
             sync.setApplyingRemote(true)
             missing.forEach { id ->
                 val state = sync.entityState(SyncKind.Attachment.wire, id)
@@ -1831,10 +1865,17 @@ class HierarchySync(
                     ) != -1L
                 ) {
                     inserted++
+                    newlyInserted += id
+                    present += id
                 }
             }
             sync.setApplyingRemote(false)
         }
+        blobs.noteAttachments(newlyInserted)
+        unresolvedPicturePages.removeAll(requested)
+        referencesByPage.forEach { (pageId, ids) -> if (ids.any { it !in present }) unresolvedPicturePages += pageId }
+        changedPicturePages.removeAll(requested)
+        fullPictureReconciliation = false
         if (inserted > 0) {
             DebugLog.i(DebugLog.DB) { "Sync: stored metadata for $inserted pulled picture(s)" }
         }
@@ -1877,8 +1918,7 @@ class HierarchySync(
         }
         pictureRecounts.clear()
         deltas.forEach { (id, delta) ->
-            repeat(delta.coerceAtLeast(0)) { attachments.retain(id) }
-            repeat((-delta).coerceAtLeast(0)) { attachments.release(id) }
+            if (delta != 0) attachments.adjustReferences(id, delta)
         }
     }
 
@@ -2071,6 +2111,7 @@ class HierarchySync(
         fun asAcceptedState(version: Long): SyncEntityStateEntity {
             val accepted = payload.toMutableMap().apply {
                 remove("baseVersion")
+                if (kind == "inkStroke" || kind == "inkErase" || kind == "inkMove") remove("points")
                 this["version"] = JsonPrimitive(version)
             }
             return SyncEntityStateEntity(kind, id, version, JsonObject(accepted).toString())
@@ -2117,7 +2158,7 @@ class HierarchySync(
     }
 
     private sealed interface IncomingPageResult {
-        data class Applied(val count: Int) : IncomingPageResult
+        data class Applied(val count: Int, val picturesChanged: Boolean) : IncomingPageResult
 
         data class Stopped(val reason: PermanentSyncFailure) : IncomingPageResult
     }

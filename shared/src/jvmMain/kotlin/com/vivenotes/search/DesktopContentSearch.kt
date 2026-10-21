@@ -7,24 +7,43 @@ import com.vivenotes.data.db.AttachmentTextEntity
 import com.vivenotes.data.db.ImageTextStatus
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.model.JsonDocumentCodec
+import com.vivenotes.model.PageDoc
+import com.vivenotes.model.migrated
 import com.vivenotes.model.search.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.TimeSource
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class DesktopContentSearch(
+class DesktopContentSearch private constructor(
     private val repository: NotesRepository,
     private val attachments: AttachmentStore,
-    private val pool: SearchProcessPool = SearchProcessPool(),
-    private val log: DebugLog = DebugLog(),
+    private val pool: SearchProcessPool,
+    private val log: DebugLog,
+    private val execute: suspend (WorkerRequest) -> WorkerReply,
 ) : ContentSearchService, AutoCloseable {
-    private data class Projection(val request: WorkerRequest, val reply: WorkerReply)
+    constructor(repository: NotesRepository, attachments: AttachmentStore,
+        pool: SearchProcessPool = SearchProcessPool(), log: DebugLog = DebugLog()) :
+        this(repository, attachments, pool, log, pool::execute)
+
+    internal constructor(repository: NotesRepository, attachments: AttachmentStore, pool: SearchProcessPool,
+        execute: suspend (WorkerRequest) -> WorkerReply) : this(repository, attachments, pool, DebugLog(), execute)
+
+    private data class Projection(val source: Any, val reply: WorkerReply)
+    private data class LiveSource(val pageId: String, val sectionId: String, val title: String, val document: PageDoc)
     private val projected = ConcurrentHashMap<String, Projection>()
+    private val matchKeys = SearchChunkKeys()
+    private val indexing = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val imageLanes = Semaphore((pool.parallelism - 1).coerceAtLeast(2))
+    private val indexingQueue = Semaphore(pool.parallelism * 2)
+    private data class ImageKey(val attachment: String, val engine: String = IMAGE_ENGINE)
+    private val readings = LinkedHashMap<ImageKey, Deferred<AttachmentTextEntity>>(16, .75f, true)
 
     override fun search(request: SearchRequest): Flow<SearchResults> {
         if (request.query.isBlank()) return flowOf(SearchResults())
@@ -46,22 +65,31 @@ class DesktopContentSearch(
         projected.keys.retainAll(pages.map { it.id }.toSet())
         val entries = parallelMap(pages) { page ->
             val live = page.id == request.livePageId && request.liveDocument != null
+            if (live) {
+                val source = LiveSource(page.id, page.sectionId, request.liveTitle, request.liveDocument!!)
+                return@parallelMap projected[page.id]?.takeIf { it.source == source }?.reply ?: run {
+                    val doc = source.document.migrated()
+                    WorkerReply(units = doc.contentUnits(page.id, page.sectionId, request.liveTitle),
+                        images = doc.imagePlacements(page.id, page.sectionId)).also {
+                        projected[page.id] = Projection(source, it)
+                    }
+                }
+            }
             val row = bodies[page.id]
             val command = WorkerRequest(SearchOperation.Project, pageId = page.id, sectionId = page.sectionId,
-                title = if (live) request.liveTitle else page.title,
-                body = if (live) JsonDocumentCodec.encodeToString(request.liveDocument!!) else row?.docJson,
-                codec = if (live) JsonDocumentCodec.id else row?.format ?: JsonDocumentCodec.id)
-            projected[page.id]?.takeIf { it.request == command }?.reply ?: pool.execute(command).also {
+                title = page.title, body = row?.docJson, codec = row?.format ?: JsonDocumentCodec.id)
+            projected[page.id]?.takeIf { it.source == command }?.reply ?: execute(command).also {
                 check(!it.failed) { Strings.document_worker_failed }
                 projected[page.id] = Projection(command, it)
             }
         }
         val placements = entries.flatMap { it.images }
-        val ids = placements.mapTo(mutableSetOf()) { it.attachmentId }
+        val placementsById = placements.groupBy { it.attachmentId }
+        val ids = placementsById.keys
         val cached = repository.imageTextFor(ids).filterValues { it.engine == IMAGE_ENGINE }
+        val cachedLines = cached.filterValues { it.status == ImageTextStatus.Read }.mapValues { it.value.text.lines() }
         val units = entries.flatMap { it.units } + placements.flatMap { placement ->
-            cached[placement.attachmentId]?.takeIf { it.status == ImageTextStatus.Read }
-                ?.let { imageUnits(placement, it.text.lines()) }.orEmpty()
+            cachedLines[placement.attachmentId]?.let { imageUnits(placement, it) }.orEmpty()
         }
         var candidates = match(units, request.query)
         var completed = cached.size
@@ -82,35 +110,58 @@ class DesktopContentSearch(
         if (pending.isNotEmpty()) log.event("search") { "OCR started: images=${pending.size}, processes=${pool.parallelism}" }
         val updates = Mutex()
         parallelMap(pending.toList()) { id ->
-            val started = TimeSource.Monotonic.markNow()
-            val reading = try {
-                val file = attachments.fileFor(id)?.takeIf { it.isFile }
-                if (file == null) WorkerReply(failed = true)
-                else pool.execute(WorkerRequest(SearchOperation.Ocr, imagePath = file.absolutePath))
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                WorkerReply(failed = true)
-            }
-            val status = when {
-                reading.failed -> ImageTextStatus.Failed
-                reading.text.isBlank() -> ImageTextStatus.Empty
-                else -> ImageTextStatus.Read
-            }
-            repository.storeImageText(AttachmentTextEntity(id, reading.text,
-                if (reading.text.isEmpty()) 0 else reading.text.lines().size,
-                reading.confidence, IMAGE_ENGINE, status, started.elapsedNow().inWholeMilliseconds,
-                System.currentTimeMillis()))
-            val newUnits = placements.filter { it.attachmentId == id }.flatMap { imageUnits(it, reading.text.lines()) }
+            val reading = imageReading(id).await()
+            val lines = reading.text.lines()
+            val newUnits = placementsById.getValue(id).flatMap { imageUnits(it, lines) }
             val hits = match(newUnits, request.query)
             updates.withLock {
                 candidates = ranked(candidates + hits)
                 completed++
-                if (reading.failed) failed++
+                if (reading.status == ImageTextStatus.Failed) failed++
                 send(result())
             }
         }
         log.event("search") { "query complete: hits=${candidates.size.coerceAtMost(MAX_HITS)}, images=${ids.size}, failed=$failed" }
+    }
+
+    private suspend fun imageReading(id: String): Deferred<AttachmentTextEntity> {
+        check(indexing.isActive) { Strings.search_has_been_closed }
+        val key = ImageKey(id)
+        synchronized(readings) { readings[key]?.let { return it } }
+        indexingQueue.acquire()
+        return synchronized(readings) {
+            readings[key]?.let { indexingQueue.release(); return@synchronized it }
+            val job = indexing.async(start = CoroutineStart.LAZY) {
+                    imageLanes.withPermit {
+                        val started = TimeSource.Monotonic.markNow()
+                        val reading = try {
+                            val file = attachments.fileFor(id)?.takeIf { it.isFile }
+                            if (file == null) WorkerReply(failed = true)
+                            else execute(WorkerRequest(SearchOperation.Ocr, imagePath = file.absolutePath))
+                        } catch (cancelled: CancellationException) { throw cancelled
+                        } catch (_: Exception) { WorkerReply(failed = true) }
+                        val status = when {
+                            reading.failed -> ImageTextStatus.Failed
+                            reading.text.isBlank() -> ImageTextStatus.Empty
+                            else -> ImageTextStatus.Read
+                        }
+                        AttachmentTextEntity(id, reading.text, if (reading.text.isEmpty()) 0 else reading.text.lines().size,
+                            reading.confidence, IMAGE_ENGINE, status, started.elapsedNow().inWholeMilliseconds,
+                            System.currentTimeMillis()).also { repository.storeImageText(it) }
+                    }
+            }
+            readings[key] = job
+            job.invokeOnCompletion { cause ->
+                indexingQueue.release()
+                if (cause != null) synchronized(readings) { if (readings[key] === job) readings.remove(key) }
+            }
+            while (readings.size > 128) {
+                val done = readings.entries.firstOrNull { it.key != key && it.value.isCompleted }?.key ?: break
+                readings.remove(done)
+            }
+            job.start()
+            job
+        }
     }
 
     private suspend fun match(units: List<ContentUnit>, query: String): List<ContentHit> {
@@ -118,7 +169,7 @@ class DesktopContentSearch(
         // Even one page with many text boxes spreads matching across multiple processes.
         val size = ((units.size + pool.parallelism - 1) / pool.parallelism).coerceIn(1, 128)
         return ranked(parallelMap(units.chunked(size)) { chunk ->
-            pool.execute(WorkerRequest(SearchOperation.Match, query = query, units = chunk)).also {
+            execute(WorkerRequest(SearchOperation.Match, query = query, units = chunk, matchKey = matchKeys.keyFor(chunk))).also {
                 check(!it.failed) { Strings.matching_worker_failed }
             }.hits
         }.flatten())
@@ -142,10 +193,19 @@ class DesktopContentSearch(
 
     override suspend fun retryFailedImages() {
         repository.retryFailedImageText()
+        synchronized(readings) {
+            readings.entries.removeAll { (_, job) -> job.isCompleted &&
+                runCatching { job.getCompleted() }.getOrNull().let { it == null || it.status == ImageTextStatus.Failed } }
+        }
         log.event("search") { "failed images queued for retry" }
     }
 
-    override fun close() = pool.close()
+    override fun close() {
+        indexing.cancel()
+        pool.close()
+        synchronized(readings) { readings.clear() }
+        projected.clear()
+    }
 
     companion object {
         const val IMAGE_ENGINE = "ppocrv6-small/5435fd74-d73e0058-b5f2bfe2/bgr-db/1"

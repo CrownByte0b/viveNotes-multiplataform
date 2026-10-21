@@ -362,18 +362,19 @@ object TextDetection {
      */
     fun <T> readingOrder(items: List<T>, quadOf: (T) -> Quad): List<T> {
         if (items.size <= 1) return items
-        val sorted = items.sortedWith(compareBy({ quadOf(it).top }, { quadOf(it).left }))
-        val rows = mutableListOf<MutableList<T>>()
-        sorted.forEach { item ->
-            val quad = quadOf(item)
+        data class Measured<T>(val item: T, val top: Float, val left: Float, val height: Float)
+        val sorted = items.map { item -> quadOf(item).let { Measured(item, it.top, it.left, it.height) } }
+            .sortedWith(compareBy({ it.top }, { it.left }))
+        val rows = mutableListOf<MutableList<Measured<T>>>()
+        sorted.forEach { quad ->
             val row = rows.firstOrNull { existing ->
-                val reference = quadOf(existing.first())
+                val reference = existing.first()
                 val tolerance = min(reference.height, quad.height) * ROW_TOLERANCE
                 abs(quad.top - reference.top) <= tolerance
             }
-            if (row == null) rows += mutableListOf(item) else row += item
+            if (row == null) rows += mutableListOf(quad) else row += quad
         }
-        return rows.flatMap { row -> row.sortedBy { quadOf(it).left } }
+        return rows.flatMap { row -> row.sortedBy { it.left }.map { it.item } }
     }
 
     private fun unrotate(along: Float, across: Float, ux: Float, uy: Float): Point =

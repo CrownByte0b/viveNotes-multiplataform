@@ -158,6 +158,40 @@ class AttachmentSweepTest {
     }
 
     @Test
+    fun oldVersionIndexWalksMultipleKeysetBatchesAndNeverRewritesAnExistingIndex() = runBlocking<Unit> {
+        val picture = importPicture("picture spanning old-version batches")
+        val pageId = newPage()
+        repository.saveDoc(pageId, docShowing(picture))
+        val original = checkNotNull(db.pageContentDao().byId(pageId))
+        val packed = DocumentRevisionPayload.pack(original, now,
+            InkRevisionPayload.pack(InkSnapshot.from(emptyList(), emptyList(), emptyList())))
+        repository.saveDoc(pageId, PageDoc.empty())
+        db.pageRevisionDao().deleteForPages(listOf(pageId))
+        val ids = (0 until 129).map { "version-${it.toString().padStart(3, '0')}" }
+        db.withTransaction {
+            ids.asReversed().forEachIndexed { index, id ->
+                db.pageRevisionDao().insert(packed.copy(id = id, createdAt = now - index, pictureIds = null))
+            }
+            db.pageRevisionDao().insert(packed.copy(id = "version-025-corrupt", payload = byteArrayOf(1), pictureIds = null))
+            db.pageRevisionDao().insert(packed.copy(id = "version-already-indexed"))
+        }
+        // An index computed by another worker after the batch read must never be overwritten.
+        db.pageRevisionDao().setPictureIds("version-already-indexed", "[]")
+        assertEquals(packed.pictureIds, db.pageRevisionDao().byId(pageId, "version-already-indexed")!!.pictureIds)
+
+        val first = sweep.sweep()
+        assertEquals(130, first.versionsIndexed)
+        assertEquals(0, db.pageRevisionDao().unindexedCount())
+        ids.forEach { id -> assertEquals(listOf(picture),
+            DocumentPictures.decode(db.pageRevisionDao().byId(pageId, id)!!.pictureIds!!)) }
+        assertEquals(emptyList<String>(), DocumentPictures.decode(
+            db.pageRevisionDao().byId(pageId, "version-025-corrupt")!!.pictureIds!!))
+        now += 2 * AttachmentSweep.RELEASED_FILE_GRACE_MILLIS
+        assertEquals(0, sweep.sweep().versionsIndexed)
+        assertTrue(pictures.fileFor(picture).exists())
+    }
+
+    @Test
     fun aReleaseIsPushedOnlyForARowTheServerHolds() = runBlocking {
         val synced = importPicture("synced")
         val neverSynced = importPicture("never synced")

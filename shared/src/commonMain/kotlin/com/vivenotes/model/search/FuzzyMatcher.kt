@@ -35,6 +35,14 @@ data class TextMatch(val score: Int, val spans: List<MatchSpan>) {
  */
 object FuzzyMatcher {
 
+    class PreparedQuery internal constructor(internal val terms: List<String>)
+    class PreparedText internal constructor(internal val text: String, internal val words: List<MatchSpan>)
+
+    fun prepareQuery(query: String): PreparedQuery =
+        PreparedQuery(folded(query.trim()).split(WHITESPACE).filter { it.isNotEmpty() })
+
+    fun prepareText(text: String): PreparedText = folded(text).let { PreparedText(it, wordsIn(it)) }
+
     /**
      * Scores [query] against [text], or returns null when some term does not appear at all.
      *
@@ -42,11 +50,16 @@ object FuzzyMatcher {
      * caller can highlight or select against the original.
      */
     fun match(query: String, text: String): TextMatch? {
-        val terms = folded(query.trim()).split(WHITESPACE).filter { it.isNotEmpty() }
-        if (terms.isEmpty() || text.isEmpty()) return null
+        val prepared = prepareQuery(query)
+        if (prepared.terms.isEmpty() || text.isEmpty()) return null
+        return match(prepared, prepareText(text))
+    }
 
-        val haystack = folded(text)
-        val words = wordsIn(haystack)
+    fun match(query: PreparedQuery, text: PreparedText): TextMatch? {
+        val terms = query.terms
+        val haystack = text.text
+        val words = text.words
+        if (terms.isEmpty() || haystack.isEmpty()) return null
 
         var total = 0
         val spans = mutableListOf<MatchSpan>()
@@ -72,29 +85,26 @@ object FuzzyMatcher {
 
     /** The common case: the term is simply there. Worth more where it starts or fills a word. */
     private fun substring(term: String, haystack: String, words: List<MatchSpan>): TextMatch? {
-        val at = haystack.indexOf(term)
-        if (at < 0) return null
-        // Prefer a later occurrence that starts a word over an earlier one buried mid-word: "cat"
-        // in "concatenate cat" is the second one.
-        var best = at
-        var bestScore = scoreSubstring(term, best, words)
-        var next = haystack.indexOf(term, best + 1)
+        var next = haystack.indexOf(term)
+        if (next < 0) return null
+        var best = next
+        var bestScore = -1
+        var wordIndex = 0
         while (next >= 0) {
-            val score = scoreSubstring(term, next, words)
+            while (wordIndex < words.size && words[wordIndex].end <= next) wordIndex++
+            val word = words.getOrNull(wordIndex)?.takeIf { next >= it.start }
+            val startsWord = word?.start == next
+            val wholeWord = startsWord && word?.length == term.length
+            val score = SUBSTRING + (if (startsWord) WORD_START_BONUS else 0) +
+                (if (wholeWord) WHOLE_WORD_BONUS else 0)
             if (score > bestScore) {
                 best = next
                 bestScore = score
             }
+            if (wholeWord) break
             next = haystack.indexOf(term, next + 1)
         }
         return TextMatch(bestScore, listOf(MatchSpan(best, best + term.length)))
-    }
-
-    private fun scoreSubstring(term: String, at: Int, words: List<MatchSpan>): Int {
-        val word = words.firstOrNull { at >= it.start && at < it.end }
-        val startsWord = word != null && word.start == at
-        val wholeWord = word != null && word.start == at && word.length == term.length
-        return SUBSTRING + (if (startsWord) WORD_START_BONUS else 0) + (if (wholeWord) WHOLE_WORD_BONUS else 0)
     }
 
     /**
@@ -137,13 +147,18 @@ object FuzzyMatcher {
      */
     private fun prefixDistance(term: String, haystack: String, word: MatchSpan, budget: Int): Int? {
         val rows = term.length
-        val columns = word.length
-        var previous = IntArray(columns + 1) { it }
-        var current = IntArray(columns + 1)
+        val columns = min(word.length, rows + budget)
+        val outside = budget + 1
+        var previous = IntArray(columns + 1) { min(it, outside) }
+        var current = IntArray(columns + 1) { outside }
         for (row in 1..rows) {
-            current[0] = row
+            current[0] = min(row, outside)
             var rowBest = current[0]
-            for (column in 1..columns) {
+            val first = max(1, row - budget)
+            val last = min(columns, row + budget)
+            if (first > last) return null
+            if (first > 1) current[first - 1] = outside
+            for (column in first..last) {
                 val substitution = if (term[row - 1] == haystack[word.start + column - 1]) 0 else 1
                 current[column] = min(
                     min(previous[column] + 1, current[column - 1] + 1),
@@ -151,6 +166,7 @@ object FuzzyMatcher {
                 )
                 rowBest = min(rowBest, current[column])
             }
+            if (last < columns) current[last + 1] = outside
             if (rowBest > budget) return null
             val swap = previous
             previous = current
@@ -158,7 +174,7 @@ object FuzzyMatcher {
         }
         // Every column of the last row is the distance to one prefix; the shortest wins. Column 0 is
         // excluded: matching the empty prefix is matching nothing.
-        val best = (1..columns).minOf { previous[it] }
+        val best = (max(1, rows - budget)..min(columns, rows + budget)).minOf { previous[it] }
         return best.takeIf { it <= budget }
     }
 
@@ -238,7 +254,7 @@ object FuzzyMatcher {
     private val WHITESPACE = Regex("\\s+")
 
     // Character folding preserves UTF-16 offsets when a full Unicode lowercase expands a letter.
-    private fun folded(text: String) = text.map { it.lowercaseChar() }.joinToString("")
+    private fun folded(text: String) = buildString(text.length) { text.forEach { append(it.lowercaseChar()) } }
 
     // The three tiers, far enough apart that no combination of bonuses lets a lower tier
     // outrank a higher one.

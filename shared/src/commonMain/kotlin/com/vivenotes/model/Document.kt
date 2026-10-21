@@ -22,6 +22,8 @@ data class PageDoc(
     val outlines: List<Outline> = emptyList(),
     val style: PageStyle = PageStyle(),
 ) {
+    internal val textIndex: DocumentTextIndex by lazy(LazyThreadSafetyMode.PUBLICATION) { DocumentTextIndex(outlines) }
+
     companion object {
         /**
          * 2 — outline coordinates are measured from the page's top-left corner.

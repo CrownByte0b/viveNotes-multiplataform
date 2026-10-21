@@ -27,6 +27,7 @@ internal data class WorkerRequest(
     val codec: String = DocumentCodecs.default.id,
     val query: String = "",
     val units: List<ContentUnit> = emptyList(),
+    val matchKey: String = "",
     val imagePath: String? = null,
 )
 
@@ -40,6 +41,7 @@ internal data class WorkerReply(
     val confidence: Float = 0f,
     val failed: Boolean = false,
     val unreadable: Boolean = false,
+    val cacheMiss: Boolean = false,
 )
 
 /** A separate JVM with no database access; stdout carries only the private request protocol. */
@@ -51,6 +53,7 @@ object SearchWorker {
         System.setOut(System.err)
         var models: AiModelStore? = null
         var engine: OnnxInkRecognitionEngine? = null
+        val matches = PreparedSearchChunks()
         try {
             System.`in`.bufferedReader(Charsets.UTF_8).useLines { lines ->
                 lines.forEach { line ->
@@ -58,7 +61,7 @@ object SearchWorker {
                         val request = Json.decodeFromString<WorkerRequest>(line)
                         when (request.operation) {
                             SearchOperation.Project -> project(request)
-                            SearchOperation.Match -> WorkerReply(hits = searchContent(request.units, request.query, MAX_HITS + 1))
+                            SearchOperation.Match -> matches.match(request)
                             SearchOperation.Ocr -> {
                                 if (engine == null) {
                                     // OCR is read from resources. No directory is created, including

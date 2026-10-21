@@ -3,6 +3,7 @@ package com.vivenotes.data.sync
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.io.File
 
 /**
@@ -35,7 +36,7 @@ class TemporaryAttachmentBytes(private val directory: File) : AttachmentBytes {
             staged.delete()
             return false
         }
-        _arrivals.value += 1
+        _arrivals.update { it + 1 }
         return true
     }
 

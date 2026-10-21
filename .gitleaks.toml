@@ -38,3 +38,20 @@ regexes = [
   '''^\s*"shared/src/commonMain/kotlin/com/vivenotes/workspace/KeyBindings\.kt":\s*"cfff839e98c37803607c8ac5ff2246858fa5663ffac960a3528ff7abf9e69601",?\s*$''',
   '''^\s*"shared/src/jvmMain/kotlin/com/vivenotes/ai/FormulaTokenizerDecoder\.kt":\s*"5231334bee94e341e7682322b6af4faa58cdcf26fc5bc7fe8fe37e52c78a5127",?\s*$''',
 ]
+
+[[allowlists]]
+description = "Exact source SHA-256 entries in the two frozen optimized 2026-10-21 benchmark manifests"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^benchmarks/results/2026-10-21-optimized/environment\.json$''',
+  '''^benchmarks/results/2026-10-21-optimized-final/environment\.json$''',
+]
+regexTarget = "line"
+regexes = [
+  '''^\s*"desktopApp/src/main/kotlin/com/vivenotes/desktop/KeyBindingsFile\.kt":\s*"6ee0ae4032d81428166c1bd374fa81b30f929f8fe63752c7182d0663d13b0336",?\s*$''',
+  '''^\s*"shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/TextCaretKeys\.kt":\s*"224fe997cf323d37c058db7183f1bf18a02210fe60ad4cd58a4ec02c472fd227",?\s*$''',
+  '''^\s*"shared/src/commonMain/kotlin/com/vivenotes/ui/keyboard/ShortcutKeys\.kt":\s*"1f714c574bc297930e253cc280fa8a2ff67c30c5404c73132252d185cb0b7752",?\s*$''',
+  '''^\s*"shared/src/commonMain/kotlin/com/vivenotes/workspace/KeyBindings\.kt":\s*"cfff839e98c37803607c8ac5ff2246858fa5663ffac960a3528ff7abf9e69601",?\s*$''',
+  '''^\s*"shared/src/jvmMain/kotlin/com/vivenotes/ai/FormulaTokenizerDecoder\.kt":\s*"1149ebfe992c2ce7c3851a21f0d7cccbd8b068f2438777cf72c7f652e6423f70",?\s*$''',
+]

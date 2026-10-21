@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Color
 import org.jetbrains.skia.EncodedImageFormat
@@ -93,7 +94,7 @@ class AttachmentStore(
                 staged.delete()
                 return false
             }
-            _arrivals.value += 1
+            _arrivals.update { it + 1 }
             return true
         }
 
@@ -143,10 +144,12 @@ class AttachmentStore(
         // cannot leave a truncated file under the name its hash promises.
         if (!file.exists()) {
             directory.mkdirs()
-            val staging = File(directory, "$id.part")
-            staging.writeBytes(encoded.bytes)
-            Files.move(staging.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING)
+            val staging = File.createTempFile("$id-", ".part", directory)
+            try {
+                staging.writeBytes(encoded.bytes)
+                Files.move(staging.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING)
+            } finally { staging.delete() }
         }
         db.withTransaction {
             attachments.insert(

@@ -84,7 +84,10 @@ class WorkspaceSession(
 
     /** What storage holds for each open body: autosave writes only a page that differs from it. */
     private val stored = mutableMapOf<String, PageDoc>()
-    private val loading = mutableSetOf<String>()
+    private val loading = mutableMapOf<String, Any>()
+    private var bodyObservation: Job? = null
+    private var bodyObservationPage: String? = null
+    private var bodyObservationToken: Any? = null
 
     /** Deleted here and perhaps not yet in storage: a list read meanwhile must not bring them back. */
     private val deleting = mutableSetOf<String>()
@@ -153,15 +156,6 @@ class WorkspaceSession(
             // The page list already follows sync, so a pulled preview could say "xw" while the open
             // canvas stayed blank. The open body is observed on its own and taken over only when it
             // is not this session's own write coming back.
-            launch {
-                current.map { it?.selectedPageId.orEmpty() }
-                    .distinctUntilChanged()
-                    .flatMapLatest { pageId ->
-                        if (pageId.isEmpty()) emptyFlow() else store.observeDoc(pageId).map { pageId to it }
-                    }
-                    .catch { log.failure("sync", "open page observation", it) }
-                    .collect { (pageId, load) -> acceptStoredDocument(pageId, load) }
-            }
             // The same for the page's ink, which storage cannot report without also reporting every
             // stroke drawn here: sync says which pages it wrote ink into instead.
             remoteInk?.let { signal ->
@@ -868,7 +862,7 @@ class WorkspaceSession(
                     }
                     if (saved == null) break
                     current.value = current.value?.let { it.copy(
-                        pendingInkEdits = it.pendingInkEdits.filterNot { edit -> edit.id == pending.id },
+                        pendingInkEdits = it.pendingInkEdits.acknowledgeFirstInk(pending.id),
                     ) }
                     log.event("ink") { when (pending.edit) {
                         is com.vivenotes.data.InkEdit.AddStroke -> "stroke saved"
@@ -928,10 +922,41 @@ class WorkspaceSession(
     }
 
     private fun load(pageId: String) {
-        if (!loading.add(pageId)) return
+        if (pageId in loading) return
+        val request = Any()
+        loading[pageId] = request
         enqueue {
-            val load = attempt(Strings.this_page_could_not_be_opened) { store.loadDoc(pageId) }
-            loading.remove(pageId)
+            if (loading[pageId] !== request) return@enqueue
+            if (current.value?.selectedPageId != pageId) {
+                loading.remove(pageId)
+                return@enqueue
+            }
+            bodyObservation?.cancel()
+            val token = Any()
+            bodyObservationToken = token
+            bodyObservationPage = pageId
+            val first = CompletableDeferred<PageLoad?>()
+            var latest: PageLoad? = null
+            bodyObservation = scope.launch {
+                try {
+                    store.observeDoc(pageId).collect { load ->
+                        if (bodyObservationToken !== token || current.value?.selectedPageId != pageId) return@collect
+                        latest = load
+                        if (first.isCompleted) acceptStoredDocument(pageId, load) else first.complete(load)
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    if (!first.isCompleted) first.completeExceptionally(failure)
+                    else fail(Strings.this_page_could_not_be_opened, failure)
+                } finally {
+                    // A navigation cancelling an initial read must not strand the ordered queue.
+                    first.complete(null)
+                }
+            }
+            val load = attempt(Strings.this_page_could_not_be_opened) { first.await(); latest }
+            if (loading[pageId] !== request) return@enqueue
+            if (loading[pageId] === request) loading.remove(pageId)
             if (load != null) {
                 log.event("storage") { "page loaded (${if (load is PageLoad.Loaded) "editable" else "unreadable"})" }
                 if (load is PageLoad.Unreadable) log.failure("storage", "page decode", load.cause)
@@ -977,6 +1002,13 @@ class WorkspaceSession(
 
     /** A page that is no longer open gives up its body; the next opening reads storage again. */
     private fun unload(pageId: String) {
+        loading.remove(pageId)
+        if (bodyObservationPage == pageId) {
+            bodyObservationToken = null
+            bodyObservationPage = null
+            bodyObservation?.cancel()
+            bodyObservation = null
+        }
         stored.remove(pageId)
         ownBodies.remove(pageId)
         val state = current.value ?: return

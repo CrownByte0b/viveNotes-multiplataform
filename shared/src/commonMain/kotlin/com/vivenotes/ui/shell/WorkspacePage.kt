@@ -4,7 +4,14 @@ import com.vivenotes.diagnostics.DebugLog
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.key.KeyEvent
 import com.vivenotes.data.PictureLibrary
@@ -43,6 +50,16 @@ internal fun WorkspacePage(
     onLinkRequest: (LinkEditorRequest) -> Unit,
     debugLog: DebugLog = DebugLog(),
 ) {
+    val latestState by rememberUpdatedState(state)
+    val latestOnStateChange by rememberUpdatedState(onStateChange)
+    val selectionScope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val selectionWorker = remember(selectionScope) { CanvasSelectionWorker(selectionScope) }
+    val selectionContext = CanvasSelectionContext(state.selectedPageId, state.objectLassoArmed,
+        state.textToolArmed, state.shapeToolArmed, state.inkTool, state.drawPlacement,
+        state.activePenIndex, view.zoom, input.drawWithFinger, density.density, density.fontScale)
+    SideEffect { selectionWorker.updateContext(selectionContext) }
+    DisposableEffect(selectionWorker) { onDispose { selectionWorker.close() } }
     PageCanvas(
         state = state,
         searchHit = searchHit,
@@ -125,7 +142,15 @@ internal fun WorkspacePage(
         },
         onEquationChange = { equation -> onStateChange { it.updateSelectedEquation(equation.latex, equation.width, equation.height) } },
         onImageBackground = { argb -> onStateChange { it.setSelectedImageBackground(argb) } },
-        onSelectObjectsInLasso = { path, heights -> onStateChange { it.selectObjectsInLasso(path, heights) } },
+        onSelectObjectsInLasso = { path, heights ->
+            val captured = latestState
+            if (captured.preparesCanvasLassoOffThread(path.size))
+                selectionWorker.submit(captured, path, heights) { command -> latestOnStateChange(command) }
+            else {
+                selectionWorker.cancel()
+                latestOnStateChange { it.selectObjectsInLasso(path, heights) }
+            }
+        },
         onSelectObjectsInRect = { l, t, r, b ->
             onStateChange { it.selectObjectsInRect(l, t, r, b) }
         },

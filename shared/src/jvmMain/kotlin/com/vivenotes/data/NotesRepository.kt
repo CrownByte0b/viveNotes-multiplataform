@@ -4,10 +4,12 @@ package com.vivenotes.data
 import com.vivenotes.localization.Strings
 import androidx.room.immediateTransaction
 import androidx.room.useWriterConnection
+import androidx.room.useReaderConnection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import com.vivenotes.data.db.StrokeColor
 import com.vivenotes.ink.withDesktopEdits
@@ -71,6 +73,7 @@ class NotesRepository(
     private val codec: TextDocumentCodec = DocumentCodecs.default,
     /** Injectable so checkpoint-window behavior has deterministic tests. */
     private val clock: () -> Long = System::currentTimeMillis,
+    private val cpu: CoroutineDispatcher = Dispatchers.Default,
 ) : NotesStore, InkWriter {
 
     private val notebooks = db.notebookDao()
@@ -86,6 +89,7 @@ class NotesRepository(
     private val deletionRecovery = db.deletionRecoveryDao()
     private val deletionPurge = db.deletionPurgeDao()
     private val sync = db.syncDao()
+    private val documentDecodes = DecodedDocumentCache()
 
     override fun observeTree(): Flow<List<NotebookWithSections>> = notebooks.observeTree()
 
@@ -100,7 +104,7 @@ class NotesRepository(
      */
     override fun observeDoc(pageId: String): Flow<PageLoad> = contents.observeById(pageId)
         .distinctUntilChanged()
-        .map(::decodeDoc)
+        .map { decodeDoc(it) }
 
     /**
      * Every currently actionable deletion, newest first.
@@ -204,8 +208,18 @@ class NotesRepository(
         return pages.inNotebook(notebookId)
     }
     suspend fun sectionsInNotebook(notebookId: String) = sections.inNotebook(notebookId)
-    suspend fun searchBodies(pageIds: List<String>): List<PageContentEntity> =
-        pageIds.chunked(400).flatMap { contents.byIds(it) }
+    suspend fun searchBodies(pageIds: List<String>): List<PageContentEntity> {
+        if (pageIds.isEmpty()) return emptyList()
+        val snapshot = db.searchBodySnapshots ?: return pageIds.chunked(400).flatMap { contents.byIds(it) }
+        // Initialize/validate Room's schema and honor close before opening the independent reader.
+        val withinTransaction = db.useReaderConnection { connection ->
+            val active = connection.inTransaction()
+            connection.usePrepared("SELECT 1") { it.step() }
+            active
+        }
+        if (withinTransaction) return pageIds.chunked(400).flatMap { contents.byIds(it) }
+        return withContext(Dispatchers.IO) { snapshot.read(pageIds) }
+    }
 
     fun observeSearchChanges() = db.invalidationTracker.createFlow("notebooks", "sections", "pages", "page_content", "attachments")
 
@@ -599,16 +613,18 @@ class NotesRepository(
         return decodeDoc(contents.byId(pageId))
     }
 
-    private fun decodeDoc(row: PageContentEntity?): PageLoad {
-        if (row == null) return PageLoad.Loaded(PageDoc.empty())
+    private suspend fun decodeDoc(row: PageContentEntity?): PageLoad = withContext(cpu) {
+        if (row == null) return@withContext PageLoad.Loaded(PageDoc.empty())
         // Decode with the codec that wrote the row, not the current default, so a format change
         // does not orphan everything written before it.
-        val rowCodec = DocumentCodecs.byId(row.format)
-            ?: return PageLoad.Unreadable(row.docJson, IllegalStateException("unknown format '${row.format}'"))
-        return runCatching { rowCodec.decode(row.docJson.encodeToByteArray()) }.fold(
-            onSuccess = { PageLoad.Loaded(it.migrated()) },
-            onFailure = { PageLoad.Unreadable(row.docJson, it) },
-        )
+        documentDecodes.get(row.format, row.docJson) {
+            val rowCodec = DocumentCodecs.byId(row.format)
+            if (rowCodec == null) PageLoad.Unreadable(row.docJson, IllegalStateException("unknown format '${row.format}'"))
+            else runCatching { rowCodec.decode(row.docJson.encodeToByteArray()) }.fold(
+                onSuccess = { PageLoad.Loaded(it.migrated()) },
+                onFailure = { PageLoad.Unreadable(row.docJson, it) },
+            )
+        }
     }
 
     override suspend fun saveDoc(pageId: String, doc: PageDoc) = writeDoc(pageId, doc)
@@ -620,14 +636,14 @@ class NotesRepository(
     override suspend fun loadRevision(pageId: String, revisionId: String): PageRevisionLoad {
         val row = revisions.byId(pageId, revisionId) ?: return PageRevisionLoad.NotFound
         val summary = DocumentRevisionPayload.summary(row)
-        return runCatching {
+        return withContext(cpu) { runCatching {
             val doc = DocumentRevisionPayload.unpack(row)
             InkRevisionPayload.unpack(row)
             PageRevisionLoad.Loaded(summary, doc)
         }.fold(
             onSuccess = { it },
             onFailure = { PageRevisionLoad.Unreadable(summary, it) },
-        )
+        ) }
     }
 
     /**
@@ -637,16 +653,15 @@ class NotesRepository(
     override suspend fun restoreRevision(pageId: String, revisionId: String): PageRevisionLoad {
         val row = revisions.byId(pageId, revisionId) ?: return PageRevisionLoad.NotFound
         val summary = DocumentRevisionPayload.summary(row)
-        val doc = runCatching { DocumentRevisionPayload.unpack(row) }.getOrElse {
+        val restored = withContext(cpu) { runCatching {
+            DocumentRevisionPayload.unpack(row) to InkRevisionPayload.unpack(row)
+        } }.getOrElse {
             return PageRevisionLoad.Unreadable(summary, it)
         }
-        val restoredInk = runCatching { InkRevisionPayload.unpack(row) }.getOrElse {
-            return PageRevisionLoad.Unreadable(summary, it)
-        }
+        val (doc, restoredInk) = restored
 
         val now = clock()
-        val encoded = codec.encodeToString(doc)
-        val preview = pagePreview(doc)
+        val (encoded, preview) = withContext(cpu) { codec.encodeToString(doc) to pagePreview(doc) }
         db.withTransaction {
             val previous = contents.byId(pageId) ?: return@withTransaction
             val current = checkpointOf(previous, now)
@@ -665,8 +680,7 @@ class NotesRepository(
 
     private suspend fun writeDoc(pageId: String, doc: PageDoc) {
         val now = clock()
-        val encoded = codec.encodeToString(doc)
-        val preview = pagePreview(doc)
+        val (encoded, preview) = withContext(cpu) { codec.encodeToString(doc) to pagePreview(doc) }
 
         db.withTransaction {
             val previous = contents.byId(pageId)
@@ -692,10 +706,12 @@ class NotesRepository(
             row = content,
             createdAt = now,
             ink = InkRevisionPayload.pack(
-                InkSnapshot.from(
-                    strokes = ink.byPage(content.pageId),
-                    erases = inkErases.byPage(content.pageId),
-                    moves = inkMoves.byPage(content.pageId),
+                InkSnapshot(
+                    strokes = ink.revisionStates(content.pageId).map { state -> InkSnapshot.StrokeState(
+                        state.id, state.colorArgb, state.colorFollowsTheme, state.groupId,
+                    ) },
+                    eraseIds = inkErases.activeIds(content.pageId),
+                    moveIds = inkMoves.activeIds(content.pageId),
                 ),
             ),
         )

@@ -10,16 +10,46 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.attribute.BasicFileAttributes
 
-/**
- * Decodes the token ids one formula model emitted: Android's `ai/FormulaTokenizerDecoder.kt`.
- *
- * Android streams the 2 MB tokenizer with `android.util.JsonReader` so its 50k-token vocabulary is
- * never held. The JVM has no streaming reader in its standard library, so this parses the file once
- * per formula and keeps only the tokens that formula used — tens of milliseconds and a transient few
- * megabytes, against inference that costs more of both.
- */
+/** Immutable BPE vocabularies shared by repeated formula results; model installs invalidate them. */
 internal object FormulaTokenizerDecoder {
+    private data class Identity(val path: String, val fileKey: Any?, val size: Long,
+        val modified: java.nio.file.attribute.FileTime, val created: java.nio.file.attribute.FileTime)
+    private data class Vocabulary(val specialIds: Set<Int>, val tokens: Map<Int, String>)
+    private val cache = LinkedHashMap<Identity, Vocabulary>(4, .75f, true)
+
+    @Synchronized
+    internal fun invalidate(tokenizer: File) {
+        val path = tokenizer.toPath().toAbsolutePath().normalize().toString()
+        cache.keys.removeAll { it.path == path }
+    }
+
+    @Synchronized
+    private fun vocabulary(tokenizer: File): Vocabulary {
+        val path = tokenizer.toPath().toAbsolutePath().normalize()
+        val attributes = Files.readAttributes(path, BasicFileAttributes::class.java)
+        val identity = Identity(path.toString(), attributes.fileKey(), attributes.size(),
+            attributes.lastModifiedTime(), attributes.creationTime())
+        cache[identity]?.let { return it }
+        val root = Json.parseToJsonElement(tokenizer.readText(StandardCharsets.UTF_8)).jsonObject
+        val specialIds = root["added_tokens"]?.jsonArray.orEmpty().mapNotNullTo(mutableSetOf()) { entry ->
+            val token = entry.jsonObject
+            token["id"]?.jsonPrimitive?.intOrNull?.takeIf { token["special"]?.jsonPrimitive?.booleanOrNull == true }
+        }.toSet()
+        val tokens = buildMap {
+            root["model"]?.jsonObject?.get("vocab")?.jsonObject.orEmpty().forEach { (token, id) ->
+                id.jsonPrimitive.intOrNull?.takeIf { it in 0 until VOCAB_SIZE.toInt() }?.let { put(it, token) }
+            }
+        }
+        cache.keys.removeAll { it.path == identity.path }
+        return Vocabulary(specialIds, tokens).also {
+            cache[identity] = it
+            while (cache.size > 3) cache.remove(cache.keys.first())
+        }
+    }
+
     fun decode(tokenizer: File, tokenIds: List<Long>): String {
         val ids = tokenIds
             .takeWhile { it != EOS_TOKEN_ID && it in 0 until VOCAB_SIZE }
@@ -27,17 +57,7 @@ internal object FormulaTokenizerDecoder {
             .map(Long::toInt)
         if (ids.isEmpty()) return ""
 
-        val wanted = ids.toSet()
-        val root = Json.parseToJsonElement(tokenizer.readText(StandardCharsets.UTF_8)).jsonObject
-        val specialIds = root["added_tokens"]?.jsonArray.orEmpty().mapNotNullTo(mutableSetOf()) { entry ->
-            val token = entry.jsonObject
-            token["id"]?.jsonPrimitive?.intOrNull?.takeIf { token["special"]?.jsonPrimitive?.booleanOrNull == true }
-        }
-        val tokens = mutableMapOf<Int, String>()
-        root["model"]?.jsonObject?.get("vocab")?.jsonObject.orEmpty().forEach { (token, id) ->
-            val value = id.jsonPrimitive.intOrNull
-            if (value != null && value in wanted) tokens[value] = token
-        }
+        val (specialIds, tokens) = vocabulary(tokenizer)
 
         require(ids.all { it in specialIds || it in tokens }) { Strings.formula_tokenizer_does_not_match_model }
         val encoded = buildString {

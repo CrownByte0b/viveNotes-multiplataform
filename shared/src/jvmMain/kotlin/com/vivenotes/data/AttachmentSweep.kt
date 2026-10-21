@@ -71,6 +71,11 @@ class AttachmentSweep(
             placed += held
 
             val rows = attachments.all()
+            val ids = rows.map { it.id }
+            val states = ids.chunked(SQLITE_BIND_CHUNK).flatMap { sync.entityStates(ATTACHMENT_KIND, it) }
+                .associateBy { it.entityId }
+            val queued = ids.chunked(SQLITE_BIND_CHUNK).flatMap { sync.outboxEntries(ATTACHMENT_KIND, it) }
+                .mapTo(hashSetOf()) { it.entityId }
 
             val toPlace = rows.filter { it.releasedAt != null && it.id in placed }.map { it.id }
             toPlace.chunked(SQLITE_BIND_CHUNK).forEach { attachments.markPlaced(it) }
@@ -84,16 +89,17 @@ class AttachmentSweep(
             toRelease.forEach { id ->
                 // A server with no record of this picture's row needs no tombstone for it; the bytes,
                 // if they ever arrived, are already unreferenced there and go on their own.
-                if (sync.entityState(ATTACHMENT_KIND, id) == null) sync.deleteOutbox(ATTACHMENT_KIND, id)
+                if (id !in states) sync.deleteOutbox(ATTACHMENT_KIND, id)
             }
 
             // A release whose push was lost — dropped above while the row's first push was still in
             // flight, say — is told again whenever the server still holds the row live and nothing is
             // queued. Without this a picture could stay on the account's quota for ever.
             rows.filter { it.releasedAt != null && it.id !in placed }.forEach { row ->
-                val state = sync.entityState(ATTACHMENT_KIND, row.id) ?: return@forEach
-                if (serverHoldsLive(state) && sync.outboxEntry(ATTACHMENT_KIND, row.id) == null) {
+                val state = states[row.id] ?: return@forEach
+                if (serverHoldsLive(state) && row.id !in queued) {
                     sync.enqueueIfAbsent(ATTACHMENT_KIND, row.id)
+                    queued += row.id
                 }
             }
 
@@ -109,7 +115,7 @@ class AttachmentSweep(
                     row.id !in versioned &&
                     releasedAt <= releasedBefore &&
                     // The tombstone is sent from this row, so it waits for the push to land.
-                    sync.outboxEntry(ATTACHMENT_KIND, row.id) == null
+                    row.id !in queued
             }.map { it.id }
             // `attachment_text` goes with the rows by foreign key.
             toDelete.chunked(SQLITE_BIND_CHUNK).forEach { attachments.deleteByIds(it) }
@@ -139,14 +145,20 @@ class AttachmentSweep(
      */
     private suspend fun indexSavedVersions(): Int {
         var indexed = 0
+        var afterId: String? = null
         while (true) {
-            val batch = revisions.unindexed(INDEX_BATCH)
+            val batch = afterId?.let { revisions.unindexedAfter(it, INDEX_BATCH) }
+                ?: revisions.unindexed(INDEX_BATCH)
             if (batch.isEmpty()) return indexed
+            val pictures = batch.map { revision ->
+                revision.id to DocumentPictures.encode(DocumentPictures.idsIn(revision))
+            }
             db.withTransaction {
-                batch.forEach { revision ->
-                    revisions.setPictureIds(revision.id, DocumentPictures.encode(DocumentPictures.idsIn(revision)))
+                pictures.forEach { (id, ids) ->
+                    revisions.setPictureIds(id, ids)
                 }
             }
+            afterId = batch.last().id
             indexed += batch.size
         }
     }

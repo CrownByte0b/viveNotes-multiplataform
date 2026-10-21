@@ -68,6 +68,8 @@ class BundledOcrContractTest {
                             @Suppress("UNCHECKED_CAST")
                             val logits = (result[0].value as Array<Array<FloatArray>>)[0]
                             val reading = decodeCtc(logits, characters)
+                            val flat = (result[0] as OnnxTensor).floatBuffer
+                            assertEquals(reading, decodeCtc(flat, logits.size, characters.size, characters))
                             assertTrue(reading.text, reading.text.contains("hello", ignoreCase = true))
                             assertTrue(reading.confidence > 0.5f)
                         }

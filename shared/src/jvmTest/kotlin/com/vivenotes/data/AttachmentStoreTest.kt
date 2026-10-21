@@ -2,6 +2,10 @@ package com.vivenotes.data
 
 import com.vivenotes.data.AttachmentStore.Companion.sha256
 import com.vivenotes.data.db.NotesDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Color
@@ -64,6 +68,37 @@ class AttachmentStoreTest {
         assertEquals(first, second)
         assertEquals(1, directory.listFiles().orEmpty().size)
         assertEquals(2, db.attachmentDao().byId(first.attachmentId)?.refCount)
+    }
+
+    @Test
+    fun concurrentImportsOfTheSamePictureKeepOneCompleteFileAndEveryReference() = runBlocking<Unit> {
+        val source = png(512, 256, transparentLeftHalf = true)
+        val imported = coroutineScope {
+            List(12) { async(Dispatchers.IO) { assertNotNull(store.import(source)) } }.awaitAll()
+        }
+        assertEquals(1, imported.distinct().size)
+        val id = imported.first().attachmentId
+        assertEquals(12, db.attachmentDao().byId(id)?.refCount)
+        assertEquals(id, assertNotNull(store.bytes(id)).sha256())
+        assertEquals(listOf(id), directory.listFiles().orEmpty().map { it.name })
+    }
+
+    @Test
+    fun simultaneousDistinctDownloadsAnnounceEveryArrivalAndRemoveTheirStages() = runBlocking<Unit> {
+        directory.mkdirs()
+        val ids = coroutineScope {
+            List(64) { index -> async(Dispatchers.IO) {
+                val payload = "download-$index".encodeToByteArray()
+                val id = payload.sha256()
+                val staged = store.syncBytes.stagingFor(id)
+                staged.writeBytes(payload)
+                assertTrue(store.syncBytes.publish(staged, id))
+                assertContentEquals(payload, store.syncBytes.fileFor(id).readBytes())
+                id
+            } }.awaitAll()
+        }
+        assertEquals(64L, store.arrivals.value)
+        assertEquals(ids.toSet(), directory.listFiles().orEmpty().map { it.name }.toSet())
     }
 
     @Test

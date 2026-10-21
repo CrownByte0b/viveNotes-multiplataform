@@ -7,6 +7,10 @@ import com.vivenotes.model.Block
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.nio.file.Files
 import kotlin.test.AfterTest
@@ -19,6 +23,30 @@ import kotlin.test.assertTrue
 
 /** The Android `DatabaseBackupManagerTest`, against a real WAL-mode file database. */
 class DatabaseBackupManagerTest {
+
+    @Test
+    fun aBackupReadsTheCommittedWalSnapshotWhileAnotherWriterIsPaused() = runBlocking {
+        val notebook = repository.createNotebook("Committed")
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val writer = async(Dispatchers.IO) { db.withTransaction {
+            repository.renameNotebook(notebook, "Uncommitted")
+            entered.complete(Unit)
+            release.await()
+        } }
+        try {
+            entered.await()
+            val saved = withTimeout(10_000) { backups.createIfDue(force = true) }!!
+            BundledSQLiteDriver().open(saved.absolutePath, SQLITE_OPEN_READONLY).use { snapshot ->
+                snapshot.prepare("SELECT name FROM notebooks WHERE id = ?").use { statement ->
+                    statement.bindText(1, notebook)
+                    assertTrue(statement.step())
+                    assertEquals("Committed", statement.getText(0))
+                }
+            }
+        } finally { release.complete(Unit); writer.await() }
+        assertEquals("Uncommitted", db.notebookDao().byId(notebook)!!.name)
+    }
 
     private lateinit var root: File
     private lateinit var db: NotesDatabase

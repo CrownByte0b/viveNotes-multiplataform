@@ -322,10 +322,10 @@ class OnnxInkRecognitionEngine(
         }
     }
 
-    /** One line through the recognizer: the tensor is built and decoded outside the lane. */
+    /** Reduce copied logits before releasing the lane so queued crops retain only their text. */
     private suspend fun readLine(image: Image): TextRecognitionResult {
         val input = preprocessText(image)
-        val logits = inLane {
+        return inLane {
             val session = session(ModelKind.Text)
             OnnxTensor.createTensor(
                 environment,
@@ -333,13 +333,13 @@ class OnnxInkRecognitionEngine(
                 longArrayOf(1, 3, TEXT_HEIGHT.toLong(), input.width.toLong()),
             ).use { tensor ->
                 session.run(mapOf(session.inputNames.first() to tensor)).use { output ->
-                    // `value` copies out of native memory, so it outlives the closed result.
-                    @Suppress("UNCHECKED_CAST")
-                    (output[0].value as Array<Array<FloatArray>>)[0]
+                    val logits = output[0] as OnnxTensor
+                    val shape = (logits.info as TensorInfo).shape
+                    require(shape.size == 3 && shape[0] == 1L)
+                    decodeCtc(logits.floatBuffer, shape[1].toInt(), shape[2].toInt(), textCharacters)
                 }
             }
         }
-        return decodeCtc(logits, textCharacters)
     }
 
     /** Runs [block] holding one inference lane. Every OCR `run` goes through here. */
@@ -680,6 +680,32 @@ internal fun decodeCtc(logits: Array<FloatArray>, characters: List<String>): Tex
         text = result.toString(),
         confidence = if (charactersRead == 0) 0f else confidence / charactersRead,
     )
+}
+
+internal fun decodeCtc(logits: FloatBuffer, steps: Int, classes: Int,
+    characters: List<String>): TextRecognitionResult {
+    require(classes == characters.size) { Strings.ocr_dictionary_does_not_match_model }
+    require(steps >= 0 && classes > 0 && steps.toLong() * classes == logits.remaining().toLong())
+    val values = logits.asReadOnlyBuffer()
+    val result = StringBuilder()
+    var previous = 0
+    var confidence = 0f
+    var count = 0
+    repeat(steps) {
+        var best = 0
+        var score = Float.NEGATIVE_INFINITY
+        repeat(classes) { index ->
+            val candidate = values.get()
+            if (candidate > score) { best = index; score = candidate }
+        }
+        if (best != 0 && best != previous) {
+            result.append(characters[best])
+            confidence += score
+            count++
+        }
+        previous = best
+    }
+    return TextRecognitionResult(result.toString(), if (count == 0) 0f else confidence / count)
 }
 
 private fun normalizeText(channel: Int): Float = (channel / 255f - 0.5f) / 0.5f

@@ -1,0 +1,811 @@
+{
+  "schema": "vive-desktop-summary/1",
+  "sourceCommit": "0e7a994664b7541c90953931d810a5458c9f5d79",
+  "forks": 3,
+  "cases": [
+    {
+      "name": "ai.decode_formula_tokenizer",
+      "units": 1000,
+      "fixtureSha256": "ca058235a50f54d4e23ca5e519928d08197064fae29495b5baf0c9cf9bd29147",
+      "medianMs": 0.0017056640625,
+      "forkMedianMs": [
+        0.0017056640625,
+        0.00172734375,
+        0.00170221875
+      ],
+      "forkP95BatchAverageMs": [
+        0.0017397890625,
+        0.00178565625,
+        0.0017621796875
+      ],
+      "medianAllocatedBytes": 960.125
+    },
+    {
+      "name": "ai.decode_formula_tokenizer",
+      "units": 10000,
+      "fixtureSha256": "62d48e46466bb54b9d252de23955544ea4f805d807ec73f8d856586aa9082194",
+      "medianMs": 0.0016899296875,
+      "forkMedianMs": [
+        0.00168546875,
+        0.0016899296875,
+        0.00174596875
+      ],
+      "forkP95BatchAverageMs": [
+        0.001760765625,
+        0.001726640625,
+        0.0018037421875
+      ],
+      "medianAllocatedBytes": 960.125
+    },
+    {
+      "name": "ai.decode_formula_tokenizer",
+      "units": 50000,
+      "fixtureSha256": "b71af5b9a62c2638dff630db70e140217218f15e9412a94f88f7e6cf2cc83ab9",
+      "medianMs": 0.0017073125,
+      "forkMedianMs": [
+        0.0017073125,
+        0.00169321875,
+        0.0017379921875
+      ],
+      "forkP95BatchAverageMs": [
+        0.001738375,
+        0.0017448046875,
+        0.0017757109375
+      ],
+      "medianAllocatedBytes": 960.125
+    },
+    {
+      "name": "canvas.move_with_text_preview",
+      "units": 10000,
+      "fixtureSha256": "4b61df89b116d304486ebae12f276d2ea1d648a4a504b739755f04c5023294d6",
+      "medianMs": 0.0001583515625,
+      "forkMedianMs": [
+        0.0001541171875,
+        0.0001586640625,
+        0.0001583515625
+      ],
+      "forkP95BatchAverageMs": [
+        0.00041790625,
+        0.00041978125,
+        0.00036115625
+      ],
+      "medianAllocatedBytes": 880.125
+    },
+    {
+      "name": "canvas.move_with_text_preview",
+      "units": 100000,
+      "fixtureSha256": "2e91afee9ecf01516b70c524ecf78eb409f4540fda1d1f8a3cb707ddbc0c6315",
+      "medianMs": 0.000154984375,
+      "forkMedianMs": [
+        0.0001507578125,
+        0.00015678125,
+        0.000154984375
+      ],
+      "forkP95BatchAverageMs": [
+        0.0003265546875,
+        0.00029478125,
+        0.00030409375
+      ],
+      "medianAllocatedBytes": 880.125
+    },
+    {
+      "name": "canvas.move_with_text_preview",
+      "units": 1000000,
+      "fixtureSha256": "8221037a39eb751a935b4ca01d2435f81a4734a4246af8a863763b5a6784b0aa",
+      "medianMs": 0.000153578125,
+      "forkMedianMs": [
+        0.000153578125,
+        0.000155765625,
+        0.0001528671875
+      ],
+      "forkP95BatchAverageMs": [
+        0.0004319921875,
+        0.000307375,
+        0.000312390625
+      ],
+      "medianAllocatedBytes": 880.125
+    },
+    {
+      "name": "canvas.resolve_table_buffers",
+      "units": 20,
+      "fixtureSha256": "0dda68ff3c412346b07b974f37e651e56cd1f1c53254f0aa7144a57ca5466479",
+      "medianMs": 0.0003728203125,
+      "forkMedianMs": [
+        0.0003728203125,
+        0.000378765625,
+        0.000361234375
+      ],
+      "forkP95BatchAverageMs": [
+        0.000576328125,
+        0.0006045078125,
+        0.00051965625
+      ],
+      "medianAllocatedBytes": 3344.125
+    },
+    {
+      "name": "canvas.resolve_table_buffers",
+      "units": 100,
+      "fixtureSha256": "a3eb3ed2bf1d77f84d82d55834cf49262c73ecbb6b249f13eed536fd69a03d82",
+      "medianMs": 0.00183465625,
+      "forkMedianMs": [
+        0.0017537265625,
+        0.001884515625,
+        0.00183465625
+      ],
+      "forkP95BatchAverageMs": [
+        0.002187984375,
+        0.0022583515625,
+        0.002195734375
+      ],
+      "medianAllocatedBytes": 16784.125
+    },
+    {
+      "name": "canvas.resolve_table_buffers",
+      "units": 200,
+      "fixtureSha256": "3038884af15c8a66852ccba8a70975b25e2336dd013773a2138e1a0e0429822c",
+      "medianMs": 0.00391603125,
+      "forkMedianMs": [
+        0.00391603125,
+        0.00384965625,
+        0.0039181484375
+      ],
+      "forkP95BatchAverageMs": [
+        0.0096842578125,
+        0.0039200234375,
+        0.00815384375
+      ],
+      "medianAllocatedBytes": 33600.125
+    },
+    {
+      "name": "canvas.resolve_text_buffers",
+      "units": 100,
+      "fixtureSha256": "cdf856723bb1d0717355fa091da64b59ff23ceba8644e1508e4d42aaf961c61c",
+      "medianMs": 0.001940875,
+      "forkMedianMs": [
+        0.0018733984375,
+        0.001940875,
+        0.001942671875
+      ],
+      "forkP95BatchAverageMs": [
+        0.001982046875,
+        0.0020009921875,
+        0.0019999765625
+      ],
+      "medianAllocatedBytes": 16784.125
+    },
+    {
+      "name": "canvas.resolve_text_buffers",
+      "units": 500,
+      "fixtureSha256": "01608c9105adc2e209e545f5eb6b84eb47024f2c78b921a0dad0a4bed88c1f1b",
+      "medianMs": 0.0112051875,
+      "forkMedianMs": [
+        0.0112051875,
+        0.0142884765625,
+        0.009843546875
+      ],
+      "forkP95BatchAverageMs": [
+        0.0113928203125,
+        0.032279296875,
+        0.0099909296875
+      ],
+      "medianAllocatedBytes": 84000.125
+    },
+    {
+      "name": "canvas.resolve_text_buffers",
+      "units": 2000,
+      "fixtureSha256": "91f531f10123b93f043fac540f387e8cfc54b050e39178f82bb15d8e9ab3a4da",
+      "medianMs": 0.0410771015625,
+      "forkMedianMs": [
+        0.041401703125,
+        0.0410771015625,
+        0.04100728125
+      ],
+      "forkP95BatchAverageMs": [
+        0.0610418359375,
+        0.0476127265625,
+        0.054657359375
+      ],
+      "medianAllocatedBytes": 336000.125
+    },
+    {
+      "name": "ink.apply_127th_append",
+      "units": 1000,
+      "fixtureSha256": "2308a6d365f5b50ab93b54ea2b06845f59af7098b6e55271d3242b9001b4a25d",
+      "medianMs": 0.123725,
+      "forkMedianMs": [
+        0.123474,
+        0.12632,
+        0.123725
+      ],
+      "forkP95BatchAverageMs": [
+        0.138533,
+        0.136509,
+        0.140848
+      ],
+      "medianAllocatedBytes": 34552.0
+    },
+    {
+      "name": "ink.apply_127th_append",
+      "units": 10000,
+      "fixtureSha256": "a66b11ef17ec26cea11295a36cd83dd789794aa5ce83bf9e0f0555a9ce356a30",
+      "medianMs": 0.070163,
+      "forkMedianMs": [
+        0.070845,
+        0.069171,
+        0.070163
+      ],
+      "forkP95BatchAverageMs": [
+        0.083599,
+        0.078108,
+        0.081544
+      ],
+      "medianAllocatedBytes": 25024.0
+    },
+    {
+      "name": "ink.apply_127th_append",
+      "units": 40000,
+      "fixtureSha256": "7144b94e5f910437eda6c900e7788e1814ad7421edcc146409371ebd723b3569",
+      "medianMs": 0.019116,
+      "forkMedianMs": [
+        0.019047,
+        0.019166,
+        0.019116
+      ],
+      "forkP95BatchAverageMs": [
+        0.0471,
+        0.038904,
+        0.037952
+      ],
+      "medianAllocatedBytes": 25024.0
+    },
+    {
+      "name": "ink.apply_128th_append",
+      "units": 1000,
+      "fixtureSha256": "405688697d3d3c3f5a9fd9f7853f6c3d9c61a9b589af19e901c7143d47cf1f93",
+      "medianMs": 0.119236,
+      "forkMedianMs": [
+        0.122453,
+        0.11588,
+        0.119236
+      ],
+      "forkP95BatchAverageMs": [
+        0.13147,
+        0.138593,
+        0.161407
+      ],
+      "medianAllocatedBytes": 34896.0
+    },
+    {
+      "name": "ink.apply_128th_append",
+      "units": 10000,
+      "fixtureSha256": "9e894f7031a93db201f114a3623839b060f55b24ec304f5dab83348ba728f2d8",
+      "medianMs": 0.075704,
+      "forkMedianMs": [
+        0.076144,
+        0.074371,
+        0.075704
+      ],
+      "forkP95BatchAverageMs": [
+        0.106412,
+        0.08399,
+        0.090422
+      ],
+      "medianAllocatedBytes": 25328.0
+    },
+    {
+      "name": "ink.apply_128th_append",
+      "units": 40000,
+      "fixtureSha256": "7681fc5728b41facefa1a14e96c1e3211c366f5785c65c2a8be45615fe7ff8ef",
+      "medianMs": 0.018665,
+      "forkMedianMs": [
+        0.019727,
+        0.018665,
+        0.017293
+      ],
+      "forkP95BatchAverageMs": [
+        0.029626,
+        0.023364,
+        0.02103
+      ],
+      "medianAllocatedBytes": 25328.0
+    },
+    {
+      "name": "pdf.equal_spaced_groups",
+      "units": 250,
+      "fixtureSha256": "f0939f6ec94a1ee115ddaeb33c2057cfebbb3c6cb964e4c67b99364bcced4763",
+      "medianMs": 0.21342935483870967,
+      "forkMedianMs": [
+        0.21795355555555557,
+        0.21342935483870967,
+        0.20943124242424244
+      ],
+      "forkP95BatchAverageMs": [
+        0.24380041666666666,
+        0.23639070967741938,
+        0.23639790909090908
+      ],
+      "medianAllocatedBytes": 1051160.5161290322
+    },
+    {
+      "name": "pdf.equal_spaced_groups",
+      "units": 1000,
+      "fixtureSha256": "11d9360e6a783939a803ec516ae3438af369a86691c211d198814b89e67d9c5d",
+      "medianMs": 1.0928184444444444,
+      "forkMedianMs": [
+        1.158480888888889,
+        1.0798682222222222,
+        1.0928184444444444
+      ],
+      "forkP95BatchAverageMs": [
+        2.171812888888889,
+        1.3418126666666668,
+        1.3050026666666668
+      ],
+      "medianAllocatedBytes": 5236257.777777778
+    },
+    {
+      "name": "pdf.equal_spaced_groups",
+      "units": 4000,
+      "fixtureSha256": "111d29f1bef7d024cbfb1494bcb6493b816a221a269f561ddd934593b4cc0f0a",
+      "medianMs": 4.995581,
+      "forkMedianMs": [
+        4.995581,
+        5.0495885,
+        4.9837185
+      ],
+      "forkP95BatchAverageMs": [
+        5.695125,
+        5.883919,
+        5.5148825
+      ],
+      "medianAllocatedBytes": 24303896.0
+    },
+    {
+      "name": "richtext.link_preview_projection",
+      "units": 250,
+      "fixtureSha256": "04e482aba34898f9e54c77403956f40ab46f207ae1099b4c06b84f80ed7828df",
+      "medianMs": 0.0182841875,
+      "forkMedianMs": [
+        0.0182841875,
+        0.01824928125,
+        0.0185092265625
+      ],
+      "forkP95BatchAverageMs": [
+        0.0185326328125,
+        0.024106578125,
+        0.0238277734375
+      ],
+      "medianAllocatedBytes": 102192.125
+    },
+    {
+      "name": "richtext.link_preview_projection",
+      "units": 1000,
+      "fixtureSha256": "4fbfe15ed541525e9a451037141b0462d8c82158c278062789cc74ff7d3b506e",
+      "medianMs": 0.07850662992125984,
+      "forkMedianMs": [
+        0.08130730708661418,
+        0.0777385546875,
+        0.07850662992125984
+      ],
+      "forkP95BatchAverageMs": [
+        0.0898921968503937,
+        0.0842536640625,
+        0.08677304724409449
+      ],
+      "medianAllocatedBytes": 409144.12598425196
+    },
+    {
+      "name": "richtext.link_preview_projection",
+      "units": 4000,
+      "fixtureSha256": "570339a103e7b21175f061fe2d8c837bc1dc0e1ce6e2dd6fbd1b537dc2981510",
+      "medianMs": 0.5354161111111111,
+      "forkMedianMs": [
+        0.5335014736842105,
+        0.5354161111111111,
+        0.5758087058823529
+      ],
+      "forkP95BatchAverageMs": [
+        0.5966404210526316,
+        0.6068112222222223,
+        0.6310766470588235
+      ],
+      "medianAllocatedBytes": 1600296.8421052631
+    },
+    {
+      "name": "richtext.paste_plain_html",
+      "units": 250,
+      "fixtureSha256": "fcfc07b4d9bd6776606d0b2cab9ca1622e2f8e64ab3ca1b9e110e9750668b148",
+      "medianMs": 0.01072271875,
+      "forkMedianMs": [
+        0.0107831484375,
+        0.01072271875,
+        0.0107118359375
+      ],
+      "forkP95BatchAverageMs": [
+        0.0108544453125,
+        0.01078909375,
+        0.0107703828125
+      ],
+      "medianAllocatedBytes": 36720.375
+    },
+    {
+      "name": "richtext.paste_plain_html",
+      "units": 1000,
+      "fixtureSha256": "9468b696ba178db3b7a853152ad31f4acbb75e28dc063d0c9647d795b1c6c1df",
+      "medianMs": 0.040702171875,
+      "forkMedianMs": [
+        0.040702171875,
+        0.041013625,
+        0.040392828125
+      ],
+      "forkP95BatchAverageMs": [
+        0.045084328125,
+        0.046132328125,
+        0.0458838984375
+      ],
+      "medianAllocatedBytes": 141000.375
+    },
+    {
+      "name": "richtext.paste_plain_html",
+      "units": 4000,
+      "fixtureSha256": "8ec2236e9c9232eaebc8c8bbea0ad8427e348c1703fed4fd4a58fdbc6dd2e75a",
+      "medianMs": 0.15760720634920636,
+      "forkMedianMs": [
+        0.15760720634920636,
+        0.15791049206349206,
+        0.15742304761904763
+      ],
+      "forkP95BatchAverageMs": [
+        0.16813339682539682,
+        0.16961257142857142,
+        0.1699352380952381
+      ],
+      "medianAllocatedBytes": 529984.5079365079
+    },
+    {
+      "name": "richtext.select_caret",
+      "units": 250,
+      "fixtureSha256": "2c4c8883763b0a79b8c0cda327b2a961499b7d6a7d5a3cab2f01c9219ff55895",
+      "medianMs": 2.31640625e-05,
+      "forkMedianMs": [
+        2.340625e-05,
+        2.29296875e-05,
+        2.31640625e-05
+      ],
+      "forkP95BatchAverageMs": [
+        6.809375e-05,
+        8.2421875e-05,
+        6.6609375e-05
+      ],
+      "medianAllocatedBytes": 168.125
+    },
+    {
+      "name": "richtext.select_caret",
+      "units": 1000,
+      "fixtureSha256": "932b8ac1146507fe08430f9001bccc8bdb4aae63f8ebfe6298889bb994a4a933",
+      "medianMs": 2.45e-05,
+      "forkMedianMs": [
+        2.4421875e-05,
+        2.45e-05,
+        2.5203125e-05
+      ],
+      "forkP95BatchAverageMs": [
+        2.559375e-05,
+        3.05234375e-05,
+        3.06796875e-05
+      ],
+      "medianAllocatedBytes": 168.125
+    },
+    {
+      "name": "richtext.select_caret",
+      "units": 4000,
+      "fixtureSha256": "2f5fdfb16edaeb398e4ae71e8931b450f6a31211d9a8e37e75a73da6f3c2ae0c",
+      "medianMs": 2.6296875e-05,
+      "forkMedianMs": [
+        2.6296875e-05,
+        2.60625e-05,
+        2.70078125e-05
+      ],
+      "forkP95BatchAverageMs": [
+        2.95078125e-05,
+        2.80234375e-05,
+        2.95078125e-05
+      ],
+      "medianAllocatedBytes": 168.125
+    },
+    {
+      "name": "search.long_word_typo",
+      "units": 250,
+      "fixtureSha256": "22b5135170c6d10a640c60a7b3f4cfe0ebf04ace8786bf4762af6a5903073d6a",
+      "medianMs": 0.000709234375,
+      "forkMedianMs": [
+        0.000709234375,
+        0.0007108828125,
+        0.0007050078125
+      ],
+      "forkP95BatchAverageMs": [
+        0.0007795234375,
+        0.0007455546875,
+        0.000765828125
+      ],
+      "medianAllocatedBytes": 1216.125
+    },
+    {
+      "name": "search.long_word_typo",
+      "units": 1000,
+      "fixtureSha256": "208ef4cfb927e116a40e9a6cb9e4f50093fc1d73a0ea0ad75f64751c304c30b3",
+      "medianMs": 0.00228590625,
+      "forkMedianMs": [
+        0.00228590625,
+        0.0022732265625,
+        0.002459046875
+      ],
+      "forkP95BatchAverageMs": [
+        0.002314625,
+        0.0024369765625,
+        0.0025204140625
+      ],
+      "medianAllocatedBytes": 2720.125
+    },
+    {
+      "name": "search.long_word_typo",
+      "units": 4000,
+      "fixtureSha256": "6b47f5661ba5e7777df212c72888e552034136d80c11c4ebb6f0f94bc4fa3029",
+      "medianMs": 0.008682828125,
+      "forkMedianMs": [
+        0.00867734375,
+        0.008743640625,
+        0.008682828125
+      ],
+      "forkP95BatchAverageMs": [
+        0.0092617421875,
+        0.008841875,
+        0.0087953046875
+      ],
+      "medianAllocatedBytes": 8720.125
+    },
+    {
+      "name": "search.repeated_substring",
+      "units": 250,
+      "fixtureSha256": "aef531631549ceda2e5843c0bf176ced80aceee6bda69e2e44b8c0a930874bcb",
+      "medianMs": 0.0022640625,
+      "forkMedianMs": [
+        0.0022640625,
+        0.002286375,
+        0.0019056484375
+      ],
+      "forkP95BatchAverageMs": [
+        0.002498421875,
+        0.0024883203125,
+        0.0025465625
+      ],
+      "medianAllocatedBytes": 9864.125
+    },
+    {
+      "name": "search.repeated_substring",
+      "units": 1000,
+      "fixtureSha256": "528655157c22b21ac68eac539cf8ec2ae90699982046e8959ee9611366a37db3",
+      "medianMs": 0.0091281171875,
+      "forkMedianMs": [
+        0.0093803203125,
+        0.0091281171875,
+        0.006572640625
+      ],
+      "forkP95BatchAverageMs": [
+        0.00953475,
+        0.009213046875,
+        0.011503734375
+      ],
+      "medianAllocatedBytes": 35336.125
+    },
+    {
+      "name": "search.repeated_substring",
+      "units": 4000,
+      "fixtureSha256": "ec1652583ea36b6a832d6e927f8b4622462129e1c6307d570f1eadb992b9a9eb",
+      "medianMs": 0.035486171875,
+      "forkMedianMs": [
+        0.036867078125,
+        0.035486171875,
+        0.024630234375
+      ],
+      "forkP95BatchAverageMs": [
+        0.0413854296875,
+        0.0397045,
+        0.0247148515625
+      ],
+      "medianAllocatedBytes": 130544.125
+    },
+    {
+      "name": "storage.append_ink_checkpoint",
+      "units": 1000,
+      "fixtureSha256": "2e2de195ebe201a4b065bd78c2a98ea8998d1acfb7d19e6a5e522f6984e481af",
+      "medianMs": 1.232431,
+      "forkMedianMs": [
+        1.230538,
+        1.232431,
+        1.254363
+      ],
+      "forkP95BatchAverageMs": [
+        1.691673,
+        1.830618,
+        1.806733
+      ]
+    },
+    {
+      "name": "storage.append_ink_checkpoint",
+      "units": 10000,
+      "fixtureSha256": "a8f2e25b1ef11107002d4d79e444f9807f14e9d3c1e7f1bc27fb255f2413a928",
+      "medianMs": 6.917022,
+      "forkMedianMs": [
+        6.917022,
+        6.833713,
+        7.042429
+      ],
+      "forkP95BatchAverageMs": [
+        7.422491,
+        7.466976,
+        8.108134
+      ]
+    },
+    {
+      "name": "storage.append_ink_checkpoint",
+      "units": 40000,
+      "fixtureSha256": "79709ca318f73e6f7e736fb5552975a8c62f8f04a3bb449f6b424697c0b0e88a",
+      "medianMs": 25.666143,
+      "forkMedianMs": [
+        25.681372,
+        25.666143,
+        24.998755
+      ],
+      "forkP95BatchAverageMs": [
+        29.148028,
+        33.135394,
+        26.925595
+      ]
+    },
+    {
+      "name": "storage.append_ink_coalesced",
+      "units": 1000,
+      "fixtureSha256": "2e2de195ebe201a4b065bd78c2a98ea8998d1acfb7d19e6a5e522f6984e481af",
+      "medianMs": 0.223595,
+      "forkMedianMs": [
+        0.230007,
+        0.223595,
+        0.199889
+      ],
+      "forkP95BatchAverageMs": [
+        0.328183,
+        0.493458,
+        0.252379
+      ]
+    },
+    {
+      "name": "storage.append_ink_coalesced",
+      "units": 10000,
+      "fixtureSha256": "a8f2e25b1ef11107002d4d79e444f9807f14e9d3c1e7f1bc27fb255f2413a928",
+      "medianMs": 0.161938,
+      "forkMedianMs": [
+        0.161938,
+        0.167828,
+        0.157078
+      ],
+      "forkP95BatchAverageMs": [
+        0.340817,
+        0.22661,
+        0.23696
+      ]
+    },
+    {
+      "name": "storage.append_ink_coalesced",
+      "units": 40000,
+      "fixtureSha256": "79709ca318f73e6f7e736fb5552975a8c62f8f04a3bb449f6b424697c0b0e88a",
+      "medianMs": 0.173419,
+      "forkMedianMs": [
+        0.186014,
+        0.173419,
+        0.168189
+      ],
+      "forkP95BatchAverageMs": [
+        0.230498,
+        0.229667,
+        0.217624
+      ]
+    },
+    {
+      "name": "storage.load_document",
+      "units": 100,
+      "fixtureSha256": "cdf856723bb1d0717355fa091da64b59ff23ceba8644e1508e4d42aaf961c61c",
+      "medianMs": 0.171756,
+      "forkMedianMs": [
+        0.138323,
+        0.187977,
+        0.171756
+      ],
+      "forkP95BatchAverageMs": [
+        0.16867,
+        0.215118,
+        0.253882
+      ]
+    },
+    {
+      "name": "storage.load_document",
+      "units": 1000,
+      "fixtureSha256": "10d4a5431d8253a1beeb96ae0fb5500683e7e59f204ec764e42fde7ce56ef2d0",
+      "medianMs": 0.235467,
+      "forkMedianMs": [
+        0.246338,
+        0.216362,
+        0.235467
+      ],
+      "forkP95BatchAverageMs": [
+        0.421791,
+        0.257089,
+        0.286354
+      ]
+    },
+    {
+      "name": "storage.save_checkpoint",
+      "units": 100,
+      "fixtureSha256": "cdf856723bb1d0717355fa091da64b59ff23ceba8644e1508e4d42aaf961c61c",
+      "medianMs": 0.716431,
+      "forkMedianMs": [
+        0.850776,
+        0.708516,
+        0.716431
+      ],
+      "forkP95BatchAverageMs": [
+        1.033955,
+        1.038543,
+        0.781705
+      ]
+    },
+    {
+      "name": "storage.save_checkpoint",
+      "units": 1000,
+      "fixtureSha256": "10d4a5431d8253a1beeb96ae0fb5500683e7e59f204ec764e42fde7ce56ef2d0",
+      "medianMs": 1.633554,
+      "forkMedianMs": [
+        1.563661,
+        1.77405,
+        1.633554
+      ],
+      "forkP95BatchAverageMs": [
+        2.02645,
+        2.509869,
+        1.912233
+      ]
+    },
+    {
+      "name": "storage.save_coalesced",
+      "units": 100,
+      "fixtureSha256": "cdf856723bb1d0717355fa091da64b59ff23ceba8644e1508e4d42aaf961c61c",
+      "medianMs": 0.59475,
+      "forkMedianMs": [
+        0.667357,
+        0.593537,
+        0.59475
+      ],
+      "forkP95BatchAverageMs": [
+        0.925759,
+        0.860004,
+        0.702625
+      ]
+    },
+    {
+      "name": "storage.save_coalesced",
+      "units": 1000,
+      "fixtureSha256": "10d4a5431d8253a1beeb96ae0fb5500683e7e59f204ec764e42fde7ce56ef2d0",
+      "medianMs": 1.360074,
+      "forkMedianMs": [
+        1.346187,
+        1.376145,
+        1.360074
+      ],
+      "forkP95BatchAverageMs": [
+        4.161446,
+        4.112212,
+        4.032501
+      ]
+    }
+  ]
+}

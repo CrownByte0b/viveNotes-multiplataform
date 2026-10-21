@@ -34,6 +34,8 @@ class PageRenderer : AutoCloseable {
     private val line = Paint().apply { isAntiAlias = true }.apply { mode = PaintMode.STROKE }
     private val image = Paint().apply { isAntiAlias = true }
     private val inkRenderer = com.vivenotes.byteink.compose.InkPathRenderer()
+    internal var useVisibilityIndex = true
+    internal var work: PdfWorkCounts? = null
     fun clearCache() = inkRenderer.clearCache()
     override fun close() { clearCache(); fill.close(); line.close(); image.close() }
 
@@ -68,7 +70,7 @@ class PageRenderer : AutoCloseable {
         canvas.translate(insetLeft, insetTop)
         canvas.clipRect(Rect.makeWH(tile.area.width, tile.area.height))
         canvas.translate(-tile.area.left, -tile.area.top)
-        drawContent(canvas, page, tile.area, plan, ruling)
+        drawContent(canvas, page, tile, plan, ruling)
 
         canvas.restoreToCount(checkpoint)
     }
@@ -76,10 +78,12 @@ class PageRenderer : AutoCloseable {
     private fun drawContent(
         canvas: Canvas,
         page: MeasuredPage,
-        visible: InkBounds,
+        tile: PdfTile,
         plan: PdfPagePlan,
         ruling: Boolean,
     ) {
+        val visible = tile.area
+        val content = if (useVisibilityIndex) page.visibleContent(plan, tile) else page.allContent
         // An outline's own rectangle decides whether it lands on this sheet; the *group's* shift
         // decides where. Asking the plan for an outline's own shift would find none — the plan moves
         // whole entities — and the one part of a diagram whose id it did not know would stay behind.
@@ -100,25 +104,29 @@ class PageRenderer : AutoCloseable {
             drawRuling(canvas, page.style.ruleLines, page.colors.ruleLineArgb, visible, limit)
         }
 
-        page.doc.outlines.filterIsInstance<Outline.Text>().forEach { outline ->
+        content.texts.forEach { outline ->
+            work?.let { it.outlinesVisited++ }
             val block = page.texts[outline.id] ?: return@forEach
             if (!lands(outline.id)) return@forEach
-            drawLayout(canvas, block, shiftOf(outline.id))
+            drawLayout(canvas, block, shiftOf(outline.id), visible)
         }
 
-        page.doc.outlines.filterIsInstance<Outline.Shape>().forEach { shape ->
+        content.shapes.forEach { shape ->
+            work?.let { it.outlinesVisited++ }
             val shift = shiftOf(shape.id)
             if (!shape.pageRect().translated(shift.dx, shift.dy).overlaps(visible)) return@forEach
             drawShape(canvas, shape, page.colors.textArgb, shift)
         }
 
-        page.doc.outlines.filterIsInstance<Outline.Equation>().forEach { equation ->
+        content.equations.forEach { equation ->
+            work?.let { it.outlinesVisited++ }
             val shift = shiftOf(equation.id)
             if (!equation.pageRect().translated(shift.dx, shift.dy).overlaps(visible)) return@forEach
             drawEquation(canvas, equation, page, shift)
         }
 
-        page.doc.outlines.filterIsInstance<Outline.Image>().forEach { picture ->
+        content.pictures.forEach { picture ->
+            work?.let { it.outlinesVisited++ }
             val shift = shiftOf(picture.id)
             if (!picture.pageRect().translated(shift.dx, shift.dy).overlaps(visible)) return@forEach
             val bitmap = page.images[picture.attachmentId]
@@ -146,14 +154,16 @@ class PageRenderer : AutoCloseable {
 
         page.header?.takeIf { it.bounds.overlaps(visible) }?.let { drawHeader(canvas, it, page) }
 
-        page.doc.outlines.filterIsInstance<Outline.Table>().forEach { table ->
+        content.tables.forEach { table ->
+            work?.let { it.outlinesVisited++ }
             val grid = page.tables[table.id] ?: return@forEach
             if (!lands(table.id)) return@forEach
-            drawTable(canvas, table, grid, page, shiftOf(table.id))
+            drawTable(canvas, table, grid, page, shiftOf(table.id), visible)
         }
 
         // Ink last, as it is on screen: a stroke is drawn over whatever it was written across.
-        page.groups.forEach { group ->
+        content.groups.forEach { group ->
+            work?.let { it.groupsVisited++ }
             val shift = plan.shiftFor(group.id)
             if (!group.bounds.translated(shift.dx, shift.dy).overlaps(visible)) return@forEach
             group.strokes.forEach { stroke -> drawStroke(canvas, stroke, page.colors.textArgb, shift) }
@@ -188,11 +198,12 @@ class PageRenderer : AutoCloseable {
 
     // --- text --------------------------------------------------------------------------------
 
-    private fun drawLayout(canvas: Canvas, block: PdfTextBlock, shift: PdfShift) {
+    private fun drawLayout(canvas: Canvas, block: PdfTextBlock, shift: PdfShift, visible: InkBounds) {
         val checkpoint = canvas.save()
         canvas.translate(block.leftDp + shift.dx, block.topDp + shift.dy)
         canvas.scale(1f / density, 1f / density)
-        block.layout.draw(canvas)
+        block.layout.drawVisible(canvas, if (useVisibilityIndex) visible.translated(
+            -block.leftDp - shift.dx, -block.topDp - shift.dy) else null, work)
         canvas.restoreToCount(checkpoint)
     }
 
@@ -279,6 +290,7 @@ class PageRenderer : AutoCloseable {
         grid: PdfTableGrid,
         page: MeasuredPage,
         shift: PdfShift,
+        visible: InkBounds,
     ) {
         val checkpoint = canvas.save()
         canvas.translate(grid.leftDp + shift.dx, grid.topDp + shift.dy)
@@ -290,13 +302,8 @@ class PageRenderer : AutoCloseable {
             canvas.drawRect(0f, 0f, width, height, fill)
         }
 
-        val rowTops = FloatArray(table.rowCount + 1)
-        var y = 0f
-        grid.rowHeightsDp.forEachIndexed { index, rowHeight ->
-            rowTops[index] = y
-            y += rowHeight
-        }
-        rowTops[table.rowCount] = height
+        val rowTops = grid.rowTopsDp
+        val localVisible = visible.translated(-grid.leftDp - shift.dx, -grid.topDp - shift.dy)
 
         val headerTint = page.colors.textArgb.withAlpha(HEADER_TINT_ALPHA)
         if (table.headerRow && table.rowCount > 0) {
@@ -321,23 +328,31 @@ class PageRenderer : AutoCloseable {
             canvas.drawLine(at, 0f, at, height, line)
             if (index < table.columnCount) x += table.columns[index]
         }
-        for (index in 0..table.rowCount) {
+        val firstRule = if (useVisibilityIndex) (rowTops.firstAtLeast(localVisible.top - rule) - 1).coerceAtLeast(0) else 0
+        val endRule = if (useVisibilityIndex) (rowTops.firstAtLeast(localVisible.bottom + rule) + 1).coerceAtMost(rowTops.size) else rowTops.size
+        for (index in firstRule until endRule) {
             val at = rowTops[index].coerceIn(rule / 2f, (height - rule / 2f).coerceAtLeast(rule / 2f))
             canvas.drawLine(0f, at, width, at, line)
         }
 
-        table.rows.forEachIndexed { rowIndex, row ->
+        val firstRow = if (useVisibilityIndex) (rowTops.firstAtLeast(localVisible.top - grid.paintOutset) - 1).coerceAtLeast(0) else 0
+        val endRow = if (useVisibilityIndex) rowTops.firstAtLeast(localVisible.bottom + grid.paintOutset).coerceAtMost(table.rowCount) else table.rowCount
+        for (rowIndex in firstRow until endRow) {
+            val row = table.rows[rowIndex]
             var cellLeft = 0f
             row.cells.forEachIndexed { columnIndex, cell ->
                 val layout = grid.cells[cell.id]
                 if (layout != null) {
+                    work?.let { it.tableCellsDrawn++ }
                     val inner = canvas.save()
                     canvas.translate(
                         cellLeft + PageMeasurer.CELL_PADDING_DP,
                         rowTops[rowIndex] + PageMeasurer.CELL_PADDING_DP,
                     )
                     canvas.scale(1f / density, 1f / density)
-                    layout.draw(canvas)
+                    layout.drawVisible(canvas, if (useVisibilityIndex) localVisible.translated(
+                        -cellLeft - PageMeasurer.CELL_PADDING_DP,
+                        -rowTops[rowIndex] - PageMeasurer.CELL_PADDING_DP) else null, work)
                     canvas.restoreToCount(inner)
                 }
                 cellLeft += table.columns.getOrElse(columnIndex) { 0f }

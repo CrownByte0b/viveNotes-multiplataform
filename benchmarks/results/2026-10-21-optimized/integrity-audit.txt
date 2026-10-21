@@ -1,0 +1,7 @@
+PASS: original baseline tracked files unchanged byte-for-byte from HEAD.
+PASS: all334 current production/resource/schema hashes and9 frozen harness hashes verified; original harness and schema bytes unchanged.
+PASS: 3before+3after JVMs x48 app cases x15 positive finite samples, identical fixture hashes, runtime/settings and external dependencies; after summary recomputed exactly.
+PASS: all120 runtime artifacts match across after forks.
+PASS: 3x8 renderer cases retain native/runtime/workload/timing-scope identity and all preservation checks.
+REVIEW: 197 renderer counter differences retained case-by-case in ink-comparison.json/md; no averaging hides them.
+PROVENANCE: after sourceCommit is the parent of uncommitted optimization code; environment.json contains exact source hashes and working-tree state.

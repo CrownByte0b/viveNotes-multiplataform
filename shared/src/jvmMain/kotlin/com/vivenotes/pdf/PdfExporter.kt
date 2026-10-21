@@ -37,6 +37,7 @@ class PdfExporter(
 ) : PdfExportService {
     private val measurer = PageMeasurer(attachments, log)
     private val renderer = PageRenderer()
+    internal val work = PdfWorkCounts().also { measurer.work = it; renderer.work = it }
 
     override suspend fun chooseDestination(suggestedName: String): String? = chooseSave(suggestedName)
 
@@ -53,6 +54,7 @@ class PdfExporter(
 
     /** The last page measured with its pictures, so consecutive sheets of it are free. */
     private var cached: RenderTarget? = null
+    private val prepared = LinkedHashMap<String, RenderTarget>(4, .75f, true)
 
     /** What the dialog opens on: the page's own paper, or A4 where it has chosen none. */
     override suspend fun defaultOptionsFor(pageId: String?): PdfExportOptions = withContext(dispatcher) {
@@ -76,27 +78,31 @@ class PdfExporter(
         mutex.withLock {
             clearCache()
             log.event("pdf") { "planning ${request.options.scope.name.lowercase()}" }
-            val sources = sourcesFor(request)
-            val paper = paperFor(request.options, sources.firstOrNull()?.style)
-            val planned = sources.map { source ->
-                coroutineContext.ensureActive()
-                val page = measure(source, paper, loadPictures = false, fitContent = request.options.fitContent)
-                PlannedPage(
-                    pageId = source.id,
-                    title = source.title,
-                    plan = PageTiling.plan(
-                        items = page.items,
-                        tileWidthDp = paper.tileWidthDp,
-                        tileHeightDp = paper.tileHeightDp,
-                        fit = request.options.fitContent,
-                        boundSheet = page.boundSheet,
-                    ),
-                )
+            val ids = sourceIdsFor(request)
+            var paper: PdfPaper? = null
+            var firstTitle: String? = null
+            val planned = ArrayList<PlannedPage>()
+            try {
+                for (id in ids) {
+                    coroutineContext.ensureActive()
+                    val source = loadPdfSource(repository, id) ?: continue
+                    if (paper == null) {
+                        paper = paperFor(request.options, source.style)
+                        firstTitle = source.title
+                    }
+                    val target = prepare(source, request.options, paper)
+                    planned += PlannedPage(source.id, source.title, target.plan)
+                    if (!retainPrepared(target)) target.page.close()
+                }
+            } catch (error: Throwable) {
+                clearCache()
+                throw error
             }
-            val name = (request.name ?: sources.firstOrNull()?.title).orEmpty()
+            val selectedPaper = paper ?: paperFor(request.options, null)
+            val name = (request.name ?: firstTitle).orEmpty()
             PdfExportPlan(
                 options = request.options,
-                paper = paper,
+                paper = selectedPaper,
                 pages = planned,
                 sheets = planned.flatMapIndexed { pageIndex: Int, page: PlannedPage ->
                     page.plan.tiles.indices.map { PdfSheetRef(pageIndex, it) }
@@ -161,10 +167,12 @@ class PdfExporter(
                 staging = staged
                 Files.newOutputStream(staged).buffered().use { stream ->
                     PdfVectorDocument(stream, plan.paper.widthPoints, plan.paper.heightPoints).use { document ->
+                        var writingTarget: RenderTarget? = null
                         plan.sheets.forEachIndexed { index, ref ->
                             coroutineContext.ensureActive()
                             val planned = plan.pages[ref.pageIndex]
-                            val target = measureCached(planned.pageId, plan)
+                            val target = writingTarget?.takeIf { it.page.pageId == planned.pageId }
+                                ?: measureCached(planned.pageId, plan).also { writingTarget = it }
                             val tile = target.plan.tiles.getOrNull(ref.tileIndex) ?: planned.plan.tiles[ref.tileIndex]
                             document.sheet { canvas ->
                                 renderer.drawSheet(canvas, target.page, tile, target.plan, plan.paper,
@@ -200,57 +208,35 @@ class PdfExporter(
     }
 
     private fun clearCache() {
-        cached?.page?.close()
+        val current = cached
+        prepared.values.forEach { it.page.close() }
+        if (current != null && prepared.values.none { it === current }) current.page.close()
+        prepared.clear()
         cached = null
         renderer.clearCache()
     }
 
     // --- loading -----------------------------------------------------------------------------
 
-    private class SourcePage(
-        val id: String,
-        val title: String,
-        val createdAt: Long,
-        val doc: PageDoc,
-        val strokes: List<PageStroke>,
-    ) {
-        val style: PageStyle get() = doc.style
-    }
-
-    private suspend fun sourcesFor(request: PdfExportRequest): List<SourcePage> {
-        val ids = when (request.options.scope) {
+    private suspend fun sourceIdsFor(request: PdfExportRequest): List<String> =
+        when (request.options.scope) {
             PdfExportScope.Page -> listOfNotNull(request.pageId)
             PdfExportScope.Section -> request.sectionId
                 ?.let { repository.pagesInSection(it).map(PageEntity::id) }
                 ?: listOfNotNull(request.pageId)
         }
-        return ids.mapNotNull { load(it) }
-    }
 
-    private suspend fun load(pageId: String): SourcePage? {
-        val entity = repository.pageById(pageId) ?: return null
-        // An unreadable page exports as the page it can be read as — empty — rather than failing the
-        // whole section. Nothing here writes, so nothing can make the damage worse.
-        val doc = (repository.loadDoc(pageId) as? PageLoad.Loaded)?.doc?.migrated() ?: PageDoc()
-        return SourcePage(
-            id = pageId,
-            title = entity.title,
-            createdAt = entity.createdAt,
-            doc = doc,
-            strokes = repository.loadInk(pageId).desktopGeometry().projections,
-        )
-    }
-
-    private suspend fun measure(source: SourcePage, paper: PdfPaper, loadPictures: Boolean, fitContent: Boolean) =
+    private suspend fun measure(source: PdfSource, paper: PdfPaper, loadPictures: Boolean, fitContent: Boolean) =
         measurer.measure(
             pageId = source.id,
             title = source.title,
             createdAt = source.createdAt,
             doc = source.doc,
-            strokes = source.strokes,
+            strokes = source.decodedStrokes,
             paper = paper,
             loadPictures = loadPictures,
             fitContent = fitContent,
+            loadDrawingAssets = loadPictures,
         )
 
     /**
@@ -263,11 +249,46 @@ class PdfExporter(
      * themselves did not.
      */
     private class RenderTarget(
+        val identity: PdfSourceIdentity,
         val page: MeasuredPage,
         val plan: PdfPagePlan,
         val options: PdfExportOptions,
         val paper: PdfPaper,
-    )
+    ) {
+        val characters = page.texts.values.sumOf { block ->
+            block.layout.paragraphs.sumOf { it.layout.layoutInput.text.length + 1 }
+        } + page.tables.values.sumOf { table -> table.cells.values.sumOf { cell ->
+            cell.paragraphs.sumOf { it.layout.layoutInput.text.length + 1 }
+        } }
+        val strokeCount = page.groups.sumOf { it.strokes.size }
+    }
+
+    private suspend fun prepare(source: PdfSource, options: PdfExportOptions, paper: PdfPaper): RenderTarget {
+        val page = measure(source, paper, loadPictures = false, fitContent = options.fitContent)
+        try {
+            return RenderTarget(source.identity, page, PageTiling.plan(page.items,
+                paper.tileWidthDp, paper.tileHeightDp, options.fitContent, page.boundSheet), options, paper)
+        } catch (error: Throwable) {
+            page.close()
+            throw error
+        }
+    }
+
+    private fun retainPrepared(target: RenderTarget): Boolean {
+        val page = target.page
+        if (target.characters > MAX_PREPARED_CHARACTERS || target.strokeCount > MAX_PREPARED_STROKES) return false
+        prepared.remove(page.pageId)?.takeUnless { it === target }?.page?.close()
+        prepared[page.pageId] = target
+        while (prepared.size > MAX_PREPARED_PAGES ||
+            prepared.values.sumOf { it.characters } > MAX_PREPARED_CHARACTERS ||
+            prepared.values.sumOf { it.strokeCount } > MAX_PREPARED_STROKES) {
+            val oldest = prepared.entries.iterator().next()
+            prepared.remove(oldest.key)
+            oldest.value.page.close()
+        }
+        work.peakPreparedPages = maxOf(work.peakPreparedPages, prepared.size)
+        return prepared[page.pageId] === target
+    }
 
     /**
      * The page to draw, and where its parts go.
@@ -283,30 +304,37 @@ class PdfExporter(
      * scheme. The stored tile still decides which sheet this is; only the shifts are local.
      */
     private suspend fun measureCached(pageId: String, exportPlan: PdfExportPlan): RenderTarget {
+        val source = loadPdfSource(repository, pageId) ?: PdfSource(pageId,
+            PdfSourceIdentity("", 0L, PageDoc(), "missing"), emptyList(), emptyList(), emptyList())
         cached
             ?.takeIf {
                 it.page.pageId == pageId &&
                     it.options == exportPlan.options &&
-                    it.paper == exportPlan.paper
+                    it.paper == exportPlan.paper && it.identity == source.identity
             }
             ?.let { return it }
-        val source = load(pageId) ?: SourcePage(pageId, "", 0L, PageDoc(), emptyList())
-        val page = measure(source, exportPlan.paper, loadPictures = true, fitContent = exportPlan.options.fitContent)
-        val target = RenderTarget(
-            page = page,
-            plan = PageTiling.plan(
-                items = page.items,
-                tileWidthDp = exportPlan.paper.tileWidthDp,
-                tileHeightDp = exportPlan.paper.tileHeightDp,
-                fit = exportPlan.options.fitContent,
-                boundSheet = page.boundSheet,
-            ),
-            options = exportPlan.options,
-            paper = exportPlan.paper,
-        )
-        clearCache()
-        cached = target
-        return target
+        val previous = cached
+        cached = null
+        previous?.page?.releaseDrawingAssets()
+        if (previous != null && prepared.values.none { it === previous }) previous.page.close()
+        renderer.clearCache()
+        val reusable = prepared[pageId]?.takeIf { it.identity == source.identity &&
+            it.options == exportPlan.options && it.paper == exportPlan.paper }
+        if (reusable == null) prepared.remove(pageId)?.page?.close()
+        val target = reusable ?: prepare(source, exportPlan.options, exportPlan.paper)
+        if (reusable == null && !retainPrepared(target)) {
+            prepared.values.forEach { it.page.close() }
+            prepared.clear()
+        }
+        try {
+            measurer.hydrateDrawingAssets(target.page)
+            cached = target
+            return target
+        } catch (error: Throwable) {
+            target.page.releaseDrawingAssets()
+            if (prepared.values.none { it === target }) target.page.close()
+            throw error
+        }
     }
 
     /**
@@ -328,6 +356,9 @@ class PdfExporter(
         /** Below this a preview is not a preview; above it, it is a second render nobody looks at. */
         const val MIN_PREVIEW_SCALE = 0.2f
         const val MAX_PREVIEW_SCALE = 3f
+        const val MAX_PREPARED_PAGES = 2
+        const val MAX_PREPARED_CHARACTERS = 250_000
+        const val MAX_PREPARED_STROKES = 10_000
     }
 }
 

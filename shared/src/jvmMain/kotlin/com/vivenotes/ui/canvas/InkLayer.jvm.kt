@@ -24,6 +24,8 @@ import com.vivenotes.data.automaticColorOr
 import com.vivenotes.data.InkEdit
 import com.vivenotes.data.EraserMode
 import com.vivenotes.ink.DesktopPartialEraseGesture
+import com.vivenotes.ink.DesktopInkSegment
+import com.vivenotes.ink.DesktopErasePreparer
 import com.vivenotes.ink.PartialEraseRequest
 import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.ink.desktopEdit
@@ -44,6 +46,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collectLatest
+
+private class InkSegmentSceneData(val scene: InkScene, val byRow: Map<String, List<InkSceneStroke>>,
+    val byProjection: Map<com.vivenotes.byteink.kit.InkProjectionKey, InkSceneStroke>)
 
 @Composable
 internal actual fun PlatformInkLayer(
@@ -66,7 +71,7 @@ internal actual fun PlatformInkLayer(
     val diagnostics = LocalInkLayerDiagnostics.current
     val transform = remember(density) { ImmutableAffineTransform(density, 0f, 0f, 0f, density, 0f) }
     val renderer = remember(pageId) { InkPathRenderer() }
-    val rasterCache = remember(pageId) { InkSceneRasterCache() }
+    val rasterCache = remember(pageId) { SegmentedInkRasterCache() }
     val additionsCache = remember(pageId) { InkSceneRasterCache() }
     val controller = remember(pageId) { InkAuthoringController() }
     var frameRevision by remember(controller) { mutableLongStateOf(0L) }
@@ -103,11 +108,12 @@ internal actual fun PlatformInkLayer(
     var eraserPoint by remember(pageId, tool) { mutableStateOf<Offset?>(null) }
     var eraseRequest by remember(pageId, tool, eraserMode, density, zoom, titleFloorDp) { mutableStateOf<PartialEraseRequest?>(null) }
     var erasePreview by remember(pageId, tool, eraserMode, density, zoom, titleFloorDp, snapshot) { mutableStateOf<InkPage?>(null) }
+    val erasePreparer = remember(pageId) { DesktopErasePreparer() }
     LaunchedEffect(pageId, tool, eraserMode, density, zoom, titleFloorDp, snapshot) {
         snapshotFlow { eraseRequest }.collectLatest { request ->
             if (request == null) { erasePreview = null; return@collectLatest }
             withFrameNanos { }
-            val result = withContext(Dispatchers.Default) { request.prepare() }
+            val result = erasePreparer.prepare(request)
             if (eraseRequest === request && currentPage === request.page) erasePreview = result?.second
         }
     }
@@ -122,37 +128,44 @@ internal actual fun PlatformInkLayer(
             automaticColorOr(it.stroke.brush.colorIntArgb, it.colorFollowsTheme, canvasInk.toArgb()))
         })
     }
-    val scene = remember(displayed.base, canvasInk) { sceneFor(displayed.base.projections, true) }
-    val additionsScene = remember(displayed.additions, canvasInk) { sceneFor(displayed.additions.projections, false) }
     fun rowsFor(scene: InkScene, projections: List<com.vivenotes.byteink.kit.PageStroke>) =
         buildMap<String, MutableList<InkSceneStroke>> {
             projections.forEachIndexed { index, projection ->
                 getOrPut(projection.id) { mutableListOf() }.add(scene.strokes[index])
             }
         }
-    val sceneStrokesByRow = remember(scene) { rowsFor(scene, displayed.base.projections) }
-    val additionsStrokesByRow = remember(additionsScene) { rowsFor(additionsScene, displayed.additions.projections) }
-    val sceneByProjection = remember(scene) { displayed.base.projections.mapIndexed { index, p -> p.projectionKey to scene.strokes[index] }.toMap() }
-    val additionsByProjection = remember(additionsScene) { displayed.additions.projections.mapIndexed { index, p -> p.projectionKey to additionsScene.strokes[index] }.toMap() }
-    fun exclusions(rows: Set<String>, entries: Map<String, List<InkSceneStroke>>, layer: InkScene,
-                   projections: List<com.vivenotes.byteink.kit.PageStroke>,
+    fun exclusions(rows: Set<String>, entries: Map<String, List<InkSceneStroke>>,
                    byProjection: Map<com.vivenotes.byteink.kit.InkProjectionKey, InkSceneStroke>): Set<InkSceneStroke> =
         if (rows.isEmpty() && displayed.excludedProjections.isEmpty() && moving == null) emptySet() else Collections.unmodifiableSet(
             Collections.newSetFromMap(IdentityHashMap<InkSceneStroke, Boolean>()).apply {
                 rows.forEach { addAll(entries[it].orEmpty()) }
                 displayed.excludedProjections.forEach { key -> byProjection[key]?.let { add(it) } }
-                if (moving != null) projections.forEachIndexed { index, stroke ->
-                    if (stroke.projectionKey in moving.held.projections) add(layer.strokes[index])
-                }
+                moving?.held?.projections?.forEach { key -> byProjection[key]?.let { add(it) } }
             })
-    val excludedStrokes = remember(scene, displayed.excludedRows, displayed.excludedProjections, erasing, moving) {
-        exclusions(displayed.excludedRows + erasing, sceneStrokesByRow, scene, displayed.base.projections, sceneByProjection)
+    fun sceneData(segment: DesktopInkSegment, base: Boolean): InkSegmentSceneData {
+        val scene = sceneFor(segment.projections, base)
+        return InkSegmentSceneData(scene, rowsFor(scene, segment.projections), segment.projections.mapIndexed { index, projection ->
+            projection.projectionKey to scene.strokes[index]
+        }.toMap())
     }
-    val excludedAdditions = remember(additionsScene, displayed.excludedProjections, erasing, moving) {
-        exclusions(erasing, additionsStrokesByRow, additionsScene, displayed.additions.projections, additionsByProjection)
+    val stableSceneData = remember(pageId, canvasInk) { IdentityHashMap<DesktopInkSegment, InkSegmentSceneData>() }
+    val stableScenes = remember(displayed.base, displayed.retainedSegments, canvasInk) {
+        val segments = listOf(displayed.base) + displayed.retainedSegments
+        val kept = Collections.newSetFromMap(IdentityHashMap<DesktopInkSegment, Boolean>()).apply { addAll(segments) }
+        stableSceneData.keys.retainAll(kept)
+        segments.map { segment -> stableSceneData.getOrPut(segment) { sceneData(segment, segment === displayed.base) } }
+    }
+    val stableLayers = remember(stableScenes, displayed.excludedRows, displayed.excludedProjections, erasing, moving) {
+        val rows = if (erasing.isEmpty()) displayed.excludedRows else displayed.excludedRows + erasing
+        stableScenes.map { data -> InkSceneLayer(data.scene, exclusions(rows, data.byRow, data.byProjection)) }
+    }
+    val additionsData = remember(displayed.additions, canvasInk) { sceneData(displayed.additions, false) }
+    val additionsLayer = remember(additionsData, displayed.excludedRows, displayed.excludedProjections, erasing, moving) {
+        val rows = if (erasing.isEmpty()) displayed.excludedRows else displayed.excludedRows + erasing
+        InkSceneLayer(additionsData.scene, exclusions(rows, additionsData.byRow, additionsData.byProjection))
     }
     val movingStrokes = remember(moving) {
-        moving?.page?.desktopGeometry()?.projections?.filter { it.projectionKey in moving.held.projections }.orEmpty()
+        moving?.page?.desktopGeometry()?.selectedProjections(moving.held.projections).orEmpty()
     }
     fun cancelGesture() {
         if (controller.isDrawing) {
@@ -195,7 +208,7 @@ internal actual fun PlatformInkLayer(
                         refresh()
                         if (capturedGeneration != generation) continue
                         val rebased = request.onPage(projected)
-                        val result = withContext(Dispatchers.Default) { rebased.prepare() }
+                        val result = erasePreparer.prepare(rebased)
                         refresh()
                         if (capturedGeneration != generation) continue
                         result?.let { (edit, updated) ->
@@ -219,11 +232,12 @@ internal actual fun PlatformInkLayer(
                         val gesture = DesktopPartialEraseGesture(projected, density, settings.eraser.sizeDp, mode = eraserMode)
                         val callback = currentCallback
                         fun observe(sample: InkPointerSample, position: Offset) {
-                            if (gesture.observe(sample)) eraseRequest = gesture.request().onPage(projected)
+                            gesture.observe(sample)
                             eraserPoint = position
                         }
                         diagnostics?.inputObserved()
                         observe(down.inkSample(includePressure = false), down.position)
+                        eraseRequest = gesture.request().onPage(projected)
                         down.consume()
                         var finished = false
                         while (true) {
@@ -235,6 +249,7 @@ internal actual fun PlatformInkLayer(
                                 observe(change.inkSample(historical.position, historical.uptimeMillis, false), historical.position)
                             }
                             observe(change.inkSample(includePressure = false), change.position)
+                            eraseRequest = gesture.request().onPage(projected)
                             finished = change.changedToUpIgnoreConsumed() ||
                                 (down.type == PointerType.Mouse && !event.buttons.isPrimaryPressed)
                             change.consume()
@@ -338,8 +353,11 @@ internal actual fun PlatformInkLayer(
             val drawn = cache.draw(drawContext.canvas, layer, renderer, viewport, transform, zoom, excluded)
             if (cache.rasterBuildCount != before) finishedDrawn += drawn
         }
-        background(rasterCache, scene, excludedStrokes)
-        background(additionsCache, additionsScene, excludedAdditions)
+        if (additionsLayer.scene.strokes.isEmpty()) additionsCache.clearCache()
+        val beforeStable = rasterCache.rasterBuildCount
+        val stableDrawn = rasterCache.draw(drawContext.canvas, stableLayers, renderer, viewport, transform, zoom)
+        if (rasterCache.rasterBuildCount != beforeStable) finishedDrawn += stableDrawn
+        background(additionsCache, additionsLayer.scene, additionsLayer.excluded)
         movingStrokes.forEach { projection ->
             drawInk(renderer, projection.stroke,
                 ImmutableAffineTransform(projection.scaleX * density, 0f, (projection.offsetX + selectionOffset.x) * density,

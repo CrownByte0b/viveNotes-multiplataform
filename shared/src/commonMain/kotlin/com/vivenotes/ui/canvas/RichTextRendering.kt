@@ -1,6 +1,7 @@
 package com.vivenotes.ui.canvas
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -90,7 +91,7 @@ internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): Annotated
     val inter = FontFamily(Font(Res.font.inter))
     val lora = FontFamily(Font(Res.font.lora))
     val jetbrainsMono = FontFamily(Font(Res.font.jetbrains_mono))
-    return buildAnnotatedString {
+    return remember(blocks, colors, inter, lora, jetbrainsMono) { buildAnnotatedString {
         blocks.forEachIndexed { blockIndex, block ->
             val leading = block.leadingSp().sp
             pushStyle(ParagraphStyle(
@@ -159,7 +160,7 @@ internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): Annotated
             if (blockIndex < blocks.lastIndex) append('\n')
             pop()
         }
-    }
+    } }
 }
 
 /**

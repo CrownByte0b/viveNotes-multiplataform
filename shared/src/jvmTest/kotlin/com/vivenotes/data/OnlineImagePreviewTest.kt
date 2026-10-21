@@ -1,11 +1,14 @@
 package com.vivenotes.data
 
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.platform.registerSkikoComposeImplementation
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.Color
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Surface
 import kotlin.test.Test
+import kotlin.test.BeforeTest
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -13,7 +16,11 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 
 /** What Search online fetches for a result: its tile, and the picture once it is picked. */
+@OptIn(InternalComposeUiApi::class)
 class OnlineImagePreviewTest {
+
+    @BeforeTest
+    fun initializeGraphicsWithoutDependingOnAnEarlierUiTest() { registerSkikoComposeImplementation() }
 
     private val opened = mutableListOf<String>()
 

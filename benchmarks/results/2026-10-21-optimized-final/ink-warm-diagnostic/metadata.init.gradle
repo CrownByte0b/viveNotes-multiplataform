@@ -1,0 +1,23 @@
+import groovy.json.JsonOutput
+import java.security.MessageDigest
+
+gradle.projectsEvaluated {
+    def shared = gradle.rootProject.project(':shared')
+    shared.tasks.register('inkAppendWarmMetadata') {
+        doLast {
+            def diagnostic = shared.tasks.named('inkAppendWarmDiagnostic').get()
+            def artifacts = diagnostic.classpath.files.findAll { it.isFile() && it.name.endsWith('.jar') }
+                .sort { it.name }.collect { artifact ->
+                    def digest = MessageDigest.getInstance('SHA-256')
+                    artifact.withInputStream { input ->
+                        byte[] buffer = new byte[65536]
+                        int count
+                        while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count)
+                    }
+                    [name: artifact.name, sha256: digest.digest().encodeHex().toString(),
+                     projectArtifact: artifact.toPath().startsWith(shared.rootProject.projectDir.toPath())]
+                }
+            new File(shared.findProperty('inkWarmMetadataOutput').toString()).text = JsonOutput.prettyPrint(JsonOutput.toJson(artifacts)) + '\n'
+        }
+    }
+}

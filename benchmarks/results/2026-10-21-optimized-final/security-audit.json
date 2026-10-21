@@ -1,0 +1,11 @@
+{
+  "result": "PASS",
+  "scanner": "gitleaks8.30.0",
+  "scope": "Temporary Git snapshot of tracked and untracked files using standard Git exclusions; original index/history untouched; scanner redacted.",
+  "findings": [],
+  "snapshotFiles": 863,
+  "benchmarkToolingTestsPassed": 11,
+  "gitleaksConfigTestsPassed": 13,
+  "allowlistScope": "Exact source path, SHA value, line and each of three named benchmark manifest paths only; no directory-wide or arbitrary-SHA exception.",
+  "controls": "Changed/prefixed hashes, altered source/manifest paths, checksum in credential fields and extra credentials remain detected."
+}

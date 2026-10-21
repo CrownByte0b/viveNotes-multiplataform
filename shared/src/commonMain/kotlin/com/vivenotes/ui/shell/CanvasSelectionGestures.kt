@@ -39,7 +39,7 @@ import kotlinx.coroutines.withContext
 internal class CanvasGestureDrafts(
     val space: MutableState<SpaceCut?>,
     val shape: MutableState<Pair<Offset, Offset>?>,
-    val path: MutableState<List<Offset>>,
+    val path: LassoPathBuffer,
     val rectangle: MutableState<Pair<Offset, Offset>?>,
     val inkOffset: MutableState<Offset>,
     val paste: MutableState<Offset?>,
@@ -79,7 +79,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
     val inkMoveBusy by inkMoveBusyState
     var spaceDraft by drafts.space
     var shapeDraft by drafts.shape
-    var lassoPath by drafts.path
+    val lassoPath = drafts.path
     var lasso by drafts.rectangle
     var inkDragOffset by drafts.inkOffset
     var pastePoint by drafts.paste
@@ -161,10 +161,11 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
             (!currentState.textToolArmed && !currentState.shapeToolArmed && start.y >= titleFloor &&
                 !hitsContent(start, currentState)))
         val freehand = marquee && currentState.objectLassoArmed
-        val loop = mutableListOf(start)
+        if (freehand) lassoPath.start(start)
         var last = down
         // Taken by a pinch: a second finger made this gesture the page's, not a tap or a drag.
         var pinched = false
+        try {
         do {
             val event = awaitPointerEvent(PointerEventPass.Initial)
             val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -180,18 +181,21 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
                 shapeDraft = start to toPage(change.position)
             }
             if (marquee &&
-                ((change.position - down.position).getDistance() >= 12.dp.toPx() || (freehand && loop.size > 1))) {
+                ((change.position - down.position).getDistance() >= 12.dp.toPx() || (freehand && lassoPath.size > 1))) {
                 change.consume()
                 if (freehand) {
-                    change.historical.forEach { loop += toPage(it.position) }
-                    loop += toPage(change.position)
-                    lassoPath = loop.toList()
+                    change.historical.forEach { lassoPath.append(toPage(it.position)) }
+                    lassoPath.append(toPage(change.position))
                 } else lasso = start to toPage(change.position)
             }
         } while (last.pressed)
-        val distance = if (freehand) loop.maxOf { (it - start).getDistance() } * density.density * zoom
+        } finally {
+            if (last.pressed) lassoPath.clear()
+        }
+        val distance = if (freehand) lassoPath.distanceFromStart() * density.density * zoom
             else (last.position - down.position).getDistance()
-        lassoPath = emptyList()
+        val completedLoop = if (freehand && !pinched && distance >= 12.dp.toPx()) lassoPath.snapshot() else emptyList()
+        lassoPath.clear()
         if (pinched) {
             shapeDraft = null
             lasso = null
@@ -212,7 +216,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
         } else if (marquee && distance >= 12.dp.toPx()) {
             val a = start
             val b = toPage(last.position)
-            if (freehand) currentLassoSelect(loop.map { InkSample(it.x, it.y) }, measuredTextHeights.toMap()) else currentSelectObjects(
+            if (freehand) currentLassoSelect(completedLoop.map { InkSample(it.x, it.y) }, measuredTextHeights.toMap()) else currentSelectObjects(
                 minOf(a.x, b.x), minOf(a.y, b.y), maxOf(a.x, b.x), maxOf(a.y, b.y))
             lasso = null
         } else if (distance < 12.dp.toPx()) {

@@ -1,0 +1,25 @@
+{
+  "command": "env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE JAVA_HOME=/usr/lib/jvm/java-latest-openjdk xvfb-run -a -s '-screen 0 1920x1200x24' ./gradlew :shared:jvmTest :desktopApp:test lint :desktopApp:assemble --max-workers=1 --offline --console=plain",
+  "result": "BUILD SUCCESSFUL in 2m 18s",
+  "suites": [
+    {
+      "directory": "shared/build/test-results/jvmTest",
+      "classes": 253,
+      "tests": 1908,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2,
+      "passed": 1906
+    },
+    {
+      "directory": "desktopApp/build/test-results/test",
+      "classes": 40,
+      "tests": 151,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 5,
+      "passed": 146
+    }
+  ],
+  "lint": "Resource lint passed: 1132 resources, 325 Kotlin files."
+}

@@ -1,0 +1,168 @@
+--- a/app/src/main/java/com/vivenotes/data/sync/HierarchySync.kt
++++ b/app/src/main/java/com/vivenotes/data/sync/HierarchySync.kt
+@@ -558,7 +558,11 @@
+ 
+         // Parent depth outranks sequence order locally. Rows whose parents are in a later bounded
+         // page wait in [held] and the cursor does not move until they can be placed.
+-        val applicable = admit(parsed, held)
++        val committed = sync.state()?.cursor ?: 0L
++        val applicable = if (page.cursor <= committed) {
++            held.clear()
++            emptyList()
++        } else admit(parsed, held)
+ 
+         val discardedPictures = mutableListOf<String>()
+         db.withTransaction {
+@@ -567,7 +571,7 @@
+             invalidateInkText(remoteInkPages)
+             applyPictureCounts()
+             purged.forEach { (kind, id) -> discardedPictures += applyPurgeOrRemap(kind, id) }
+-            if (held.isEmpty()) sync.setCursor(page.cursor)
++            if (held.isEmpty()) sync.setCursor(maxOf(sync.state()?.cursor ?: 0L, page.cursor))
+             sync.setApplyingRemote(false)
+         }
+         logApplied("streamed", applicable, purged.size, held.size, page.cursor)
+@@ -661,7 +665,7 @@
+                 // Only when nothing is being held. The cursor is a promise that everything below it
+                 // has been applied, so advancing it past a row still waiting for its parent would
+                 // lose that row for good — the next pull starts above it.
+-                if (held.isEmpty()) sync.setCursor(page.cursor)
++                if (held.isEmpty()) sync.setCursor(maxOf(sync.state()?.cursor ?: 0L, page.cursor))
+                 sync.setApplyingRemote(false)
+             }
+             logApplied("pulled", applicable, purged.size, held.size, page.cursor)
+@@ -720,10 +724,16 @@
+      * page of the delta.
+      */
+     private suspend fun admit(parsed: List<RemoteChange>, held: HeldBack): List<RemoteChange> {
++        val knownVersions = parsed.groupBy { it.kind.wire }.flatMap { (kind, changes) ->
++            changes.map { it.id }.distinct().chunked(SQLITE_BIND_CHUNK).flatMap { ids ->
++                sync.entityStates(kind, ids)
++            }
++        }.associate { (it.kind to it.entityId) to it.serverVersion }
+         val admitted = mutableListOf<RemoteChange>()
+         val admittedKeys = HashSet<String>()
+         val stored = HashMap<String, Boolean>()
+         for (change in parsed.sortedBy { it.kind.rank }) {
++            if (change.version <= (knownVersions[change.kind.wire to change.id] ?: -1L)) continue
+             val parent = parentOf(change)
+             if (parent != null) {
+                 val (parentKind, parentId) = parent
+@@ -784,6 +794,9 @@
+     private fun keyOf(kind: SyncKind, id: String): String = kind.wire + ":" + id
+ 
+     private suspend fun applyPulledChange(remote: RemoteChange) {
++        // A duplicate/lagging delivery is not an authoritative replacement of a newer base.
++        val known = sync.entityState(remote.kind.wire, remote.id)
++        if (known != null && remote.version <= known.serverVersion) return
+         sync.putEntityState(remote.asEntityState())
+ 
+         // A server row newer than this device's base wins the plain whole-entity OCC decision.
+@@ -2134,6 +2147,8 @@
+ 
+         fun isEmpty(): Boolean = size == 0
+ 
++        fun clear() { byParent.clear(); size = 0 }
++
+         fun hold(parentKey: String, change: RemoteChange) {
+             byParent.getOrPut(parentKey) { mutableListOf() } += change
+             size++
+--- a/app/src/main/java/com/vivenotes/data/db/Daos.kt
++++ b/app/src/main/java/com/vivenotes/data/db/Daos.kt
+@@ -58,6 +58,9 @@
+ 
+     @Query("SELECT * FROM sync_entity_states WHERE kind = :kind AND entityId = :entityId")
+     suspend fun entityState(kind: String, entityId: String): SyncEntityStateEntity?
++
++    @Query("SELECT * FROM sync_entity_states WHERE kind = :kind AND entityId IN (:ids)")
++    suspend fun entityStates(kind: String, ids: List<String>): List<SyncEntityStateEntity>
+ 
+     @Upsert
+     suspend fun putEntityState(state: SyncEntityStateEntity)
+--- a/app/src/androidTest/java/com/vivenotes/data/sync/HierarchySyncTest.kt
++++ b/app/src/androidTest/java/com/vivenotes/data/sync/HierarchySyncTest.kt
+@@ -75,6 +75,84 @@
+     fun tearDown() {
+         db.close()
+         attachmentDirectory.deleteRecursively()
++    }
++
++    @Test
++    fun aLaggingStreamCannotRegressTheCursorOrDiscardANewerDirtyBody() = runBlocking {
++        val page = repository.createPage(repository.createSection(repository.createNotebook("Notebook"), "Section"))
++        hierarchy.run(account())
++        val old = server.current("pageContent", page)!!
++        server.seed(pageContentChange(page, JsonDocumentCodec.encodeToString(PageDoc.empty()), now + 1))
++        hierarchy.run(account())
++        val committedCursor = db.syncDao().state()!!.cursor
++        val authoritative = db.pageContentDao().byId(page)!!
++        val dirty = PageDoc(outlines = listOf(Outline.Text(id = "text", blocks = listOf(com.vivenotes.model.Block.of("local edit")))))
++        repository.saveDoc(page, dirty)
++        val queued = db.syncDao().outboxEntry("pageContent", page)!!
++
++        hierarchy.applyStreamPage(account(), PullChangesPage(listOf(old), committedCursor - 1, false))
++
++        assertEquals(committedCursor, db.syncDao().state()!!.cursor)
++        assertEquals(JsonDocumentCodec.encodeToString(dirty), db.pageContentDao().byId(page)!!.docJson)
++        assertEquals(queued.generation, db.syncDao().outboxEntry("pageContent", page)!!.generation)
++        assertEquals(authoritative.format, db.pageContentDao().byId(page)!!.format)
++    }
++
++    @Test
++    fun aDuplicateAcceptedVersionDoesNotOverwriteTheNextLocalGeneration() = runBlocking {
++        val page = repository.createPage(repository.createSection(repository.createNotebook("Notebook"), "Section"))
++        hierarchy.run(account())
++        fun text(value: String) = PageDoc(outlines = listOf(Outline.Text(id = "text", blocks = listOf(com.vivenotes.model.Block(id = "fixed-block", runs = listOf(com.vivenotes.model.Run(value)))))))
++        repository.saveDoc(page, text("accepted"))
++        hierarchy.pushPending(account())
++        val echo = server.current("pageContent", page)!!
++        val acknowledged = db.syncDao().entityState("pageContent", page)!!.serverVersion
++        repository.saveDoc(page, text("next local generation"))
++        val queued = db.syncDao().outboxEntry("pageContent", page)!!
++        val cursor = db.syncDao().state()!!.cursor
++
++        hierarchy.applyStreamPage(account(), PullChangesPage(listOf(echo), cursor + 1, false))
++
++        assertEquals(JsonDocumentCodec.encodeToString(text("next local generation")), db.pageContentDao().byId(page)!!.docJson)
++        assertEquals(acknowledged, db.syncDao().entityState("pageContent", page)!!.serverVersion)
++        assertEquals(queued.generation, db.syncDao().outboxEntry("pageContent", page)!!.generation)
++        assertEquals(cursor + 1, db.syncDao().state()!!.cursor)
++    }
++
++    @Test
++    fun aStrictlyNewerVersionStillWinsTheExistingWholeEntityConflictRule() = runBlocking {
++        val page = repository.createPage(repository.createSection(repository.createNotebook("Notebook"), "Section"))
++        hierarchy.run(account())
++        repository.saveDoc(page, PageDoc(outlines = listOf(Outline.Text(id = "local"))))
++        val remote = PageDoc(outlines = listOf(Outline.Text(id = "remote")))
++        server.seed(pageContentChange(page, JsonDocumentCodec.encodeToString(remote), now + 2))
++        val incoming = server.current("pageContent", page)!!
++        val cursor = db.syncDao().state()!!.cursor
++
++        hierarchy.applyStreamPage(account(), PullChangesPage(listOf(incoming), cursor + 1, false))
++
++        assertEquals(JsonDocumentCodec.encodeToString(remote), db.pageContentDao().byId(page)!!.docJson)
++        assertNull(db.syncDao().outboxEntry("pageContent", page))
++    }
++
++    @Test
++    fun aLaggingChildAfterPermanentParentPurgeIsIgnoredBeforeParentAdmission() = runBlocking {
++        val notebook = repository.createNotebook("Notebook")
++        val page = repository.createPage(repository.createSection(notebook, "Section"))
++        hierarchy.run(account())
++        val stale = server.current("pageContent", page)!!
++        val staleCursor = db.syncDao().state()!!.cursor
++        server.purgeNotebook(notebook)
++        hierarchy.run(account())
++        val committed = db.syncDao().state()!!.cursor
++        assertNull(db.pageDao().byId(page))
++
++        val result = hierarchy.applyStreamPage(account(), PullChangesPage(listOf(stale), staleCursor, false))
++
++        assertTrue(result is SyncRunResult.Succeeded)
++        assertEquals(committed, db.syncDao().state()!!.cursor)
++        assertNull(db.pageDao().byId(page))
++        assertTrue(db.syncDao().outbox(32).isEmpty())
+     }
+ 
+     @Test

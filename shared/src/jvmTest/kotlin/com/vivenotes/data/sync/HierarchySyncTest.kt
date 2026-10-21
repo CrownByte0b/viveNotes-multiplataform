@@ -49,6 +49,74 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class HierarchySyncTest {
 
+    @Test
+    fun samePageStrokeBatchLooksUpItsDeferredParentChainOnlyOnce() = runBlocking {
+        val pageReads = AtomicInteger()
+        val sectionReads = AtomicInteger()
+        val counted = Room.databaseBuilder<NotesDatabase>(name = File(attachmentDirectory, "parent-cache.db").absolutePath)
+            .setDriver(CountingDriver(BundledSQLiteDriver()) { sql ->
+                if (sql == PAGE_LOOKUP) pageReads.incrementAndGet()
+                if (sql == "SELECT * FROM sections WHERE id = ?") sectionReads.incrementAndGet()
+            }).setQueryCoroutineContext(kotlinx.coroutines.Dispatchers.IO)
+            .addCallback(NotesDatabase.SYNC_TRIGGER_CALLBACK).build()
+        try {
+            server.seed(notebookChange("cached-n", "Notebook", now), sectionChange("cached-s", "cached-n", "Section", now),
+                pageChange("cached-p", "cached-s", "Page", now))
+            repeat(200) { server.seed(inkStrokeChange("cached-ink-$it", "cached-p", it, now)) }
+            val sync = HierarchySync(counted, server, RemoteInkSignal(), AttachmentBlobSync(counted, server, pictures))
+            val result = sync.run(account())
+            assertTrue(result is SyncRunResult.Succeeded)
+            assertEquals(200, counted.inkStrokeDao().countForPages(listOf("cached-p")))
+            assertTrue("${pageReads.get()} repeated page reads", pageReads.get() <= 2)
+            assertTrue("${sectionReads.get()} repeated section reads", sectionReads.get() <= 2)
+        } finally { counted.close() }
+    }
+
+    @Test
+    fun aPureInkStreamEventDoesNotRescanPictureBodiesOrStatExistingFiles() = runBlocking {
+        val scans = AtomicInteger()
+        val fileStats = AtomicInteger()
+        val counted = Room.databaseBuilder<NotesDatabase>(name = File(attachmentDirectory, "picture-cost.db").absolutePath)
+            .setDriver(CountingDriver(BundledSQLiteDriver()) { sql -> if (sql.contains("LIKE '%attachmentId%'")) scans.incrementAndGet() })
+            .setQueryCoroutineContext(kotlinx.coroutines.Dispatchers.IO)
+            .addCallback(NotesDatabase.SYNC_TRIGGER_CALLBACK).build()
+        val observedBytes = object : AttachmentBytes by pictures {
+            override fun fileFor(id: String): File { fileStats.incrementAndGet(); return pictures.fileFor(id) }
+        }
+        try {
+            val notes = NotesRepository(counted)
+            val page = notes.createPage(notes.createSection(notes.createNotebook("Notebook"), "Section"))
+            val picture = "already here".toByteArray()
+            val digest = MessageDigest.getInstance("SHA-256").digest(picture).joinToString("") { "%02x".format(it) }
+            pictures.fileFor(digest).writeBytes(picture)
+            counted.attachmentDao().insert(AttachmentEntity(digest, "image/webp", 8, 8, picture.size.toLong(), 1, now))
+            notes.saveDoc(page, docWithPicture(digest))
+            val sync = HierarchySync(counted, server, RemoteInkSignal(), AttachmentBlobSync(counted, server, observedBytes))
+            sync.run(account())
+            val since = counted.syncDao().state()!!.cursor
+            server.seed(inkStrokeChange("streamed-ink", page, 1, now))
+            val incoming = (server.pullChanges("", "", since, 512) as ServerResult.Success<PullChangesPage>).value
+            scans.set(0); fileStats.set(0)
+            assertTrue(sync.applyStreamPage(account(), incoming) is SyncRunResult.Succeeded)
+            assertEquals(0, scans.get())
+            assertEquals(0, fileStats.get())
+        } finally { counted.close() }
+    }
+
+    @Test
+    fun acceptedInkStateOmitsPointsBeforeAnEchoAndTheNextPushReattachesCanonicalBytes() = runBlocking {
+        val page = repository.createPage(repository.createSection(repository.createNotebook("Notebook"), "Section"))
+        hierarchy.run(account())
+        val stroke = repository.addStroke(strokeRow("pushed-once", page, 0))
+        hierarchy.pushPending(account())
+        val accepted = db.syncDao().entityState("inkStroke", stroke.id)!!
+        assertFalse(kotlinx.serialization.json.Json.parseToJsonElement(accepted.serverJson).toString().contains("\"points\""))
+        db.inkStrokeDao().setColor(stroke.id, 0xffaabbcc.toInt(), false)
+        hierarchy.pushPending(account())
+        val pushed = server.pushes.flatten().last { kindOf(it) == "inkStroke" }
+        assertArrayEquals(stroke.points, Base64.getDecoder().decode(pushed.getValue("points").jsonPrimitive.content))
+    }
+
     private lateinit var db: NotesDatabase
     private lateinit var repository: NotesRepository
     private lateinit var server: InMemorySyncServer
@@ -1778,6 +1846,7 @@ class HierarchySyncTest {
     )
 
     private class InMemorySyncServer : SyncTransport {
+        private val blobLock = Any()
         private val rows = linkedMapOf<Pair<String, String>, JsonObject>()
         private val log = mutableListOf<JsonObject>()
         val pushes = mutableListOf<List<JsonObject>>()
@@ -2027,8 +2096,10 @@ class HierarchySyncTest {
             token: String,
             digest: String,
         ): ServerResult<Boolean> {
+            synchronized(blobLock) {
             blobCalls += "HEAD $digest"
             return ServerResult.Success(digest in blobs && digest !in lostBlobs)
+            }
         }
 
         override suspend fun uploadBlob(
@@ -2037,6 +2108,7 @@ class HierarchySyncTest {
             digest: String,
             file: File,
         ): ServerResult<Boolean> {
+            synchronized(blobLock) {
             blobCalls += "PUT $digest"
             if (storageFull) return ServerResult.Failed(ConnectFailure.StorageFull, retryable = false)
             val bytes = file.readBytes()
@@ -2049,6 +2121,7 @@ class HierarchySyncTest {
             val wasLost = lostBlobs.remove(digest)
             val held = blobs.put(digest, bytes) != null
             return ServerResult.Success(wasLost || !held)
+            }
         }
 
         override suspend fun downloadBlob(
@@ -2057,11 +2130,13 @@ class HierarchySyncTest {
             digest: String,
             target: File,
         ): ServerResult<Boolean> {
+            synchronized(blobLock) {
             blobCalls += "GET $digest"
             val bytes = blobs[digest]?.takeIf { digest !in lostBlobs }
                 ?: return ServerResult.Success(false)
             target.writeBytes(bytes)
             return ServerResult.Success(true)
+            }
         }
 
         /** The row a change may not be stored without, as the server's foreign keys define it. */

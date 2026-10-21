@@ -23,6 +23,10 @@ import com.vivenotes.model.PageDoc
 import com.vivenotes.model.newId
 import com.vivenotes.model.plainText
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeout
 import org.jetbrains.skia.Color
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Surface
@@ -58,6 +62,36 @@ import kotlin.test.assertTrue
  * passed every test on Android.
  */
 class NotebookTransferManagerTest {
+
+    @Test
+    fun targetedExportUsesOneCommittedSnapshotWhileAnUnrelatedWriterWaits() = runBlocking {
+        val selected = repository.createNotebook("Selected")
+        val section = repository.createSection(selected, "Section")
+        val page = repository.createPage(section, "Page")
+        repository.saveDoc(page, PageDoc(outlines = listOf(Outline.Text(id = "kept", blocks = listOf(Block.of("selected body"))))))
+        val unrelated = repository.createNotebook("Unrelated")
+        val otherPage = repository.createPage(repository.createSection(unrelated, "Other"), "Other page")
+        db.inkStrokeDao().insert(InkStrokeEntity("unrelated-blob", otherPage, 0, "marker", 1, 1f, 0,
+            epsilon = 0.1f, stabilization = 0, minX = 0f, minY = 0f, maxX = 1f, maxY = 1f,
+            points = ByteArray(2 * 1024 * 1024), enc = "opaque/test", createdAt = now))
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val writer = async(Dispatchers.IO) { db.withTransaction {
+            repository.renameNotebook(selected, "Not committed")
+            entered.complete(Unit); release.await()
+        } }
+        try {
+            entered.await()
+            val bytes = withTimeout(10_000) { export(selected) }
+            val destination = openDatabase("targeted-destination.db")
+            val imported = transfersFor(destination, storeFor(destination, "targeted"), "targeted")
+                .importNotebook(ByteArrayInputStream(bytes))
+            assertEquals("Selected", imported.notebookName)
+            assertEquals(1, destination.notebookDao().count())
+            assertTrue(destination.inkStrokeDao().byIds(listOf("unrelated-blob")).isEmpty())
+            assertEquals("selected body", (NotesRepository(destination).loadDoc(page) as PageLoad.Loaded).doc.plainText())
+        } finally { release.complete(Unit); writer.await() }
+    }
 
     private lateinit var root: File
     private lateinit var db: NotesDatabase

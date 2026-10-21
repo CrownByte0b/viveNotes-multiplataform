@@ -21,12 +21,18 @@ internal class DesktopInkSelection(override val page: InkPage, val held: InkLass
     override val bounds = held.bounds.let { InkSelectionBounds(it.left, it.top, it.right, it.bottom) }
     override val targetIds get() = held.targetIds
 
-    override val isGrouped: Boolean get() = page.desktopGeometry().sourceStrokes.filter { it.id in targetIds }
-        .map { it.groupId }.distinct().let { it.size == 1 && it.single() != null }
+    private val selectedRows by lazy { page.strokes.filter { it.id in targetIds } }
+    override val colorArgb: Int? by lazy { selectedRows.map { it.colorArgb }.distinct().singleOrNull() }
+    override val colorFollowsTheme: Boolean by lazy { selectedRows.isNotEmpty() && selectedRows.all {
+        it.colorFollowsTheme == true || it.colorFollowsTheme == null &&
+            it.colorArgb in setOf(0xff000000.toInt(), 0xffffffff.toInt())
+    } }
+    override val isGrouped: Boolean by lazy { page.desktopGeometry().sourceStrokes.filter { it.id in targetIds }
+        .map { it.groupId }.distinct().let { it.size == 1 && it.single() != null } }
 
     override fun forRecognition(): InkPage {
-        val pieces = page.desktopGeometry().projections.filter { it.projectionKey in held.projections }
-        return InkPage(page.pageId, page.strokes.filter { it.id in targetIds }, geometry = DesktopInkPage(pieces))
+        val pieces = page.desktopGeometry().selectedProjections(held.projections)
+        return InkPage(page.pageId, selectedRows, geometry = DesktopInkPage(pieces))
     }
 
     override fun group(): InkSelectionChange? {

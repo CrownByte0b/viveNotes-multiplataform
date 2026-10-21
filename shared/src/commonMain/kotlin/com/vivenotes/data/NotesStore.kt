@@ -5,7 +5,7 @@ import com.vivenotes.data.db.ClosedNotebook
 import com.vivenotes.data.db.PageEntity
 import com.vivenotes.data.db.PageRevisionSummary
 import com.vivenotes.model.PageDoc
-import com.vivenotes.model.plainText
+import com.vivenotes.model.Outline
 import kotlinx.coroutines.flow.Flow
 
 /** Outcome of reading a page body. */
@@ -106,7 +106,37 @@ interface NotesStore {
  * `pages.preview` stores exactly this, so an open page's list entry can follow its typing without
  * changing when the save lands.
  */
-fun pagePreview(doc: PageDoc): String = doc.plainText().lineSequence()
-    .firstOrNull { it.isNotBlank() }
-    .orEmpty()
-    .take(140)
+fun pagePreview(doc: PageDoc): String {
+    val line = StringBuilder(140)
+    var nonblank = false
+    fun append(text: String): Boolean {
+        for (character in text) {
+            if (character == '\n' || character == '\r') {
+                if (nonblank) return true
+                line.setLength(0)
+            } else {
+                if (line.length < 140) line.append(character)
+                if (!character.isWhitespace()) nonblank = true
+                if (nonblank && line.length == 140) return true
+            }
+        }
+        return false
+    }
+    fun blocks(blocks: List<com.vivenotes.model.Block>): Boolean {
+        for (block in blocks) {
+            for (run in block.runs) if (append(run.plainText)) return true
+            if (append("\n")) return true
+        }
+        return false
+    }
+    for (outline in doc.outlines) {
+        val done = when (outline) {
+            is Outline.Text -> blocks(outline.blocks)
+            is Outline.Table -> outline.rows.any { row -> row.cells.any { blocks(it.blocks) } }
+            is Outline.Equation -> append(outline.latex) || append("\n")
+            else -> false
+        }
+        if (done) return line.toString()
+    }
+    return if (nonblank) line.toString() else ""
+}

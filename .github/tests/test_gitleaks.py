@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[2]
 NOTICE = "shared/src/jvmMain/resources/ai/NOTICE.md"
 SYNC_TEST = "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/SyncServerClientTest.kt"
 BENCHMARK_MANIFEST = "benchmarks/results/2026-10-21/environment.json"
+OPTIMIZED_BENCHMARK_MANIFEST = "benchmarks/results/2026-10-21-optimized/environment.json"
+FINAL_BENCHMARK_MANIFEST = "benchmarks/results/2026-10-21-optimized-final/environment.json"
 BENCHMARK_SOURCE_FILES = (
     "desktopApp/src/main/kotlin/com/vivenotes/desktop/KeyBindingsFile.kt",
     "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/TextCaretKeys.kt",
@@ -156,6 +158,40 @@ class GitleaksConfigTest(unittest.TestCase):
             [("generic-api-key", BENCHMARK_MANIFEST)],
             self.scan(BENCHMARK_MANIFEST, json.dumps(manifest, indent=2)),
         )
+
+    def test_optimized_capture_exceptions_are_exact_and_keep_credentials_detectable(self):
+        for path in (OPTIMIZED_BENCHMARK_MANIFEST, FINAL_BENCHMARK_MANIFEST):
+            with self.subTest(capture=path):
+                self.check_optimized_capture_exceptions(path)
+
+    def check_optimized_capture_exceptions(self, path):
+        content = (ROOT / path).read_text(encoding="utf-8")
+        manifest = json.loads(content)
+        checksums = manifest["productionFiles"]
+        self.assertEqual([], self.scan(path, content))
+        control = hashlib.sha256(b"optimized benchmark credential control").hexdigest()
+        fixtures = [
+            ("other/environment.json", json.dumps({name: checksums[name] for name in BENCHMARK_SOURCE_FILES}, indent=2), 5),
+            (path, "\n".join(f'api_key = "{checksums[name]}"' for name in BENCHMARK_SOURCE_FILES), 5),
+            (path, json.dumps({f"other/{name}": checksums[name] for name in BENCHMARK_SOURCE_FILES}, indent=2), 5),
+            (path, json.dumps({**manifest, "api_key": control}, indent=2), 1),
+        ]
+        for source in BENCHMARK_SOURCE_FILES:
+            for value in (control, f'a{checksums[source]}f'):
+                fixtures.append((path, json.dumps({source: value}, indent=2), 1))
+        tokenizer = BENCHMARK_SOURCE_FILES[-1]
+        previous = self.benchmark_checksums()[tokenizer]
+        self.assertNotEqual(previous, checksums[tokenizer])
+        fixtures.extend([
+            (path, json.dumps({tokenizer: previous}, indent=2), 1),
+            (BENCHMARK_MANIFEST, json.dumps({tokenizer: checksums[tokenizer]}, indent=2), 1),
+        ])
+        for fixture_path, fixture, count in fixtures:
+            with self.subTest(path=fixture_path, fixture=fixture[:120]):
+                self.assertEqual(
+                    [("generic-api-key", fixture_path)] * count,
+                    self.scan(fixture_path, fixture),
+                )
 
 
 if __name__ == "__main__":

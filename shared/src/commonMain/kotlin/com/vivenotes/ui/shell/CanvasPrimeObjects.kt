@@ -19,6 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +62,8 @@ import kotlinx.coroutines.flow.first
 
 @Composable
 internal fun CanvasPrimeObjects(
+    viewport: () -> Rect,
+    searchTarget: String? = null,
     state: WorkspaceState,
     workspaceState: State<WorkspaceState>,
     displayedOutlines: List<Outline>,
@@ -81,13 +87,32 @@ internal fun CanvasPrimeObjects(
     onHoldTable: (TableAxis?) -> Unit,
     onTableEdit: (TableEdit) -> Unit,
 ) {
-    val currentState by workspaceState
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
     val currentMoveObject by rememberUpdatedState(onMoveObject)
     val currentSelectObject by rememberUpdatedState(onSelectObject)
     val currentResizeObjects by rememberUpdatedState(onResizeObjects)
-    displayedOutlines.filter { it.isPrimeObject() }.forEach { outline ->
+    val measurementKeys = remember(measuredTextHeights) { mutableStateMapOf<String, TableMeasurementKey>() }
+    val visible by remember(viewport) { derivedStateOf { canvasDemandWindow(viewport()) } }
+    val primeOutlines = remember(displayedOutlines) { displayedOutlines.filter { it.isPrimeObject() } }
+    SideEffect {
+        val ids = primeOutlines.mapTo(HashSet()) { it.id }
+        measurementKeys.keys.filterNot { it in ids }.forEach(measurementKeys::remove)
+    }
+    primeOutlines.forEach { outline ->
+        key(outline.id) {
+        val measureKey = (outline as? Outline.Table)?.let {
+            TableMeasurementKey(it.columns, it.rows, it.headerRow, it.headerColumn, it.inkOnly,
+                density.density, density.fontScale)
+        }
+        val pinned = outline.id in state.selectedObjectIds || outline.id == searchTarget ||
+            (outline is Outline.Table && outline.locate(state.focusedTextOutlineId.orEmpty()) != null)
+        val knownHeight = if (outline is Outline.Table)
+            measuredTextHeights[outline.id]?.takeIf { measurementKeys[outline.id] == measureKey }
+            else outline.primeHeight()
+        val cullPad = if (outline is Outline.Shape) outline.borderWidth / 2f + 2f else 0f
+        if (shouldComposeCanvasItem(outline.x - cullPad, outline.y - cullPad,
+                maxOf(24f, outline.width) + 2f * cullPad, knownHeight?.let { maxOf(24f, it) + 2f * cullPad }, visible, pinned)) {
         val selected = outline.id in state.selectedObjectIds
         val drawnShape = outline is Outline.Shape && outline.segments.isNotEmpty()
         // Leave half the stroke and rounded surface clip outside the actual geometry.
@@ -99,7 +124,10 @@ internal fun CanvasPrimeObjects(
         val width = (outline.width + 2f * visualPad).coerceAtLeast(24f).dp
         val tableRows = if (outline is Outline.Table) measuredTableRows(outline, richColors) else emptyList()
         val objectHeight = if (outline is Outline.Table) tableRows.sum() else outline.primeHeight()
-        if (outline is Outline.Table) SideEffect { measuredTextHeights[outline.id] = TABLE_GUTTER + objectHeight }
+        if (outline is Outline.Table) SideEffect {
+            measuredTextHeights[outline.id] = TABLE_GUTTER + objectHeight
+            measurementKeys[outline.id] = measureKey!!
+        }
         val height = (objectHeight + 2f * visualPad).coerceAtLeast(24f).dp
         // A table alone in the selection, or one being typed in, shows its handles.
         val tableActive = outline is Outline.Table && groupBounds == null && state.selectedInk == null &&
@@ -132,7 +160,7 @@ internal fun CanvasPrimeObjects(
                     detectDragGestures(
                         onDragStart = {
                             firstChange = true
-                            if (outline.id !in currentState.selectedObjectIds)
+                            if (outline.id !in workspaceState.value.selectedObjectIds)
                                 currentSelectObject(outline.id)
                         },
                         onDrag = { change, drag ->
@@ -147,7 +175,7 @@ internal fun CanvasPrimeObjects(
                 .clickable {
                     focusManager.clearFocus()
                     canvasFocusRequester.requestFocus()
-                    if (outline.id !in currentState.selectedObjectIds) onSelectObject(outline.id)
+                    if (outline.id !in workspaceState.value.selectedObjectIds) onSelectObject(outline.id)
                 },
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -205,7 +233,7 @@ internal fun CanvasPrimeObjects(
                 },
                 onMove = { dx, dy, first -> currentMoveObject(outline.id, dx, dy, first) },
                 onScale = { sx, sy, first ->
-                    if (outline.id !in currentState.selectedObjectIds) currentSelectObject(outline.id)
+                    if (outline.id !in workspaceState.value.selectedObjectIds) currentSelectObject(outline.id)
                     currentResizeObjects(outline.x, outline.y, sx, sy, first)
                 })
         }
@@ -276,6 +304,13 @@ internal fun CanvasPrimeObjects(
                             })
                     })
             }
+        }
+        } else {
+            val inset = if (outline is Outline.Table) TABLE_GUTTER else -cullPad
+            val height = if (outline is Outline.Table) knownHeight!! - TABLE_GUTTER else knownHeight!!
+            CanvasItemPlaceholder(WorkspaceTestTags.primeObject(outline.id), outline.x + inset, outline.y + inset,
+                maxOf(24f, outline.width + 2f * cullPad), maxOf(24f, height + 2f * cullPad))
+        }
         }
     }
 }

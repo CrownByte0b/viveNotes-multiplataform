@@ -112,11 +112,21 @@ object PageTiling {
             bottom = content.top + (row + 1) * tileHeight,
         )
 
+        val occupied = BooleanArray(columns * rows)
+        for (box in placed) {
+            val firstColumn = floor((box.left - content.left) / tileWidth).toInt().coerceIn(0, columns - 1)
+            val lastColumn = floor((box.right - content.left) / tileWidth).toInt().coerceIn(0, columns - 1)
+            val firstRow = floor((box.top - content.top) / tileHeight).toInt().coerceIn(0, rows - 1)
+            val lastRow = floor((box.bottom - content.top) / tileHeight).toInt().coerceIn(0, rows - 1)
+            for (column in firstColumn..lastColumn) for (row in firstRow..lastRow) {
+                if (box.overlaps(tileAt(column, row))) occupied[column * rows + row] = true
+            }
+        }
         val tiles = buildList {
             for (column in 0 until columns) {
                 for (row in 0 until rows) {
                     val area = tileAt(column, row)
-                    if (placed.any { it.overlaps(area) }) add(PdfTile(column, row, area))
+                    if (occupied[column * rows + row]) add(PdfTile(column, row, area))
                 }
             }
         }
@@ -154,6 +164,8 @@ object PageTiling {
         private val tileHeight: Float,
     ) {
         private val moved = mutableMapOf<String, PdfShift>()
+        private val itemIndices = items.withIndex().groupBy { it.value.id }.mapValues { entry -> entry.value.map { it.index } }
+        private val occupied = PdfBoundsIndex(tileWidth, tileHeight, items.map { it.bounds })
 
         private val across = Axis(content.left, tileWidth, InkBounds::left, InkBounds::right) {
             PdfShift(it, 0f)
@@ -221,7 +233,7 @@ object PageTiling {
 
         /** Whether [candidate] can be put down without landing on anything already placed. */
         private fun isClear(candidate: InkBounds, moving: PdfItem): Boolean =
-            items.none { it.id != moving.id && candidate.overlaps(placed(it)) }
+            !occupied.anyOverlap(candidate) { items[it].id != moving.id }
 
         private fun placed(item: PdfItem): InkBounds {
             val shift = moved[item.id] ?: return item.bounds
@@ -231,6 +243,7 @@ object PageTiling {
         private fun move(item: PdfItem, by: PdfShift) {
             val shift = moved[item.id] ?: PdfShift.NONE
             moved[item.id] = PdfShift(shift.dx + by.dx, shift.dy + by.dy)
+            itemIndices.getValue(item.id).forEach { index -> occupied.update(index, placed(items[index])) }
         }
 
         /**

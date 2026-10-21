@@ -3,6 +3,7 @@ package com.vivenotes.pdf
 
 import com.vivenotes.pdf.PdfBounds as InkBounds
 import com.vivenotes.byteink.kit.PageStroke
+import java.util.TreeSet
 
 /**
  * One indivisible thing on the page: an outline, a stroke, or a lasso group of strokes.
@@ -26,7 +27,7 @@ class PdfGroup(
     val bounds: InkBounds,
     val atoms: List<PdfAtom>,
 ) {
-    val strokes: List<PageStroke> get() = atoms.flatMap { it.strokes }
+    val strokes: List<PageStroke> by lazy { atoms.flatMap { it.strokes } }
 }
 
 /**
@@ -147,6 +148,41 @@ internal fun <T> segmentByWhitespace(
     gapYDp: Float = GROUP_GAP_Y_DP,
 ): List<List<T>> {
     if (items.isEmpty()) return emptyList()
+    val boxes = items.map(bounds)
+    // Invalid/legacy geometry keeps the original comparison behavior rather than entering an
+    // endpoint index whose ordering assumes finite, non-inverted intervals.
+    if (boxes.any { !it.left.isFinite() || !it.top.isFinite() || !it.right.isFinite() ||
+            !it.bottom.isFinite() || it.left > it.right || it.top > it.bottom }) {
+        return segmentUnindexed(items, bounds, maxWidthDp, maxHeightDp, gapXDp, gapYDp)
+    }
+    val geometry = WhitespaceGeometry(boxes)
+    val leaves = mutableListOf<List<T>>()
+    val pending = ArrayDeque<WhitespaceBlock>()
+    pending += WhitespaceBlock(geometry, items.indices.toList())
+
+    while (pending.isNotEmpty()) {
+        val block = pending.removeFirst()
+        val cut = if (block.size == 1) null else chooseCut(
+            horizontal = block.x.lane(horizontal = true),
+            vertical = block.y.lane(horizontal = false),
+            gapXDp = gapXDp,
+            gapYDp = gapYDp,
+            tooWide = block.x.last - block.x.first > maxWidthDp,
+            tooTall = block.y.last - block.y.first > maxHeightDp,
+        )
+        val divided = cut?.let(block::split)
+        if (divided == null) {
+            leaves += block.ordinals().map(items::get)
+        } else {
+            pending += divided.first
+            pending += divided.second
+        }
+    }
+    return leaves
+}
+
+private fun <T> segmentUnindexed(items: List<T>, bounds: (T) -> InkBounds,
+    maxWidthDp: Float, maxHeightDp: Float, gapXDp: Float, gapYDp: Float): List<List<T>> {
     val leaves = mutableListOf<List<T>>()
     val pending = ArrayDeque<List<T>>()
     pending += items
@@ -188,6 +224,122 @@ internal fun <T> segmentByWhitespace(
         pending += far
     }
     return leaves
+}
+
+private class AxisEntry(val start: Float, val ordinal: Int)
+
+private class WhitespaceGeometry(val boxes: List<InkBounds>) {
+    val xEntries = boxes.mapIndexed { index, box -> AxisEntry(box.left, index) }
+    val yEntries = boxes.mapIndexed { index, box -> AxisEntry(box.top, index) }
+    val xCoordinates = boxes.flatMap { listOf(it.left, it.right) }.distinct().sorted().toFloatArray()
+    val yCoordinates = boxes.flatMap { listOf(it.top, it.bottom) }.distinct().sorted().toFloatArray()
+    val xRanges = boxes.map { xCoordinates.binarySearch(it.left) * 2 to xCoordinates.binarySearch(it.right) * 2 }
+    val yRanges = boxes.map { yCoordinates.binarySearch(it.top) * 2 to yCoordinates.binarySearch(it.bottom) * 2 }
+}
+
+/** The large partition keeps its indexes; only the smaller partition is removed and rebuilt. */
+private class WhitespaceBlock(private val geometry: WhitespaceGeometry, ordinals: List<Int>) {
+    val x = CoveredAxis(geometry.xCoordinates)
+    val y = CoveredAxis(geometry.yCoordinates)
+    private val comparator = compareBy<AxisEntry>({ it.start }, { it.ordinal })
+    private val across = TreeSet(comparator)
+    private val down = TreeSet(comparator)
+    val size: Int get() = across.size
+
+    init { ordinals.forEach { update(it, 1) } }
+
+    private fun update(ordinal: Int, delta: Int) {
+        if (delta > 0) {
+            across.add(geometry.xEntries[ordinal]); down.add(geometry.yEntries[ordinal])
+        } else {
+            across.remove(geometry.xEntries[ordinal]); down.remove(geometry.yEntries[ordinal])
+        }
+        geometry.xRanges[ordinal].let { x.update(it.first, it.second, delta) }
+        geometry.yRanges[ordinal].let { y.update(it.first, it.second, delta) }
+    }
+
+    fun ordinals(): List<Int> = across.map { it.ordinal }.sorted()
+
+    fun split(cut: Lane): Pair<WhitespaceBlock, WhitespaceBlock>? {
+        val ordered = if (cut.horizontal) across else down
+        val key = AxisEntry(cut.at, Int.MIN_VALUE)
+        val near = ordered.headSet(key, false).iterator()
+        val far = ordered.tailSet(key, true).iterator()
+        if (!near.hasNext() || !far.hasNext()) return null
+        val nearIds = ArrayList<Int>()
+        val farIds = ArrayList<Int>()
+        while (near.hasNext() && far.hasNext()) {
+            nearIds += near.next().ordinal
+            farIds += far.next().ordinal
+        }
+        val smallNear = !near.hasNext()
+        val smaller = if (smallNear) nearIds else farIds
+        val child = WhitespaceBlock(geometry, smaller)
+        smaller.forEach { update(it, -1) }
+        return if (smallNear) child to this else this to child
+    }
+}
+
+/**
+ * Coverage of closed intervals over shared endpoints. Point leaves keep zero-width atoms visible;
+ * intervening leaves represent the open spaces. Gap sizes use endpoint subtraction, matching the
+ * original interval sweep's Float arithmetic and its first-equal-gap tie.
+ */
+private class CoveredAxis(private val coordinates: FloatArray) {
+    private class Node {
+        var cover = 0
+        var left: Node? = null
+        var right: Node? = null
+        var first = Float.NaN
+        var last = Float.NaN
+        var gapStart = 0f
+        var gapEnd = 0f
+    }
+    private var root: Node? = null
+    val first: Float get() = root!!.first
+    val last: Float get() = root!!.last
+
+    fun lane(horizontal: Boolean): Lane? = root?.let {
+        val size = it.gapEnd - it.gapStart
+        if (size > 0f) Lane(size, it.gapStart + size / 2f, horizontal) else null
+    }
+
+    fun update(from: Int, to: Int, delta: Int) {
+        root = update(root, 0, coordinates.size * 2 - 2, from, to, delta)
+    }
+
+    private fun update(previous: Node?, low: Int, high: Int, from: Int, to: Int, delta: Int): Node? {
+        val node = previous ?: Node()
+        if (from <= low && to >= high) {
+            node.cover += delta
+            check(node.cover >= 0)
+        } else {
+            val middle = (low + high) ushr 1
+            if (from <= middle) node.left = update(node.left, low, middle, from, to, delta)
+            if (to > middle) node.right = update(node.right, middle + 1, high, from, to, delta)
+        }
+        node.gapStart = 0f
+        node.gapEnd = 0f
+        if (node.cover > 0) {
+            node.first = coordinates[low / 2]
+            node.last = coordinates[(high + 1) / 2]
+        } else {
+            val left = node.left
+            val right = node.right
+            node.first = left?.first ?: right?.first ?: Float.NaN
+            node.last = right?.last ?: left?.last ?: Float.NaN
+            fun consider(start: Float, end: Float) {
+                if (end - start > node.gapEnd - node.gapStart) {
+                    node.gapStart = start
+                    node.gapEnd = end
+                }
+            }
+            if (left != null) consider(left.gapStart, left.gapEnd)
+            if (left != null && right != null) consider(left.last, right.first)
+            if (right != null) consider(right.gapStart, right.gapEnd)
+        }
+        return if (node.first.isNaN()) null else node
+    }
 }
 
 /** A lane of empty page: how wide it is, where to cut it, and which way it runs. */

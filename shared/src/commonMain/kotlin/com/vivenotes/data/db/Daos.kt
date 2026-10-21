@@ -10,6 +10,8 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+internal val SYNC_OUTBOX_ORDER = listOf("notebook", "section", "page", "pageContent", "inkStroke", "inkErase", "inkMove", "attachment")
+
 @Dao
 interface LocalMetadataDao {
 
@@ -61,6 +63,9 @@ interface SyncDao {
     @Query("SELECT * FROM sync_entity_states WHERE kind = :kind AND entityId = :entityId")
     suspend fun entityState(kind: String, entityId: String): SyncEntityStateEntity?
 
+    @Query("SELECT * FROM sync_entity_states WHERE kind = :kind AND entityId IN (:ids)")
+    suspend fun entityStates(kind: String, ids: List<String>): List<SyncEntityStateEntity>
+
     @Upsert
     suspend fun putEntityState(state: SyncEntityStateEntity)
 
@@ -110,18 +115,34 @@ interface SyncDao {
      * between the three ink kinds, and a batch that pushes a child before its parent the day a kind
      * hangs off another.
      */
-    @Query(
-        "SELECT * FROM sync_outbox ORDER BY " +
-            "CASE kind " +
-            "WHEN 'notebook' THEN 0 WHEN 'section' THEN 1 WHEN 'page' THEN 2 " +
-            "WHEN 'pageContent' THEN 3 WHEN 'inkStroke' THEN 4 WHEN 'inkErase' THEN 5 " +
-            "WHEN 'inkMove' THEN 6 WHEN 'attachment' THEN 7 ELSE 8 END, entityId " +
-            "LIMIT :limit",
-    )
-    suspend fun outbox(limit: Int): List<SyncOutboxEntity>
+    suspend fun outbox(limit: Int): List<SyncOutboxEntity> {
+        require(limit >= 0)
+        if (limit == 0) return emptyList()
+        val rows = ArrayList<SyncOutboxEntity>(minOf(limit, 512))
+        for (kind in SYNC_OUTBOX_ORDER) {
+            rows += outboxKind(kind, limit - rows.size)
+            if (rows.size == limit) return rows
+        }
+        rows += unknownOutboxKinds(limit - rows.size)
+        return rows
+    }
+
+    @Query("SELECT * FROM sync_outbox WHERE kind = :kind ORDER BY entityId LIMIT :limit")
+    suspend fun outboxKind(kind: String, limit: Int): List<SyncOutboxEntity>
+
+    @Query("SELECT * FROM sync_outbox WHERE kind = :kind AND entityId > :afterId ORDER BY entityId LIMIT :limit")
+    suspend fun outboxKindAfter(kind: String, afterId: String, limit: Int): List<SyncOutboxEntity>
+
+    @Query("SELECT * FROM sync_outbox WHERE kind NOT IN " +
+        "('notebook','section','page','pageContent','inkStroke','inkErase','inkMove','attachment') " +
+        "ORDER BY entityId LIMIT :limit")
+    suspend fun unknownOutboxKinds(limit: Int): List<SyncOutboxEntity>
 
     @Query("SELECT * FROM sync_outbox WHERE kind = :kind AND entityId = :entityId")
     suspend fun outboxEntry(kind: String, entityId: String): SyncOutboxEntity?
+
+    @Query("SELECT * FROM sync_outbox WHERE kind = :kind AND entityId IN (:ids)")
+    suspend fun outboxEntries(kind: String, ids: List<String>): List<SyncOutboxEntity>
 
     /**
      * How much is still waiting to reach the server, of any kind.
@@ -811,10 +832,13 @@ interface PageRevisionDao {
     suspend fun deleteByIds(ids: List<String>)
 
     /** Saved versions written before `pictureIds` existed, a bounded batch at a time. */
-    @Query("SELECT * FROM page_revisions WHERE pictureIds IS NULL LIMIT :limit")
+    @Query("SELECT * FROM page_revisions WHERE pictureIds IS NULL ORDER BY id LIMIT :limit")
     suspend fun unindexed(limit: Int): List<PageRevisionEntity>
 
-    @Query("UPDATE page_revisions SET pictureIds = :pictureIds WHERE id = :id")
+    @Query("SELECT * FROM page_revisions WHERE pictureIds IS NULL AND id > :afterId ORDER BY id LIMIT :limit")
+    suspend fun unindexedAfter(afterId: String, limit: Int): List<PageRevisionEntity>
+
+    @Query("UPDATE page_revisions SET pictureIds = :pictureIds WHERE id = :id AND pictureIds IS NULL")
     suspend fun setPictureIds(id: String, pictureIds: String)
 
     @Query("SELECT COUNT(*) FROM page_revisions WHERE pictureIds IS NULL")
@@ -842,8 +866,19 @@ interface PageRevisionDao {
     suspend fun trimToNewest(pageId: String, keep: Int)
 }
 
+data class InkRevisionStrokeState(
+    val id: String,
+    val colorArgb: Int,
+    val colorFollowsTheme: Boolean?,
+    val groupId: String?,
+)
+
 @Dao
 interface InkStrokeDao {
+
+    @Query("SELECT id, colorArgb, colorFollowsTheme, groupId FROM ink_strokes " +
+        "WHERE pageId = :pageId AND deletedAt IS NULL ORDER BY seq, id")
+    suspend fun revisionStates(pageId: String): List<InkRevisionStrokeState>
 
     /**
      * Removes these pages' rows outright, for `NotebookCloudArchive`.
@@ -970,6 +1005,9 @@ interface AttachmentDao {
     @Query("UPDATE attachments SET refCount = MAX(refCount - 1, 0) WHERE id = :id")
     suspend fun release(id: String)
 
+    @Query("UPDATE attachments SET refCount = MAX(refCount + :delta, 0) WHERE id = :id")
+    suspend fun adjustReferences(id: String, delta: Int)
+
     @Query("SELECT * FROM attachments WHERE refCount <= 0")
     suspend fun unreferenced(): List<AttachmentEntity>
 
@@ -1095,6 +1133,9 @@ interface InkTextDao {
 @Dao
 interface InkEraseDao {
 
+    @Query("SELECT id FROM ink_erases WHERE pageId = :pageId AND deletedAt IS NULL ORDER BY createdAt, id")
+    suspend fun activeIds(pageId: String): List<String>
+
     /**
      * Removes these pages' rows outright, for `NotebookCloudArchive` — not a tombstone, for the
      * reason [InkStrokeDao.deleteForPages] sets out.
@@ -1157,6 +1198,9 @@ interface InkEraseDao {
 
 @Dao
 interface InkMoveDao {
+
+    @Query("SELECT id FROM ink_moves WHERE pageId = :pageId AND deletedAt IS NULL ORDER BY createdAt, id")
+    suspend fun activeIds(pageId: String): List<String>
 
     /**
      * Removes these pages' rows outright, for `NotebookCloudArchive` — not a tombstone, for the

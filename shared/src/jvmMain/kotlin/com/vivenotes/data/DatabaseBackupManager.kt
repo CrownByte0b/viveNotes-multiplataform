@@ -2,7 +2,6 @@
 // bundled driver rather than `android.database`.
 package com.vivenotes.data
 
-import androidx.room.useWriterConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_READONLY
 import com.vivenotes.data.db.NotesDatabase
@@ -22,9 +21,8 @@ import java.nio.file.StandardCopyOption
  * itself for a transactionally consistent, compact copy. The result is validated before its
  * `.pending` suffix is removed, so a process or power failure cannot masquerade as a usable backup.
  *
- * The copy runs on Room's writer connection, as it does on Android: its readers are opened
- * read-only, and SQLite refuses `VACUUM INTO` on those. Saves wait for the copy meanwhile, which
- * costs latency on a very large database and nothing else — they are queued, not lost.
+ * File-backed copies use a separate connection and a source read snapshot, allowing Room's
+ * writer to keep saving while SQLite builds the backup. In-memory databases use Room's writer.
  */
 class DatabaseBackupManager(
     private val database: NotesDatabase,
@@ -55,12 +53,7 @@ class DatabaseBackupManager(
             val pending = File(directory, "$stem$PENDING_SUFFIX")
             val finished = File(directory, "$stem.db")
             try {
-                database.useWriterConnection { connection ->
-                    connection.usePrepared("VACUUM INTO ?") { statement ->
-                        statement.bindText(1, pending.absolutePath)
-                        statement.step()
-                    }
-                }
+                database.copyConsistentlyTo(pending)
                 check(isValid(pending)) { "SQLite produced an invalid backup at $pending" }
                 moveAtomically(pending, finished)
                 finished.setLastModified(now)

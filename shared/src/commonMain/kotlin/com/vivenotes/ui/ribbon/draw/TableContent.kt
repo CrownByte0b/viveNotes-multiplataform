@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.vivenotes.model.Outline
 import com.vivenotes.data.automaticColorOr
 import com.vivenotes.richtext.RichTextBuffer
+import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.asAnnotatedString
 import com.vivenotes.workspace.WorkspaceState
@@ -40,7 +41,8 @@ internal fun measuredTableRows(table: Outline.Table, colors: RichTextColors): Li
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val styled = table.rows.map { row -> row.cells.map { RichTextBuffer(it.blocks).asAnnotatedString(colors) } }
-    return remember(table, density, colors, styled) {
+    val minimumHeights = table.rows.map { it.minHeight }
+    return remember(table.columns, minimumHeights, table.headerRow, table.headerColumn, density, styled) {
         table.rows.mapIndexed { r, row ->
             maxOf(row.minHeight, row.cells.mapIndexed { c, cell ->
                 val header = (r == 0 && table.headerRow) || (c == 0 && table.headerColumn)
@@ -99,8 +101,10 @@ internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Co
                     val header = (r == 0 && table.headerRow) || (c == 0 && table.headerColumn)
                     Box(Modifier.width(table.columns.getOrElse(c) { 160f }.dp).fillMaxHeight()) {
                         if (!table.inkOnly) {
-                            val focused = state.focusedTextOutlineId == cell.id
-                            val buffer = state.richTextFor(cell.id) ?: RichTextBuffer(cell.blocks)
+                            val focused = table.lockGroup == null && state.focusedTextOutlineId == cell.id
+                            val buffer = RichTextBuffer(cell.blocks,
+                                if (focused) state.editorSelection else TextSelection(0),
+                                if (focused) state.typingMarks else emptySet())
                             val cellStyle = TextStyle(color = canvasInk, fontSize = 14.sp,
                                 fontWeight = if (header) FontWeight.Bold else FontWeight.Normal)
                             if (!editing) {

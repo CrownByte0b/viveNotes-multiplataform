@@ -31,6 +31,51 @@ import kotlin.test.assertTrue
 class WorkspaceSessionTest {
 
     @Test
+    fun oneBodyObservationSuppliesTheInitialLoadAndLaterReplacements() = runTest {
+        var subscriptions = 0
+        val observing = object : com.vivenotes.data.NotesStore by store {
+            override fun observeDoc(pageId: String): kotlinx.coroutines.flow.Flow<PageLoad> {
+                subscriptions++
+                return store.observeDoc(pageId)
+            }
+            override suspend fun loadDoc(pageId: String): PageLoad = error("initial load must share its observation")
+        }
+        val session = WorkspaceSession(observing, backgroundScope, { "created $it" })
+        session.start()
+        runCurrent()
+        assertEquals(1, subscriptions)
+        assertEquals("limits", session.state.value!!.selectedPage!!.body)
+        store.storeBody(limits, PageLoad.Loaded(typed("remote")))
+        runCurrent()
+        assertEquals("remote", session.state.value!!.selectedPage!!.body)
+        assertEquals(1, subscriptions)
+    }
+
+    @Test
+    fun leavingAndReopeningWhileTheInitialObservationWaitsDoesNotStrandTheQueue() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        var holdFirst = true
+        val observing = object : com.vivenotes.data.NotesStore by store {
+            override fun observeDoc(pageId: String): kotlinx.coroutines.flow.Flow<PageLoad> = kotlinx.coroutines.flow.flow {
+                if (pageId == limits && holdFirst) { holdFirst = false; gate.await() }
+                store.observeDoc(pageId).collect { emit(it) }
+            }
+        }
+        val session = WorkspaceSession(observing, backgroundScope, { "created $it" })
+        session.start()
+        runCurrent()
+        assertEquals(PageContent.Unloaded, session.state.value!!.selectedPage!!.content)
+        session.update { it.selectPage(series) }
+        runCurrent()
+        assertEquals("series", session.state.value!!.selectedPage!!.body)
+        session.update { it.selectPage(limits) }
+        runCurrent()
+        assertEquals(PageContent.Loaded, session.state.value!!.selectedPage!!.content)
+        assertEquals("limits", session.state.value!!.selectedPage!!.body)
+        session.flush()
+    }
+
+    @Test
     fun debugLogTracksObjectSelectionLockAndClipboardWithoutObjectIdsOrContents() = runTest {
         val equation = Outline.Equation("private-equation-id", 100f, 220f, latex = "private equation source")
         store.storeBody(limits, PageLoad.Loaded(PageDoc(outlines = listOf(equation))))

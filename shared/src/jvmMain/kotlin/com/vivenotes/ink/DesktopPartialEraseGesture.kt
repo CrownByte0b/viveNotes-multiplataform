@@ -11,6 +11,12 @@ import com.vivenotes.data.InkEdit
 import com.vivenotes.data.db.InkEraseEntity
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.model.newId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.coroutineContext
 
 /** Observations stay on the input thread; immutable requests are modeled on a worker. */
 internal class DesktopPartialEraseGesture(val page: InkPage, private val density: Float,
@@ -21,6 +27,7 @@ internal class DesktopPartialEraseGesture(val page: InkPage, private val density
     private val inputs = MutableStrokeInputBatch()
     private var first: InkPointerSample? = null
     private var last: InkPointerSample? = null
+    private var latestRequest: PartialEraseRequest? = null
 
     fun observe(sample: InkPointerSample): Boolean {
         val start = first ?: sample.also { first = it }
@@ -31,18 +38,40 @@ internal class DesktopPartialEraseGesture(val page: InkPage, private val density
             (previous.uptimeMillis - start.uptimeMillis).toFloat() * 0.001f) return false
         inputs.add(start.toolType, sample.x / density, sample.y / density, sample.uptimeMillis - start.uptimeMillis)
         last = sample
+        latestRequest = null
         return true
     }
 
-    fun request(): PartialEraseRequest = PartialEraseRequest(page, id, createdAt, sizeDp, inputs.toImmutable(), mode)
+    fun request(): PartialEraseRequest = latestRequest ?: PartialEraseRequest(page, id, createdAt, sizeDp,
+        inputs.toImmutable(), mode).also { latestRequest = it }
 }
 
 internal class PartialEraseRequest(val page: InkPage, val id: String, private val createdAt: Long,
     private val sizeDp: Float, private val inputs: StrokeInputBatch, private val mode: EraserMode = EraserMode.Normal) {
-    fun onPage(page: InkPage): PartialEraseRequest = if (this.page === page) this else
-        PartialEraseRequest(page, id, maxOf(createdAt, Math.addExact(page.latestOperationAt, 1L)), sizeDp, inputs, mode)
+    private var modeled = false
+    private var prepared: Pair<InkEdit.PartialErase, InkPage>? = null
+    internal var preparationCount = 0
+        private set
+    private var rebased: PartialEraseRequest? = null
+    @Synchronized
+    fun onPage(page: InkPage): PartialEraseRequest {
+        if (this.page === page) return this
+        rebased?.takeIf { it.page === page }?.let { return it }
+        return PartialEraseRequest(page, id, maxOf(createdAt, Math.addExact(page.latestOperationAt, 1L)),
+            sizeDp, inputs, mode).also { rebased = it }
+    }
 
+    @Synchronized
     fun prepare(): Pair<InkEdit.PartialErase, InkPage>? {
+        if (modeled) return prepared
+        val result = model()
+        preparationCount++
+        prepared = result
+        modeled = true
+        return result
+    }
+
+    private fun model(): Pair<InkEdit.PartialErase, InkPage>? {
         val stored = ViveInkCodec.encodeErase(ViveBrushes.eraseMask(inputs, sizeDp), id, page.pageId,
             if (mode == EraserMode.Normal) InkEraseMode.Normal else InkEraseMode.Object, createdAt, emptyList())
         val mask = requireNotNull(ViveInkCodec.decodeErase(stored))
@@ -52,4 +81,16 @@ internal class PartialEraseRequest(val page: InkPage, val id: String, private va
             stored.points, stored.enc, createdAt), targets)
         return edit to page.withDesktopEdit(edit)
     }
+}
+
+/** Latest preview and ordered completions share one native lane and identical-result cache. */
+internal class DesktopErasePreparer {
+    private val lane = Mutex()
+    suspend fun prepare(request: PartialEraseRequest): Pair<InkEdit.PartialErase, InkPage>? =
+        withContext(Dispatchers.Default) {
+            lane.withLock {
+                coroutineContext.ensureActive()
+                request.prepare()
+            }
+        }
 }

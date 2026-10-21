@@ -8,6 +8,16 @@ import kotlin.test.assertNull
 
 class SelectionFrameTest {
     @Test
+    fun absentAndSingleObjectSelectionsDoNotVisitUnrelatedOutlines() {
+        val outlines = object : AbstractList<Outline>() {
+            override val size: Int get() = 40_000
+            override fun get(index: Int): Outline = error("unnecessary outline visit")
+        }
+        assertNull(selectedCanvasBounds(outlines, emptySet()))
+        assertNull(selectedCanvasBounds(outlines, setOf("one")))
+    }
+
+    @Test
     fun boundsEncloseAllSelectedObjectsAndIgnoreUnselectedOnes() {
         val first = Outline.Equation(id = "first", x = 30f, y = 90f, width = 80f, height = 40f)
         val second = Outline.Image(id = "second", x = 180f, y = 50f,

@@ -23,6 +23,8 @@ import com.vivenotes.data.InkEdit
 import com.vivenotes.ink.InkPageReader
 import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.ink.toEntity
+import com.vivenotes.ink.desktopEdit
+import com.vivenotes.ink.withDesktopEdits
 import com.vivenotes.workspace.InkSettings
 import com.vivenotes.workspace.InkPenSettings
 import com.vivenotes.workspace.InkTool
@@ -31,6 +33,60 @@ import kotlin.test.*
 @OptIn(ExperimentalTestApi::class)
 class InkLayerOverlayRegressionTest {
     private val legacyPenSettings = InkSettings(pen = InkPenSettings(sizeDp = 3f, stabilization = 0, holdForStraightLine = false))
+    @Test
+    fun finishingAt128And256KeepsBaseSceneAndCopiesOnlyNewSegmentPixels() {
+        for (pending in listOf(127, 255)) runDesktopComposeUiTest(width = 128, height = 128) {
+            val pen = ViveInkTool(ViveBrushes.MARKER, 0, 0xffff0000.toInt(), 6f)
+            val highlighter = ViveInkTool(ViveBrushes.HIGHLIGHTER, 0, 0x66ffff00, 6f)
+            fun inputs(y: Float) = MutableStrokeInputBatch().apply {
+                add(InputToolType.MOUSE, 10f, y, 0L)
+                add(InputToolType.MOUSE, 110f, y, 100L)
+            }
+            val baseRow = pen.complete(Stroke(pen.brush, inputs(30f)), "base", "page", 0, 1L).row.toEntity()
+            val additions = List(pending) { index ->
+                highlighter.complete(Stroke(highlighter.brush, inputs(30f + index % 4 * 15f)),
+                    "pending-$index", "page", index + 1, 1L).desktopEdit()
+            }
+            val initial = InkPageReader.read("page", listOf(baseRow), emptyList(), emptyList())
+            val page = mutableStateOf(initial.withDesktopEdits(additions))
+            val diagnostics = InkLayerDiagnostics()
+            val authored = ArrayList<InkEdit.AddStroke>()
+            setContent {
+                CompositionLocalProvider(LocalInkLayerDiagnostics provides diagnostics) {
+                    Box(Modifier.size(128.dp).background(Color.White).testTag("boundary-frame")) {
+                        InkLayer(page.value, DpSize(128.dp, 128.dp), Color.Black, tool = InkTool.Pen,
+                            settings = legacyPenSettings, onEdit = { edit, updated ->
+                                authored += edit as InkEdit.AddStroke
+                                page.value = updated
+                            })
+                    }
+                }
+            }
+            val frame = onNodeWithTag("boundary-frame")
+            frame.captureToImage()
+            val before = diagnostics.counts()
+            frame.performMouseInput {
+                updatePointerTo(Offset(10f, 60f)); press(); moveTo(Offset(110f, 60f), delayMillis = 32); release()
+            }
+            val sealed = frame.captureToImage().toPixelMap()
+            runOnIdle {
+                assertEquals(1, authored.size)
+                assertSame(initial.desktopGeometry().base.index, page.value.desktopGeometry().base.index)
+                assertEquals(1L, diagnostics.baseSceneBuilds)
+                assertEquals((pending + 1) / 128, page.value.desktopGeometry().retainedSegments.size)
+                assertEquals(0, page.value.desktopGeometry().additions.projections.size)
+                assertTrue((diagnostics.counts() - before).finishedStrokeDraws <= 128,
+                    "sealing must never redraw prior base/segments")
+                assertTrue(diagnostics.retainedPixelBytes <= 2L * 128 * 128 * 4)
+                page.value = InkPageReader.read("page", listOf(baseRow) + additions.map { it.row } +
+                    authored.map { it.row.copy(seq = pending + 1) }, emptyList(), emptyList())
+            }
+            val canonical = frame.captureToImage().toPixelMap()
+            for (y in 0 until 128) for (x in 0 until 128) assertEquals(canonical[x, y], sealed[x, y],
+                "canonical pixels at threshold ${pending + 1}: $x,$y")
+        }
+    }
+
     @Test
     fun finishedAppendsKeepBaseSceneIndexAndRasterAndDisposeBothLayers() = runDesktopComposeUiTest(width = 128, height = 128) {
         val tool = ViveInkTool(ViveBrushes.MARKER, colorArgb = 0xffff0000.toInt(), sizeDp = 6f)

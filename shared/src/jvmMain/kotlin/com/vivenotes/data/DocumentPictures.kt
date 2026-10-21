@@ -15,6 +15,11 @@ import com.vivenotes.model.migrated
  * eviction, and [AttachmentSweep].
  */
 internal object DocumentPictures {
+    private data class Body(val format: String, val text: String)
+    private val recentBodies = LinkedHashMap<Body, List<String>>()
+    private var cachedCharacters = 0
+    private const val MAX_CACHED_CHARACTERS = 2 * 1024 * 1024
+    private const val MAX_CACHED_BODIES = 64
 
     /**
      * A field name only [Outline.Image] has, used to skip decoding a body that cannot mention a
@@ -36,11 +41,28 @@ internal object DocumentPictures {
     fun idsIn(docJson: String, format: String): List<String> {
         if (!docJson.contains(IMAGE_FIELD_HINT)) return emptyList()
         val codec = DocumentCodecs.byId(format) ?: return emptyList()
-        return runCatching {
-            codec.decode(docJson.encodeToByteArray()).migrated().outlines
-                .filterIsInstance<Outline.Image>()
-                .map { it.attachmentId }
-        }.getOrDefault(emptyList())
+        return synchronized(recentBodies) {
+            val key = Body(format, docJson)
+            recentBodies.remove(key)?.let { cached ->
+                recentBodies[key] = cached
+                return@synchronized cached
+            }
+            val ids = runCatching {
+                codec.decode(docJson.encodeToByteArray()).migrated().outlines
+                    .filterIsInstance<Outline.Image>()
+                    .map { it.attachmentId }
+            }.getOrDefault(emptyList())
+            if (docJson.length <= MAX_CACHED_CHARACTERS) {
+                recentBodies[key] = ids
+                cachedCharacters += docJson.length
+                while (recentBodies.size > MAX_CACHED_BODIES || cachedCharacters > MAX_CACHED_CHARACTERS) {
+                    val oldest = recentBodies.keys.first()
+                    recentBodies.remove(oldest)
+                    cachedCharacters -= oldest.text.length
+                }
+            }
+            ids
+        }
     }
 
     /** The pictures a saved version places, or none if its payload cannot be read. */

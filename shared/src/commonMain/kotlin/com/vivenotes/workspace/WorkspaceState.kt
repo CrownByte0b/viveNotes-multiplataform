@@ -106,8 +106,8 @@ data class PageSummary(
     val editable: Boolean get() = content == PageContent.Loaded
 }
 
-private fun PageSummary.withDocument(next: PageDoc): PageSummary =
-    copy(document = next, preview = pagePreview(next))
+private fun PageSummary.withDocument(next: PageDoc, refreshPreview: Boolean = true): PageSummary =
+    copy(document = next, preview = if (refreshPreview) pagePreview(next) else preview)
 
 /**
  * Structural history changes containers, while edits made later to surviving text stay intact. The
@@ -122,18 +122,7 @@ private fun PageDoc.withCurrentTextFrom(current: PageDoc): PageDoc {
     })
 }
 
-private fun PageDoc.textContainer(id: String): Outline.Text? {
-    outlines.filterIsInstance<Outline.Text>().firstOrNull { it.id == id }?.let { return it }
-    for (table in outlines.filterIsInstance<Outline.Table>().filter { !it.inkOnly && it.lockGroup == null }) {
-        val location = table.locate(id) ?: continue
-        val row = table.rows[location.first]
-        val cell = row.cells[location.second]
-        return Outline.Text(id = cell.id, x = table.x + table.columns.take(location.second).sum(),
-            y = table.y + table.rows.take(location.first).sumOf { it.minHeight.toDouble() }.toFloat(),
-            width = table.columns[location.second], minHeight = row.minHeight, blocks = cell.blocks)
-    }
-    return null
-}
+private fun PageDoc.textContainer(id: String): Outline.Text? = textIndex[id]
 
 private fun textDocument(body: String): PageDoc {
     val text = Outline.Text.empty(y = com.vivenotes.model.PageStyle.TITLE_BAND_DP)
@@ -145,7 +134,12 @@ data class SectionSummary(
     val name: String,
     val colorArgb: Int,
     val pages: List<PageSummary>,
-)
+) {
+    private val positions by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        buildMap { pages.forEachIndexed { index, page -> if (page.id !in this) put(page.id, index) } }
+    }
+    internal fun pagePosition(id: String): Int? = positions[id]
+}
 
 data class NotebookSummary(
     val id: String,
@@ -208,16 +202,19 @@ data class WorkspaceState(
     val notebookTransfer: NotebookTransferState = NotebookTransferState(),
     val filePane: FilePaneState = FilePaneState(),
 ) {
-    val selectedNotebook: NotebookSummary?
-        get() = notebooks.firstOrNull { it.id == selectedNotebookId }
+    val selectedNotebook: NotebookSummary? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        notebooks.firstOrNull { it.id == selectedNotebookId }
+    }
 
-    val selectedSection: SectionSummary?
-        get() = notebooks.asSequence()
+    val selectedSection: SectionSummary? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        notebooks.asSequence()
             .flatMap { it.sections.asSequence() }
             .firstOrNull { it.id == selectedSectionId }
+    }
 
-    val selectedPage: PageSummary?
-        get() = selectedSection?.pages?.firstOrNull { it.id == selectedPageId }
+    val selectedPage: PageSummary? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        selectedSection?.let { section -> section.pagePosition(selectedPageId)?.let { section.pages[it] } }
+    }
 
     /** The selected page, when its document may be changed; every edit goes through this. */
     private val editablePage: PageSummary?
@@ -227,18 +224,20 @@ data class WorkspaceState(
      * The text box being edited, or null when none is. Text commands act on this box and nothing
      * else: with no box focused there is nothing for Bold or a list to apply to.
      */
-    val focusedTextOutline: Outline.Text?
-        get() = focusedTextOutlineId?.let { id ->
+    val focusedTextOutline: Outline.Text? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        focusedTextOutlineId?.let { id ->
             selectedPage?.document?.textContainer(id)
         }
+    }
 
     /** The page's first text box: the one [PageSummary.body] reads and [updateSelectedPage] writes. */
     val bodyTextOutline: Outline.Text?
-        get() = selectedPage?.document?.outlines?.filterIsInstance<Outline.Text>()?.firstOrNull()
+        get() = selectedPage?.document?.outlines?.firstOrNull { it is Outline.Text } as? Outline.Text
 
     /** The focused text box as an editing buffer; null — and the text commands disabled — without one. */
-    val richText: RichTextBuffer?
-        get() = focusedTextOutline?.let { RichTextBuffer(it.blocks, editorSelection, typingMarks) }
+    val richText: RichTextBuffer? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        focusedTextOutline?.let { RichTextBuffer(it.blocks, editorSelection, typingMarks) }
+    }
 
     val fontFamilyChoice: String get() = if (richText != null)
         richText!!.activeMarks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.name ?: "sans-serif"
@@ -263,8 +262,8 @@ data class WorkspaceState(
 
     fun richTextFor(id: String): RichTextBuffer? =
         selectedPage?.document?.textContainer(id)?.let {
-                RichTextBuffer(it.blocks, if (id == focusedTextOutline?.id) editorSelection else TextSelection(0),
-                    if (id == focusedTextOutline?.id) typingMarks else emptySet())
+                RichTextBuffer(it.blocks, if (id == focusedTextOutlineId) editorSelection else TextSelection(0),
+                    if (id == focusedTextOutlineId) typingMarks else emptySet())
             }
 
     fun toggleTextTool(): WorkspaceState = discardEmptyFocusedTextBox().copy(
@@ -443,7 +442,7 @@ data class WorkspaceState(
             selectedInk = change.selection,
             selectedObjectIds = if (deleteOutlines) emptySet() else selectedObjectIds,
             selectedTextOutlineIds = if (deleteOutlines) emptySet() else selectedTextOutlineIds,
-            pendingInkEdits = pendingInkEdits + change.edits.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) },
+            pendingInkEdits = pendingInkEdits.queueInk(change.edits.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) }),
             structuralUndo = (structuralUndo + StructuralSnapshot(page.id, page.document, history)).takeLast(100),
             structuralRedo = emptyList(),
         )
@@ -488,7 +487,7 @@ data class WorkspaceState(
         val redo = if (edit is com.vivenotes.data.InkEdit.AddStroke)
             com.vivenotes.data.InkEdit.RestoreStrokes(setOf(edit.row.id), rendered) else edit
         return updatePage(page.id) { it.copy(ink = rendered) }.copy(
-            pendingInkEdits = pendingInkEdits + com.vivenotes.data.PendingInkEdit(newId(), page.id, edit),
+            pendingInkEdits = pendingInkEdits.queueInk(com.vivenotes.data.PendingInkEdit(newId(), page.id, edit)),
             structuralUndo = (structuralUndo + StructuralSnapshot(page.id, page.document,
                 InkHistoryChange(before, rendered, listOf(inverse), listOf(redo)))).takeLast(100),
             structuralRedo = emptyList(),
@@ -626,14 +625,14 @@ data class WorkspaceState(
         return copy(structuralUndo = undo, structuralRedo = structuralRedo.withoutIds())
     }
 
-    fun moveTextBox(id: String, dx: Float, dy: Float, recordHistory: Boolean = true): WorkspaceState = editOutlines(recordHistory) { outlines ->
+    fun moveTextBox(id: String, dx: Float, dy: Float, recordHistory: Boolean = true): WorkspaceState = editOutlines(recordHistory, refreshPreview = false) { outlines ->
         outlines.map { if (it is Outline.Text && it.id == id)
             it.copy(x = (it.x + dx).coerceAtLeast(0f), y = (it.y + dy).coerceAtLeast(0f)) else it }
     }
 
     fun resizeTextBox(id: String, width: Float? = null, minHeight: Float? = null,
                       recordHistory: Boolean = true): WorkspaceState =
-        editOutlines(recordHistory) { outlines -> outlines.map { if (it is Outline.Text && it.id == id)
+        editOutlines(recordHistory, refreshPreview = false) { outlines -> outlines.map { if (it is Outline.Text && it.id == id)
             it.copy(width = width?.coerceIn(120f, 2000f) ?: it.width,
                 minHeight = minHeight?.coerceIn(0f, 4000f) ?: it.minHeight) else it } }
 
@@ -674,7 +673,7 @@ data class WorkspaceState(
                 selectedTextOutlineIds = pasted.filterIsInstance<Outline.Text>().map { it.id }.toSet(),
                 selectedObjectIds = pasted.filter { it.isPrimeObject() }.map { it.id }.toSet(),
                 editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null,
-                pendingInkEdits = pendingInkEdits + change.edits.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) },
+                pendingInkEdits = pendingInkEdits.queueInk(change.edits.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) }),
                 structuralUndo = (structuralUndo + StructuralSnapshot(page.id, page.document, history)).takeLast(100),
                 structuralRedo = emptyList(),
             )
@@ -706,17 +705,17 @@ data class WorkspaceState(
             focusedTextOutlineId = prepared.focusedTextOutlineId, selectedInk = prepared.selectedInk,
             selectedObjectIds = prepared.selectedObjectIds, selectedTextOutlineIds = prepared.selectedTextOutlineIds,
             editorSelection = prepared.editorSelection, typingMarks = prepared.typingMarks, editorComposition = null,
-            pendingInkEdits = pendingInkEdits + edits,
+            pendingInkEdits = pendingInkEdits.queueInk(edits),
             structuralUndo = (structuralUndo + prepared.structuralUndo.last()).takeLast(100), structuralRedo = emptyList(),
         )
     }
 
-    private fun editOutlines(recordHistory: Boolean = true,
+    private fun editOutlines(recordHistory: Boolean = true, refreshPreview: Boolean = true,
                              transform: (List<Outline>) -> List<Outline>): WorkspaceState {
         val page = editablePage ?: return this
         val next = transform(page.document.outlines)
         if (next == page.document.outlines) return this
-        val updated = updatePage(page.id) { it.withDocument(it.document.copy(outlines = next)) }
+        val updated = updatePage(page.id) { it.withDocument(it.document.copy(outlines = next), refreshPreview) }
         if (!recordHistory) return updated
         val snapshot = StructuralSnapshot(page.id, page.document)
         return updated.copy(structuralUndo = (structuralUndo + snapshot).takeLast(100),
@@ -731,7 +730,7 @@ data class WorkspaceState(
             if (!page.inkReady || notebookTransfer.running || filePane.busy) return this
             return updatePage(page.id) { it.withDocument(if (change.afterDocument != null) prior.document.withCurrentTextFrom(it.document) else it.document).copy(ink = change.before.copy(
                 latestOperationAt = maxOf(change.before.latestOperationAt, page.ink?.latestOperationAt ?: 0L))) }.copy(
-                pendingInkEdits = pendingInkEdits + change.undo.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) },
+                pendingInkEdits = pendingInkEdits.queueInk(change.undo.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) }),
                 structuralUndo = structuralUndo.dropLast(1), structuralRedo = structuralRedo + prior,
                 selectedInk = null, selectedObjectIds = emptySet(), selectedTextOutlineIds = emptySet(),
             )
@@ -753,7 +752,7 @@ data class WorkspaceState(
             if (!page.inkReady || notebookTransfer.running || filePane.busy) return this
             return updatePage(page.id) { it.withDocument(change.afterDocument?.withCurrentTextFrom(it.document) ?: it.document).copy(ink = change.after.copy(
                 latestOperationAt = maxOf(change.after.latestOperationAt, page.ink?.latestOperationAt ?: 0L))) }.copy(
-                pendingInkEdits = pendingInkEdits + change.redo.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) },
+                pendingInkEdits = pendingInkEdits.queueInk(change.redo.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) }),
                 structuralRedo = structuralRedo.dropLast(1), structuralUndo = structuralUndo + next,
                 selectedInk = null, selectedObjectIds = emptySet(), selectedTextOutlineIds = emptySet(),
             )
@@ -804,8 +803,9 @@ data class WorkspaceState(
         if (!inkLassoCloses(path)) return cleaned
         val page = cleaned.selectedPage ?: return cleaned
         val outlines = page.document.outlines
+        val region = com.vivenotes.model.ink.PreparedLassoRegion(path)
         val hit = outlines.filter { outline ->
-            path.encloses(InkSelectionBounds(outline.x, outline.y, outline.x + outline.primeWidth(),
+            region.encloses(InkSelectionBounds(outline.x, outline.y, outline.x + outline.primeWidth(),
                 outline.y + (measuredHeights[outline.id] ?: if (outline is Outline.Text) maxOf(outline.minHeight, 150f) else outline.primeHeight())))
         }
         val ink = page.ink
@@ -859,7 +859,7 @@ data class WorkspaceState(
 
     fun moveSelectedObjects(dx: Float, dy: Float, recordHistory: Boolean = true): WorkspaceState {
         if (selectedObjectsLocked) return this
-        return editOutlines(recordHistory) { outlines -> outlines.map {
+        return editOutlines(recordHistory, refreshPreview = false) { outlines -> outlines.map {
             when {
                 it.id in selectedObjectIds && it.isPrimeObject() && it.lockGroup == null -> it.movedBy(dx, dy)
                 it is Outline.Text && it.id in selectedTextOutlineIds ->
@@ -872,7 +872,7 @@ data class WorkspaceState(
     fun resizeSelectedObjects(anchorX: Float, anchorY: Float, scaleX: Float, scaleY: Float,
                               recordHistory: Boolean = true): WorkspaceState {
         if (selectedObjectsLocked || scaleX <= 0f || scaleY <= 0f) return this
-        return editOutlines(recordHistory) { outlines -> outlines.map { outline ->
+        return editOutlines(recordHistory, refreshPreview = false) { outlines -> outlines.map { outline ->
             if (outline.id !in selectedObjectIds || outline.lockGroup != null) outline else when (outline) {
                 is Outline.Shape -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
                 is Outline.Table -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
@@ -1114,20 +1114,26 @@ data class WorkspaceState(
     }
 
     /** Replaces one page wherever it is. No editability check: storage uses it to load and unload. */
-    internal fun updatePage(id: String, transform: (PageSummary) -> PageSummary): WorkspaceState =
-        copy(
-            notebooks = notebooks.map { notebook ->
-                notebook.copy(
-                    sections = notebook.sections.map { section ->
-                        section.copy(
-                            pages = section.pages.map { page ->
-                                if (page.id == id) transform(page) else page
-                            },
-                        )
-                    },
-                )
-            },
-        )
+    internal fun updatePage(id: String, transform: (PageSummary) -> PageSummary): WorkspaceState {
+        var changedNotebooks: MutableList<NotebookSummary>? = null
+        notebooks.forEachIndexed { notebookIndex, notebook ->
+            var changedSections: MutableList<SectionSummary>? = null
+            notebook.sections.forEachIndexed { sectionIndex, section ->
+                if (section.pagePosition(id) != null) {
+                    val pages = section.pages.map { page -> if (page.id == id) transform(page) else page }
+                    if (pages.indices.any { pages[it] !== section.pages[it] }) {
+                        if (changedSections == null) changedSections = notebook.sections.toMutableList()
+                        changedSections!![sectionIndex] = section.copy(pages = pages)
+                    }
+                }
+            }
+            changedSections?.let { sections ->
+                if (changedNotebooks == null) changedNotebooks = notebooks.toMutableList()
+                changedNotebooks!![notebookIndex] = notebook.copy(sections = sections)
+            }
+        }
+        return changedNotebooks?.let { copy(notebooks = it) } ?: this
+    }
 
     private fun updateSection(
         id: String,

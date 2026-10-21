@@ -8,6 +8,7 @@ package com.vivenotes.data
 
 import com.vivenotes.localization.Strings
 import androidx.room.useWriterConnection
+import androidx.room.useReaderConnection
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteStatement
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
@@ -125,7 +126,7 @@ class NotebookTransferManager(
         val root = freshDirectory("export")
         try {
             val bundleDb = File(root, DATABASE_ENTRY)
-            createConsistentSnapshot(bundleDb)
+            createConsistentSnapshot(bundleDb, notebookId)
             val prepared = prepareNotebookDatabase(bundleDb, notebookId, root)
 
             val databaseFile = BundleFile(
@@ -204,15 +205,61 @@ class NotebookTransferManager(
         }
     }
 
-    /** On the writer, as `DatabaseBackupManager` does: SQLite refuses `VACUUM INTO` on a reader. */
-    private suspend fun createConsistentSnapshot(target: File) {
-        db.useWriterConnection { connection ->
-            connection.usePrepared("VACUUM INTO ?") { statement ->
-                statement.bindText(1, target.absolutePath)
-                statement.step()
-            }
+    /** Copy only this notebook under a source read snapshot; custom/in-memory stores use a full copy. */
+    private suspend fun createConsistentSnapshot(target: File, notebookId: String) {
+        val live = db.storageFile
+        if (live == null) db.copyConsistentlyTo(target) else {
+            db.useReaderConnection { connection -> connection.usePrepared("SELECT 1") { it.step() } }
+            copyNotebookSnapshot(live, target, notebookId)
         }
         check(target.isFile && target.length() > 0L)
+    }
+
+    private fun copyNotebookSnapshot(live: File, target: File, notebookId: String) {
+        BundledSQLiteDriver().open(target.absolutePath).use { copy ->
+            copy.execSQL("PRAGMA busy_timeout = 10000")
+            copy.exec("ATTACH DATABASE ? AS snapshot_source", live.absolutePath)
+            copy.execSQL("BEGIN DEFERRED TRANSACTION")
+            try {
+                // Schema and selected rows share the source's WAL read snapshot; writes target main.
+                val objects = copy.queryRows("SELECT type, name, sql FROM snapshot_source.sqlite_master " +
+                    "WHERE type IN ('table','index') AND name NOT LIKE 'sqlite_%' AND sql IS NOT NULL") {
+                    Triple(it.text(0), it.text(1), it.text(2))
+                }
+                objects.filter { it.first == "table" }.forEach { copy.execSQL(it.third) }
+                copy.exec("INSERT INTO main.notebooks SELECT * FROM snapshot_source.notebooks WHERE id = ?", notebookId)
+                copy.exec("INSERT INTO main.sections SELECT * FROM snapshot_source.sections WHERE notebookId = ?", notebookId)
+                copy.execSQL("INSERT INTO main.pages SELECT p.* FROM snapshot_source.pages p " +
+                    "WHERE p.sectionId IN (SELECT id FROM main.sections)")
+                for (table in listOf("page_content", "page_revisions", "ink_strokes", "ink_erases", "ink_moves")) {
+                    copy.execSQL("INSERT INTO main.$table SELECT * FROM snapshot_source.$table " +
+                        "WHERE pageId IN (SELECT id FROM main.pages)")
+                }
+                copy.execSQL("INSERT INTO main.ink_erase_targets SELECT * FROM snapshot_source.ink_erase_targets " +
+                    "WHERE eraseId IN (SELECT id FROM main.ink_erases)")
+                copy.execSQL("INSERT INTO main.ink_move_targets SELECT * FROM snapshot_source.ink_move_targets " +
+                    "WHERE moveId IN (SELECT id FROM main.ink_moves)")
+                val pictures = linkedSetOf<String>()
+                copy.queryRows("SELECT * FROM main.page_content", mapper = ::readContent).forEach { row ->
+                    pictures += DocumentPictures.idsIn(row.docJson, row.format)
+                }
+                copy.queryRows("SELECT * FROM main.page_revisions", mapper = ::readRevision).forEach { row ->
+                    pictures += DocumentPictures.idsIn(row)
+                }
+                pictures.toList().chunked(SQLITE_BIND_CHUNK).forEach { ids ->
+                    copy.exec("INSERT INTO main.attachments SELECT * FROM snapshot_source.attachments WHERE id IN (" +
+                        ids.joinToString(",") { "?" } + ")", *ids.toTypedArray())
+                }
+                if (objects.any { it.second == "room_master_table" }) {
+                    copy.execSQL("INSERT INTO main.room_master_table SELECT * FROM snapshot_source.room_master_table")
+                }
+                objects.filter { it.first == "index" }.forEach { copy.execSQL(it.third) }
+                copy.execSQL("COMMIT")
+            } catch (failure: Throwable) {
+                runCatching { copy.execSQL("ROLLBACK") }
+                throw failure
+            } finally { copy.execSQL("DETACH DATABASE snapshot_source") }
+        }
     }
 
     /**
@@ -237,7 +284,7 @@ class NotebookTransferManager(
         notebookId: String,
         root: File,
     ): PreparedExport = openBundle(bundleFile, SQLITE_OPEN_READWRITE).use { source ->
-        // `VACUUM INTO` writes a rollback-journal file even from the WAL-mode live database, so
+        // Snapshots use a rollback-journal file even from the WAL-mode live database, so
         // every commit below lands in the file that is zipped, with no `-wal` beside it.
         source.execSQL("PRAGMA foreign_keys = ON")
         val notebook = source.queryRows(
@@ -793,8 +840,7 @@ class NotebookTransferManager(
                 }
 
                 attachmentDeltas.forEach { (id, delta) ->
-                    repeat(delta.coerceAtLeast(0)) { attachmentDao.retain(id) }
-                    repeat((-delta).coerceAtLeast(0)) { attachmentDao.release(id) }
+                    if (delta != 0) attachmentDao.adjustReferences(id, delta)
                 }
             }
         } catch (failure: Throwable) {

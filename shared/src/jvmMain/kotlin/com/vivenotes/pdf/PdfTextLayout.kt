@@ -86,11 +86,22 @@ class PdfTextLayout internal constructor(
 ) {
     val text: String get() = paragraphs.joinToString("\n") { it.layout.layoutInput.text.text }
     val equations: List<PdfEquation> get() = paragraphs.flatMap { it.equations }
+    private val paragraphTops = paragraphs.map { it.top }.toFloatArray()
+    private val paragraphBottoms = paragraphs.map { it.top + it.layout.size.height }.toFloatArray()
+    internal val paintOutset: Float = maxOf(4f, paragraphs.maxOfOrNull { paragraph ->
+        paragraph.layout.layoutInput.text.spanStyles.maxOfOrNull { it.item.fontSize.value.takeIf(Float::isFinite) ?: 0f } ?: 15f
+    }?.times(2f) ?: 0f)
 
-    fun draw(canvas: Canvas) {
+    fun draw(canvas: Canvas) = drawVisible(canvas, null)
+
+    internal fun drawVisible(canvas: Canvas, visible: PdfBounds?, work: PdfWorkCounts? = null) {
+        val first = if (visible == null) 0 else paragraphBottoms.firstAtLeast(visible.top - paintOutset)
+        val end = if (visible == null) paragraphs.size else paragraphTops.firstAtLeast(visible.bottom + paintOutset)
         Paint().use { paint ->
             paint.isAntiAlias = true
-            for (paragraph in paragraphs) {
+            for (paragraphIndex in first until end) {
+                val paragraph = paragraphs[paragraphIndex]
+                work?.let { it.paragraphsDrawn++ }
                 val (block, layout, top, leading, ordinal, equations) = paragraph
                 val checkpoint = canvas.save()
                 canvas.translate(leading, top)
@@ -220,12 +231,15 @@ internal class PdfTextMeasurer {
                 Triple(annotation.start, annotation.end, annotation.item)
             }
             val auto = findAutoEquationCandidates(source.text).map { Triple(it.start, it.end, it.latex) }
-            val replacements = (explicit + auto).sortedBy { it.first }.mapNotNull { (start, end, latex) ->
+            val replacements = mutableListOf<Replacement>()
+            for ((start, end, latex) in (explicit + auto).sortedBy { it.first }) {
+                if (replacements.lastOrNull()?.end?.let { it > start } == true) continue
                 val size = source.spanStyles.lastOrNull { it.start <= start && it.end > start }?.item?.fontSize?.value ?: 15f
-                runCatching { Replacement(start, end, PdfEquation.create(latex, size, colors.textArgb)) }.getOrNull()
-            }.fold(mutableListOf<Replacement>()) { result, next ->
-                if (result.lastOrNull()?.end?.let { it > next.start } != true) result.add(next)
-                result
+                try {
+                    replacements += Replacement(start, end, PdfEquation.create(latex, size, colors.textArgb))
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) { }
             }
             val placeholders = mutableListOf<AnnotatedString.Range<Placeholder>>()
             val projected = buildAnnotatedString {

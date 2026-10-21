@@ -1,0 +1,87 @@
+--- a/shared/src/jvmTest/kotlin/com/vivenotes/data/sync/HierarchySyncTest.kt
++++ b/shared/src/jvmTest/kotlin/com/vivenotes/data/sync/HierarchySyncTest.kt
+@@ -141,6 +141,84 @@
+     fun tearDown() {
+         db.close()
+         attachmentDirectory.deleteRecursively()
++    }
++
++    @Test
++    fun aLaggingStreamCannotRegressTheCursorOrDiscardANewerDirtyBody() = runBlocking {
++        val page = repository.createPage(repository.createSection(repository.createNotebook("Notebook"), "Section"))
++        hierarchy.run(account())
++        val old = server.current("pageContent", page)!!
++        server.seed(pageContentChange(page, JsonDocumentCodec.encodeToString(PageDoc.empty()), now + 1))
++        hierarchy.run(account())
++        val committedCursor = db.syncDao().state()!!.cursor
++        val authoritative = db.pageContentDao().byId(page)!!
++        val dirty = PageDoc(outlines = listOf(Outline.Text(id = "text", blocks = listOf(com.vivenotes.model.Block.of("local edit")))))
++        repository.saveDoc(page, dirty)
++        val queued = db.syncDao().outboxEntry("pageContent", page)!!
++
++        hierarchy.applyStreamPage(account(), PullChangesPage(listOf(old), committedCursor - 1, false))
++
++        assertEquals(committedCursor, db.syncDao().state()!!.cursor)
++        assertEquals(JsonDocumentCodec.encodeToString(dirty), db.pageContentDao().byId(page)!!.docJson)
++        assertEquals(queued.generation, db.syncDao().outboxEntry("pageContent", page)!!.generation)
++        assertEquals(authoritative.format, db.pageContentDao().byId(page)!!.format)
++    }
++
++    @Test
++    fun aDuplicateAcceptedVersionDoesNotOverwriteTheNextLocalGeneration() = runBlocking {
++        val page = repository.createPage(repository.createSection(repository.createNotebook("Notebook"), "Section"))
++        hierarchy.run(account())
++        fun text(value: String) = PageDoc(outlines = listOf(Outline.Text(id = "text", blocks = listOf(com.vivenotes.model.Block(id = "fixed-block", runs = listOf(com.vivenotes.model.Run(value)))))))
++        repository.saveDoc(page, text("accepted"))
++        hierarchy.pushPending(account())
++        val echo = server.current("pageContent", page)!!
++        val acknowledged = db.syncDao().entityState("pageContent", page)!!.serverVersion
++        repository.saveDoc(page, text("next local generation"))
++        val queued = db.syncDao().outboxEntry("pageContent", page)!!
++        val cursor = db.syncDao().state()!!.cursor
++
++        hierarchy.applyStreamPage(account(), PullChangesPage(listOf(echo), cursor + 1, false))
++
++        assertEquals(JsonDocumentCodec.encodeToString(text("next local generation")), db.pageContentDao().byId(page)!!.docJson)
++        assertEquals(acknowledged, db.syncDao().entityState("pageContent", page)!!.serverVersion)
++        assertEquals(queued.generation, db.syncDao().outboxEntry("pageContent", page)!!.generation)
++        assertEquals(cursor + 1, db.syncDao().state()!!.cursor)
++    }
++
++    @Test
++    fun aStrictlyNewerVersionStillWinsTheExistingWholeEntityConflictRule() = runBlocking {
++        val page = repository.createPage(repository.createSection(repository.createNotebook("Notebook"), "Section"))
++        hierarchy.run(account())
++        repository.saveDoc(page, PageDoc(outlines = listOf(Outline.Text(id = "local"))))
++        val remote = PageDoc(outlines = listOf(Outline.Text(id = "remote")))
++        server.seed(pageContentChange(page, JsonDocumentCodec.encodeToString(remote), now + 2))
++        val incoming = server.current("pageContent", page)!!
++        val cursor = db.syncDao().state()!!.cursor
++
++        hierarchy.applyStreamPage(account(), PullChangesPage(listOf(incoming), cursor + 1, false))
++
++        assertEquals(JsonDocumentCodec.encodeToString(remote), db.pageContentDao().byId(page)!!.docJson)
++        assertNull(db.syncDao().outboxEntry("pageContent", page))
++    }
++
++    @Test
++    fun aLaggingChildAfterPermanentParentPurgeIsIgnoredBeforeParentAdmission() = runBlocking {
++        val notebook = repository.createNotebook("Notebook")
++        val page = repository.createPage(repository.createSection(notebook, "Section"))
++        hierarchy.run(account())
++        val stale = server.current("pageContent", page)!!
++        val staleCursor = db.syncDao().state()!!.cursor
++        server.purgeNotebook(notebook)
++        hierarchy.run(account())
++        val committed = db.syncDao().state()!!.cursor
++        assertNull(db.pageDao().byId(page))
++
++        val result = hierarchy.applyStreamPage(account(), PullChangesPage(listOf(stale), staleCursor, false))
++
++        assertTrue(result is SyncRunResult.Succeeded)
++        assertEquals(committed, db.syncDao().state()!!.cursor)
++        assertNull(db.pageDao().byId(page))
++        assertTrue(db.syncDao().outbox(32).isEmpty())
+     }
+ 
+     @Test

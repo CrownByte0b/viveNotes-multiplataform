@@ -1,0 +1,9 @@
+{
+"schema":"vive-ink-warm-diagnostic/1",
+"fork":3,
+"runtime":"27+35",
+"vendor":"Azul Systems, Inc.",
+"maxHeapBytes":2147483648,
+"vmArgs":["-Djava.awt.headless=true","-Dvivenotes.performance.scratch=/tmp/vive-ink-warm-diagnostic/scratch","--enable-native-access=ALL-UNNAMED","-Xms512m","-Xmx2g","-Dfile.encoding=UTF-8","-Duser.country","-Duser.language=en","-Duser.variant"],
+"cases":[{"name":"diagnostic.ink.apply_127th_append.warmed","units":10000,"fixtureSha256":"a66b11ef17ec26cea11295a36cd83dd789794aa5ce83bf9e0f0555a9ce356a30","warmupOps":20000,"warmupNanos":223112403,"sampleCount":50,"operationsPerSample":1,"sampleNanosPerOperation":[13526.0,6983.0,8116.0,5931.0,5671.0,5771.0,5491.0,5701.0,5601.0,5401.0,5581.0,5580.0,5831.0,5430.0,5591.0,5621.0,5560.0,5601.0,5771.0,5771.0,5561.0,5570.0,5741.0,5670.0,5751.0,5661.0,5591.0,5941.0,7895.0,5660.0,5681.0,5771.0,5540.0,5420.0,5641.0,5591.0,5580.0,7955.0,8065.0,7424.0,7695.0,7184.0,7384.0,7194.0,7354.0,7474.0,8176.0,7976.0,7604.0,13836.0],"medianNanos":5741.0,"p95BatchAverageNanos":8176.0,"sampleAllocatedBytesPerOperation":[21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0,21464.0],"medianAllocatedBytes":21464.0,"gcCollections":0,"gcMillis":0}]
+}

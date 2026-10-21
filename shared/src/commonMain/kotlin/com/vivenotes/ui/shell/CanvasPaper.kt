@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.DpSize
@@ -74,7 +75,7 @@ internal fun CanvasPaper(
     window: () -> Rect,
     showMargins: Boolean,
     selectionRect: Pair<Offset, Offset>?,
-    lassoPath: List<Offset> = emptyList(),
+    lassoPath: LassoPathBuffer? = null,
 ) {
     Box {
         Spacer(
@@ -111,14 +112,12 @@ internal fun CanvasPaper(
                     },
             )
         }
-        if (lassoPath.isNotEmpty()) Spacer(Modifier.drawBehind {
-            val path = Path().apply {
-                lassoPath.forEachIndexed { index, p ->
-                    if (index == 0) moveTo(p.x.dp.toPx(), p.y.dp.toPx()) else lineTo(p.x.dp.toPx(), p.y.dp.toPx())
-                }
+        if (lassoPath != null) Spacer(Modifier.drawBehind {
+            lassoPath.revision
+            if (!lassoPath.isEmpty()) scale(density, density, pivot = Offset.Zero) {
+                drawPath(lassoPath.path, Color(0xff1b6fa8), style = Stroke(width = 1.5f,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 4f))))
             }
-            drawPath(path, Color(0xff1b6fa8), style = Stroke(width = 1.5.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))))
         }.documentExtent(canvasSize))
         selectionRect?.let { (a, b) ->
             Spacer(

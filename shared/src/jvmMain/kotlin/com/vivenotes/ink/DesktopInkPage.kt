@@ -19,6 +19,9 @@ internal class DesktopInkSegment(projections: List<PageStroke>, sourceIds: Colle
     val sourceIds: Set<String> = Collections.unmodifiableSet(HashSet(sourceIds))
     val bounds: InkBounds? = this.projections.mapNotNull { it.pageBounds }.unionBounds()
     val index: InkPageIndex = InkPageIndex(this.projections)
+    val byProjection by lazy { this.projections.associateBy { it.projectionKey } }
+    val ordinal by lazy { this.projections.mapIndexed { index, projection -> projection.projectionKey to index }.toMap() }
+    val byGroup by lazy { this.projections.filter { it.groupId != null }.groupBy { it.groupId!! } }
 }
 
 internal class DesktopInkPage private constructor(
@@ -29,6 +32,7 @@ internal class DesktopInkPage private constructor(
     val sourceStrokes: List<PageStroke>,
     val operations: List<DecodedInkOperation>,
     val excludedProjections: Set<InkProjectionKey> = emptySet(),
+    val retainedSegments: List<DesktopInkSegment> = emptyList(),
 ) : InkPageGeometry {
     constructor(projections: List<PageStroke>, sourceIds: Collection<String> = projections.map { it.id },
         sourceStrokes: List<PageStroke> = projections, operations: List<DecodedInkOperation> = emptyList()) :
@@ -38,18 +42,40 @@ internal class DesktopInkPage private constructor(
     override val rightDp: Float get() = bounds?.right ?: 0f
     override val bottomDp: Float get() = bounds?.bottom ?: 0f
     val projections: List<PageStroke> by lazy {
-        Collections.unmodifiableList(base.projections.filterNot { it.id in excludedRows || it.projectionKey in excludedProjections } +
-            additions.projections.filterNot { it.projectionKey in excludedProjections })
+        Collections.unmodifiableList(segments().flatMap { segment -> segment.projections.filter(::isLive) })
     }
     val isEmpty: Boolean get() = bounds == null
-    fun containsSource(id: String): Boolean = (id in base.sourceIds && id !in excludedRows) || id in additions.sourceIds
+    fun containsSource(id: String): Boolean = id !in excludedRows &&
+        (id in base.sourceIds || id in additions.sourceIds || retainedSegments.any { id in it.sourceIds })
+    private val segmentView = object : AbstractList<DesktopInkSegment>() {
+        override val size: Int get() = retainedSegments.size + 2
+        override fun get(index: Int): DesktopInkSegment = when {
+            index == 0 -> base
+            index in 1..retainedSegments.size -> retainedSegments[index - 1]
+            index == size - 1 -> additions
+            else -> throw IndexOutOfBoundsException("$index outside $size ink segments")
+        }
+        override fun iterator(): Iterator<DesktopInkSegment> = sequence {
+            yield(base)
+            yieldAll(retainedSegments)
+            yield(additions)
+        }.iterator()
+    }
+    fun segments(): List<DesktopInkSegment> = segmentView
+    fun isLive(stroke: PageStroke): Boolean = stroke.id !in excludedRows && stroke.projectionKey !in excludedProjections
+    fun selectedProjections(keys: Set<InkProjectionKey>): List<PageStroke> = segments().flatMap { segment ->
+        if (keys.size < segment.projections.size)
+            keys.mapNotNull(segment.byProjection::get).filter(::isLive).sortedBy { segment.ordinal[it.projectionKey] }
+        else segment.projections.filter { it.projectionKey in keys && isLive(it) }
+    }
+    private fun grouped(group: String): List<PageStroke> = segments().flatMap { it.byGroup[group].orEmpty().filter(::isLive) }
 
     val index = DesktopInkQueries(this)
 
     override fun selectAt(page: InkPage, x: Float, y: Float, reach: Float): InkSelection? {
         if (!x.isFinite() || !y.isFinite() || !reach.isFinite() || reach < 0f) return null
         val hit = index.at(InkPoint(x, y), reach).lastOrNull() ?: return null
-        val candidates = if (hit.groupId == null) listOf(hit) else projections.filter { it.groupId == hit.groupId }
+        val candidates = if (hit.groupId == null) listOf(hit) else grouped(hit.groupId!!)
         val box = candidates.mapNotNull { it.pageBounds }.unionBounds() ?: return null
         val selection = InkLassoSelection(box.selectionPath(), candidates.map { it.id }.toSet(),
             candidates.map { it.projectionKey }.toSet(), box)
@@ -58,7 +84,7 @@ internal class DesktopInkPage private constructor(
 
     override fun selectInRect(page: InkPage, left: Float, top: Float, right: Float, bottom: Float): InkSelection? {
         if (listOf(left, top, right, bottom).any { !it.isFinite() } || right <= left || bottom <= top) return null
-        val selected = projections.selectWithLasso(InkBounds(left, top, right, bottom).selectionPath()) ?: return null
+        val selected = index.selectWithLasso(InkBounds(left, top, right, bottom).selectionPath()) ?: return null
         return DesktopInkSelection(page, selected)
     }
 
@@ -74,42 +100,65 @@ internal class DesktopInkPage private constructor(
 
     override fun selectInLasso(page: InkPage, path: List<com.vivenotes.model.ink.InkSample>): InkSelection? {
         if (!com.vivenotes.model.ink.inkLassoCloses(path)) return null
-        val selected = projections.selectWithLasso(path.map { InkPoint(it.x, it.y) }) ?: return null
+        val selected = index.selectWithLasso(path.map { InkPoint(it.x, it.y) }) ?: return null
         return DesktopInkSelection(page, selected)
     }
 
     fun withChanges(added: List<PageStroke>, removed: Set<String>): DesktopInkPage {
         if (added.isEmpty() && removed.isEmpty()) return this
-        val excluded = Collections.unmodifiableSet(HashSet(excludedRows).apply {
-            addAll(removed.filter { it in base.sourceIds })
-        })
-        val tail = if (added.isEmpty() && removed.none { it in additions.sourceIds }) additions else
-            DesktopInkSegment(additions.projections.filterNot { it.id in removed } + added)
-        val baseBounds = if (excluded == excludedRows) {
-            // The previous extent includes the tail, which remains present when only appending.
-            if (removed.isEmpty()) bounds else base.projections.filterNot { it.id in excluded || it.projectionKey in excludedProjections }.mapNotNull { it.pageBounds }.unionBounds()
-        } else base.projections.filterNot { it.id in excluded || it.projectionKey in excludedProjections }.mapNotNull { it.pageBounds }.unionBounds()
-        val tailBounds = if (excludedProjections.isEmpty()) tail.bounds else
-            tail.projections.filterNot { it.projectionKey in excludedProjections }.mapNotNull { it.pageBounds }.unionBounds()
-        val extent = listOfNotNull(baseBounds, tailBounds).unionBounds()
-        val sources = appendInk(if (removed.isEmpty()) sourceStrokes else sourceStrokes.filterNot { it.id in removed }, added)
-        if (tail.projections.size >= ADDITION_LIMIT || excluded.size >= TOMBSTONE_LIMIT || excludedProjections.size >= TOMBSTONE_LIMIT) {
-            val live = base.projections.filterNot { it.id in excluded || it.projectionKey in excludedProjections } +
-                tail.projections.filterNot { it.projectionKey in excludedProjections }
-            val sourceIds = base.sourceIds.filterNot { it in excluded } + tail.sourceIds
-            return DesktopInkPage(live, sourceIds, sources, operations)
+        val addedIds = added.mapTo(HashSet()) { it.id }
+        val projectedExclusions = if (addedIds.any { it in excludedRows || it in removed })
+            Collections.unmodifiableSet(HashSet(excludedProjections).apply {
+                segments().forEach { segment -> segment.projections.forEach {
+                    if (it.id in addedIds && (it.id in excludedRows || it.id in removed)) add(it.projectionKey)
+                } }
+            }) else excludedProjections
+        val excluded = if (removed.isEmpty() && addedIds.none { it in excludedRows }) excludedRows else
+            Collections.unmodifiableSet(HashSet(excludedRows).apply {
+                addAll(removed.filter { id -> segments().any { id in it.sourceIds } })
+                removeAll(addedIds)
+            })
+        val pending = when {
+            added.isEmpty() && removed.none { it in additions.sourceIds } -> null
+            removed.isEmpty() -> additions.projections + added
+            else -> additions.projections.filterNot { it.id in removed } + added
         }
-        return DesktopInkPage(base, tail, excluded, extent, sources, operations, excludedProjections)
+        val sealed = if (pending == null) emptyList() else (0 until pending.size / ADDITION_LIMIT).map { index ->
+            DesktopInkSegment(pending.subList(index * ADDITION_LIMIT, (index + 1) * ADDITION_LIMIT))
+        }
+        val tail = if (pending == null) additions else {
+            val remaining = pending.size % ADDITION_LIMIT
+            if (remaining == 0) EMPTY_SEGMENT else DesktopInkSegment(pending.subList(pending.size - remaining, pending.size))
+        }
+        val extent = if (removed.isEmpty() && excluded.isEmpty() && projectedExclusions.isEmpty())
+            (listOfNotNull(bounds) + added.mapNotNull { it.pageBounds }).unionBounds()
+        else {
+            val baseBounds = if (excluded == excludedRows) {
+                // The previous extent includes the tail, which remains present when only appending.
+                if (removed.isEmpty()) bounds else (listOf(base) + retainedSegments).flatMap { it.projections }
+                    .filterNot { it.id in excluded || it.projectionKey in projectedExclusions }.mapNotNull { it.pageBounds }.unionBounds()
+            } else (listOf(base) + retainedSegments).flatMap { it.projections }
+                .filterNot { it.id in excluded || it.projectionKey in projectedExclusions }.mapNotNull { it.pageBounds }.unionBounds()
+            val recent = pending ?: additions.projections
+            val tailBounds = recent.filterNot { it.projectionKey in projectedExclusions }.mapNotNull { it.pageBounds }.unionBounds()
+            listOfNotNull(baseBounds, tailBounds).unionBounds()
+        }
+        val sources = appendInkValues(if (removed.isEmpty()) sourceStrokes else sourceStrokes.filterNot { it.id in removed }, added)
+        return DesktopInkPage(base, tail, excluded, extent, sources, operations, projectedExclusions,
+            appendInkValues(retainedSegments, sealed))
     }
 
     fun withObjectErase(operation: DecodedInkOperation.Erase): DesktopInkPage? {
         val touched = index.touching(operation.mask).filter { it.id in operation.targetIds }
         if (touched.eraseObjects(operation.mask, operation.targetIds).isNotEmpty()) return null
         val excluded = Collections.unmodifiableSet(HashSet(excludedProjections).apply { addAll(touched.map { it.projectionKey }) })
-        val live = (base.projections + additions.projections).filterNot { it.id in excludedRows || it.projectionKey in excluded }
-        val nextBounds = live.mapNotNull { it.pageBounds }.unionBounds()
+        val changesExtent = bounds != null && touched.any { it.pageBounds?.let { box ->
+            box.left <= bounds.left || box.top <= bounds.top || box.right >= bounds.right || box.bottom >= bounds.bottom
+        } == true }
+        val nextBounds = if (!changesExtent) bounds else segments().flatMap { it.projections }
+            .filterNot { it.id in excludedRows || it.projectionKey in excluded }.mapNotNull { it.pageBounds }.unionBounds()
         return DesktopInkPage(base, additions, excludedRows, nextBounds, sourceStrokes,
-            Collections.unmodifiableList(operations + operation), excluded)
+            Collections.unmodifiableList(operations + operation), excluded, retainedSegments)
     }
 
     companion object {
@@ -121,14 +170,33 @@ internal class DesktopInkPage private constructor(
 
 internal class DesktopInkQueries(private val page: DesktopInkPage) {
     fun touching(mask: Stroke): List<PageStroke> =
-        page.base.index.touching(mask).filterNot { it.id in page.excludedRows || it.projectionKey in page.excludedProjections } +
-            page.additions.index.touching(mask).filterNot { it.projectionKey in page.excludedProjections }
+        page.segments().flatMap { it.index.touching(mask).filter(page::isLive) }
     fun at(point: InkPoint, reach: Float): List<PageStroke> =
-        page.base.index.at(point, reach).filterNot { it.id in page.excludedRows || it.projectionKey in page.excludedProjections } +
-            page.additions.index.at(point, reach).filterNot { it.projectionKey in page.excludedProjections }
+        page.segments().flatMap { it.index.at(point, reach).filter(page::isLive) }
     fun crossing(from: InkPoint, to: InkPoint, width: Float): List<PageStroke> =
-        page.base.index.crossing(from, to, width).filterNot { it.id in page.excludedRows || it.projectionKey in page.excludedProjections } +
-            page.additions.index.crossing(from, to, width).filterNot { it.projectionKey in page.excludedProjections }
+        page.segments().flatMap { it.index.crossing(from, to, width).filter(page::isLive) }
+
+    fun selectWithLasso(path: List<InkPoint>): InkLassoSelection? {
+        val shape = LassoShape(path)
+        val segments = page.segments()
+        val hitsBySegment = segments.map { segment ->
+            val selection = segment.index.selectWithLasso(path) ?: return@map emptyList()
+            selection.projections.mapNotNull(segment.byProjection::get)
+                .filter { page.isLive(it) && shape.contains(it) }.sortedBy { segment.ordinal[it.projectionKey] }
+        }
+        val hits = hitsBySegment.flatten()
+        if (hits.isEmpty()) return null
+        val groups = hits.mapNotNullTo(HashSet()) { it.groupId }
+        val selected = if (groups.isEmpty()) hits else segments.flatMapIndexed { index, segment ->
+            val grouped = if (groups.size < segment.byGroup.size) groups.flatMap { segment.byGroup[it].orEmpty() }
+                else segment.byGroup.entries.filter { it.key in groups }.flatMap { it.value }
+            val candidates = hitsBySegment[index] + grouped
+            candidates.distinctBy { it.projectionKey }.filter(page::isLive).sortedBy { segment.ordinal[it.projectionKey] }
+        }
+        val bounds = selected.mapNotNull { it.pageBounds }.unionBounds() ?: return null
+        return InkLassoSelection(path, selected.mapTo(LinkedHashSet()) { it.id },
+            selected.mapTo(LinkedHashSet()) { it.projectionKey }, bounds)
+    }
 }
 
 internal fun InkStrokeEntity.toByteInk() = StoredInkStroke(id, pageId, seq, brushFamily,
@@ -310,22 +378,7 @@ private fun InkPage.replaySources(sources: List<PageStroke>, operations: List<De
     copy(geometry = DesktopInkPage(ViveInkPage.replay(sources, operations), sources.map { it.id }, sources, operations),
         operations = operations.sortedWith(compareBy(DecodedInkOperation::createdAt, DecodedInkOperation::id)).mapNotNull { it.portableOperation() })
 
-private class AppendedInkList<T>(val base: List<T>, val tail: List<T>) : AbstractList<T>() {
-    override val size: Int get() = base.size + tail.size
-    override fun get(index: Int): T {
-        checkElementIndex(index, size)
-        return if (index < base.size) base[index] else tail[index - base.size]
-    }
-    private fun checkElementIndex(index: Int, size: Int) { if (index !in 0 until size) throw IndexOutOfBoundsException("index: $index, size: $size") }
-}
-
-private fun appendPortable(base: List<VisibleInkStroke>, tail: List<VisibleInkStroke>): List<VisibleInkStroke> = appendInk(base, tail)
-
-private fun <T> appendInk(base: List<T>, tail: List<T>): List<T> {
-    if (tail.isEmpty()) return base
-    val result = if (base is AppendedInkList) AppendedInkList(base.base, base.tail + tail) else AppendedInkList(base, tail)
-    return if (result.tail.size >= DesktopInkPage.ADDITION_LIMIT) result.toList() else result
-}
+private fun appendPortable(base: List<VisibleInkStroke>, tail: List<VisibleInkStroke>): List<VisibleInkStroke> = appendInkValues(base, tail)
 
 internal class DesktopInkStroke(val row: InkStrokeEntity, val projection: PageStroke) : InkStrokeGeometry
 

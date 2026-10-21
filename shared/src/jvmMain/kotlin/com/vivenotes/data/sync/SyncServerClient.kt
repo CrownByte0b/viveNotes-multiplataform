@@ -2,6 +2,8 @@
 package com.vivenotes.data.sync
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
@@ -1484,6 +1486,9 @@ class SyncServerClient(
         } catch (unreachable: IOException) {
             return@withContext unreachable()
         }
+        val cancellation = launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+            try { awaitCancellation() } finally { connection.disconnect() }
+        }
         try {
             connection.requestMethod = "HEAD"
             connection.connectTimeout = CONNECT_TIMEOUT_MS
@@ -1503,6 +1508,7 @@ class SyncServerClient(
         } catch (failed: IOException) {
             unreachable()
         } finally {
+            cancellation.cancel()
             connection.disconnect()
         }
     }
@@ -1539,6 +1545,9 @@ class SyncServerClient(
         } catch (unreachable: IOException) {
             return@withContext unreachable()
         }
+        val cancellation = launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+            try { awaitCancellation() } finally { connection.disconnect() }
+        }
         try {
             connection.requestMethod = "PUT"
             connection.doOutput = true
@@ -1565,6 +1574,7 @@ class SyncServerClient(
         } catch (failed: IOException) {
             unreachable()
         } finally {
+            cancellation.cancel()
             connection.disconnect()
         }
     }
@@ -1592,6 +1602,9 @@ class SyncServerClient(
             openConnection(url)
         } catch (unreachable: IOException) {
             return@withContext unreachable()
+        }
+        val cancellation = launch(Dispatchers.Unconfined, start = CoroutineStart.UNDISPATCHED) {
+            try { awaitCancellation() } finally { connection.disconnect() }
         }
         try {
             connection.requestMethod = "GET"
@@ -1646,6 +1659,7 @@ class SyncServerClient(
             target.delete()
             unreachable()
         } finally {
+            cancellation.cancel()
             connection.disconnect()
         }
     }

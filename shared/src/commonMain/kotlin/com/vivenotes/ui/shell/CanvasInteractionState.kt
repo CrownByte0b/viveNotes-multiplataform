@@ -26,7 +26,7 @@ internal class CanvasInteractionState(
     val pendingViewportState: MutableState<CanvasViewport?>,
     val pastePointState: MutableState<Offset?>,
     val rulerPlacementState: MutableState<Ruler?>,
-    val lassoPathState: MutableState<List<Offset>>,
+    val lassoPath: LassoPathBuffer,
     val lassoState: MutableState<Pair<Offset, Offset>?>,
     val inkDragOffsetState: MutableState<Offset>,
     val inkMoveBusyState: MutableState<Boolean>,
@@ -47,7 +47,6 @@ internal class CanvasInteractionState(
     var pendingViewport by pendingViewportState
     var pastePoint by pastePointState
     var rulerPlacement by rulerPlacementState
-    var lassoPath by lassoPathState
     var lasso by lassoState
     var inkDragOffset by inkDragOffsetState
     var inkMoveBusy by inkMoveBusyState
@@ -71,7 +70,7 @@ internal fun rememberCanvasInteractionState(page: PageSummary?, state: Workspace
     val pendingViewportState = remember(page?.id) { mutableStateOf<CanvasViewport?>(null) }
     val pastePointState = remember(page?.id) { mutableStateOf<Offset?>(null) }
     val rulerPlacementState = remember(page?.id, state.rulerVisible) { mutableStateOf<Ruler?>(null) }
-    val lassoPathState = remember(page?.id, state.objectLassoArmed, zoom) { mutableStateOf(emptyList<Offset>()) }
+    val lassoPathState = remember(page?.id, state.objectLassoArmed, zoom) { LassoPathBuffer() }
     val lassoState = remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
     val inkDragOffsetState = remember(page?.id, state.selectedInk, zoom) { mutableStateOf(Offset.Zero) }
     val inkMoveBusyState = remember(page?.id) { mutableStateOf(false) }

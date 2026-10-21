@@ -1,0 +1,71 @@
+{
+  "schema": "vive-ink-warm-summary/1",
+  "separateProtocol": true,
+  "operation": "Prepared 127th append on a 10,000-stroke base",
+  "minimumWarmupCalls": 20000,
+  "samplesPerFork": 50,
+  "operationsPerSample": 1,
+  "forksPerVersion": 3,
+  "runOrder": [
+    [
+      "original",
+      1
+    ],
+    [
+      "current",
+      1
+    ],
+    [
+      "original",
+      2
+    ],
+    [
+      "current",
+      2
+    ],
+    [
+      "original",
+      3
+    ],
+    [
+      "current",
+      3
+    ]
+  ],
+  "fixtureMatchesFrozenCapture": true,
+  "runtimeHeapVmArgumentsIdentical": true,
+  "resolvedExternalJarHashesIdentical": 120,
+  "artifactHashTiming": "Resolved task classpaths recorded after the runs; source/build inputs and offline dependency cache unchanged between forks.",
+  "originalArchiveProductionHashesVerified": 315,
+  "originalArchiveHarnessHashesVerified": 9,
+  "diagnosticSources": {
+    "InkAppendWarmDiagnostic.java": "c57be7df1ab065703dca4ff2576f08bddca17926a61652080cce0857d010be5c",
+    "diagnostic.init.gradle": "d066a993031848ea3d32e4ee796fd119e9db216a64cdcf7939468c268b43d85a"
+  },
+  "results": {
+    "original": {
+      "medianMs": 0.012564,
+      "forkMedianMs": [
+        0.014037,
+        0.012564,
+        0.007354
+      ],
+      "medianAllocatedBytes": 23192.0
+    },
+    "current": {
+      "medianMs": 0.0109,
+      "forkMedianMs": [
+        0.0109,
+        0.011241,
+        0.005741
+      ],
+      "medianAllocatedBytes": 21464.0
+    }
+  },
+  "changePercent": -13.244189748487745,
+  "limits": [
+    "Separate diagnostic; does not replace the frozen eight-warmup comparison.",
+    "Invocation warmup does not prove C2 completion; no compilation logs captured.",
+    "50 single-operation wall-time samples per fork, not app event latency; caller Java allocation only."
+  ]
+}

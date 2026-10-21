@@ -7,6 +7,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.vivenotes.data.DebugLog
@@ -53,6 +54,8 @@ import java.io.File
     exportSchema = true,
 )
 abstract class NotesDatabase : RoomDatabase() {
+    internal var searchBodySnapshots: SearchBodySnapshots? = null
+    internal var storageFile: File? = null
 
     abstract fun notebookDao(): NotebookDao
     abstract fun sectionDao(): SectionDao
@@ -116,17 +119,19 @@ abstract class NotesDatabase : RoomDatabase() {
         /** The file name the Android app uses too, inside the platform's data directory. */
         const val FILE_NAME = "notes.db"
 
-        fun create(file: File): NotesDatabase =
-            Room.databaseBuilder<NotesDatabase>(name = file.absolutePath)
+        fun create(file: File): NotesDatabase {
+            val snapshots = SearchBodySnapshots(file)
+            return Room.databaseBuilder<NotesDatabase>(name = file.absolutePath)
                 // Never `fallbackToDestructiveMigration`, which answers a forgotten migration by
                 // deleting the notes.
                 .addMigrations(MIGRATION_1_2)
                 // Write-ahead logging, as Room chooses on Android: readers never wait for autosave,
                 // and `DatabaseBackupManager` copies with `VACUUM INTO` for exactly this reason.
                 .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-                .configured()
+                .configured(snapshots.driver)
                 .addCallback(OPEN_LOG_CALLBACK)
-                .build()
+                .build().also { it.searchBodySnapshots = snapshots; it.storageFile = file.absoluteFile }
+        }
 
         /** With `--debug` only: when `notes.db` is created and opened, and at which version. */
         private val OPEN_LOG_CALLBACK = object : RoomDatabase.Callback() {
@@ -155,8 +160,8 @@ abstract class NotesDatabase : RoomDatabase() {
          * rather than whatever the system happens to have. Queries run on [Dispatchers.IO]: the
          * callers are the UI thread and a maintenance coroutine, and neither may block on disk.
          */
-        private fun RoomDatabase.Builder<NotesDatabase>.configured(): RoomDatabase.Builder<NotesDatabase> =
-            setDriver(BundledSQLiteDriver())
+        private fun RoomDatabase.Builder<NotesDatabase>.configured(driver: SQLiteDriver = BundledSQLiteDriver()): RoomDatabase.Builder<NotesDatabase> =
+            setDriver(driver)
                 .setQueryCoroutineContext(Dispatchers.IO)
                 .addCallback(SYNC_TRIGGER_CALLBACK)
 

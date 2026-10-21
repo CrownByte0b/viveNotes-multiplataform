@@ -58,7 +58,7 @@ class CanvasInteractionStateTest {
         val ruler = Ruler(10f, 20f, 0f, workspace.value.inkSettings.ruler.kind, 200f)
         runOnIdle {
             interaction.viewportPx = IntSize(900, 700)
-            interaction.lassoPath = listOf(Offset(10f, 20f))
+            interaction.lassoPath.start(Offset(10f, 20f))
             interaction.inkDragOffset = Offset(8f, 4f)
             interaction.spaceDraft = SpaceCut(PageSpace.Axis.Vertical, 10f, 20f)
             interaction.pastePoint = Offset(20f, 100f)

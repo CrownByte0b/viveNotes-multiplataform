@@ -29,21 +29,33 @@ data class RichTextBuffer(
 ) {
     init { require(blocks.isNotEmpty()) }
 
-    val text: String get() = blocks.joinToString("\n") { it.editorText }
+    val text: String by lazy { blocks.joinToString("\n") { it.editorText } }
 
-    val currentBlock: Block get() = blocks[locate(selection.clamped(text.length).min).index]
+    private val blockLengths: IntArray by lazy {
+        IntArray(blocks.size) { index -> blocks[index].runs.sumOf { run ->
+            if (run.marks.any { it is Mark.Equation }) 1 else run.text.length
+        } }
+    }
+    private val blockStarts: IntArray by lazy {
+        IntArray(blocks.size).also { starts ->
+            for (index in 1 until starts.size) starts[index] = starts[index - 1] + blockLengths[index - 1] + 1
+        }
+    }
+    private val textLength: Int get() = blockStarts.last() + blockLengths.last()
+
+    val currentBlock: Block get() = blocks[locate(selection.clamped(textLength).min).index]
 
     fun select(range: TextSelection): RichTextBuffer {
-        val next = range.clamped(text.length)
+        val next = range.clamped(textLength)
         return copy(selection = next, typingMarks = if (next.collapsed) {
-            if (text.isEmpty()) typingMarks else marksForCaret(next.start)
+            if (textLength == 0) typingMarks else marksForCaret(next.start)
         } else emptySet())
     }
 
     /** The marks common to every selected character, or the armed marks at the caret. */
     val activeMarks: Set<Mark>
         get() {
-            val range = selection.clamped(text.length)
+            val range = selection.clamped(textLength)
             if (range.collapsed) return typingMarks
             val involved = selectedRunPieces(range.min, range.max)
             return involved.firstOrNull()?.let { first ->
@@ -52,7 +64,7 @@ data class RichTextBuffer(
         }
 
     fun toggleMark(mark: Mark): RichTextBuffer {
-        val range = selection.clamped(text.length)
+        val range = selection.clamped(textLength)
         val shouldAdd = mark !in activeMarks
         if (range.collapsed) {
             return copy(typingMarks = typingMarks.withMark(mark, shouldAdd))
@@ -61,20 +73,20 @@ data class RichTextBuffer(
     }
 
     fun setMark(mark: Mark): RichTextBuffer {
-        val range = selection.clamped(text.length)
+        val range = selection.clamped(textLength)
         if (range.collapsed) return copy(typingMarks = typingMarks.withMark(mark, true))
         return changeMarks(range.min, range.max) { it.withMark(mark, true) }
     }
 
     fun clearMark(mark: Mark): RichTextBuffer {
-        val range = selection.clamped(text.length)
+        val range = selection.clamped(textLength)
         if (range.collapsed) return copy(typingMarks = typingMarks.withMark(mark, false))
         return changeMarks(range.min, range.max) { it.withMark(mark, false) }
     }
 
     /** Android's Clear formatting: inline marks go, and so do the paragraphs' list, indent and alignment. */
     fun clearFormatting(): RichTextBuffer {
-        val range = selection.clamped(text.length)
+        val range = selection.clamped(textLength)
         val plainBlocks = changeBlocks {
             it.copy(type = BlockType.Paragraph, indent = 0, align = Align.Start, checked = null)
         }
@@ -119,7 +131,7 @@ data class RichTextBuffer(
      */
     val linkTarget: LinkTarget
         get() {
-            val range = selection.clamped(text.length)
+            val range = selection.clamped(textLength)
             if (!range.collapsed) {
                 return LinkTarget(text.substring(range.min, range.max),
                     activeMarks.filterIsInstance<Mark.Link>().firstOrNull()?.href)
@@ -130,7 +142,7 @@ data class RichTextBuffer(
 
     /** The address of the link covering the character at [offset], for opening it. */
     fun linkUrlAt(offset: Int): String? {
-        if (offset !in 0 until text.length) return null
+        if (offset !in 0 until textLength) return null
         return selectedRunPieces(offset, offset + 1).firstOrNull()
             ?.filterIsInstance<Mark.Link>()?.firstOrNull()?.href
     }
@@ -142,7 +154,7 @@ data class RichTextBuffer(
     fun insertLink(label: String, url: String): RichTextBuffer {
         val shown = label.replace('\n', ' ')
         if (shown.isEmpty()) return this
-        val range = selection.clamped(text.length)
+        val range = selection.clamped(textLength)
         val target = if (range.collapsed) linkAt(range.min)?.let { TextSelection(it.start, it.end) } ?: range
             else range
         val relabelled = if (text.substring(target.min, target.max) == shown) this else {
@@ -164,7 +176,7 @@ data class RichTextBuffer(
 
     /** Replace a selection, preserving run marks and unaffected block identities. */
     fun replace(inserted: String): RichTextBuffer {
-        val range = selection.clamped(text.length)
+        val range = selection.clamped(textLength)
         val from = locate(range.min)
         val to = locate(range.max)
         val first = blocks[from.index]
@@ -200,7 +212,7 @@ data class RichTextBuffer(
      * its runs' marks and its own paragraph style. Empty when nothing is selected.
      */
     fun selectedFragment(): List<Block> {
-        val range = selection.clamped(text.length)
+        val range = selection.clamped(textLength)
         if (range.collapsed) return emptyList()
         val from = locate(range.min)
         val to = locate(range.max)
@@ -220,7 +232,7 @@ data class RichTextBuffer(
      */
     fun insertFragment(fragment: List<Block>): RichTextBuffer {
         if (fragment.isEmpty()) return this
-        val range = selection.clamped(text.length)
+        val range = selection.clamped(textLength)
         val from = locate(range.min)
         val to = locate(range.max)
         val first = blocks[from.index]
@@ -256,7 +268,7 @@ data class RichTextBuffer(
     fun insertFormatted(fragment: List<Block>): RichTextBuffer {
         val single = fragment.singleOrNull()?.takeIf { it.type != BlockType.Paragraph }
             ?: return insertFragment(fragment)
-        val range = selection.clamped(text.length)
+        val range = selection.clamped(textLength)
         val from = locate(range.min)
         val to = locate(range.max)
         val pasted = insertFragment(fragment)
@@ -309,7 +321,7 @@ data class RichTextBuffer(
     }
 
     private fun changeBlocks(transform: (Block) -> Block): RichTextBuffer {
-        val range = selection.clamped(text.length)
+        val range = selection.clamped(textLength)
         val first = locate(range.min).index
         val last = locate(range.max).index
         return copy(blocks = blocks.mapIndexed { index, block ->
@@ -420,15 +432,15 @@ data class RichTextBuffer(
     private data class Position(val index: Int, val offset: Int)
 
     private fun locate(offset: Int): Position {
-        var remaining = offset.coerceIn(0, text.length)
-        blocks.forEachIndexed { index, block ->
-            val length = block.editorText.length
-            if (remaining <= length || index == blocks.lastIndex) {
-                return Position(index, remaining.coerceAtMost(length))
-            }
-            remaining -= length + 1
+        val at = offset.coerceIn(0, textLength)
+        var low = 0
+        var high = blocks.size
+        while (low < high) {
+            val middle = (low + high) ushr 1
+            if (blockStarts[middle] <= at) low = middle + 1 else high = middle
         }
-        error("Rich text buffer must contain a block")
+        val index = (low - 1).coerceAtLeast(0)
+        return Position(index, (at - blockStarts[index]).coerceAtMost(blockLengths[index]))
     }
 }
 
@@ -470,12 +482,4 @@ private fun List<Run>.splitAt(offset: Int): RunSplit {
     return RunSplit(first, second)
 }
 
-private fun mergeRuns(runs: List<Run>): List<Run> = buildList {
-    for (run in runs) {
-        if (run.text.isEmpty()) continue
-        val previous = lastOrNull()
-        if (previous != null && previous.marks == run.marks && previous.marks.none { it is Mark.Equation }) {
-            this[lastIndex] = previous.copy(text = previous.text + run.text)
-        } else add(run)
-    }
-}
+private fun mergeRuns(runs: List<Run>): List<Run> = normalizedRuns(runs)

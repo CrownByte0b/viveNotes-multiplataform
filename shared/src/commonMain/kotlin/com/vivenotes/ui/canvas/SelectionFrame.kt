@@ -13,10 +13,15 @@ internal fun selectedCanvasBounds(
     measuredTextHeights: Map<String, Float> = emptyMap(),
     ink: com.vivenotes.model.ink.InkSelection? = null,
 ): Rect? {
-    val selected = outlines.filter { it.id in selectedIds && (it is Outline.Text || it.isPrimeObject()) }
-    if (selected.size < 2 && ink == null) return null
-    val bounds = selected.map { outline ->
-        if (outline is Outline.Text) {
+    if (selectedIds.size < 2 && ink == null) return null
+    val inkBounds = ink?.bounds
+    if (selectedIds.isEmpty()) return inkBounds?.let { Rect(it.left, it.top, it.right, it.bottom) }
+    var count = 0
+    var combined = inkBounds?.let { Rect(it.left, it.top, it.right, it.bottom) }
+    for (outline in outlines) {
+        if (outline.id !in selectedIds || (outline !is Outline.Text && !outline.isPrimeObject())) continue
+        count++
+        val bounds = if (outline is Outline.Text) {
             val x = outline.x.coerceAtLeast(0f)
             val y = outline.y.coerceAtLeast(0f)
             Rect(x, y, x + outline.width.coerceIn(120f, 2000f),
@@ -25,7 +30,9 @@ internal fun selectedCanvasBounds(
             Rect(outline.x, outline.y, outline.x + outline.primeWidth().coerceAtLeast(24f),
                 outline.y + (measuredTextHeights[outline.id] ?: outline.primeHeight()).coerceAtLeast(24f))
         }
+        val previous = combined
+        combined = if (previous == null) bounds else Rect(minOf(previous.left, bounds.left),
+            minOf(previous.top, bounds.top), maxOf(previous.right, bounds.right), maxOf(previous.bottom, bounds.bottom))
     }
-    val all = bounds + listOfNotNull(ink?.bounds?.let { Rect(it.left, it.top, it.right, it.bottom) })
-    return Rect(all.minOf { it.left }, all.minOf { it.top }, all.maxOf { it.right }, all.maxOf { it.bottom })
+    return if (count < 2 && ink == null) null else combined
 }

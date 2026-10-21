@@ -1,0 +1,21 @@
+{
+  "result": "PASS",
+  "afterDirectory": "benchmarks/results/2026-10-21-optimized",
+  "baselineFilesUntouched": true,
+  "productionHashesVerified": 334,
+  "frozenHarnessHashesVerified": 9,
+  "appCasesPerFork": 48,
+  "samplesPerAppCase": 15,
+  "beforeAndAfterForks": 3,
+  "runtimeArtifactsPerFork": 120,
+  "runtimeArtifactsIdenticalAcrossAfterForks": true,
+  "externalArtifactsIdenticalBeforeAndAfter": true,
+  "allFixtureHashesIdentical": true,
+  "schemaHashesUnchanged": true,
+  "summaryRecomputedExactly": true,
+  "inkCompatibilityPassed": true,
+  "inkCasesPerFork": 8,
+  "inkPreservationCheckFailures": 0,
+  "inkStructuralDifferencesForReview": 197,
+  "provenance": "After code is an uncommitted working tree on the sourceCommit recorded in environment.json; exact source hashes and workingTree are authoritative, not the parent commit alone."
+}

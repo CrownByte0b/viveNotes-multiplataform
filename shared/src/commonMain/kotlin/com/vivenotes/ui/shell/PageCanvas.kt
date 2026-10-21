@@ -2,6 +2,7 @@ package com.vivenotes.ui.shell
 
 import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +21,7 @@ import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
@@ -186,10 +188,6 @@ internal fun PageCanvas(
     val page = state.selectedPage
     val interaction = rememberCanvasInteractionState(page, state, zoom)
     val currentEditTextAt by rememberUpdatedState(onEditTextAt)
-    val pictureAssets = rememberPictureAssets(
-        page?.document?.outlines.orEmpty().filterIsInstance<Outline.Image>().map { it.attachmentId }.distinct(),
-        pictures,
-    )
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
     val horizontalScroll = rememberScrollState()
@@ -197,6 +195,16 @@ internal fun PageCanvas(
     // Zoom is this device's View setting, kept across pages; read through this in pointer handlers,
     // which outlive the composition that created them.
     val zoomState = rememberUpdatedState(zoom)
+    val visiblePageWindow: () -> Rect = remember(horizontalScroll, verticalScroll, zoomState, interaction.viewportPxState, density) {
+        {
+            val scale = zoomState.value * density.density
+            val left = horizontalScroll.value / scale
+            val top = verticalScroll.value / scale
+            Rect(left, top, left + interaction.viewportPx.width / scale, top + interaction.viewportPx.height / scale)
+        }
+    }
+    val pictureAssets = rememberViewportPictureAssets(page?.id, page?.document?.outlines.orEmpty(), pictures,
+        visiblePageWindow, density.density * zoom)
     val currentZoomChange by rememberUpdatedState(onZoomChange)
     val zoomTracking = remember { ZoomTracking(zoom) }
     val ruler = if (state.rulerVisible && interaction.viewportPx.width > 0 && interaction.viewportPx.height > 0) {
@@ -387,6 +395,7 @@ internal fun PageCanvas(
     // content decides whether it bounds the page or is only drawn as a guide.
     val inkEdge = remember(page?.ink) { page?.ink?.contentEdge() ?: Offset.Zero }
     val extent = page?.document?.let { document ->
+        remember(document, inkEdge, measuredTextHeights) { derivedStateOf {
         PageExtent.of(
             document.style,
             contentRight = maxOf(inkEdge.x, document.outlines.maxOfOrNull { it.x + it.primeWidth() } ?: 0f),
@@ -395,6 +404,7 @@ internal fun PageCanvas(
                     ?: maxOf(150f, outline.minHeight) else measuredTextHeights[outline.id] ?: outline.primeHeight()
             } ?: 0f),
         )
+        } }.value
     }
     val currentExtentState = rememberUpdatedState(extent)
     val currentExtent by currentExtentState
@@ -572,7 +582,7 @@ internal fun PageCanvas(
                     fingerState = currentDrawWithFingerState,
                     extentState = currentExtentState,
                     inkMoveBusyState = interaction.inkMoveBusyState,
-                    drafts = CanvasGestureDrafts(interaction.spaceDraftState, interaction.shapeDraftState, interaction.lassoPathState, interaction.lassoState, interaction.inkDragOffsetState, interaction.pastePointState),
+                    drafts = CanvasGestureDrafts(interaction.spaceDraftState, interaction.shapeDraftState, interaction.lassoPath, interaction.lassoState, interaction.inkDragOffsetState, interaction.pastePointState),
                     density = density,
                     zoom = zoom,
                     focusManager = focusManager,
@@ -651,6 +661,8 @@ internal fun PageCanvas(
                     }
                     CanvasTextBoxes(
                         state = state,
+                        viewport = visiblePageWindow,
+                        searchTarget = searchHit?.unit?.boxId,
                         workspaceState = currentStateValue,
                         displayedOutlines = displayedOutlines,
                         measuredTextHeights = measuredTextHeights,
@@ -680,6 +692,8 @@ internal fun PageCanvas(
                         onDeleteTextBox = onDeleteTextBox
                     )
                     CanvasPrimeObjects(
+                        viewport = visiblePageWindow,
+                        searchTarget = searchHit?.unit?.tableId ?: searchHit?.unit?.boxId,
                         heldTable = heldTable,
                         onHoldTable = { axis ->
                             focusManager.clearFocus()
@@ -774,12 +788,8 @@ internal fun PageCanvas(
         state.selectedInk?.let { selection ->
             val bounds = selectedCanvasBounds(page.document.outlines, state.selectedObjectIds + state.selectedTextOutlineIds,
                 measuredTextHeights, selection) ?: return@let
-            val scale = zoom * density.density
-            val viewBounds = Rect(
-                (bounds.left + interaction.inkDragOffset.x) * scale - horizontalScroll.value,
-                (bounds.top + interaction.inkDragOffset.y) * scale - verticalScroll.value,
-                (bounds.right + interaction.inkDragOffset.x) * scale - horizontalScroll.value,
-                (bounds.bottom + interaction.inkDragOffset.y) * scale - verticalScroll.value)
+            CanvasInkToolkitPosition(bounds, interaction.inkDragOffset, zoom * density.density,
+                horizontalScroll, verticalScroll) { viewBounds ->
             val ink = canvasPalette(page.document.style, canvasDark).ink
             InkSelectionToolkit(selection, viewBounds, interaction.viewportPx, ink,
                 enabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy && !interaction.inkMoveBusy,
@@ -811,6 +821,7 @@ internal fun PageCanvas(
                         }
                     }
                 })
+            }
         }
         if (state.selectedInk == null) SideEffect { interaction.inkToolkitBoundsInView = null }
         if (page.content == PageContent.Unreadable) {
@@ -852,4 +863,17 @@ private class ZoomTracking(var applied: Float)
 
 internal class CanvasOrigin {
     var read: () -> Offset = { Offset.Zero }
+}
+
+@Composable
+private fun CanvasInkToolkitPosition(
+    bounds: Rect, offset: Offset, scale: Float, horizontal: ScrollState, vertical: ScrollState,
+    content: @Composable (Rect) -> Unit,
+) {
+    content(Rect(
+        (bounds.left + offset.x) * scale - horizontal.value,
+        (bounds.top + offset.y) * scale - vertical.value,
+        (bounds.right + offset.x) * scale - horizontal.value,
+        (bounds.bottom + offset.y) * scale - vertical.value,
+    ))
 }

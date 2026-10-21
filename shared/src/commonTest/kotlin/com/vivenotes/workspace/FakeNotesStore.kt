@@ -235,8 +235,10 @@ class FakeNotesStore : NotesStore {
         return DeletionOutcome.Tombstoned
     }
 
-    override fun observeDoc(pageId: String): Flow<PageLoad> =
-        bodies.map { it[pageId] }.filterNotNull().distinctUntilChanged()
+    override fun observeDoc(pageId: String): Flow<PageLoad> = kotlinx.coroutines.flow.flow {
+        loads += pageId
+        bodies.map { it[pageId] }.filterNotNull().distinctUntilChanged().collect { emit(it) }
+    }
 
     override suspend fun loadDoc(pageId: String): PageLoad {
         loads += pageId

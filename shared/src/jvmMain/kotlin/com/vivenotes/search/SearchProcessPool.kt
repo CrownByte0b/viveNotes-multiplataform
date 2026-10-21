@@ -37,11 +37,25 @@ class SearchProcessPool internal constructor(
                     val reply = async(Dispatchers.IO) {
                         runCatching {
                             val worker = slot.start()
-                            worker.input.write(Json.encodeToString(request))
-                            worker.input.newLine()
-                            worker.input.flush()
-                            val line = worker.output.readLine() ?: throw IOException(Strings.search_worker_exited)
-                            Json.decodeFromString<WorkerReply>(line)
+                            fun exchange(command: WorkerRequest): WorkerReply {
+                                worker.input.write(Json.encodeToString(command))
+                                worker.input.newLine()
+                                worker.input.flush()
+                                val line = worker.output.readLine() ?: throw IOException(Strings.search_worker_exited)
+                                return Json.decodeFromString<WorkerReply>(line)
+                            }
+                            val reusable = request.operation == SearchOperation.Match && request.matchKey.isNotEmpty()
+                            val command = if (reusable && request.matchKey in worker.matchKeys)
+                                request.copy(units = emptyList()) else request
+                            val reply = exchange(command).let { response ->
+                                if (response.cacheMiss && command.units.isEmpty() && request.units.isNotEmpty())
+                                    exchange(request) else response
+                            }
+                            if (reusable && !reply.failed && !reply.cacheMiss) {
+                                worker.matchKeys.add(request.matchKey)
+                                if (worker.matchKeys.size > 128) worker.matchKeys.remove(worker.matchKeys.first())
+                            }
+                            reply
                         }
                     }
                     try {
@@ -91,6 +105,7 @@ class SearchProcessPool internal constructor(
     }
 
     private class Worker(val process: Process) {
+        val matchKeys = LinkedHashSet<String>()
         val input = process.outputWriter(Charsets.UTF_8)
         val output = process.inputReader(Charsets.UTF_8)
         init {

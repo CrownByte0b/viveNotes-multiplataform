@@ -226,12 +226,22 @@ fun searchContent(
     query: String,
     limit: Int = MAX_HITS,
 ): List<ContentHit> {
+    return searchContent(units, query, limit, FuzzyMatcher::prepareText)
+}
+
+internal fun searchContent(
+    units: List<ContentUnit>,
+    query: String,
+    limit: Int,
+    prepareText: (String) -> FuzzyMatcher.PreparedText,
+): List<ContentHit> {
     if (query.isBlank()) return emptyList()
+    val preparedQuery = FuzzyMatcher.prepareQuery(query)
     return units
         .mapNotNull { unit ->
             (listOf(unit.text) + unit.alternatives)
                 .mapNotNull { candidate ->
-                    FuzzyMatcher.match(query, candidate)?.let { match -> candidate to match }
+                    FuzzyMatcher.match(preparedQuery, prepareText(candidate))?.let { match -> candidate to match }
                 }
                 .maxByOrNull { (_, match) -> match.score }
                 ?.let { (candidate, match) ->

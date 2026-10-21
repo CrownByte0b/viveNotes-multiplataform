@@ -1,0 +1,40 @@
+import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.compile.JavaCompile
+
+// This init script adds tasks only. It never changes repository/build/harness source files.
+def diagnosticSource = new File(gradle.startParameter.projectProperties.get('inkWarmSource') ?: '/tmp/vive-ink-warm-diagnostic/InkAppendWarmDiagnostic.java')
+if (!diagnosticSource.isFile()) throw new GradleException("Missing diagnostic source: $diagnosticSource")
+
+gradle.projectsEvaluated {
+    def shared = gradle.rootProject.project(':shared')
+    def baseline = shared.tasks.named('performanceBaseline', JavaExec)
+    def testCompiler = shared.tasks.named('compileJvmTestJava', JavaCompile)
+    def compileDiagnostic = shared.tasks.register('compileInkAppendWarmDiagnostic', JavaCompile) {
+        dependsOn(shared.tasks.named('jvmTestClasses'))
+        source(diagnosticSource)
+        classpath = baseline.get().classpath
+        destinationDirectory.set(shared.layout.buildDirectory.dir('diagnostics/ink-append-warm'))
+        javaCompiler.set(testCompiler.flatMap { it.javaCompiler })
+        options.release.set(testCompiler.flatMap { it.options.release })
+        options.encoding = 'UTF-8'
+    }
+    shared.tasks.register('inkAppendWarmDiagnostic', JavaExec) {
+        dependsOn(compileDiagnostic)
+        classpath = shared.files(compileDiagnostic.flatMap { it.destinationDirectory }) + baseline.get().classpath
+        javaLauncher.set(baseline.flatMap { it.javaLauncher })
+        minHeapSize = baseline.get().minHeapSize
+        maxHeapSize = baseline.get().maxHeapSize
+        setJvmArgs(baseline.get().jvmArgs)
+        systemProperties(baseline.get().systemProperties)
+        systemProperty('vivenotes.performance.scratch', shared.findProperty('inkWarmScratch') ?: '/tmp/vive-ink-warm-diagnostic/scratch')
+        workingDir = baseline.get().workingDir
+        mainClass.set('com.vivenotes.diagnostics.InkAppendWarmDiagnostic')
+        args(shared.findProperty('inkWarmOutput') ?: new File('/tmp/vive-ink-warm-diagnostic/report.json').absolutePath,
+            shared.findProperty('inkWarmFork') ?: '1', shared.findProperty('inkWarmUnits') ?: '10000')
+        if (shared.findProperty('inkWarmCompilationLog')) {
+            jvmArgs('-XX:+UnlockDiagnosticVMOptions', '-XX:+LogCompilation',
+                '-XX:LogFile=' + shared.findProperty('inkWarmCompilationLog'))
+        }
+        outputs.upToDateWhen { false }
+    }
+}

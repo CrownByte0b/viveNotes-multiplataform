@@ -267,7 +267,7 @@ private class HtmlPaste(private val textMarks: Set<Mark>) {
     private fun endLine() {
         val style = line ?: return
         lines += Block(id = newId(), type = style.type, indent = style.indent, align = style.align,
-            runs = merge(runs), checked = style.checked)
+            runs = normalizedRuns(runs, mergeEquations = true), checked = style.checked)
         runs = mutableListOf()
         line = null
         space = null
@@ -581,15 +581,6 @@ private fun resolveLink(href: String, base: String?): String? {
     val origin = root.substring(0, authorityEnd)
     val directory = root.substring(authorityEnd).substringBefore('?').substringBefore('#').substringBeforeLast('/', "")
     return normalizedLinkUrl(if (link.startsWith("/")) origin + link else "$origin$directory/$link")
-}
-
-private fun merge(runs: List<Run>): List<Run> = buildList {
-    for (run in runs) {
-        if (run.text.isEmpty()) continue
-        val previous = lastOrNull()
-        if (previous != null && previous.marks == run.marks) this[lastIndex] = previous.copy(text = previous.text + run.text)
-        else add(run)
-    }
 }
 
 /** A `style` attribute's declarations, by lower-case property, `!important` dropped. */

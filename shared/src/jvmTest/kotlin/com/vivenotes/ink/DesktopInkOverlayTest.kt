@@ -46,20 +46,21 @@ class DesktopInkOverlayTest {
     }
 
     @Test
-    fun appendAndTombstoneThresholdsCompactAndRetainOrderAndGeometry() {
+    fun appendAndTombstoneThresholdsRetainIndexesOrderAndGeometry() {
         val original = authored("base")
         var page = InkPageReader.read("page", listOf(original.row.toEntity()), emptyList(), emptyList())
         val previous = page.desktopGeometry().base
         val edits = List(DesktopInkPage.ADDITION_LIMIT) { authored("new-$it").desktopEdit() }
         page = page.withDesktopEdits(edits)
-        assertNotSame(previous, page.desktopGeometry().base)
+        assertSame(previous, page.desktopGeometry().base)
+        assertEquals(128, page.desktopGeometry().retainedSegments.single().projections.size)
         assertEquals(0, page.desktopGeometry().additions.projections.size)
         assertEquals(listOf("base") + edits.map { it.row.id }, page.strokes.map { it.id })
         val template = original.row
         val many = InkPageReader.read("page", List(300) { template.copy(id = "r-$it", seq = it).toEntity() }, emptyList(), emptyList())
         val erased = many.withDesktopEdit(InkEdit.EraseStrokes((0 until DesktopInkPage.TOMBSTONE_LIMIT).mapTo(HashSet()) { "r-$it" }))
-        assertNotSame(many.desktopGeometry().base, erased.desktopGeometry().base)
-        assertTrue(erased.desktopGeometry().excludedRows.isEmpty())
+        assertSame(many.desktopGeometry().base, erased.desktopGeometry().base)
+        assertEquals(256, erased.desktopGeometry().excludedRows.size)
         assertEquals((256 until 300).map { "r-$it" }, erased.desktopGeometry().projections.map { it.id })
         assertEquals(300, many.desktopGeometry().projections.size)
     }
