@@ -3,6 +3,7 @@ package com.vivenotes.data
 
 import com.vivenotes.localization.Strings
 import androidx.room.immediateTransaction
+import androidx.room.deferredTransaction
 import androidx.room.useWriterConnection
 import androidx.room.useReaderConnection
 import kotlinx.coroutines.flow.Flow
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
 import com.vivenotes.data.db.StrokeColor
 import com.vivenotes.ink.withDesktopEdits
 import com.vivenotes.data.db.InkEraseEntity
@@ -90,6 +92,11 @@ class NotesRepository(
     private val deletionPurge = db.deletionPurgeDao()
     private val sync = db.syncDao()
     private val documentDecodes = DecodedDocumentCache()
+    private val checkpointWindows = LinkedHashMap<String, Long>()
+
+    /** Deterministic integration seam; invoked on [cpu], with no Room lease or transaction held. */
+    internal var beforeCheckpointCompression: suspend () -> Unit = {}
+    internal var afterCheckpointPreparation: suspend () -> Unit = {}
 
     override fun observeTree(): Flow<List<NotebookWithSections>> = notebooks.observeTree()
 
@@ -662,10 +669,10 @@ class NotesRepository(
 
         val now = clock()
         val (encoded, preview) = withContext(cpu) { codec.encodeToString(doc) to pagePreview(doc) }
-        db.withTransaction {
-            val previous = contents.byId(pageId) ?: return@withTransaction
+        checkpointTransaction(listOf(pageId), now, force = true) {
+            val previous = contents.byId(pageId) ?: return@checkpointTransaction
             val current = checkpointOf(previous, now)
-            if (!current.sameContentAs(row)) {
+            if (!current.row.sameContentAs(row)) {
                 clearReplaceableStarter()
                 // Forced even inside the coalescing window: the complete page being replaced must
                 // remain reachable. Content identity keeps repeated A <-> B restores idempotent.
@@ -682,9 +689,9 @@ class NotesRepository(
         val now = clock()
         val (encoded, preview) = withContext(cpu) { codec.encodeToString(doc) to pagePreview(doc) }
 
-        db.withTransaction {
+        checkpointTransaction(listOf(pageId), now, changed = { it.docJson != encoded || it.format != codec.id }) {
             val previous = contents.byId(pageId)
-            if (previous?.docJson == encoded && previous.format == codec.id) return@withTransaction
+            if (previous?.docJson == encoded && previous.format == codec.id) return@checkpointTransaction
             clearReplaceableStarter()
 
             if (previous != null && shouldCheckpoint(pageId, now)) {
@@ -696,28 +703,37 @@ class NotesRepository(
     }
 
     private suspend fun shouldCheckpoint(pageId: String, now: Long): Boolean {
-        val newest = revisions.newestTimestamp(pageId) ?: return true
+        val newest = revisions.newestTimestamp(pageId)
+        rememberCheckpointWindow(pageId, newest)
+        if (newest == null) return true
         return now - newest >= REVISION_CHECKPOINT_INTERVAL_MS
     }
 
-    /** Must run inside the caller's transaction so document and ink describe one instant. */
-    private suspend fun checkpointOf(content: PageContentEntity, now: Long) =
-        DocumentRevisionPayload.pack(
-            row = content,
-            createdAt = now,
-            ink = InkRevisionPayload.pack(
-                InkSnapshot(
-                    strokes = ink.revisionStates(content.pageId).map { state -> InkSnapshot.StrokeState(
-                        state.id, state.colorArgb, state.colorFollowsTheme, state.groupId,
-                    ) },
-                    eraseIds = inkErases.activeIds(content.pageId),
-                    moveIds = inkMoves.activeIds(content.pageId),
-                ),
-            ),
-        )
+    private fun rememberCheckpointWindow(pageId: String, newest: Long?) {
+        synchronized(checkpointWindows) {
+            checkpointWindows.remove(pageId)
+            if (newest != null) checkpointWindows[pageId] = newest
+            while (checkpointWindows.size > 128) checkpointWindows.remove(checkpointWindows.keys.first())
+        }
+    }
 
-    private suspend fun storeCheckpoint(checkpoint: PageRevisionEntity) {
-        val healthyMatches = revisions.matchingContent(
+    private suspend fun captureCheckpoint(content: PageContentEntity) = CheckpointSource(content, InkSnapshot(
+        strokes = ink.revisionStates(content.pageId).map { state -> InkSnapshot.StrokeState(
+            state.id, state.colorArgb, state.colorFollowsTheme, state.groupId,
+        ) },
+        eraseIds = inkErases.activeIds(content.pageId),
+        moveIds = inkMoves.activeIds(content.pageId),
+    ))
+
+    /** Re-reading the exact state in the final writer is the validation; no generation guess is used. */
+    private suspend fun checkpointOf(content: PageContentEntity, now: Long): PreparedCheckpoint {
+        val source = captureCheckpoint(content)
+        val prepared = currentCoroutineContext()[CheckpointPreparation]?.find(source)
+            ?: throw CheckpointRetry.Capture(source, now)
+        return if (prepared.row.createdAt == now) prepared else prepared.copy(row = prepared.row.copy(createdAt = now))
+    }
+
+    private suspend fun matchingCheckpoints(checkpoint: PageRevisionEntity) = revisions.matchingContent(
             pageId = checkpoint.pageId,
             format = checkpoint.format,
             byteCount = checkpoint.byteCount,
@@ -725,18 +741,87 @@ class NotesRepository(
             inkFormat = checkpoint.inkFormat,
             inkByteCount = checkpoint.inkByteCount,
             inkSha256 = checkpoint.inkSha256,
-        ).filter { candidate ->
+        )
+
+    private suspend fun verifyCandidates(candidates: List<PageRevisionEntity>): List<String> = withContext(cpu) {
+        candidates.filter { candidate ->
             runCatching {
                 DocumentRevisionPayload.unpack(candidate)
                 InkRevisionPayload.unpack(candidate)
             }.isSuccess
-        }
-        if (healthyMatches.isEmpty()) {
+        }.map { it.id }
+    }
+
+    private suspend fun prepareCheckpoint(preparation: CheckpointPreparation, source: CheckpointSource, now: Long) = withContext(cpu) {
+        if (preparation.find(source) != null) return@withContext
+        beforeCheckpointCompression()
+        val checkpoint = DocumentRevisionPayload.pack(source.content, now, InkRevisionPayload.pack(source.ink))
+        val matches = matchingCheckpoints(checkpoint)
+        preparation.remember(PreparedCheckpoint(source, checkpoint, matches, verifyCandidates(matches)))
+    }
+
+    private suspend fun storeCheckpoint(prepared: PreparedCheckpoint) {
+        val checkpoint = prepared.row
+        val matches = matchingCheckpoints(checkpoint)
+        if (matches.size != prepared.candidates.size || matches.indices.any {
+                matches[it] != prepared.candidates[it]
+            }) throw CheckpointRetry.Verify(prepared, matches)
+        if (prepared.healthyIds.isEmpty()) {
             revisions.insert(checkpoint)
             revisions.trimToNewest(checkpoint.pageId, MAX_REVISIONS_PER_PAGE)
-        } else if (healthyMatches.size > 1) {
-            revisions.deleteByIds(healthyMatches.drop(1).map { it.id })
+            rememberCheckpointWindow(checkpoint.pageId, checkpoint.createdAt)
+        } else if (prepared.healthyIds.size > 1) {
+            revisions.deleteByIds(prepared.healthyIds.drop(1))
         }
+    }
+
+    /**
+     * Capture/prepare without the writer, then validate while committing. A conflicting or nested
+     * batch intermediate state rolls the whole short attempt back; its captured value is prepared
+     * outside Room and reused on replay. Repeated contention fails with nothing partly committed.
+     */
+    private suspend fun <T> checkpointTransaction(
+        pageIds: List<String> = emptyList(),
+        now: Long = clock(),
+        force: Boolean = false,
+        changed: (PageContentEntity) -> Boolean = { true },
+        resolvePages: (suspend () -> List<String>)? = null,
+        block: suspend () -> T,
+    ): T {
+        if (currentCoroutineContext()[CheckpointPreparation] != null) return db.withTransaction(block)
+        val preparation = CheckpointPreparation()
+        // This bounded map is only a preflight hint. The final writer always checks the actual
+        // history timestamp, so trim/import/direct SQL cannot make it miss a required checkpoint.
+        val inspect = pageIds.distinct().filter { id -> force || synchronized(checkpointWindows) {
+            checkpointWindows[id]?.let { now - it >= REVISION_CHECKPOINT_INTERVAL_MS } ?: true
+        } }
+        val sources = db.useReaderConnection { reader ->
+            check(!reader.inTransaction()) { "Checkpointing writes must own their transaction" }
+            if (inspect.isEmpty() && resolvePages == null) emptyList() else reader.deferredTransaction {
+                (resolvePages?.invoke()?.distinct() ?: inspect).mapNotNull { id ->
+                    val content = contents.byId(id)
+                    if (content != null && changed(content) && (force || shouldCheckpoint(id, now))) captureCheckpoint(content)
+                    else null
+                }
+            }
+        }
+        sources.forEach { prepareCheckpoint(preparation, it, now) }
+        repeat(MAX_CHECKPOINT_PREPARATIONS) { attempt ->
+            afterCheckpointPreparation()
+            try {
+                return withContext(preparation) { db.withTransaction(block) }
+            } catch (retry: CheckpointRetry) {
+                if (attempt == MAX_CHECKPOINT_PREPARATIONS - 1) throw java.util.ConcurrentModificationException(
+                    "Page changed repeatedly while preparing a checkpoint; retry the save", retry)
+                when (retry) {
+                    is CheckpointRetry.Capture -> prepareCheckpoint(preparation, retry.source, retry.createdAt)
+                    is CheckpointRetry.Verify -> withContext(cpu) { preparation.remember(retry.prepared.copy(
+                        candidates = retry.candidates, healthyIds = verifyCandidates(retry.candidates),
+                    )) }
+                }
+            }
+        }
+        error("Unreachable checkpoint retry limit")
     }
 
     private fun PageRevisionEntity.sameContentAs(other: PageRevisionEntity): Boolean =
@@ -787,7 +872,11 @@ class NotesRepository(
     override fun overlayPendingInk(page: InkPage, edits: List<InkEdit>): InkPage =
         page.withDesktopEdits(edits)
 
-    override suspend fun applyInkEdit(pageId: String, edit: InkEdit) {
+    override suspend fun applyInkEdit(pageId: String, edit: InkEdit) = checkpointTransaction(listOf(pageId)) {
+        applyInkEditLocked(pageId, edit)
+    }
+
+    private suspend fun applyInkEditLocked(pageId: String, edit: InkEdit) {
         when (edit) {
             is InkEdit.Batch -> db.withTransaction { edit.edits.forEach { applyInkEdit(pageId, it) } }
             is InkEdit.SetStrokeGroups -> db.withTransaction {
@@ -886,7 +975,7 @@ class NotesRepository(
     }
 
     /** Appends one stroke. Strokes are immutable, so this is the only way ink is ever written. */
-    suspend fun addStroke(stroke: InkStrokeEntity): InkStrokeEntity = db.withTransaction {
+    suspend fun addStroke(stroke: InkStrokeEntity): InkStrokeEntity = checkpointTransaction(listOf(stroke.pageId)) {
         clearReplaceableStarter()
         checkpointBeforeInkMutation(stroke.pageId, clock())
         inkText.deleteForPage(stroke.pageId)
@@ -897,7 +986,7 @@ class NotesRepository(
     /** Appends a copied selection as one contiguous draw-order block. */
     suspend fun addStrokes(strokes: List<InkStrokeEntity>): List<InkStrokeEntity> {
         if (strokes.isEmpty()) return emptyList()
-        return db.withTransaction {
+        return checkpointTransaction(listOf(strokes.first().pageId)) {
             clearReplaceableStarter()
             val pageId = strokes.first().pageId
             require(strokes.all { it.pageId == pageId }) { "copied strokes span multiple pages" }
@@ -918,7 +1007,7 @@ class NotesRepository(
     suspend fun eraseStrokes(ids: List<String>) {
         if (ids.isEmpty()) return
         val now = clock()
-        db.withTransaction {
+        checkpointTransaction(now = now, resolvePages = { ink.pageIdsFor(ids) }) {
             clearReplaceableStarter()
             val pageIds = ink.pageIdsFor(ids)
             pageIds.forEach { checkpointBeforeInkMutation(it, now) }
@@ -932,7 +1021,7 @@ class NotesRepository(
     suspend fun restoreStrokes(ids: List<String>) {
         if (ids.isEmpty()) return
         val now = clock()
-        db.withTransaction {
+        checkpointTransaction(now = now, resolvePages = { ink.pageIdsFor(ids) }) {
             clearReplaceableStarter()
             val pageIds = ink.pageIdsFor(ids)
             pageIds.forEach { checkpointBeforeInkMutation(it, now) }
@@ -945,7 +1034,7 @@ class NotesRepository(
     suspend fun setInkColors(colors: Map<String, StrokeColor>) {
         if (colors.isEmpty()) return
         val now = clock()
-        db.withTransaction {
+        checkpointTransaction(now = now, resolvePages = { ink.pageIdsFor(colors.keys.toList()) }) {
             clearReplaceableStarter()
             ink.pageIdsFor(colors.keys.toList()).forEach { checkpointBeforeInkMutation(it, now) }
             colors.forEach { (id, color) -> ink.setColor(id, color.argb, color.followsTheme) }
@@ -955,7 +1044,7 @@ class NotesRepository(
     suspend fun setInkGroups(groups: Map<String, String?>) {
         if (groups.isEmpty()) return
         val now = clock()
-        db.withTransaction {
+        checkpointTransaction(now = now, resolvePages = { ink.pageIdsFor(groups.keys.toList()) }) {
             clearReplaceableStarter()
             ink.pageIdsFor(groups.keys.toList()).forEach { checkpointBeforeInkMutation(it, now) }
             groups.forEach { (id, group) -> ink.setGroup(id, group) }
@@ -987,7 +1076,7 @@ class NotesRepository(
      */
     suspend fun addPartialErase(erase: InkEraseEntity, strokeIds: List<String>) {
         if (strokeIds.isEmpty()) return
-        db.withTransaction {
+        checkpointTransaction(listOf(erase.pageId)) {
             clearReplaceableStarter()
             checkpointBeforeInkMutation(erase.pageId, clock())
             inkText.deleteForPage(erase.pageId)
@@ -1047,7 +1136,7 @@ class NotesRepository(
      */
     suspend fun setPartialEraseActive(id: String, active: Boolean) {
         val now = clock()
-        db.withTransaction {
+        checkpointTransaction(now = now, resolvePages = { listOfNotNull(inkErases.pageId(id)) }) {
             clearReplaceableStarter()
             inkErases.pageId(id)?.let {
                 checkpointBeforeInkMutation(it, now)
@@ -1064,7 +1153,7 @@ class NotesRepository(
     /** Stores a lasso move or resize with the source rows it was allowed to transform. */
     suspend fun addInkMove(move: InkMoveEntity, strokeIds: Collection<String>) {
         if (strokeIds.isEmpty()) return
-        db.withTransaction {
+        checkpointTransaction(listOf(move.pageId)) {
             clearReplaceableStarter()
             checkpointBeforeInkMutation(move.pageId, clock())
             inkText.deleteForPage(move.pageId)
@@ -1077,7 +1166,7 @@ class NotesRepository(
     /** Includes or excludes an existing lasso transform from page-open replay. */
     suspend fun setInkMoveActive(id: String, active: Boolean) {
         val now = clock()
-        db.withTransaction {
+        checkpointTransaction(now = now, resolvePages = { listOfNotNull(inkMoves.pageId(id)) }) {
             clearReplaceableStarter()
             inkMoves.pageId(id)?.let {
                 checkpointBeforeInkMutation(it, now)
@@ -1161,6 +1250,7 @@ class NotesRepository(
         /** Coalesces the editor's 400 ms autosaves into useful checkpoints instead of near-duplicates. */
         const val REVISION_CHECKPOINT_INTERVAL_MS = 30_000L
         const val MAX_REVISIONS_PER_PAGE = 40
+        private const val MAX_CHECKPOINT_PREPARATIONS = 16
 
         /**
          * How many ids go into one `IN (…)`.
