@@ -1,5 +1,6 @@
 package com.vivenotes.desktop
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.DpSize
@@ -8,6 +9,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.vivenotes.App
+import com.vivenotes.desktop.titlebar.TitleBar
 import com.vivenotes.desktop.touch.DesktopTouch
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.localization.Localization
@@ -84,6 +86,8 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
             title = profile.windowTitle,
             state = rememberWindowState(size = DpSize(initialSize.width.dp, initialSize.height.dp)),
         ) {
+            val systemDarkTheme = isSystemInDarkTheme()
+            val titleBar = remember(window) { TitleBar(window, notes.interfaceSettings.darkTheme ?: systemDarkTheme, log) }
             LaunchedEffect(window) {
                 window.minimumSize = Dimension(720.coerceAtMost(monitor.workArea.width),
                     540.coerceAtMost(monitor.workArea.height))
@@ -100,7 +104,7 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
                 accountHost = notes.sync?.accountHost,
                 aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
                 appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild,
-                clipboardHtml = notes.clipboardHtml)
+                clipboardHtml = notes.clipboardHtml, onDarkThemeChange = { titleBar.dark = it })
         }
     }
 }

@@ -1,6 +1,9 @@
 package com.vivenotes
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.geometry.Offset
@@ -27,6 +30,7 @@ import com.vivenotes.model.newTable
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
 import com.vivenotes.ui.ribbon.draw.TableTags
 import com.vivenotes.ui.navigation.NavigationTestTags
+import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.shell.UnreadablePageMessage
 import com.vivenotes.ui.ribbon.file.FileRibbonTags
 import com.vivenotes.ui.ribbon.file.FilePaneTags
@@ -221,6 +225,31 @@ class AppTest {
         awaitOpenPage()
         onNodeWithTag(AppTestTags.Opening).assertDoesNotExist()
     }
+
+    /** The window frame matches the app from the loading screen on, and follows the app's theme choice. */
+    @Test
+    fun theLookIsReportedFromTheLoadingScreenOnAndFollowsTheThemeChoice() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val store = FakeNotesStore().apply { seedGate = CompletableDeferred() }
+            val reported = mutableListOf<Boolean>()
+            var settings by mutableStateOf(InterfaceSettings(darkTheme = false))
+            setContent {
+                val scope = rememberCoroutineScope()
+                val session = remember { WorkspaceSession(store, scope, ::formatCreated) }
+                LaunchedEffect(session) { session.start() }
+                App(session, interfaceSettings = settings, onDarkThemeChange = { reported += it })
+            }
+            onNodeWithTag(AppTestTags.Opening).assertIsDisplayed()
+            runOnIdle { assertEquals(listOf(false), reported) }
+
+            store.seedGate!!.complete(Unit)
+            awaitOpenPage()
+            runOnIdle { assertEquals(false, reported.last()) }
+            settings = InterfaceSettings(darkTheme = true)
+            runOnIdle { assertEquals(true, reported.last()) }
+            settings = InterfaceSettings(darkTheme = false)
+            runOnIdle { assertEquals(false, reported.last()) }
+        }
 
     @Test
     fun aFailedSaveIsShownUntilASaveSucceeds() = runDesktopComposeUiTest(width = 1400, height = 900) {

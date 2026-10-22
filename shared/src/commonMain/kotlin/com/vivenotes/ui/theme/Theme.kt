@@ -10,6 +10,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -140,4 +143,15 @@ fun ViveNotesTheme(
             content = content,
         )
     }
+}
+
+/** The header bar's colour in the dark or light look, for a window frame drawn to match it. */
+fun headerBarColor(darkTheme: Boolean): Color =
+    (if (darkTheme) DarkDesktopColors else LightDesktopColors).headerBar
+
+/** Tells [onChange] the look the app shows, at first and whenever it changes. */
+@Composable
+internal fun ReportDarkTheme(darkTheme: Boolean, onChange: (Boolean) -> Unit) {
+    val report by rememberUpdatedState(onChange)
+    LaunchedEffect(darkTheme) { report(darkTheme) }
 }

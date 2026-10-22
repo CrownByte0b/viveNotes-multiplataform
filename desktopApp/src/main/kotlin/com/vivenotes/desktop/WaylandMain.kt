@@ -5,6 +5,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
 import com.vivenotes.App
+import com.vivenotes.desktop.titlebar.TitleBar
 import com.vivenotes.desktop.touch.DesktopTouch
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.data.NotebookFiles
@@ -13,6 +14,8 @@ import com.vivenotes.workspace.WorkspaceState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.jetbrains.skiko.SystemTheme
+import org.jetbrains.skiko.currentSystemTheme
 import java.awt.Dimension
 import java.awt.Toolkit
 import java.awt.event.WindowAdapter
@@ -32,6 +35,7 @@ internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: De
 
     SwingUtilities.invokeLater {
         val frame = JFrame(profile.windowTitle)
+        val titleBar = TitleBar(frame, notes.interfaceSettings.darkTheme ?: (currentSystemTheme == SystemTheme.DARK), log)
         // Disposed only once the notes are written and closed, which is when the process can end:
         // the same end as DISPOSE_ON_CLOSE, and not EXIT_ON_CLOSE's JBR shutdown-thread exception.
         frame.defaultCloseOperation = WindowConstants.DO_NOTHING_ON_CLOSE
@@ -44,7 +48,7 @@ internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: De
         frame.setLocation(monitor.workArea.x + (monitor.workArea.width - initialSize.width) / 2,
             monitor.workArea.y + (monitor.workArea.height - initialSize.height) / 2)
         frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame), notes.notebookFiles(frame),
-            notes.pdfExporter(frame), log, profile))
+            notes.pdfExporter(frame), log, profile, onDarkThemeChange = { titleBar.dark = it }))
         frame.isVisible = true
     }
 }
@@ -59,7 +63,7 @@ internal fun requireNativeWaylandToolkit(toolkitClassName: String) {
 @OptIn(ExperimentalComposeUiApi::class)
 private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, notebookFiles: NotebookFiles,
                                  pdfExporter: com.vivenotes.pdf.PdfExportService, log: DebugLog,
-                                 profile: DesktopProfile): PopupLayerHost {
+                                 profile: DesktopProfile, onDarkThemeChange: (Boolean) -> Unit): PopupLayerHost {
     val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
     val host = PopupLayerHost(panel)
     panel.windowContainer = host
@@ -85,7 +89,7 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
             accountHost = notes.sync?.accountHost,
             aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
             appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild,
-            clipboardHtml = notes.clipboardHtml)
+            clipboardHtml = notes.clipboardHtml, onDarkThemeChange = onDarkThemeChange)
     }
     return host
 }

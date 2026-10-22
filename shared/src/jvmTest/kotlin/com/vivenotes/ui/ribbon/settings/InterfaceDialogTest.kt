@@ -130,6 +130,34 @@ class InterfaceDialogTest {
         runOnIdle { assertEquals(null, saved.darkTheme) }
     }
 
+    /** The window frame around the workspace is told the look it shows, a preview's included. */
+    @Test
+    fun theLookShownIsReportedForTheWindowFrameAsItIsPreviewedCancelledAndApplied() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val reported = mutableListOf<Boolean>()
+            setContent {
+                var workspace by remember { mutableStateOf(WorkspaceState.demo().copy(activeTab = RibbonTab.Settings)) }
+                var settings by remember { mutableStateOf(InterfaceSettings()) }
+                ViveNotesTheme(darkTheme = true) {
+                    WorkspaceScreen(workspace, { workspace = it(workspace) }, interfaceSettings = settings,
+                        onInterfaceSettingsChange = { settings = it }, systemDarkTheme = true,
+                        onDarkThemeChange = { reported += it })
+                }
+            }
+            runOnIdle { assertEquals(listOf(true), reported) }
+            onNodeWithTag(InterfaceTags.Open).performClick()
+            onNodeWithTag(InterfaceTags.ThemeSwitch).performClick().assertIsOff()
+            runOnIdle { assertEquals(listOf(true, false), reported) }
+            onNodeWithTag(InterfaceTags.Cancel).performClick()
+            runOnIdle { assertEquals(listOf(true, false, true), reported) }
+
+            onNodeWithTag(InterfaceTags.Open).performClick()
+            onNodeWithTag(InterfaceTags.ThemeSwitch).performClick().assertIsOff()
+            onNodeWithTag(InterfaceTags.Apply).performClick()
+            // Applying keeps the look the preview already reported.
+            runOnIdle { assertEquals(listOf(true, false, true, false), reported) }
+        }
+
     @Test
     fun switchCanApplyDarkThemeFromLight() = runDesktopComposeUiTest(width = 1400, height = 900) {
         var saved = InterfaceSettings(darkTheme = false)

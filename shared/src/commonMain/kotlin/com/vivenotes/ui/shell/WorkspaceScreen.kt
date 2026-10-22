@@ -40,6 +40,7 @@ import com.vivenotes.ui.ribbon.draw.*
 import com.vivenotes.ui.ribbon.settings.AboutDialog
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
+import com.vivenotes.ui.theme.ReportDarkTheme
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.EditorDefaults
 import com.vivenotes.workspace.FileActions
@@ -156,6 +157,8 @@ fun WorkspaceScreen(
     onOpenSearchPage: ((String, String) -> Unit)? = null,
     debugLog: DebugLog = remember { DebugLog() },
     developmentBuild: Boolean = false,
+    /** Told whether the workspace shows its dark look, previews included, for the window frame. */
+    onDarkThemeChange: (Boolean) -> Unit = {},
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
     // Held here as well, so a caller that does not keep the settings still sees its changes.
@@ -187,6 +190,7 @@ fun WorkspaceScreen(
     }
     val darkTheme = effectiveSettings.darkTheme ?: systemDarkTheme ?:
         (MaterialTheme.colorScheme.background.luminance() < 0.45f)
+    ReportDarkTheme(darkTheme, onDarkThemeChange)
     ViveNotesTheme(darkTheme = darkTheme) {
         CompositionLocalProvider(LocalTooltipDismissals provides tooltipDismissals, *primeResizeCursorProviders()) {
             Box(modifier.fillMaxSize().onFocusChanged { workspaceHasFocus = it.hasFocus }.focusGroup()

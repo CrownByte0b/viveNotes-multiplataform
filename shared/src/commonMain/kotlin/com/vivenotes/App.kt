@@ -32,6 +32,7 @@ import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.account.AccountHost
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
+import com.vivenotes.ui.theme.ReportDarkTheme
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.InputSettings
@@ -83,15 +84,19 @@ fun App(
     pdfExporter: com.vivenotes.pdf.PdfExportService? = null,
     /** The system clipboard's HTML, for pasting another app's formatting; without it, its text comes plain. */
     clipboardHtml: ClipboardHtml? = null,
+    /** Told whether the app shows its dark look, as it changes, for the window frame around it. */
+    onDarkThemeChange: (Boolean) -> Unit = {},
 ) {
     val state by session.state.collectAsState()
     val fileActions = remember(session, notebookFiles, pdfExporter) {
         notebookFiles?.let { session.fileActions(it, pdfExporter) }
     }
     val systemDarkTheme = isSystemInDarkTheme()
-    ViveNotesTheme(darkTheme = interfaceSettings.darkTheme ?: systemDarkTheme) {
+    val darkTheme = interfaceSettings.darkTheme ?: systemDarkTheme
+    ViveNotesTheme(darkTheme = darkTheme) {
         val workspace = state
         if (workspace == null) {
+            ReportDarkTheme(darkTheme, onDarkThemeChange)
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center,
@@ -113,7 +118,7 @@ fun App(
                 inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange, fileActions = fileActions,
                 accountHost = accountHost, aiModels = aiModels, drawMath = drawMath,
                 appVersion = appVersion, search = search, onOpenSearchPage = session::openSearchPage,
-                debugLog = debugLog, developmentBuild = developmentBuild)
+                debugLog = debugLog, developmentBuild = developmentBuild, onDarkThemeChange = onDarkThemeChange)
         }
     }
 }

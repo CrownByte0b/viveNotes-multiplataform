@@ -96,11 +96,15 @@ dependencies {
 val nativeAccessJvmArg = "--enable-native-access=ALL-UNNAMED"
 // X11 has no property for the window class, so WindowClass.kt sets XToolkit's field; touch also
 // reaches XToolkit and the AWT peer accessor (desktop/touch). The X11 package exists only in Linux
-// runtimes; elsewhere the JVM would warn about opening it.
-val launchJvmArgs = listOf(nativeAccessJvmArg) +
-    if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true))
+// runtimes; elsewhere the JVM would warn about opening it. Windows' dark title bar is set through
+// DWM on the window's handle, which only its AWT peer gives (desktop/titlebar).
+val launchJvmArgs = listOf(nativeAccessJvmArg) + when {
+    System.getProperty("os.name").startsWith("Linux", ignoreCase = true) ->
         listOf("--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED", "--add-exports=java.desktop/sun.awt=ALL-UNNAMED")
-    else emptyList()
+    System.getProperty("os.name").startsWith("Windows", ignoreCase = true) ->
+        listOf("--add-exports=java.desktop/sun.awt=ALL-UNNAMED", "--add-exports=java.desktop/sun.awt.windows=ALL-UNNAMED")
+    else -> emptyList()
+}
 // Native Wayland touch reads JetBrains Runtime's display and surfaces. Only JBR has the package, and
 // other runtimes warn about opening one they lack, so it is added only where JBR runs the app.
 val jbrJvmArgs = listOf("--add-opens=java.desktop/sun.awt.wl=ALL-UNNAMED")
@@ -196,7 +200,8 @@ tasks.processResources {
         "googleDesktopClientSecret" to googleDesktopClientSecret,
     )
     inputs.properties(values)
-    expand(values)
+    // Only the properties are templates; the window icons are binary.
+    filesMatching("build-info.properties") { expand(values) }
 }
 
 tasks.withType<Test>().configureEach {
