@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="InkFollowupPerformanceScenario[jvm]" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-21T23:53:03.389Z" hostname="fedora" time="40.362">
+  <properties/>
+  <testcase name="pairedCanonicalReplayAndFullRasterReferences[jvm]" classname="com.vivenotes.ui.canvas.InkFollowupPerformanceScenario" time="40.36"/>
+  <system-out><![CDATA[ink.normal_preview8_full_replay_reference units=1000 medianMs=5.064974
+ink.normal_preview8_local_projection units=1000 medianMs=1.414348
+ink.normal_preview8_full_replay_reference units=10000 medianMs=14.782759
+ink.normal_preview8_local_projection units=10000 medianMs=0.43149
+ink.normal_preview8_full_replay_reference units=40000 medianMs=54.449788
+ink.normal_preview8_local_projection units=40000 medianMs=0.338222
+ink.object_raster8_full_reference_d1_fit units=40000 medianMs=989.679241
+ink.object_raster8_dirty_d1_fit units=40000 medianMs=1.230899
+ink.object_raster8_full_reference_d1_sparse units=40000 medianMs=21.323085
+ink.object_raster8_dirty_d1_sparse units=40000 medianMs=0.940146
+ink.object_raster8_full_reference_d2_fit units=40000 medianMs=1048.199253
+ink.object_raster8_dirty_d2_fit units=40000 medianMs=0.994319
+ink.object_raster8_full_reference_d2_sparse units=40000 medianMs=11.055005
+ink.object_raster8_dirty_d2_sparse units=40000 medianMs=0.881876
+Separate ink followup report: /home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ink-references-verified/fork-3.json
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

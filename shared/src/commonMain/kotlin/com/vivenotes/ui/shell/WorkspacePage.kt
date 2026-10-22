@@ -4,6 +4,7 @@ import com.vivenotes.diagnostics.DebugLog
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -23,6 +24,8 @@ import com.vivenotes.ui.ribbon.document.LinkEditorRequest
 import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.applyPreparedInkGeometry
+import com.vivenotes.ui.canvas.LocalInkGeometryPublisher
 
 @Composable
 internal fun WorkspacePage(
@@ -60,6 +63,9 @@ internal fun WorkspacePage(
         state.activePenIndex, view.zoom, input.drawWithFinger, density.density, density.fontScale)
     SideEffect { selectionWorker.updateContext(selectionContext) }
     DisposableEffect(selectionWorker) { onDispose { selectionWorker.close() } }
+    CompositionLocalProvider(LocalInkGeometryPublisher provides { source, prepared ->
+        latestOnStateChange { it.applyPreparedInkGeometry(source, prepared) }
+    }) {
     PageCanvas(
         state = state,
         searchHit = searchHit,
@@ -185,4 +191,5 @@ internal fun WorkspacePage(
             }
         },
     )
+    }
 }

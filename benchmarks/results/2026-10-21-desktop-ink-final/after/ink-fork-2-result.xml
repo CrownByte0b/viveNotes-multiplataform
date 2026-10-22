@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.vivenotes.ui.canvas.InkLayerPerformanceScenario" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-21T23:39:49.770Z" hostname="fedora" time="4.549">
+  <properties/>
+  <testcase name="rawFinished40kPageWetFinishErase" classname="com.vivenotes.ui.canvas.InkLayerPerformanceScenario" time="4.547"/>
+  <system-out><![CDATA[Ink scenario report: /home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ink-final/after/ink-fork-2.json
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

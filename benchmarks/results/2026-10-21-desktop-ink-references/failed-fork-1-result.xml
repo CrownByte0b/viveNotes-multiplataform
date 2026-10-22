@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="InkFollowupPerformanceScenario[jvm]" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-10-21T23:42:25.468Z" hostname="fedora" time="3.353">
+  <properties/>
+  <testcase name="pairedCanonicalReplayAndFullRasterReferences[jvm]" classname="com.vivenotes.ui.canvas.InkFollowupPerformanceScenario" time="3.351">
+    <failure message="java.lang.IllegalStateException: No Compose UI graphics implementation is registered." type="java.lang.IllegalStateException">java.lang.IllegalStateException: No Compose UI graphics implementation is registered.
+	at androidx.compose.ui.graphics.platform.PlatformGraphicsRegistry.requireCurrent$org_jetbrains_compose_ui_ui_graphics(PlatformGraphicsRegistry.nonAndroid.kt:60)
+	at androidx.compose.ui.graphics.Paint_nonAndroidKt.Paint(Paint.nonAndroid.kt:24)
+	at androidx.compose.ui.graphics.SkiaBackedPaint_skikoKt__SkiaBackedPaintCompat_desktopKt.Paint(SkiaBackedPaintCompat.desktop.kt:30)
+	at androidx.compose.ui.graphics.SkiaBackedPaint_skikoKt.Paint(Unknown Source)
+	at com.vivenotes.byteink.compose.InkPathRenderer.&lt;init&gt;(InkPathRenderer.kt:64)
+	at com.vivenotes.byteink.compose.InkPathRenderer.&lt;init&gt;(InkPathRenderer.kt:47)
+	at com.vivenotes.ui.canvas.InkFollowupPerformanceScenario.pairedCanonicalReplayAndFullRasterReferences(InkFollowupPerformanceScenario.kt:95)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
+	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
+	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
+	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.junit.runners.BlockJUnit4ClassRunner$1.evaluate(BlockJUnit4ClassRunner.java:100)
+	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:366)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:103)
+	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:63)
+	at org.junit.runners.ParentRunner$4.run(ParentRunner.java:331)
+	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:79)
+	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:329)
+	at org.junit.runners.ParentRunner.access$100(ParentRunner.java:66)
+	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:293)
+	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
+	at org.junit.runners.ParentRunner.run(ParentRunner.java:413)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:137)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:115)
+	at org.gradle.api.internal.tasks.testing.junit.JUnitTestExecutor.runRequest(JUnitTestExecutor.java:174)
+	at org.gradle.api.internal.tasks.testing.junit.JUnitTestExecutor.accept(JUnitTestExecutor.java:84)
+	at org.gradle.api.internal.tasks.testing.junit.JUnitTestExecutor.accept(JUnitTestExecutor.java:47)
+	at org.gradle.api.internal.tasks.testing.junit.AbstractJUnitTestDefinitionProcessor.processTestDefinition(AbstractJUnitTestDefinitionProcessor.java:65)
+	at org.gradle.api.internal.tasks.testing.SuiteTestDefinitionProcessor.processTestDefinition(SuiteTestDefinitionProcessor.java:53)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at org.gradle.internal.dispatch.MethodInvocation.invokeOn(MethodInvocation.java:77)
+	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:28)
+	at org.gradle.internal.dispatch.ReflectionDispatch.dispatch(ReflectionDispatch.java:19)
+	at org.gradle.internal.dispatch.ContextClassLoaderDispatch.dispatch(ContextClassLoaderDispatch.java:33)
+	at org.gradle.internal.dispatch.ProxyDispatchAdapter$DispatchingInvocationHandler.invoke(ProxyDispatchAdapter.java:88)
+	at jdk.proxy1/jdk.proxy1.$Proxy4.processTestDefinition(Unknown Source)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker$2.run(TestWorker.java:178)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.executeAndMaintainThreadName(TestWorker.java:126)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:103)
+	at org.gradle.api.internal.tasks.testing.worker.TestWorker.execute(TestWorker.java:63)
+	at org.gradle.process.internal.worker.child.ActionExecutionWorker.execute(ActionExecutionWorker.java:56)
+	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:122)
+	at org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker.call(SystemApplicationClassLoaderWorker.java:72)
+	at worker.org.gradle.process.internal.worker.GradleWorkerMain.run(GradleWorkerMain.java:69)
+	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
+</failure>
+  </testcase>
+  <system-out><![CDATA[ink.normal_preview8_full_replay_reference units=1000 medianMs=5.235608
+ink.normal_preview8_local_projection units=1000 medianMs=1.03668
+ink.normal_preview8_full_replay_reference units=10000 medianMs=11.49922
+ink.normal_preview8_local_projection units=10000 medianMs=0.392836
+ink.normal_preview8_full_replay_reference units=40000 medianMs=42.899606
+ink.normal_preview8_local_projection units=40000 medianMs=0.325458
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

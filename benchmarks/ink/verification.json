@@ -1,0 +1,176 @@
+{
+  "command": ":shared:jvmTest :desktopApp:test lint :desktopApp:assemble --max-workers=1 --offline --console=plain",
+  "result": "BUILD SUCCESSFUL",
+  "elapsed": "2m37s",
+  "suites": {
+    "shared": {
+      "tests": 1983,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 5,
+      "passed": 1978
+    },
+    "desktop": {
+      "tests": 151,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 5,
+      "passed": 146
+    }
+  },
+  "skippedCases": [
+    {
+      "suite": "TEST-com.vivenotes.ai.OnnxRecognitionSmokeTest",
+      "test": "uniMerNetReadsAPrintedFormula[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.ai.OnnxRecognitionSmokeTest",
+      "test": "switchingBetweenTinyAndSmallReloadsTheCorrectGraphsWhileHeld[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.data.sync.DesktopLiveSyncProbeTest",
+      "test": "exchangeOnlyAnOwnedTemporaryNotebookWithTheExistingAndroidApp[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.data.sync.HierarchySyncTest",
+      "test": "profileMetadataWaitBehindOneDelayedDesktopPictureUpload[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.ui.canvas.InkFollowupPerformanceScenario",
+      "test": "pairedCanonicalReplayAndFullRasterReferences[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "aCameraTakenAwayMidStreamSaysItStopped"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "theCameraOpensAgainTheMomentAWindowLetsItGo"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "aSecondStreamOfTheSameCameraIsToldItIsBusy"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "framesArriveAndTheLastBecomesAPhotoTheStoreKeeps"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "theCameraIsListedByTheNameItsDriverGives"
+    }
+  ],
+  "focusedInkTestsPassed": 121,
+  "coldStandaloneRasterTestsPassed": 8,
+  "pythonContractsPassed": 11,
+  "pairedReferenceForksPassed": 3,
+  "sourceSha256": [
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/InkGeometryPublication.kt",
+      "sha256": "00c53d49fe2e77cf213c1448fa777e7ee69e0f8f97c30ef21db35fd43082e65e"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/InkSegmentStore.kt",
+      "sha256": "3a4aeebba933e77e5d9889197424e81d90f053dc872d98fea1016a1d79ccbdaf"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/InkSceneExclusions.kt",
+      "sha256": "94882d5b398c2bd15c659f7b49bcc5c3171fc987167c3a24078330a2d8823740"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/EraseInputObservationTest.kt",
+      "sha256": "e32f57cf78787fc82b82ddb47aa47197947b4608f2054c6ce07f472e853017a0"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkDeferredIndexTest.kt",
+      "sha256": "d87338546aa405d62332f2284ff81da5a724471b193d0600092574967fab2e38"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkGeometryPublicationTest.kt",
+      "sha256": "299447209fdbd6df8bcb82f6aff804e0e98404906b2da6a7e9a2d403c50b8edf"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkLocalEraseTest.kt",
+      "sha256": "ab5dad7d0727186707017f2dfbbaa70413e46b2e548f46dcb253f8257f4654dc"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkSegmentQueryScalingTest.kt",
+      "sha256": "8265a1d49048ca5fbc39aa1f3277e7c88f7c3b68c6976de018f07839839634f4"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkFollowupPerformanceScenario.kt",
+      "sha256": "5f26f566028ef001d5b53c92e531f7ea01790bc6c643e8dfda37dadeb77adb74"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkProjectionReclamationInteractionTest.kt",
+      "sha256": "b30dc72a484d2c64ec79ae6729adeb25c732b357fa93a5d0f32b200289d1e6cc"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkSceneExclusionsTest.kt",
+      "sha256": "f0c35301ae0b649a86e938b4baca369b400ce85d26db508decfb19c13661f7f9"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/InkLayer.kt",
+      "sha256": "52c4f7b84fa9202ce32de6a066108f6728d436dbbd8701b04ffb9c281f799bbe"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspacePage.kt",
+      "sha256": "22a9b3f9dd3fc4f7396f2acb38e7cde89cd16edc1cecd137472b5a39d65198f5"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/DesktopInkPage.kt",
+      "sha256": "ef5026063073bde950b0b3e6727e7a33bdf80f81aec91c0b9588381aa2257c4d"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/DesktopPartialEraseGesture.kt",
+      "sha256": "e243c55792bb7aee996e38622077a99800eafce6b7b9bce9e434f1034cf7d255"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/InkLayer.jvm.kt",
+      "sha256": "bceeb2a052d29d547331de4e9e5fe379adc7e8862e658517f688dfc50d687e77"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/SegmentedInkRasterCache.kt",
+      "sha256": "f41386bb55b28a2deea0c9722f08a472a145e3edac3932ec6abf060226268759"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/SegmentedInkRasterCacheTest.kt",
+      "sha256": "4f4c78e545631cfc5eccb16b41f64bf907881103d7f7a849661289a4dcee1db4"
+    }
+  ],
+  "comparableCapture": {
+    "directory": "benchmarks/results/2026-10-21-desktop-ink-verified",
+    "taskLaunchesValidated": 12,
+    "forksPerTaskVariant": 3,
+    "compatibilityPassed": true,
+    "rawIntegrityReanalysisPassed": true,
+    "structuralDeviationCount": 159,
+    "failedPreservationCheckCount": 12,
+    "failedCheck": "fullPageSceneBuilds expected 1, actual 2 in all fit cases; retained without changing the comparator",
+    "tradeoffs": "Fit commit 13\u201369% slower on global cleanup; 40k 128th append +38.15%; unchanged 40k coalesced repository control +37.53% with no causal attribution"
+  },
+  "currentReferenceCapture": {
+    "directory": "benchmarks/results/2026-10-21-desktop-ink-references-verified",
+    "forksPassed": 3,
+    "casesPerFork": 14,
+    "samplesPerCase": 7,
+    "warmupOperations": 8,
+    "scope": "Current same-process paired canonical/full-raster references; not historical before/after; warm initial editing partition"
+  },
+  "secretScan": {
+    "changedOrNewFiles": 131,
+    "bytes": 4686252,
+    "leaks": 0,
+    "elapsedMilliseconds": 314,
+    "redacted": true,
+    "scannerExceptionsChanged": false
+  },
+  "integrity": {
+    "testedInkSourceFiles": 18,
+    "committedSyncSourceFiles": 9,
+    "unchangedArchivedFiles": 50,
+    "originalFrozenCapturesUnchanged": true,
+    "originalNineHarnessFilesUnchanged": true,
+    "gitIndexEmpty": true
+  }
+}

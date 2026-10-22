@@ -1,0 +1,1 @@
+First opt-in native reference run failed because no standalone Compose graphics backend had been registered. No final reference report or speedup claim. Retained as failure evidence; subsequent capture must use a new sibling output directory.

@@ -27,6 +27,7 @@ import com.vivenotes.ink.DesktopPartialEraseGesture
 import com.vivenotes.ink.DesktopInkSegment
 import com.vivenotes.ink.DesktopErasePreparer
 import com.vivenotes.ink.PartialEraseRequest
+import com.vivenotes.ink.PartialEraseObservation
 import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.ink.desktopEdit
 import com.vivenotes.ink.byteInkTool
@@ -41,6 +42,8 @@ import com.vivenotes.model.ink.RulerPoint
 import com.vivenotes.model.ink.Ruler
 import com.vivenotes.model.ink.StraightenHold
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
@@ -49,6 +52,7 @@ import kotlinx.coroutines.flow.collectLatest
 
 private class InkSegmentSceneData(val scene: InkScene, val byRow: Map<String, List<InkSceneStroke>>,
     val byProjection: Map<com.vivenotes.byteink.kit.InkProjectionKey, InkSceneStroke>)
+internal val LocalInkPreparationDispatcher = staticCompositionLocalOf<CoroutineDispatcher> { Dispatchers.Default }
 
 @Composable
 internal actual fun PlatformInkLayer(
@@ -66,6 +70,21 @@ internal actual fun PlatformInkLayer(
     if (pageId.isEmpty()) return
     val snapshot = page ?: remember(pageId) { InkPage(pageId, emptyList()) }
     val native = remember(snapshot) { snapshot.desktopGeometry() }
+    val preparationDispatcher = LocalInkPreparationDispatcher.current
+    val erasePreparer = remember(pageId, preparationDispatcher) { DesktopErasePreparer(preparationDispatcher) }
+    val geometryPublisher by rememberUpdatedState(LocalInkGeometryPublisher.current)
+    val currentSnapshot by rememberUpdatedState(snapshot)
+    val preparationDensity = LocalDensity.current
+    var inkInputActive by remember(pageId) { mutableStateOf(false) }
+    var pendingEraseCount by remember(pageId) { mutableIntStateOf(0) }
+    LaunchedEffect(pageId, snapshot, selection, tool, eraserMode, zoom, titleFloorDp, preparationDensity, inkInputActive, pendingEraseCount) {
+        if (geometryPublisher == null || selection != null || inkInputActive || pendingEraseCount != 0 ||
+            !native.needsProjectionReclamation) return@LaunchedEffect
+        val prepared = erasePreparer.reclaim(snapshot)
+        coroutineContext.ensureActive()
+        if (currentSnapshot === snapshot && !inkInputActive && pendingEraseCount == 0 && prepared !== snapshot)
+            geometryPublisher?.invoke(snapshot, prepared)
+    }
     if (tool == null && native.isEmpty) return
     val density = LocalDensity.current.density
     val diagnostics = LocalInkLayerDiagnostics.current
@@ -106,15 +125,15 @@ internal actual fun PlatformInkLayer(
     val currentCallback by rememberUpdatedState(onEdit)
     var erasing by remember(pageId, tool) { mutableStateOf(emptySet<String>()) }
     var eraserPoint by remember(pageId, tool) { mutableStateOf<Offset?>(null) }
-    var eraseRequest by remember(pageId, tool, eraserMode, density, zoom, titleFloorDp) { mutableStateOf<PartialEraseRequest?>(null) }
+    var eraseObservation by remember(pageId, tool, eraserMode, density, zoom, titleFloorDp) { mutableStateOf<PartialEraseObservation?>(null) }
     var erasePreview by remember(pageId, tool, eraserMode, density, zoom, titleFloorDp, snapshot) { mutableStateOf<InkPage?>(null) }
-    val erasePreparer = remember(pageId) { DesktopErasePreparer() }
     LaunchedEffect(pageId, tool, eraserMode, density, zoom, titleFloorDp, snapshot) {
-        snapshotFlow { eraseRequest }.collectLatest { request ->
-            if (request == null) { erasePreview = null; return@collectLatest }
+        snapshotFlow { eraseObservation }.collectLatest { observation ->
+            if (observation == null) { erasePreview = null; return@collectLatest }
             withFrameNanos { }
+            val request = observation.request()
             val result = erasePreparer.prepare(request)
-            if (eraseRequest === request && currentPage === request.page) erasePreview = result?.second
+            if (eraseObservation === observation && currentPage === request.page) erasePreview = result?.second
         }
     }
     val displayed = erasePreview?.desktopGeometry() ?: native
@@ -136,12 +155,7 @@ internal actual fun PlatformInkLayer(
         }
     fun exclusions(rows: Set<String>, entries: Map<String, List<InkSceneStroke>>,
                    byProjection: Map<com.vivenotes.byteink.kit.InkProjectionKey, InkSceneStroke>): Set<InkSceneStroke> =
-        if (rows.isEmpty() && displayed.excludedProjections.isEmpty() && moving == null) emptySet() else Collections.unmodifiableSet(
-            Collections.newSetFromMap(IdentityHashMap<InkSceneStroke, Boolean>()).apply {
-                rows.forEach { addAll(entries[it].orEmpty()) }
-                displayed.excludedProjections.forEach { key -> byProjection[key]?.let { add(it) } }
-                moving?.held?.projections?.forEach { key -> byProjection[key]?.let { add(it) } }
-            })
+        inkSceneExclusions(rows, entries, displayed.excludedProjections, byProjection, moving?.held?.projections.orEmpty())
     fun sceneData(segment: DesktopInkSegment, base: Boolean): InkSegmentSceneData {
         val scene = sceneFor(segment.projections, base)
         return InkSegmentSceneData(scene, rowsFor(scene, segment.projections), segment.projections.mapIndexed { index, projection ->
@@ -203,8 +217,10 @@ internal actual fun PlatformInkLayer(
                     return false
                 }
                 val completed = Channel<Triple<PartialEraseRequest, Long, (InkEdit, InkPage) -> Unit>>(Channel.UNLIMITED)
+                var queueActive = true
                 val worker = launch {
                     for ((request, capturedGeneration, callback) in completed) {
+                        try {
                         refresh()
                         if (capturedGeneration != generation) continue
                         val rebased = request.onPage(projected)
@@ -213,10 +229,11 @@ internal actual fun PlatformInkLayer(
                         if (capturedGeneration != generation) continue
                         result?.let { (edit, updated) ->
                             projected = updated
-                            if (eraseRequest?.id != request.id) eraseRequest = eraseRequest?.onPage(updated)
+                            if (eraseObservation?.id != request.id) eraseObservation = eraseObservation?.onPage(updated)
                             callback(edit, updated)
                         }
-                        if (eraseRequest?.id == request.id) { eraseRequest = null; erasePreview = null }
+                        if (eraseObservation?.id == request.id) { eraseObservation = null; erasePreview = null }
+                        } finally { if (queueActive) pendingEraseCount-- }
                     }
                 }
                 try {
@@ -228,6 +245,7 @@ internal actual fun PlatformInkLayer(
                             return@awaitEachGesture
                         }
                         refresh()
+                        inkInputActive = true
                         val capturedGeneration = generation
                         val gesture = DesktopPartialEraseGesture(projected, density, settings.eraser.sizeDp, mode = eraserMode)
                         val callback = currentCallback
@@ -237,7 +255,7 @@ internal actual fun PlatformInkLayer(
                         }
                         diagnostics?.inputObserved()
                         observe(down.inkSample(includePressure = false), down.position)
-                        eraseRequest = gesture.request().onPage(projected)
+                        eraseObservation = gesture.observation(projected)
                         down.consume()
                         var finished = false
                         while (true) {
@@ -249,7 +267,7 @@ internal actual fun PlatformInkLayer(
                                 observe(change.inkSample(historical.position, historical.uptimeMillis, false), historical.position)
                             }
                             observe(change.inkSample(includePressure = false), change.position)
-                            eraseRequest = gesture.request().onPage(projected)
+                            eraseObservation = gesture.observation(projected)
                             finished = change.changedToUpIgnoreConsumed() ||
                                 (down.type == PointerType.Mouse && !event.buttons.isPrimaryPressed)
                             change.consume()
@@ -257,16 +275,22 @@ internal actual fun PlatformInkLayer(
                         }
                         waitForPointersUp()
                         if (finished) {
-                            val request = gesture.request().onPage(projected)
-                            eraseRequest = request
-                            completed.trySend(Triple(request, capturedGeneration, callback))
-                        } else { eraseRequest = null; erasePreview = null }
+                            val observation = gesture.observation(projected)
+                            val request = observation.request()
+                            eraseObservation = observation
+                            pendingEraseCount++
+                            if (completed.trySend(Triple(request, capturedGeneration, callback)).isFailure) pendingEraseCount--
+                        } else { eraseObservation = null; erasePreview = null }
                         eraserPoint = null
+                        inkInputActive = false
                     }
                 } finally {
+                    queueActive = false
                     completed.close()
                     worker.cancel()
-                    eraseRequest = null
+                    inkInputActive = false
+                    pendingEraseCount = 0
+                    eraseObservation = null
                     erasePreview = null
                     eraserPoint = null
                 }
@@ -278,6 +302,7 @@ internal actual fun PlatformInkLayer(
                 val down = awaitFirstDown()
                 if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
                 if (down.position.y < titleFloorDp * density) return@awaitEachGesture
+                inkInputActive = true
                 diagnostics?.inputObserved()
                 val capturedTool = currentPen
                 val capturedPreset = currentSettings.pen(penIndex)
@@ -336,7 +361,7 @@ internal actual fun PlatformInkLayer(
                         change.consume()
                         if (finished) break
                     }
-                } finally { holdCandidate = null; cancelGesture() }
+                } finally { inkInputActive = false; holdCandidate = null; cancelGesture() }
             }
         } finally { holdCandidate = null; cancelGesture() }
     }

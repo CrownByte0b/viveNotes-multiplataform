@@ -1,0 +1,7 @@
+// Explicit paired references model many native meshes; ordinary tests keep their normal heap.
+gradle.projectsEvaluated {
+    gradle.rootProject.project(':shared').tasks.named('jvmTest').configure {
+        maxHeapSize = '4g'
+        outputs.upToDateWhen { false }
+    }
+}

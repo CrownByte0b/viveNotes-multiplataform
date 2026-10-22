@@ -4,7 +4,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.graphics.skiaCanvas
+import androidx.ink.geometry.AffineTransform
 import androidx.ink.geometry.ImmutableAffineTransform
+import androidx.ink.geometry.MutableAffineTransform
 import com.vivenotes.byteink.compose.InkPathRenderer
 import com.vivenotes.byteink.compose.InkScene
 import com.vivenotes.byteink.compose.InkSceneStroke
@@ -12,9 +14,17 @@ import org.jetbrains.skia.BlendMode
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Surface
+import java.util.Collections
+import java.util.IdentityHashMap
 import kotlin.math.ceil
+import kotlin.math.floor
 
-internal class InkSceneLayer(val scene: InkScene, val excluded: Set<InkSceneStroke>)
+internal class InkSceneLayer(val scene: InkScene, excluded: Set<InkSceneStroke>) {
+    val excluded: Set<InkSceneStroke> = if (excluded.isEmpty()) emptySet() else
+        Collections.unmodifiableSet(Collections.newSetFromMap(IdentityHashMap<InkSceneStroke, Boolean>()).apply {
+            addAll(excluded)
+        })
+}
 
 /** One physical viewport for ordered immutable segments, incrementally extended at sealed tails. */
 internal class SegmentedInkRasterCache : AutoCloseable {
@@ -30,6 +40,10 @@ internal class SegmentedInkRasterCache : AutoCloseable {
     var rasterBuildCount = 0L
         private set
     var lastDrawn = 0
+        private set
+    var dirtyBuildCount = 0L
+        private set
+    var lastUpdatedPixels = 0L
         private set
 
     fun draw(canvas: Canvas, next: List<InkSceneLayer>, renderer: InkPathRenderer,
@@ -70,27 +84,60 @@ internal class SegmentedInkRasterCache : AutoCloseable {
         val requested = View(viewport, transform, scale)
         fun sameLayer(first: InkSceneLayer, second: InkSceneLayer): Boolean =
             first.scene === second.scene && first.excluded.size == second.excluded.size && first.excluded.all { it in second.excluded }
-        val append = bytes <= 64L * 1024 * 1024 && image != null && view == requested && this.renderer === renderer &&
-            rendererVersion == renderer.renderVersion && (layers === next || layers.size <= next.size &&
+        val reusable = bytes <= 64L * 1024 * 1024 && image != null && view == requested && this.renderer === renderer &&
+            rendererVersion == renderer.renderVersion
+        val append = reusable && (layers === next || layers.size <= next.size &&
             layers.indices.all { sameLayer(layers[it], next[it]) })
+        val damage = if (reusable && !append && layers.size == next.size)
+            damageBetween(layers, next, transform, viewport, width, height, scale) else null
+        if (damage != null && damage.isEmpty) {
+            layers = next
+            lastDrawn = 0
+        } else
         if (!append || layers.size != next.size) {
-            val prior = image.takeIf { append }
+            val prior = image.takeIf { append || damage != null }
             val firstLayer = if (append) layers.size else 0
-            if (!append) clearCache()
+            if (prior == null) clearCache()
             var drawn = 0
             val snapshot = Surface.makeRasterN32Premul(width, height).use { surface ->
                 surface.canvas.clear(0)
-                if (prior != null) Paint().use { copy ->
+                if (prior != null && damage == null) Paint().use { copy ->
                     copy.blendMode = BlendMode.SRC
                     copy.isAntiAlias = false
                     surface.canvas.drawImage(prior, 0f, 0f, copy)
                 }
+                val checkpoint = surface.canvas.save()
                 surface.canvas.scale(scale, scale)
                 surface.canvas.translate(-viewport.left, -viewport.top)
                 surface.canvas.clipRect(viewport.left, viewport.top, viewport.right, viewport.bottom, false)
                 for (index in firstLayer until next.size) {
                     val layer = next[index]
-                    drawn += layer.scene.draw(surface.canvas.asComposeCanvas(), renderer, transform, drawingViewport, layer.excluded)
+                    drawn += if (damage == null)
+                        layer.scene.draw(surface.canvas.asComposeCanvas(), renderer, transform, drawingViewport, layer.excluded)
+                    else {
+                        val dirtyViewport = Rect(viewport.left + damage.left * inverseScale,
+                            viewport.top + damage.top * inverseScale, viewport.left + damage.right * inverseScale,
+                            viewport.top + damage.bottom * inverseScale).inflate(maxOf(0f, inverseScale - 1f))
+                        drawDamaged(layer, surface, renderer, transform, dirtyViewport, drawingViewport)
+                    }
+                }
+                surface.canvas.restoreToCount(checkpoint)
+                if (damage != null && prior != null) Paint().use { copy ->
+                    copy.blendMode = BlendMode.SRC
+                    copy.isAntiAlias = false
+                    // A smaller vector clip changes Skia's path AA at its edges. Keep the original
+                    // full-viewport rasterization, then copy unchanged integer pixels back exactly.
+                    val outside = listOf(Rect(0f, 0f, damage.left, height.toFloat()),
+                        Rect(damage.right, 0f, width.toFloat(), height.toFloat()),
+                        Rect(damage.left, 0f, damage.right, damage.top),
+                        Rect(damage.left, damage.bottom, damage.right, height.toFloat()))
+                    for (strip in outside) if (!strip.isEmpty) {
+                        val saved = surface.canvas.save()
+                        try {
+                            surface.canvas.clipRect(strip.left, strip.top, strip.right, strip.bottom, false)
+                            surface.canvas.drawImage(prior, 0f, 0f, copy)
+                        } finally { surface.canvas.restoreToCount(saved) }
+                    }
                 }
                 surface.makeImageSnapshot()
             }
@@ -104,6 +151,9 @@ internal class SegmentedInkRasterCache : AutoCloseable {
             retainedPixelBytes = bytes
             rasterBuildCount++
             lastDrawn = drawn
+            lastUpdatedPixels = if (damage == null) pixels else
+                damage.width.toLong() * damage.height.toLong()
+            if (damage != null) dirtyBuildCount++
         }
         val destination = canvas.skiaCanvas
         val checkpoint = destination.save()
@@ -127,7 +177,75 @@ internal class SegmentedInkRasterCache : AutoCloseable {
         renderer = null
         retainedPixelBytes = 0L
         lastDrawn = 0
+        lastUpdatedPixels = 0L
     }
 
     override fun close() { clearCache(); closed = true }
+}
+
+private fun drawDamaged(layer: InkSceneLayer, surface: Surface, renderer: InkPathRenderer,
+    transform: ImmutableAffineTransform, dirtyViewport: Rect, drawingViewport: Rect): Int {
+    val strokeTransform = MutableAffineTransform()
+    var drawn = 0
+    for (item in layer.scene.visibleStrokes(dirtyViewport, transform)) {
+        if (item in layer.excluded) continue
+        AffineTransform.multiply(transform, item.strokeToScene, strokeTransform)
+        if (renderer.render(surface.canvas.asComposeCanvas(), item.stroke, strokeTransform, drawingViewport, item.colorArgb)) drawn++
+    }
+    return drawn
+}
+
+private fun damageBetween(previous: List<InkSceneLayer>, next: List<InkSceneLayer>,
+    sceneToCanvas: ImmutableAffineTransform, viewport: Rect, width: Int, height: Int, scale: Float): Rect? {
+    var left = Float.POSITIVE_INFINITY
+    var top = Float.POSITIVE_INFINITY
+    var right = Float.NEGATIVE_INFINITY
+    var bottom = Float.NEGATIVE_INFINITY
+    var roundingError = 0.0
+    val transform = MutableAffineTransform()
+    fun include(item: InkSceneStroke): Boolean {
+        val box = item.stroke.shape.computeBoundingBox() ?: return true
+        AffineTransform.multiply(sceneToCanvas, item.strokeToScene, transform)
+        for (x in listOf(box.xMin, box.xMax)) for (y in listOf(box.yMin, box.yMax)) {
+            val px = (transform.m00 * x + transform.m10 * y + transform.m20 - viewport.left) * scale
+            val py = (transform.m01 * x + transform.m11 * y + transform.m21 - viewport.top) * scale
+            if (!px.isFinite() || !py.isFinite()) return false
+            left = minOf(left, px); top = minOf(top, py)
+            right = maxOf(right, px); bottom = maxOf(bottom, py)
+            val stroke = item.strokeToScene
+            val sceneX = kotlin.math.abs(stroke.m00.toDouble() * x) + kotlin.math.abs(stroke.m10.toDouble() * y) + kotlin.math.abs(stroke.m20.toDouble())
+            val sceneY = kotlin.math.abs(stroke.m01.toDouble() * x) + kotlin.math.abs(stroke.m11.toDouble() * y) + kotlin.math.abs(stroke.m21.toDouble())
+            val termsX = kotlin.math.abs(sceneToCanvas.m00.toDouble()) * sceneX + kotlin.math.abs(sceneToCanvas.m10.toDouble()) * sceneY +
+                kotlin.math.abs(sceneToCanvas.m20.toDouble()) + kotlin.math.abs(viewport.left.toDouble())
+            val termsY = kotlin.math.abs(sceneToCanvas.m01.toDouble()) * sceneX + kotlin.math.abs(sceneToCanvas.m11.toDouble()) * sceneY +
+                kotlin.math.abs(sceneToCanvas.m21.toDouble()) + kotlin.math.abs(viewport.top.toDouble())
+            // Bound float error by the expanded absolute terms, not the possibly tiny result of
+            // cancellation. Compose/Skia may associate the equivalent affine products differently.
+            roundingError = maxOf(roundingError, maxOf(termsX, termsY) * scale / 262_144.0)
+        }
+        return true
+    }
+    for (index in previous.indices) {
+        val old = previous[index]
+        val current = next[index]
+        if (old === current) continue
+        if (old.scene === current.scene) {
+            for (item in old.excluded) if (item !in current.excluded && !include(item)) return null
+            for (item in current.excluded) if (item !in old.excluded && !include(item)) return null
+        } else {
+            for (item in old.scene.strokes) if (item !in old.excluded && !include(item)) return null
+            for (item in current.scene.strokes) if (item !in current.excluded && !include(item)) return null
+        }
+    }
+    if (left == Float.POSITIVE_INFINITY) return Rect.Zero
+    // Raster-space integer clipping leaves the cached pixels outside the region untouched. Cover
+    // Skia's antialiasing fringe and float composition error before rounding outwards.
+    val magnitude = maxOf(kotlin.math.abs(left), kotlin.math.abs(top), kotlin.math.abs(right), kotlin.math.abs(bottom))
+    val padding = 2f + scale + maxOf(Math.ulp(magnitude) * 32f, roundingError.toFloat())
+    if (!padding.isFinite()) return null
+    val result = Rect(floor((left - padding).toDouble()).coerceIn(0.0, width.toDouble()).toFloat(),
+        floor((top - padding).toDouble()).coerceIn(0.0, height.toDouble()).toFloat(),
+        ceil((right + padding).toDouble()).coerceIn(0.0, width.toDouble()).toFloat(),
+        ceil((bottom + padding).toDouble()).coerceIn(0.0, height.toDouble()).toFloat())
+    return result.takeUnless { !it.isEmpty && it.width * it.height >= width.toDouble() * height * .8 }
 }

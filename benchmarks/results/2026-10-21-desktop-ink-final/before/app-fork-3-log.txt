@@ -1,0 +1,103 @@
+> Task :shared:checkJvmMainComposeLibrariesCompatibility
+> Task :shared:kmpPartiallyResolvedDependenciesChecker
+> Task :shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shared:convertXmlValueResourcesForCommonMain UP-TO-DATE
+> Task :shared:copyNonXmlValueResourcesForCommonMain UP-TO-DATE
+> Task :shared:prepareComposeResourcesTaskForCommonMain UP-TO-DATE
+> Task :shared:generateResourceAccessorsForCommonMain UP-TO-DATE
+> Task :shared:convertXmlValueResourcesForJvmMain NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForJvmMain NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForJvmMain NO-SOURCE
+> Task :shared:generateResourceAccessorsForJvmMain NO-SOURCE
+> Task :shared:generateActualResourceCollectorsForJvmMain UP-TO-DATE
+> Task :shared:generateAppStrings UP-TO-DATE
+> Task :shared:generateComposeResClass UP-TO-DATE
+> Task :shared:generateExpectResourceCollectorsForCommonMain UP-TO-DATE
+> Task :shared:kspKotlinJvm UP-TO-DATE
+> Task :shared:compileKotlinJvm UP-TO-DATE
+> Task :shared:compileJvmMainJava NO-SOURCE
+> Task :shared:convertXmlValueResourcesForCommonTest NO-SOURCE
+> Task :shared:copyNonXmlValueResourcesForCommonTest NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForCommonTest NO-SOURCE
+> Task :shared:generateResourceAccessorsForCommonTest NO-SOURCE
+> Task :shared:convertXmlValueResourcesForJvmTest UP-TO-DATE
+> Task :shared:copyNonXmlValueResourcesForJvmTest NO-SOURCE
+> Task :shared:prepareComposeResourcesTaskForJvmTest UP-TO-DATE
+> Task :shared:generateResourceAccessorsForJvmTest UP-TO-DATE
+> Task :shared:assembleJvmMainResources UP-TO-DATE
+> Task :shared:mathEngineResources UP-TO-DATE
+> Task :shared:jvmProcessResources UP-TO-DATE
+> Task :shared:processJvmMainResources SKIPPED
+> Task :shared:jvmMainClasses UP-TO-DATE
+> Task :shared:kspTestKotlinJvm UP-TO-DATE
+> Task :shared:copyRoomSchemas NO-SOURCE
+> Task :shared:checkJvmTestComposeLibrariesCompatibility
+> Task :shared:jvmJar UP-TO-DATE
+> Task :shared:compileTestKotlinJvm UP-TO-DATE
+> Task :shared:compileJvmTestJava NO-SOURCE
+> Task :shared:assembleJvmTestResources UP-TO-DATE
+> Task :shared:jvmTestProcessResources UP-TO-DATE
+> Task :shared:processJvmTestResources SKIPPED
+> Task :shared:jvmTestClasses UP-TO-DATE
+
+> Task :shared:performanceBaseline
+canvas.resolve_text_buffers units=100 medianMs=0.00190103125
+canvas.resolve_text_buffers units=500 medianMs=0.01003171875
+canvas.resolve_text_buffers units=2000 medianMs=0.040671421875
+canvas.resolve_table_buffers units=20 medianMs=3.663203125E-4
+canvas.resolve_table_buffers units=100 medianMs=0.0017455859375
+canvas.resolve_table_buffers units=200 medianMs=0.003884015625
+canvas.move_with_text_preview units=10000 medianMs=1.613203125E-4
+canvas.move_with_text_preview units=100000 medianMs=1.57328125E-4
+canvas.move_with_text_preview units=1000000 medianMs=1.581953125E-4
+search.repeated_substring units=250 medianMs=0.0022286171875
+search.long_word_typo units=250 medianMs=7.56671875E-4
+pdf.equal_spaced_groups units=250 medianMs=0.2121932
+richtext.select_caret units=250 medianMs=2.33203125E-5
+richtext.link_preview_projection units=250 medianMs=0.01874828125
+search.repeated_substring units=1000 medianMs=0.0092247109375
+search.long_word_typo units=1000 medianMs=0.0022890390625
+pdf.equal_spaced_groups units=1000 medianMs=1.0814583333333332
+richtext.select_caret units=1000 medianMs=2.42578125E-5
+richtext.link_preview_projection units=1000 medianMs=0.08077810256410256
+search.repeated_substring units=4000 medianMs=0.035586453125
+search.long_word_typo units=4000 medianMs=0.009473
+pdf.equal_spaced_groups units=4000 medianMs=5.105727
+richtext.select_caret units=4000 medianMs=2.59921875E-5
+richtext.link_preview_projection units=4000 medianMs=0.5347049444444445
+richtext.paste_plain_html units=250 medianMs=0.0109771875
+richtext.paste_plain_html units=1000 medianMs=0.041962546875
+richtext.paste_plain_html units=4000 medianMs=0.1620431475409836
+ai.decode_formula_tokenizer units=1000 medianMs=0.0015167890625
+ai.decode_formula_tokenizer units=10000 medianMs=0.001550921875
+ai.decode_formula_tokenizer units=50000 medianMs=0.00154496875
+ink.apply_127th_append units=1000 medianMs=0.125589
+ink.apply_128th_append units=1000 medianMs=0.118876
+ink.apply_127th_append units=10000 medianMs=0.068661
+ink.apply_128th_append units=10000 medianMs=0.072498
+ink.apply_127th_append units=40000 medianMs=0.016872
+ink.apply_128th_append units=40000 medianMs=0.017273
+storage.save_coalesced units=100 medianMs=0.690752
+storage.load_document units=100 medianMs=0.109267
+storage.save_checkpoint units=100 medianMs=1.127573
+storage.save_coalesced units=1000 medianMs=1.353492
+storage.load_document units=1000 medianMs=0.251458
+storage.save_checkpoint units=1000 medianMs=2.17885
+storage.append_ink_coalesced units=1000 medianMs=0.206983
+storage.append_ink_checkpoint units=1000 medianMs=1.686505
+storage.append_ink_coalesced units=10000 medianMs=0.164673
+storage.append_ink_checkpoint units=10000 medianMs=12.232263
+storage.append_ink_coalesced units=40000 medianMs=0.16307
+storage.append_ink_checkpoint units=40000 medianMs=47.584559
+Performance baseline: /home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ink-final/before/app-fork-3.json (48 cases)
+
+[Incubating] Problems report is available at: file:///tmp/vive-desktop-ink-before-602ff15/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.8.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 18s
+25 actionable tasks: 4 executed, 21 up-to-date

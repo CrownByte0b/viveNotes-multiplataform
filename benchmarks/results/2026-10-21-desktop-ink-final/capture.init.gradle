@@ -1,0 +1,50 @@
+import groovy.json.JsonOutput
+import java.nio.file.Files
+import java.security.MessageDigest
+def hashFile = { File file ->
+    def digest = MessageDigest.getInstance('SHA-256')
+    file.withInputStream { input ->
+        byte[] buffer = new byte[65536]
+        int count
+        while ((count = input.read(buffer)) >= 0) { if (count > 0) digest.update(buffer, 0, count) }
+    }
+    digest.digest().encodeHex().toString()
+}
+def hashDirectory = { File file ->
+    def digest = MessageDigest.getInstance('SHA-256')
+    Files.walk(file.toPath()).withCloseable { paths ->
+        paths.filter { Files.isRegularFile(it) }.sorted().forEach { child ->
+            digest.update(file.toPath().relativize(child).toString().replace((char)92, (char)47).getBytes('UTF-8'))
+            digest.update((byte)0)
+            digest.update(hashFile(child.toFile()).getBytes('UTF-8'))
+        }
+    }
+    digest.digest().encodeHex().toString()
+}
+gradle.projectsEvaluated {
+    def shared = gradle.rootProject.project(':shared')
+    ['performanceBaseline', 'inkPhase2Scenario'].each { name ->
+        shared.tasks.named(name).configure { task ->
+            outputs.upToDateWhen { false }
+            doFirst {
+                def launcher = task.javaLauncher.get()
+                def executable = launcher.executablePath.asFile.canonicalFile
+                def project = gradle.rootProject.projectDir.canonicalFile.toPath()
+                def entries = task.classpath.files.collect { candidate ->
+                    def file = candidate.canonicalFile
+                    def kind = file.isFile() ? 'file' : file.isDirectory() ? 'directory' : 'missing'
+                    [name: file.name, path: file.path, kind: kind,
+                     projectArtifact: file.toPath().startsWith(project),
+                     sha256: kind == 'file' ? hashFile(file) : kind == 'directory' ? hashDirectory(file) : null]
+                }
+                def report = [schema: 'vive-ink-task-runtime/1', task: task.path,
+                    javaExecutable: executable.path, javaExecutableSha256: hashFile(executable),
+                    javaRuntimeVersion: launcher.metadata.javaRuntimeVersion, vendor: launcher.metadata.vendor,
+                    vmVersion: launcher.metadata.jvmVersion, vmArgs: task.allJvmArgs,
+                    workingDirectory: task.workingDir.canonicalPath, classpath: entries]
+                new File(gradle.startParameter.projectProperties.get('pairedInkRuntimeOutput')).text =
+                    JsonOutput.prettyPrint(JsonOutput.toJson(report)) + '\n'
+            }
+        }
+    }
+}

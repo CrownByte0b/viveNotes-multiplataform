@@ -14,14 +14,26 @@ import com.vivenotes.model.ink.*
 import java.util.Collections
 
 /** Exact modeled projections; original Room rows and all operation bytes stay in storage. */
-internal class DesktopInkSegment(projections: List<PageStroke>, sourceIds: Collection<String> = projections.map { it.id }) {
+internal class DesktopInkSegment(projections: List<PageStroke>, sourceIds: Collection<String>? = null) {
     val projections: List<PageStroke> = Collections.unmodifiableList(ArrayList(projections))
-    val sourceIds: Set<String> = Collections.unmodifiableSet(HashSet(sourceIds))
+    val sourceIds: Set<String> = Collections.unmodifiableSet(HashSet(sourceIds ?: projections.map { it.id }))
+    private val unprojected = if (sourceIds == null) null else lazy {
+        if (this.projections.isEmpty()) this.sourceIds else
+            HashSet(this.sourceIds).apply { this@DesktopInkSegment.projections.forEach { remove(it.id) } }
+                .let { if (it.isEmpty()) emptySet() else Collections.unmodifiableSet(it) }
+    }
+    val unprojectedSourceIds: Set<String> get() = unprojected?.value ?: emptySet()
     val bounds: InkBounds? = this.projections.mapNotNull { it.pageBounds }.unionBounds()
-    val index: InkPageIndex = InkPageIndex(this.projections)
+    private val preparedIndex = lazy { InkPageIndex(this.projections) }
+    val index: InkPageIndex get() = preparedIndex.value
+    internal val indexReady: Boolean get() = preparedIndex.isInitialized()
+    init {
+        if (this.projections.size > DesktopInkPage.ADDITION_LIMIT) preparedIndex.value
+    }
     val byProjection by lazy { this.projections.associateBy { it.projectionKey } }
     val ordinal by lazy { this.projections.mapIndexed { index, projection -> projection.projectionKey to index }.toMap() }
     val byGroup by lazy { this.projections.filter { it.groupId != null }.groupBy { it.groupId!! } }
+    val groupIds: Set<String> = this.projections.mapNotNullTo(HashSet()) { it.groupId }
 }
 
 internal class DesktopInkPage private constructor(
@@ -32,7 +44,7 @@ internal class DesktopInkPage private constructor(
     val sourceStrokes: List<PageStroke>,
     val operations: List<DecodedInkOperation>,
     val excludedProjections: Set<InkProjectionKey> = emptySet(),
-    val retainedSegments: List<DesktopInkSegment> = emptyList(),
+    val retainedSegments: InkSegmentStore = InkSegmentStore.Empty,
 ) : InkPageGeometry {
     constructor(projections: List<PageStroke>, sourceIds: Collection<String> = projections.map { it.id },
         sourceStrokes: List<PageStroke> = projections, operations: List<DecodedInkOperation> = emptyList()) :
@@ -46,7 +58,7 @@ internal class DesktopInkPage private constructor(
     }
     val isEmpty: Boolean get() = bounds == null
     fun containsSource(id: String): Boolean = id !in excludedRows &&
-        (id in base.sourceIds || id in additions.sourceIds || retainedSegments.any { id in it.sourceIds })
+        (id in base.sourceIds || id in additions.sourceIds || retainedSegments.containsSource(id))
     private val segmentView = object : AbstractList<DesktopInkSegment>() {
         override val size: Int get() = retainedSegments.size + 2
         override fun get(index: Int): DesktopInkSegment = when {
@@ -63,14 +75,126 @@ internal class DesktopInkPage private constructor(
     }
     fun segments(): List<DesktopInkSegment> = segmentView
     fun isLive(stroke: PageStroke): Boolean = stroke.id !in excludedRows && stroke.projectionKey !in excludedProjections
-    fun selectedProjections(keys: Set<InkProjectionKey>): List<PageStroke> = segments().flatMap { segment ->
+    fun selectedProjections(keys: Set<InkProjectionKey>): List<PageStroke> = segmentsForRows(keys.mapTo(HashSet()) { it.strokeId }).flatMap { segment ->
         if (keys.size < segment.projections.size)
             keys.mapNotNull(segment.byProjection::get).filter(::isLive).sortedBy { segment.ordinal[it.projectionKey] }
         else segment.projections.filter { it.projectionKey in keys && isLive(it) }
     }
-    private fun grouped(group: String): List<PageStroke> = segments().flatMap { it.byGroup[group].orEmpty().filter(::isLive) }
+    private fun grouped(group: String): List<PageStroke> = segmentsForRowsAndGroups(emptySet(), setOf(group))
+        .flatMap { it.byGroup[group].orEmpty().filter(::isLive) }
+
+    fun segmentsForRows(rows: Set<String>): List<DesktopInkSegment> = segmentsForRowsAndGroups(rows, emptySet())
+    fun segmentsForRowsAndGroups(rows: Set<String>, groups: Set<String>): List<DesktopInkSegment> = buildList {
+        if (base.projections.isNotEmpty() && (rows.any { it in base.sourceIds } || groups.any { it in base.groupIds })) add(base)
+        val retained = (retainedSegments.forRows(rows) + retainedSegments.forGroups(groups)).distinctBy { it.first }.sortedBy { it.first }
+        retained.forEach { add(it.second) }
+        if (additions.projections.isNotEmpty() && (rows.any { it in additions.sourceIds } || groups.any { it in additions.groupIds })) add(additions)
+    }
+
+    fun nearSegments(box: InkBounds, work: InkQueryWork? = null): List<DesktopInkSegment> = buildList {
+        work?.let { it.segmentBoundsVisited++ }
+        if (base.bounds.meets(box)) add(base)
+        addAll(retainedSegments.near(box, work))
+        work?.let { it.segmentBoundsVisited++ }
+        if (additions.bounds.meets(box)) add(additions)
+    }
 
     val index = DesktopInkQueries(this)
+
+    internal var basePartitionBuildCount = 0
+        private set
+    internal var basePartitionThread: String? = null
+        private set
+    internal var projectionReclamationBuildCount = 0
+        private set
+    internal var projectionReclamationThread: String? = null
+        private set
+    val needsProjectionReclamation: Boolean get() = base.sourceIds.isNotEmpty() && excludedRows.size >= TOMBSTONE_LIMIT ||
+        excludedProjections.size >= TOMBSTONE_LIMIT || retainedSegments.emptySlots >= TOMBSTONE_LIMIT &&
+        retainedSegments.emptySlots >= retainedSegments.size / 2
+    private val editablePartition: DesktopInkPage by lazy {
+        basePartitionBuildCount++
+        basePartitionThread = Thread.currentThread().name
+        val chunks = base.projections.filter(::isLive).chunked(ADDITION_LIMIT).map { DesktopInkSegment(it) }
+        val kept = retainedSegments.mapNotNull { segment ->
+            val live = if (segment.projections.all(::isLive) && segment.sourceIds.none { it in excludedRows }) segment
+                else DesktopInkSegment(segment.projections.filter(::isLive), segment.sourceIds.filterNot { it in excludedRows })
+            live.takeUnless { it.projections.isEmpty() && it.sourceIds.isEmpty() }
+        }
+        val tail = if (additions.projections.all(::isLive) && additions.sourceIds.none { it in excludedRows }) additions
+            else DesktopInkSegment(additions.projections.filter(::isLive), additions.sourceIds.filterNot { it in excludedRows })
+        val represented = HashSet<String>().apply {
+            chunks.forEach { addAll(it.sourceIds) }; kept.forEach { addAll(it.sourceIds) }; addAll(tail.sourceIds)
+        }
+        val sourceOnly = base.sourceIds.filterNot { it in excludedRows || it in represented }.sorted().chunked(ADDITION_LIMIT)
+            .map { DesktopInkSegment(emptyList(), it) }
+        DesktopInkPage(EMPTY_SEGMENT, tail, emptySet(), bounds, sourceStrokes,
+            operations, emptySet(), InkSegmentStore.Empty.append(chunks + sourceOnly + kept))
+    }
+    private val reclaimedProjectionSnapshot: DesktopInkPage by lazy {
+        projectionReclamationBuildCount++
+        projectionReclamationThread = Thread.currentThread().name
+        fun reclaim(segment: DesktopInkSegment): DesktopInkSegment {
+            if (segment.projections.all(::isLive) && segment.sourceIds.none { it in excludedRows }) return segment
+            val live = segment.projections.filter(::isLive)
+            val sources = if (excludedRows.isEmpty()) segment.sourceIds else segment.sourceIds.filterNot { it in excludedRows }
+            return if (live.isEmpty() && sources.isEmpty()) EMPTY_SEGMENT else DesktopInkSegment(live, sources)
+        }
+        val rows = HashSet(excludedRows).apply { excludedProjections.forEach { add(it.strokeId) } }
+        val replacements = retainedSegments.forRows(rows).mapNotNull { (index, segment) ->
+            reclaim(segment).takeUnless { it === segment }?.let { index to it }
+        }.toMap()
+        val retained = retainedSegments.replace(replacements)
+        val compact = retained.emptySlots >= TOMBSTONE_LIMIT && retained.emptySlots >= retained.size / 2
+        val kept = if (compact) InkSegmentStore.Empty.append(retained.filterNot {
+            it.projections.isEmpty() && it.sourceIds.isEmpty()
+        }) else retained
+        DesktopInkPage(reclaim(base), reclaim(additions), emptySet(), bounds, sourceStrokes,
+            operations, emptySet(), kept)
+    }
+
+    /** Only the new, last erase is replayed; historical move clamps have already been applied. */
+    fun withNormalErase(operation: DecodedInkOperation.Erase, work: InkProjectionWork? = null): DesktopInkPage {
+        require(operation.mode == InkEraseMode.Normal)
+        val current = if (base.projections.size > ADDITION_LIMIT) editablePartition else this
+        val affected = current.segmentsForRows(operation.targetIds)
+        val replacements = java.util.IdentityHashMap<DesktopInkSegment, DesktopInkSegment>()
+        val priorTargets = ArrayList<InkBounds>()
+        val nextTargets = ArrayList<InkBounds>()
+        val reclaimed = HashSet<InkProjectionKey>()
+        for (segment in affected) {
+            val live = segment.projections.filter(current::isLive)
+            val targeted = live.filter { it.id in operation.targetIds }
+            work?.let { it.targetProjections += targeted.size; it.rebuiltProjections += live.size; it.rebuiltSegments++ }
+            priorTargets.addAll(targeted.mapNotNull { it.pageBounds })
+            val projections = live.subtract(operation.mask, operation.targetIds)
+            nextTargets.addAll(projections.filter { it.id in operation.targetIds }.mapNotNull { it.pageBounds })
+            reclaimed.addAll(segment.projections.map { it.projectionKey })
+            replacements[segment] = DesktopInkSegment(projections, segment.sourceIds)
+        }
+        val base = replacements[current.base] ?: current.base
+        val tail = replacements[current.additions] ?: current.additions
+        val retained = current.retainedSegments.replace(current.retainedSegments.forRows(operation.targetIds)
+            .mapNotNull { (index, segment) -> replacements[segment]?.let { index to it } }.toMap())
+        val exclusions = if (current.excludedProjections.isEmpty()) emptySet() else
+            Collections.unmodifiableSet(HashSet(current.excludedProjections).apply { removeAll(reclaimed) })
+        val oldBox = priorTargets.unionBounds()
+        val newBox = nextTargets.unionBounds()
+        val changesExtent = current.bounds != null && oldBox != null && (
+            oldBox.left <= current.bounds.left && (newBox == null || newBox.left > current.bounds.left) ||
+            oldBox.top <= current.bounds.top && (newBox == null || newBox.top > current.bounds.top) ||
+            oldBox.right >= current.bounds.right && (newBox == null || newBox.right < current.bounds.right) ||
+            oldBox.bottom >= current.bounds.bottom && (newBox == null || newBox.bottom < current.bounds.bottom))
+        val extent = if (!changesExtent) current.bounds else liveBounds(base, retained, tail, current.excludedRows, exclusions)
+        return DesktopInkPage(base, tail, current.excludedRows, extent, sourceStrokes,
+            appendInkValues(operations, listOf(operation)), exclusions, retained)
+    }
+
+    /** Runs in the erase preparation lane; a new snapshot drops only redundant projection/index data. */
+    fun reclaimExcludedProjections(): DesktopInkPage {
+        if (excludedProjections.isEmpty() && excludedRows.isEmpty() && retainedSegments.emptySlots == 0) return this
+        return reclaimedProjectionSnapshot
+    }
 
     override fun selectAt(page: InkPage, x: Float, y: Float, reach: Float): InkSelection? {
         if (!x.isFinite() || !y.isFinite() || !reach.isFinite() || reach < 0f) return null
@@ -109,13 +233,15 @@ internal class DesktopInkPage private constructor(
         val addedIds = added.mapTo(HashSet()) { it.id }
         val projectedExclusions = if (addedIds.any { it in excludedRows || it in removed })
             Collections.unmodifiableSet(HashSet(excludedProjections).apply {
-                segments().forEach { segment -> segment.projections.forEach {
+                // Sealed/tail removals are physically reclaimed below. Only occurrences still in
+                // the original immutable base need a key to distinguish a row that was re-added.
+                base.projections.forEach {
                     if (it.id in addedIds && (it.id in excludedRows || it.id in removed)) add(it.projectionKey)
-                } }
+                }
             }) else excludedProjections
-        val excluded = if (removed.isEmpty() && addedIds.none { it in excludedRows }) excludedRows else
+        val excluded = if (removed.none { it in base.sourceIds } && addedIds.none { it in excludedRows }) excludedRows else
             Collections.unmodifiableSet(HashSet(excludedRows).apply {
-                addAll(removed.filter { id -> segments().any { id in it.sourceIds } })
+                addAll(removed.filter { it in base.sourceIds })
                 removeAll(addedIds)
             })
         val pending = when {
@@ -130,22 +256,27 @@ internal class DesktopInkPage private constructor(
             val remaining = pending.size % ADDITION_LIMIT
             if (remaining == 0) EMPTY_SEGMENT else DesktopInkSegment(pending.subList(pending.size - remaining, pending.size))
         }
-        val extent = if (removed.isEmpty() && excluded.isEmpty() && projectedExclusions.isEmpty())
+        val reclaimedKeys = if (removed.isEmpty()) null else HashSet<InkProjectionKey>()
+        if (reclaimedKeys != null) additions.projections.forEach { if (it.id in removed) reclaimedKeys.add(it.projectionKey) }
+        val reclaimed = if (removed.isEmpty()) retainedSegments else retainedSegments.replace(retainedSegments.forRows(removed)
+            .associate { (index, segment) ->
+                val remaining = segment.projections.filterNot { it.id in removed }
+                segment.projections.forEach { if (it.id in removed) checkNotNull(reclaimedKeys).add(it.projectionKey) }
+                val sourceIds = segment.sourceIds.filterNot { it in removed }
+                index to if (remaining.isEmpty() && sourceIds.isEmpty()) EMPTY_SEGMENT else DesktopInkSegment(remaining, sourceIds)
+            })
+        val exclusions = if (reclaimedKeys == null || reclaimedKeys.none { it in projectedExclusions }) projectedExclusions else
+            Collections.unmodifiableSet(HashSet(projectedExclusions).apply { removeAll(reclaimedKeys) })
+        val sourceOnly = if (pending == null || additions.unprojectedSourceIds.isEmpty()) emptyList() else
+            additions.unprojectedSourceIds.filterNot { it in removed || it in addedIds }.chunked(ADDITION_LIMIT)
+                .map { DesktopInkSegment(emptyList(), it) }
+        val toSeal = if (sourceOnly.isEmpty()) sealed else if (sealed.isEmpty()) sourceOnly else sourceOnly + sealed
+        val retained = reclaimed.append(toSeal)
+        val extent = if (removed.isEmpty())
             (listOfNotNull(bounds) + added.mapNotNull { it.pageBounds }).unionBounds()
-        else {
-            val baseBounds = if (excluded == excludedRows) {
-                // The previous extent includes the tail, which remains present when only appending.
-                if (removed.isEmpty()) bounds else (listOf(base) + retainedSegments).flatMap { it.projections }
-                    .filterNot { it.id in excluded || it.projectionKey in projectedExclusions }.mapNotNull { it.pageBounds }.unionBounds()
-            } else (listOf(base) + retainedSegments).flatMap { it.projections }
-                .filterNot { it.id in excluded || it.projectionKey in projectedExclusions }.mapNotNull { it.pageBounds }.unionBounds()
-            val recent = pending ?: additions.projections
-            val tailBounds = recent.filterNot { it.projectionKey in projectedExclusions }.mapNotNull { it.pageBounds }.unionBounds()
-            listOfNotNull(baseBounds, tailBounds).unionBounds()
-        }
+        else liveBounds(base, retained, tail, excluded, exclusions)
         val sources = appendInkValues(if (removed.isEmpty()) sourceStrokes else sourceStrokes.filterNot { it.id in removed }, added)
-        return DesktopInkPage(base, tail, excluded, extent, sources, operations, projectedExclusions,
-            appendInkValues(retainedSegments, sealed))
+        return DesktopInkPage(base, tail, excluded, extent, sources, operations, exclusions, retained)
     }
 
     fun withObjectErase(operation: DecodedInkOperation.Erase): DesktopInkPage? {
@@ -157,8 +288,9 @@ internal class DesktopInkPage private constructor(
         } == true }
         val nextBounds = if (!changesExtent) bounds else segments().flatMap { it.projections }
             .filterNot { it.id in excludedRows || it.projectionKey in excluded }.mapNotNull { it.pageBounds }.unionBounds()
-        return DesktopInkPage(base, additions, excludedRows, nextBounds, sourceStrokes,
-            Collections.unmodifiableList(operations + operation), excluded, retainedSegments)
+        val result = DesktopInkPage(base, additions, excludedRows, nextBounds, sourceStrokes,
+            appendInkValues(operations, listOf(operation)), excluded, retainedSegments)
+        return if (excluded.size >= TOMBSTONE_LIMIT) result.reclaimExcludedProjections() else result
     }
 
     companion object {
@@ -168,31 +300,68 @@ internal class DesktopInkPage private constructor(
     }
 }
 
-internal class DesktopInkQueries(private val page: DesktopInkPage) {
-    fun touching(mask: Stroke): List<PageStroke> =
-        page.segments().flatMap { it.index.touching(mask).filter(page::isLive) }
-    fun at(point: InkPoint, reach: Float): List<PageStroke> =
-        page.segments().flatMap { it.index.at(point, reach).filter(page::isLive) }
-    fun crossing(from: InkPoint, to: InkPoint, width: Float): List<PageStroke> =
-        page.segments().flatMap { it.index.crossing(from, to, width).filter(page::isLive) }
+internal class InkProjectionWork {
+    var targetProjections = 0
+    var rebuiltProjections = 0
+    var rebuiltSegments = 0
+}
 
-    fun selectWithLasso(path: List<InkPoint>): InkLassoSelection? {
+private fun liveBounds(base: DesktopInkSegment, retained: InkSegmentStore, tail: DesktopInkSegment,
+    rows: Set<String>, projections: Set<InkProjectionKey>): InkBounds? {
+    var result: InkBounds? = null
+    fun add(segment: DesktopInkSegment) {
+        for (stroke in segment.projections) if (stroke.id !in rows && stroke.projectionKey !in projections) {
+            val box = stroke.pageBounds ?: continue
+            val previous = result
+            result = if (previous == null) box else InkBounds(minOf(previous.left, box.left), minOf(previous.top, box.top),
+                maxOf(previous.right, box.right), maxOf(previous.bottom, box.bottom))
+        }
+    }
+    add(base); retained.forEach(::add); add(tail)
+    return result
+}
+
+internal class DesktopInkQueries(private val page: DesktopInkPage) {
+    fun touching(mask: Stroke, work: InkQueryWork? = null): List<PageStroke> {
+        val box = mask.shape.computeBoundingBox() ?: return emptyList()
+        return near(box.xMin, box.yMin, box.xMax, box.yMax, work).flatMap { segment ->
+            work?.let { it.nativeIndexQueries++ }
+            segment.index.touching(mask).filter(page::isLive)
+        }
+    }
+    fun at(point: InkPoint, reach: Float, work: InkQueryWork? = null): List<PageStroke> =
+        near(minOf(point.x - reach, point.x + reach), minOf(point.y - reach, point.y + reach),
+            maxOf(point.x - reach, point.x + reach), maxOf(point.y - reach, point.y + reach), work).flatMap { segment ->
+            work?.let { it.nativeIndexQueries++ }
+            segment.index.at(point, reach).filter(page::isLive)
+        }
+    fun crossing(from: InkPoint, to: InkPoint, width: Float, work: InkQueryWork? = null): List<PageStroke> {
+        val reach = width / 2f
+        return near(minOf(from.x, to.x) - reach, minOf(from.y, to.y) - reach,
+            maxOf(from.x, to.x) + reach, maxOf(from.y, to.y) + reach, work).flatMap { segment ->
+            work?.let { it.nativeIndexQueries++ }
+            segment.index.crossing(from, to, width).filter(page::isLive)
+        }
+    }
+    private fun near(left: Float, top: Float, right: Float, bottom: Float, work: InkQueryWork?) =
+        page.nearSegments(InkBounds(left - .01f, top - .01f, right + .01f, bottom + .01f), work)
+
+    fun selectWithLasso(path: List<InkPoint>, work: InkQueryWork? = null): InkLassoSelection? {
+        if (path.size < 3) return null
         val shape = LassoShape(path)
-        val segments = page.segments()
-        val hitsBySegment = segments.map { segment ->
-            val selection = segment.index.selectWithLasso(path) ?: return@map emptyList()
+        val segments = near(path.minOf { it.x } - 4f, path.minOf { it.y } - 4f,
+            path.maxOf { it.x } + 4f, path.maxOf { it.y } + 4f, work)
+        val hits = segments.flatMap { segment ->
+            work?.let { it.nativeIndexQueries++ }
+            val selection = segment.index.selectWithLasso(path) ?: return@flatMap emptyList()
             selection.projections.mapNotNull(segment.byProjection::get)
                 .filter { page.isLive(it) && shape.contains(it) }.sortedBy { segment.ordinal[it.projectionKey] }
         }
-        val hits = hitsBySegment.flatten()
         if (hits.isEmpty()) return null
         val groups = hits.mapNotNullTo(HashSet()) { it.groupId }
-        val selected = if (groups.isEmpty()) hits else segments.flatMapIndexed { index, segment ->
-            val grouped = if (groups.size < segment.byGroup.size) groups.flatMap { segment.byGroup[it].orEmpty() }
-                else segment.byGroup.entries.filter { it.key in groups }.flatMap { it.value }
-            val candidates = hitsBySegment[index] + grouped
-            candidates.distinctBy { it.projectionKey }.filter(page::isLive).sortedBy { segment.ordinal[it.projectionKey] }
-        }
+        val keys = hits.mapTo(HashSet()) { it.projectionKey }
+        val selected = if (groups.isEmpty()) hits else page.segmentsForRowsAndGroups(hits.mapTo(HashSet()) { it.id }, groups)
+            .flatMap { segment -> segment.projections.filter { page.isLive(it) && (it.projectionKey in keys || it.groupId in groups) } }
         val bounds = selected.mapNotNull { it.pageBounds }.unionBounds() ?: return null
         return InkLassoSelection(path, selected.mapTo(LinkedHashSet()) { it.id },
             selected.mapTo(LinkedHashSet()) { it.projectionKey }, bounds)
@@ -327,21 +496,22 @@ private fun InkPage.withPartialErase(edit: InkEdit.PartialErase): InkPage {
     require(edit.row.pageId == pageId) { "Erase belongs to another page" }
     val native = desktopGeometry()
     if (edit.active == native.operations.any { it.id == edit.row.id }) return this
-    val operations = native.operations.filterNot { it.id == edit.row.id }.toMutableList()
+    var appended: DecodedInkOperation? = null
     if (edit.active) {
         val row = edit.row
         val stored = StoredInkErase(row.id, pageId, row.mode.name, row.sizeDp, row.points, row.enc,
             row.createdAt, targetIds = edit.targetIds.toList())
         val decoded = ViveInkPage.load(emptyList(), listOf(stored), emptyList()).operations.single()
-        if (decoded is DecodedInkOperation.Erase && decoded.mode == InkEraseMode.Object &&
-            native.operations.all { it.createdAt < decoded.createdAt }) {
-            native.withObjectErase(decoded)?.let { projected ->
-                return copy(geometry = projected, operations = this.operations + listOfNotNull(decoded.portableOperation()),
+        if (decoded is DecodedInkOperation.Erase && native.operations.all { it.createdAt < decoded.createdAt }) {
+            val projected = if (decoded.mode == InkEraseMode.Object) native.withObjectErase(decoded) else native.withNormalErase(decoded)
+            projected?.let {
+                return copy(geometry = projected, operations = appendInkValues(this.operations, listOfNotNull(decoded.portableOperation())),
                     latestOperationAt = maxOf(latestOperationAt, edit.row.createdAt))
             }
         }
-        operations.add(decoded)
+        appended = decoded
     }
+    val operations = native.operations.filterNot { it.id == edit.row.id } + listOfNotNull(appended)
     return replaySources(native.sourceStrokes, operations).copy(
         latestOperationAt = maxOf(latestOperationAt, edit.row.createdAt))
 }

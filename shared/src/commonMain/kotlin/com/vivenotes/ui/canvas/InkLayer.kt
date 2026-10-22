@@ -2,6 +2,7 @@ package com.vivenotes.ui.canvas
 
 import com.vivenotes.workspace.InkSettings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -11,6 +12,7 @@ import com.vivenotes.model.ink.InkPage
 import com.vivenotes.workspace.InkTool
 
 internal const val INK_LAYER_TAG = "workspace-ink-layer"
+internal val LocalInkGeometryPublisher = staticCompositionLocalOf<((InkPage, InkPage) -> Unit)?> { null }
 
 /** Desktop supplies the real engine; dormant web targets keep this platform boundary. */
 @Composable
