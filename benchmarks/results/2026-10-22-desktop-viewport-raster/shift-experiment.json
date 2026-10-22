@@ -1,0 +1,68 @@
+{
+  "physicalIntegerShift": 24,
+  "rows": [
+    {
+      "case": "d1.0_s0.3",
+      "overlapPixels": 59648,
+      "differentPixels": 414,
+      "interiorDifferentPixels": 158,
+      "maxChannelDelta": 17
+    },
+    {
+      "case": "d1.0_s1.0",
+      "overlapPixels": 59392,
+      "differentPixels": 1357,
+      "interiorDifferentPixels": 1037,
+      "maxChannelDelta": 18
+    },
+    {
+      "case": "d1.0_s1.25",
+      "overlapPixels": 59881,
+      "differentPixels": 1516,
+      "interiorDifferentPixels": 1219,
+      "maxChannelDelta": 193
+    },
+    {
+      "case": "d1.75_s0.3",
+      "overlapPixels": 59648,
+      "differentPixels": 885,
+      "interiorDifferentPixels": 476,
+      "maxChannelDelta": 201
+    },
+    {
+      "case": "d1.75_s1.0",
+      "overlapPixels": 59392,
+      "differentPixels": 1646,
+      "interiorDifferentPixels": 1460,
+      "maxChannelDelta": 22
+    },
+    {
+      "case": "d1.75_s1.25",
+      "overlapPixels": 59881,
+      "differentPixels": 1617,
+      "interiorDifferentPixels": 1406,
+      "maxChannelDelta": 193
+    },
+    {
+      "case": "d2.0_s0.3",
+      "overlapPixels": 59648,
+      "differentPixels": 1240,
+      "interiorDifferentPixels": 855,
+      "maxChannelDelta": 209
+    },
+    {
+      "case": "d2.0_s1.0",
+      "overlapPixels": 59392,
+      "differentPixels": 1448,
+      "interiorDifferentPixels": 1123,
+      "maxChannelDelta": 19
+    },
+    {
+      "case": "d2.0_s1.25",
+      "overlapPixels": 59881,
+      "differentPixels": 2398,
+      "interiorDifferentPixels": 2040,
+      "maxChannelDelta": 193
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "runs": [
+    {
+      "fork": 1,
+      "side": "before",
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1920x1200x24 -nolisten tcp",
+        "./gradlew",
+        ":shared:jvmTest",
+        "--tests",
+        "*InkViewportPerformanceScenario",
+        "--offline",
+        "--no-configuration-cache",
+        "--max-workers=1",
+        "--console=plain",
+        "-I",
+        "/tmp/vive-viewport-native-final-20261022/capture.init.gradle",
+        "-PpairedInkRuntimeOutput=/tmp/vive-viewport-native-final-20261022/before/fork-1-runtime.json"
+      ],
+      "status": "validated"
+    },
+    {
+      "fork": 1,
+      "side": "after",
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1920x1200x24 -nolisten tcp",
+        "./gradlew",
+        ":shared:jvmTest",
+        "--tests",
+        "*InkViewportPerformanceScenario",
+        "--offline",
+        "--no-configuration-cache",
+        "--max-workers=1",
+        "--console=plain",
+        "-I",
+        "/tmp/vive-viewport-native-final-20261022/capture.init.gradle",
+        "-PpairedInkRuntimeOutput=/tmp/vive-viewport-native-final-20261022/after/fork-1-runtime.json"
+      ],
+      "status": "validated"
+    },
+    {
+      "fork": 2,
+      "side": "after",
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1920x1200x24 -nolisten tcp",
+        "./gradlew",
+        ":shared:jvmTest",
+        "--tests",
+        "*InkViewportPerformanceScenario",
+        "--offline",
+        "--no-configuration-cache",
+        "--max-workers=1",
+        "--console=plain",
+        "-I",
+        "/tmp/vive-viewport-native-final-20261022/capture.init.gradle",
+        "-PpairedInkRuntimeOutput=/tmp/vive-viewport-native-final-20261022/after/fork-2-runtime.json"
+      ],
+      "status": "validated"
+    },
+    {
+      "fork": 2,
+      "side": "before",
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1920x1200x24 -nolisten tcp",
+        "./gradlew",
+        ":shared:jvmTest",
+        "--tests",
+        "*InkViewportPerformanceScenario",
+        "--offline",
+        "--no-configuration-cache",
+        "--max-workers=1",
+        "--console=plain",
+        "-I",
+        "/tmp/vive-viewport-native-final-20261022/capture.init.gradle",
+        "-PpairedInkRuntimeOutput=/tmp/vive-viewport-native-final-20261022/before/fork-2-runtime.json"
+      ],
+      "status": "validated"
+    },
+    {
+      "fork": 3,
+      "side": "before",
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1920x1200x24 -nolisten tcp",
+        "./gradlew",
+        ":shared:jvmTest",
+        "--tests",
+        "*InkViewportPerformanceScenario",
+        "--offline",
+        "--no-configuration-cache",
+        "--max-workers=1",
+        "--console=plain",
+        "-I",
+        "/tmp/vive-viewport-native-final-20261022/capture.init.gradle",
+        "-PpairedInkRuntimeOutput=/tmp/vive-viewport-native-final-20261022/before/fork-3-runtime.json"
+      ],
+      "status": "validated"
+    },
+    {
+      "fork": 3,
+      "side": "after",
+      "command": [
+        "xvfb-run",
+        "-a",
+        "-s",
+        "-screen 0 1920x1200x24 -nolisten tcp",
+        "./gradlew",
+        ":shared:jvmTest",
+        "--tests",
+        "*InkViewportPerformanceScenario",
+        "--offline",
+        "--no-configuration-cache",
+        "--max-workers=1",
+        "--console=plain",
+        "-I",
+        "/tmp/vive-viewport-native-final-20261022/capture.init.gradle",
+        "-PpairedInkRuntimeOutput=/tmp/vive-viewport-native-final-20261022/after/fork-3-runtime.json"
+      ],
+      "status": "validated"
+    }
+  ]
+}

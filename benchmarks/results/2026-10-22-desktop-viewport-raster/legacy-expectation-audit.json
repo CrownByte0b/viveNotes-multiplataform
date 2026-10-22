@@ -1,0 +1,320 @@
+{
+  "allFailedExpectationsAlsoFailOnBaseline": true,
+  "baselineFailedPreservationChecks": 15,
+  "afterFailedPreservationChecks": 15,
+  "failures": [
+    {
+      "fork": 1,
+      "case": 0,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 2,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 2,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 1,
+      "case": 2,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 1,
+      "case": 3,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 1,
+      "case": 6,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 1,
+      "case": 7,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 2,
+      "case": 0,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 2,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 2,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 2,
+      "case": 2,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 2,
+      "case": 3,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 2,
+      "case": 6,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 2,
+      "case": 7,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 3,
+      "case": 0,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 2,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 2,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 3,
+      "case": 2,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 3,
+      "case": 3,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 3,
+      "case": 6,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    },
+    {
+      "fork": 3,
+      "case": 7,
+      "baselineFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ],
+      "afterFailures": [
+        {
+          "counter": "fullPageSceneBuilds",
+          "expected": 1,
+          "actual": 0,
+          "passed": false
+        }
+      ]
+    }
+  ],
+  "structuralDeviationFields": {
+    "erasePreview.finishedPathBuilds": 3,
+    "erasePreview.finishedStrokeVectorDraws": 3,
+    "erasePreview.pathBuilds": 3,
+    "erasePreview.rasterBuilds": 3,
+    "total.finishedPathBuilds": 3,
+    "total.finishedStrokeVectorDraws": 3,
+    "total.pathBuilds": 3,
+    "total.rasterBuilds": 3,
+    "erasePreview.draws": 6,
+    "total.draws": 9,
+    "eraseFinish.draws": 4
+  }
+}

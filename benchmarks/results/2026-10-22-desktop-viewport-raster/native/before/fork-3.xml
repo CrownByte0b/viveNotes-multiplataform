@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="InkViewportPerformanceScenario[jvm]" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-22T21:42:22.719Z" hostname="fedora" time="133.386">
+  <properties/>
+  <testcase name="viewportSequencesMatchFreshRastersAndReportActualWork[jvm]" classname="com.vivenotes.ui.canvas.InkViewportPerformanceScenario" time="133.384"/>
+  <system-out><![CDATA[ink.viewport_stationary_d1_fit units=40000 medianMs=112.457526
+ink.viewport_pan_new_d1_fit units=40000 medianMs=752.321573
+ink.viewport_pan_return_d1_fit units=40000 medianMs=897.738303
+ink.viewport_zoom_return_d1_fit units=40000 medianMs=705.628859
+ink.viewport_fractional_pan_d1_fit units=40000 medianMs=922.611176
+ink.viewport_stationary_d1_sparse units=40000 medianMs=3.329097
+ink.viewport_pan_new_d1_sparse units=40000 medianMs=21.296155
+ink.viewport_pan_return_d1_sparse units=40000 medianMs=22.688693
+ink.viewport_zoom_return_d1_sparse units=40000 medianMs=17.879202
+ink.viewport_fractional_pan_d1_sparse units=40000 medianMs=20.700704
+ink.viewport_stationary_d2_fit units=40000 medianMs=121.943175
+ink.viewport_pan_new_d2_fit units=40000 medianMs=807.787652
+ink.viewport_pan_return_d2_fit units=40000 medianMs=898.400351
+ink.viewport_zoom_return_d2_fit units=40000 medianMs=710.528872
+ink.viewport_fractional_pan_d2_fit units=40000 medianMs=908.848008
+ink.viewport_stationary_d2_sparse units=40000 medianMs=1.835599
+ink.viewport_pan_new_d2_sparse units=40000 medianMs=11.042487
+ink.viewport_pan_return_d2_sparse units=40000 medianMs=11.031005
+ink.viewport_zoom_return_d2_sparse units=40000 medianMs=8.711898
+ink.viewport_fractional_pan_d2_sparse units=40000 medianMs=11.19087
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -26,17 +26,47 @@ internal class InkSceneLayer(val scene: InkScene, excluded: Set<InkSceneStroke>)
         })
 }
 
-/** One physical viewport for ordered immutable segments, incrementally extended at sealed tails. */
-internal class SegmentedInkRasterCache : AutoCloseable {
+internal data class InkViewportRasterWork(
+    val requests: Long,
+    val hits: Long,
+    val fullBuilds: Long,
+    val appendBuilds: Long,
+    val dirtyBuilds: Long,
+    val vectors: Long,
+    val allocatedPixels: Long,
+    val updatedPixels: Long,
+    val capacityEvictions: Long,
+    val retainedViews: Int,
+    val retainedPixelBytes: Long,
+)
+
+/** Exact recent physical views; content changes keep only the view being updated. */
+internal class SegmentedInkRasterCache(
+    private val maxViews: Int = 4,
+    private val pixelBudgetBytes: Long = 64L * 1024 * 1024,
+) : AutoCloseable {
+    init { require(maxViews >= 0 && pixelBudgetBytes >= 0) }
     private data class View(val viewport: Rect, val transform: ImmutableAffineTransform, val scale: Float)
+    private class SavedRaster(val image: Image, val bytes: Long)
+    private val previousViews = LinkedHashMap<View, SavedRaster>()
+    private var previousPixelBytes = 0L
+    private var currentPixelBytes = 0L
     private var image: Image? = null
     private var view: View? = null
     private var layers: List<InkSceneLayer> = emptyList()
     private var renderer: InkPathRenderer? = null
     private var rendererVersion = 0L
     private var closed = false
-    var retainedPixelBytes = 0L
-        private set
+    val retainedPixelBytes: Long get() = currentPixelBytes + previousPixelBytes
+    val retainedViews: Int get() = previousViews.size + if (image == null) 0 else 1
+    private var requests = 0L
+    private var hits = 0L
+    private var fullBuilds = 0L
+    private var appendBuilds = 0L
+    private var vectors = 0L
+    private var allocatedPixels = 0L
+    private var updatedPixels = 0L
+    private var capacityEvictions = 0L
     var rasterBuildCount = 0L
         private set
     var lastDrawn = 0
@@ -84,7 +114,42 @@ internal class SegmentedInkRasterCache : AutoCloseable {
         val requested = View(viewport, transform, scale)
         fun sameLayer(first: InkSceneLayer, second: InkSceneLayer): Boolean =
             first.scene === second.scene && first.excluded.size == second.excluded.size && first.excluded.all { it in second.excluded }
-        val reusable = bytes <= 64L * 1024 * 1024 && image != null && view == requested && this.renderer === renderer &&
+        requests++
+        lastDrawn = 0
+        lastUpdatedPixels = 0L
+        val cacheable = maxViews > 0 && bytes <= pixelBudgetBytes
+        val sameContent = this.renderer === renderer && rendererVersion == renderer.renderVersion &&
+            (layers === next || layers.size == next.size && layers.indices.all { sameLayer(layers[it], next[it]) })
+        if (!sameContent) clearPreviousViews()
+        if (!cacheable) clearCache()
+        else {
+            if (sameContent && view != requested) {
+                image?.let { previous ->
+                    previousViews[checkNotNull(view)] = SavedRaster(previous, currentPixelBytes)
+                    previousPixelBytes += currentPixelBytes
+                }
+                image = null
+                view = null
+                currentPixelBytes = 0L
+                previousViews.remove(requested)?.let { saved ->
+                    image = saved.image
+                    view = requested
+                    currentPixelBytes = saved.bytes
+                    previousPixelBytes -= saved.bytes
+                }
+            }
+            // Reserve the requested view before allocating a replacement surface. The retained
+            // image budget excludes the temporary surface used by append/damage updates.
+            while (previousViews.size >= maxViews || previousPixelBytes > pixelBudgetBytes - bytes) {
+                val oldest = previousViews.entries.iterator()
+                val retired = oldest.next().value
+                oldest.remove()
+                previousPixelBytes -= retired.bytes
+                retired.image.close()
+                capacityEvictions++
+            }
+        }
+        val reusable = cacheable && image != null && view == requested && this.renderer === renderer &&
             rendererVersion == renderer.renderVersion
         val append = reusable && (layers === next || layers.size <= next.size &&
             layers.indices.all { sameLayer(layers[it], next[it]) })
@@ -93,11 +158,12 @@ internal class SegmentedInkRasterCache : AutoCloseable {
         if (damage != null && damage.isEmpty) {
             layers = next
             lastDrawn = 0
+            hits++
         } else
         if (!append || layers.size != next.size) {
             val prior = image.takeIf { append || damage != null }
             val firstLayer = if (append) layers.size else 0
-            if (prior == null) clearCache()
+            if (prior == null) clearCurrentView()
             var drawn = 0
             val snapshot = Surface.makeRasterN32Premul(width, height).use { surface ->
                 surface.canvas.clear(0)
@@ -148,12 +214,17 @@ internal class SegmentedInkRasterCache : AutoCloseable {
             layers = next
             this.renderer = renderer
             rendererVersion = renderer.renderVersion
-            retainedPixelBytes = bytes
+            currentPixelBytes = bytes
             rasterBuildCount++
             lastDrawn = drawn
             lastUpdatedPixels = if (damage == null) pixels else
                 damage.width.toLong() * damage.height.toLong()
-            if (damage != null) dirtyBuildCount++
+            if (damage != null) dirtyBuildCount++ else if (append && prior != null) appendBuilds++ else fullBuilds++
+            vectors += drawn
+            allocatedPixels += pixels
+            updatedPixels += lastUpdatedPixels
+        } else {
+            hits++
         }
         val destination = canvas.skiaCanvas
         val checkpoint = destination.save()
@@ -165,19 +236,33 @@ internal class SegmentedInkRasterCache : AutoCloseable {
                 destination.scale(inverseScale, inverseScale)
                 destination.drawImage(checkNotNull(image), 0f, 0f)
             } finally { destination.restoreToCount(checkpoint) }
-        } finally { if (bytes > 64L * 1024 * 1024) clearCache() }
+        } finally { if (!cacheable) clearCache() }
         return drawn
     }
 
-    fun clearCache() {
+    fun work() = InkViewportRasterWork(requests, hits, fullBuilds, appendBuilds, dirtyBuildCount,
+        vectors, allocatedPixels, updatedPixels, capacityEvictions, retainedViews, retainedPixelBytes)
+
+    private fun clearPreviousViews() {
+        previousViews.values.forEach { it.image.close() }
+        previousViews.clear()
+        previousPixelBytes = 0L
+    }
+
+    private fun clearCurrentView() {
         image?.close()
         image = null
         view = null
-        layers = emptyList()
-        renderer = null
-        retainedPixelBytes = 0L
+        currentPixelBytes = 0L
         lastDrawn = 0
         lastUpdatedPixels = 0L
+    }
+
+    fun clearCache() {
+        clearPreviousViews()
+        clearCurrentView()
+        layers = emptyList()
+        renderer = null
     }
 
     override fun close() { clearCache(); closed = true }

@@ -1,0 +1,3929 @@
+{
+  "schema": "vive-runtime-public-results/1",
+  "label": "before-viewport-raster-5cbf74f",
+  "sourceCommit": "5cbf74f9ca6fb83c51be3d41818894467aac1a9d",
+  "sourceIdentity": "caller-exported inventory; no Git checkout on capture host",
+  "sourceFiles": [
+    {
+      "path": "build.gradle.kts",
+      "sha256": "a775f35c2dbd9014ec81707ec3574ed032e8600e56e5cd154add5a46f4eb6867"
+    },
+    {
+      "path": "desktopApp/build.gradle.kts",
+      "sha256": "f38e6ce44163025687ccdafef9f32d67a5f2b1ef0a6dbaf81a1c1ec3d07c49c2"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/AiSettingsFile.kt",
+      "sha256": "eb85621a21bb24a82653bbc2a74032b5f59c3b655292ada04ca49977b9ced9e6"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/DesktopBuildInfo.kt",
+      "sha256": "6ac2cd2c2f92c2044b01caba8add1dd85a2fbeaaf57cc4c77350e6ab5b3348fd"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/DesktopNotebookFiles.kt",
+      "sha256": "5476283434a9e013e1834a67408a735d02425570ba15398f3497d9709b651544"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/DesktopNotes.kt",
+      "sha256": "0e6b8d222f18da81270a8e8a73158843f0f767b1b7aed91e080b5ef952513960"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/DesktopPdfExport.kt",
+      "sha256": "76e755a6de2edf0822078186c55e90f78985c726dff1d8c382ba95a4f6407734"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/DesktopPictures.kt",
+      "sha256": "3b5a41bc466e1787f21ae6a774c80d2990c05286bded092432d2276fc6a8a43c"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/DesktopProfile.kt",
+      "sha256": "156569384b60d73b1298417a98aee4bcf6259f9e81b880a5a388faff9a2e1846"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/DesktopSync.kt",
+      "sha256": "ca5433686e80809882405154adbc09b74fdbaa88e24e71a1f11731d4df7c4bcf"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/DesktopSyncIdentity.kt",
+      "sha256": "6a4304d77c10b17f84e860d50c63dfe5ac313f026ccd08bf1cd6dfddf3b6d757"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/DesktopVideoThumbnails.kt",
+      "sha256": "d7eabfc80b2def3c3db8df362cb62ddde886485cd6745052ecd1d8cd46c57be8"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/EditorDefaultsFile.kt",
+      "sha256": "30d902da2dca9d36a6d5ef314d9b9607eb6dab2b1138ac82f2754d8110b58bd6"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/FlatpakFileDialogs.kt",
+      "sha256": "a2ac88b4403f580b86ac243716b17865d3c204336ec672dc932babfe5c8fa03f"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/InitialWindowSize.kt",
+      "sha256": "9df0061eb139ecbd39927e0ea6d202f90e9c4cb53fff5191c1007169f2fbe5a6"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/InkSettingsFile.kt",
+      "sha256": "dbeff695353d79cdb3c68951bdc80df5ef3c6616b9ad21488cbc92e06c347e81"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/InputSettingsFile.kt",
+      "sha256": "2c0e68884607e638d4f277542638f2d5f513876ddf48085345505299bcf1bc59"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/InterfaceSettingsFile.kt",
+      "sha256": "09607aedb27c82055045b8d48a71c5b16dbf56fe28d2fa7bbfa138abe774c22e"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/KeyBindingsFile.kt",
+      "sha256": "6ee0ae4032d81428166c1bd374fa81b30f929f8fe63752c7182d0663d13b0336"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/Main.kt",
+      "sha256": "3344342ab9172bb7e40d868dc07a35ee65646e640e407e899b8e433eae4311d1"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/PopupLayerHost.kt",
+      "sha256": "7966bbcb5cdf83813546abfac3d925026efed9ed697effe03611132149137359"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/PropertiesFile.kt",
+      "sha256": "c57cfaaa516fc6e5dd5c77171744dd0f0ae6639e7147a53760fe47fc9dea764e"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/ShapeSettingsFile.kt",
+      "sha256": "0d7776eedf15a1d2a9579f9cee75b4567c25983f0c53e334e9b3862114b29eb5"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/ViewSettingsFile.kt",
+      "sha256": "c6c2b196bfee31a079486816a7484f7e1ed1a384963c7aba65df38b50752be83"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/WaylandMain.kt",
+      "sha256": "e72216be72aca8bb83da4cb3ccdfbfa79ceb75527c633f48c5193fc82cab0c25"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/WindowClass.kt",
+      "sha256": "03516fdba4b08bb8e790357ce4519ac78b2756f3bcc45c3feedd305cb6624d7d"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/camera/CameraFrames.kt",
+      "sha256": "71029b6c9d8f270fc6dd585a95caa24386d0aa473c2346ac0adaa7a86f3747f8"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/camera/LinuxCamera.kt",
+      "sha256": "4edff6bc9935546bab2880643742ce0d5c8dba8747238a577b35d703bcbf1cfd"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/camera/V4l2.kt",
+      "sha256": "d6d26b9222b6be4a96513b97d078855757be4926f45f708df003b1ec260b9a22"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/titlebar/TitleBar.kt",
+      "sha256": "125717856d6d61e5e5fbdd3425ab5f8dcbdc19edc8ee0df1019384288cb43cf8"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/titlebar/WaylandFrameStyle.kt",
+      "sha256": "75fc43601b8a53a304f2b3a37660c6db55b03895e27df73f4161964a820c0d37"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/titlebar/WindowsFrameStyle.kt",
+      "sha256": "cf5b590b61f19169716ded4286d47064daaf294910c7862678a87dd9d25acadc"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/titlebar/X11FrameStyle.kt",
+      "sha256": "0cdac504b2215db92bb1930aedd46046d0f65a9a19f24609fbf8b4768b61cf92"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/touch/ComposeTouchInjector.kt",
+      "sha256": "c781451cb2708797f19c456d810d152594128fad653e9f0b6bc04206aa825016"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/touch/DesktopTouch.kt",
+      "sha256": "c4fc1ed27372abd579a20e23a7fbf2fd36aa2806f0f87ab60946865f8cfdf815"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/touch/Posix.kt",
+      "sha256": "98f316d2f1653875f909ca015c075e787547c57287534f4410cfa438d1eca6b6"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/touch/TouchAwareEventQueue.kt",
+      "sha256": "37ad7c089229c49348d4c058b79ae5ad075e7774d95ab14e4cec096431b85602"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/touch/TouchFrame.kt",
+      "sha256": "af7939d241d289f63f8e64f691e4ce2db764663de9cee7e688d2d064e662aeb9"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/touch/TouchPointerTracker.kt",
+      "sha256": "51dadbe486ae7c411f4c6a72e0c6562dc0cdf4e0890d92b10239916b68ca553d"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/touch/WaylandTouchFrames.kt",
+      "sha256": "4f92ab0bf6047dde5300b8d1beceec3e1fe5b8c36a5501792a90fea7d85b6868"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/touch/WaylandTouchSource.kt",
+      "sha256": "207f42db4b016d2f8e859b246d56418a904d39389da0c3d6504ce0a0243e870a"
+    },
+    {
+      "path": "desktopApp/src/main/kotlin/com/vivenotes/desktop/touch/X11TouchSource.kt",
+      "sha256": "1550a50fb17bd395296b2b2d6526d20f4bda3f783e46fb06c38e6fc1af694d55"
+    },
+    {
+      "path": "desktopApp/src/main/resources/build-info.properties",
+      "sha256": "7ea598c28aeb22b53c4ab8af28b2fac6c7bf0bad4ad6017448d8dcff44b9e5ee"
+    },
+    {
+      "path": "desktopApp/src/main/resources/icons/vivenotes-128.png",
+      "sha256": "c67921e61a42ecfc885bf67a7e8bfb4a8a321c7d183ce768e2d3045b61821f4a"
+    },
+    {
+      "path": "desktopApp/src/main/resources/icons/vivenotes-16.png",
+      "sha256": "b6afca17b1f61af79b3b78ff103b646b59484cc6acfe72d4d684ef90b234533d"
+    },
+    {
+      "path": "desktopApp/src/main/resources/icons/vivenotes-20.png",
+      "sha256": "cd7a913a0ada327c5bd20a9f78ed7f42238d5f67e99f55a7d738cd61c9cef7e8"
+    },
+    {
+      "path": "desktopApp/src/main/resources/icons/vivenotes-24.png",
+      "sha256": "856f86853970debf7f338bfc3a18cf51b9cbedb99d35ba0ad833e830ffb000c5"
+    },
+    {
+      "path": "desktopApp/src/main/resources/icons/vivenotes-256.png",
+      "sha256": "25dbd9ce76194a3c0d5becdb9660ca8a5240ce5d82bd1787b938d720da250d12"
+    },
+    {
+      "path": "desktopApp/src/main/resources/icons/vivenotes-32.png",
+      "sha256": "28ca277e1fc638e24f62774e67e465f636c9785517c0011a7a622fef99d9ae43"
+    },
+    {
+      "path": "desktopApp/src/main/resources/icons/vivenotes-40.png",
+      "sha256": "8f4bb07145834583067cd37f07c16c2dd2fbff765050fe12dddd489c1071de35"
+    },
+    {
+      "path": "desktopApp/src/main/resources/icons/vivenotes-48.png",
+      "sha256": "8ae7eb1ba35edc1fe7bf862e9ae273ac670509aaa9c5c753b9c07f4137c3d9d7"
+    },
+    {
+      "path": "desktopApp/src/main/resources/icons/vivenotes-64.png",
+      "sha256": "94322aa05765378c2e786180914033ac0ae63cde6a90dd5267b13bf9988d66b4"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/AiSettingsFileTest.kt",
+      "sha256": "f3d90c53b8cdcce54dd4c223eaab6da5628aaca98cfe1717102a321d1c29ae95"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/ByteInkDependencyResolutionTest.kt",
+      "sha256": "5da82a793a3f4802bdcc6fa7e4481e61a6568d744bd4371b9a781f41a9afabf2"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/ComposeDependencyCompatibilityTest.kt",
+      "sha256": "56796c2b83c8fb3ed249392c9f64b3615b639f0db3a25f409ce3cba6276b6daa"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/DesktopBuildInfoTest.kt",
+      "sha256": "c99853c6dc21ff10e74f91c3853008ebf352f7b0759f901a7012897afde03162"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/DesktopNotebookFilesTest.kt",
+      "sha256": "d98637b095077fa5e28c66efd8b5da05127e04f6abff101a071ba4906ae2e3c1"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/DesktopNotesTest.kt",
+      "sha256": "723c2f1bce92802fd80164e672e91f1fdca31e3b08b0dfe8da98a9d7dad1b131"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/DesktopPdfExportTest.kt",
+      "sha256": "f5cd8f0768bc3728065e5a7b89e77938c7a827268a60828ee4f9b3ec716128b3"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/DesktopPicturesTest.kt",
+      "sha256": "8ddce121d0fda99dc3385b5255fd81c6c7d39960f457545bf327b40288aa0514"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/DesktopProfileTest.kt",
+      "sha256": "28cc350677d82af150363d3d18a4e6885063cfaa02622d7865bde6abe3763437"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/DesktopSyncIdentityTest.kt",
+      "sha256": "b8566007165d0ae2133f5974987eede304391ea0df1d0786ac0f74a4c013f776"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/DesktopSyncTest.kt",
+      "sha256": "760091905dabb50a462e54e7ce1a48723ed98b94000f8e8593c6c49b7f0649aa"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/DesktopVideoThumbnailsTest.kt",
+      "sha256": "5597eac888fdc59e8ce3cdfff8b975a9d0a34a5d5030593f42799f80974afdc0"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/EditorDefaultsFileTest.kt",
+      "sha256": "2b9825258a11185b14021e71876942e18079e020bf51d0bcb346111307586d8c"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/FlatpakFileDialogsTest.kt",
+      "sha256": "cb24ec843d068f5777c1dd1d9597e21ff35a45ad309245cb36fd8140c7b7d481"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/FlatpakPackagingTest.kt",
+      "sha256": "a6a66fc86d2b731fd9ac732b6132631b8061eae307e423bd8e56bd5f2112d288"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/GoogleDesktopClientBuildTest.kt",
+      "sha256": "ddfc4edbd7d0d4a2132f87665114d5a2f16d92df1c3cb7a38487305c922b6393"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/InitialWindowSizeTest.kt",
+      "sha256": "774c06dd282303b66615eaf7deb7fde22df8b55016bed806f204cef4d5e077ad"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/InkSettingsFileTest.kt",
+      "sha256": "7b847382769cc7ac36b5a4b89b5da25420b00bdc69ed721cf76855a2465952ca"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/InputSettingsFileTest.kt",
+      "sha256": "f2ccd6e4e2e62577200fde3ad1862e69fae7666ea09f73122c730ecea6f3302c"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/InterfaceSettingsFileTest.kt",
+      "sha256": "558e295de414f00e4df9945e014263b26b3cb0da97fa03c67a8836033e75b359"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/JvmTargetTest.kt",
+      "sha256": "143594696bccd6868223670671871ab73f37bb27dc18a82689d39dd5d2ab6707"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/KeyBindingsFileTest.kt",
+      "sha256": "d00767c0eda3a4d4fb38c65ac169189c0e654256f2b8842ec97eb07eb81de67f"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/PopupLayerHostTest.kt",
+      "sha256": "4900f03da8b99936201a36e97da5bec6f5ef1575559e31c4101fffd3cb54fa13"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/ReleaseRunConfigurationTest.kt",
+      "sha256": "ac1663472d3afee428baf7a82950a156b12a4a40bf8899c0768183f338d1893c"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/ResourceLintTest.kt",
+      "sha256": "488308640d7271cb39f36e8ddc4b583a5eb15ca1c81242afd8015da81e33b7c5"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/ShapeSettingsFileTest.kt",
+      "sha256": "bc15815c4379c0f43032d29660d515696ebb875c3706181eae093be994520462"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/ToolkitPopupKeyboardContractTest.kt",
+      "sha256": "cbe5572ddcb2e4308e3119ed72dfbb854f05f27815f07fc982b3db6283350822"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/ViewSettingsFileTest.kt",
+      "sha256": "7d6ee5f581a5672c26cac28be7153956263dd435c4f67bf6090e9cacbea653b6"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/WaylandMainTest.kt",
+      "sha256": "b09462d654cb94b1362195a9ac89bf9c6d384022c37d52e4deb0ca3f834e01bd"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/WaylandTransferRepaintTest.kt",
+      "sha256": "21ec29d595aebf085403432601cce206ee3bc3dc74a1a3fdc221afb964328df6"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/WebBuildConfigurationTest.kt",
+      "sha256": "0f6e88348e9136d7bd7a9014acc39e20b43483b83cc31487e2358abcf448f310"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/WindowClassTest.kt",
+      "sha256": "449102f19b10881e07c9df7b049c93a8011ebf1fb86b70de564c8a05e53f445e"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/WindowsPackagingTest.kt",
+      "sha256": "cb0f5956465b69f2d10e4db27d359e1f1c65cba8f4a56472b30cf6bad988af60"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/camera/CameraFramesTest.kt",
+      "sha256": "16de3c0b5a4599826be379dc67bbcdd4dbb01830c0ac0615b55c7c1b731a8fb0"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/camera/LinuxCameraTest.kt",
+      "sha256": "57866b77385baee47bd9b9fbfbf84cb47ffb61ca2f0e06a0de40a925d97e1547"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/camera/RealCameraTest.kt",
+      "sha256": "2230a0f1d7780bae6d5198e640ae7a436134642e4640c87188a1ac71ff86835a"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/camera/V4l2Test.kt",
+      "sha256": "eca6c3048ff82415366bb3926ef5e1a07549ab34a24e55302c80618f37221fb0"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/titlebar/TitleBarTest.kt",
+      "sha256": "5d34ef243a35cd07fe36b6dc7e8211b40d27f5394362228d35e8b953aaa77f33"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/titlebar/WaylandFrameStyleTest.kt",
+      "sha256": "f2b0ab8bc29ee4b15642e2e5d5671a46d4ba33749922e689535dd74ae3c22f4d"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/titlebar/WindowsFrameStyleTest.kt",
+      "sha256": "3f03c4804f9ceac7d9c20f2067dd148f8f3dab2742106fd18257131e519733be"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/titlebar/X11FrameStyleTest.kt",
+      "sha256": "d44dfdd1ec19c6724666d064fff4239e659a59a0158fcc63cd15280098830027"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/touch/ComposeTouchInjectorTest.kt",
+      "sha256": "d2c9668cc24ee17e112302462ba737016743e5e8dc24075d7deaf94f691ae4c2"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/touch/TouchPointerTrackerTest.kt",
+      "sha256": "8502e7f76aef3c7f365ddc9af481c259fc6a6a356f454491cc32031aebae9d8c"
+    },
+    {
+      "path": "desktopApp/src/test/kotlin/com/vivenotes/desktop/touch/WaylandTouchFramesTest.kt",
+      "sha256": "4a7501087c33532a3353f80e148980ac19cfe55ff9844a1305c54ef844a1dcd3"
+    },
+    {
+      "path": "gradle.properties",
+      "sha256": "f674625ccfffc4e80981b987edc53b49b3501a105a15cae07cdbd455c4d5f5eb"
+    },
+    {
+      "path": "gradle/libs.versions.toml",
+      "sha256": "81c2bc2c94e84f7fb6b05d143d41fba65b3efe6275eb2ab530be60e3bb5ffc56"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "b9c24447093e4fab2b1f37bfb461d2a1eb14157a4808dff50e0f954801a8f8f1"
+    },
+    {
+      "path": "settings.gradle.kts",
+      "sha256": "c3e3f01e4c140ddf65a16719f02ef632783759ec981c38bad1243af28b8d73bf"
+    },
+    {
+      "path": "shared/build.gradle.kts",
+      "sha256": "83f54a54648f517a4236a58ab57adcf1675bda045f0a21ed4b2097a1f2eb1c34"
+    },
+    {
+      "path": "shared/schemas/com.vivenotes.data.db.NotesDatabase/1.json",
+      "sha256": "41c4c0ce2ef6a9d527f31e4618b6a10bc715baf2a3878b7e9e73efa25ed05cc1"
+    },
+    {
+      "path": "shared/schemas/com.vivenotes.data.db.NotesDatabase/2.json",
+      "sha256": "74af6454ee1d8b0b585dfd608f78721d216af505122b3541337b7599723447dd"
+    },
+    {
+      "path": "shared/src/commonMain/composeResources/drawable/vivenotes_icon.png",
+      "sha256": "672bec2b13c5e599fe993aa765bd1fae7570938e9cdd49ee516727707679361a"
+    },
+    {
+      "path": "shared/src/commonMain/composeResources/font/inter.ttf",
+      "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031"
+    },
+    {
+      "path": "shared/src/commonMain/composeResources/font/jetbrains_mono.ttf",
+      "sha256": "48715a42ec242c21e9f02692891e147d022299a52e48d5e413e1a942193ffeda"
+    },
+    {
+      "path": "shared/src/commonMain/composeResources/font/lora.ttf",
+      "sha256": "822a6621ccbe8d97d20ac88c1c41f5615c9c2c202eaa75f272cd452aac6475a7"
+    },
+    {
+      "path": "shared/src/commonMain/composeResources/values/strings.xml",
+      "sha256": "9fbdb71e91ce9d226aa1f0b0ac1e300433733ff166ca57007b7d124dd2bd47ca"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/App.kt",
+      "sha256": "ab8acc02f48497601cea1d1902da13874ebba2b2c8429a1eae772dac01b8344e"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ai/AiModels.kt",
+      "sha256": "d26c7e692bf65801960d7763c1005652d0f67c278ff42926306aa0223a03c06f"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ai/FormulaEngine.kt",
+      "sha256": "740ba6df90709c3b7d3b17845b7ecbe310aa00793252f2528273acdf925d84c9"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/AccentPalette.kt",
+      "sha256": "683e61b4ca4df9271e8055cad1f63e56f5c4b352ce0868faa3987a7dbd1be0e4"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/AutomaticColor.kt",
+      "sha256": "ca822d30e61ce98eac0dae2b3726a683c13c219e9b52334ae8f7f6e668f84fd7"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/ClipboardHtml.kt",
+      "sha256": "d1cce3f4052c02b6112c1652d76c3d5519446154914063006f827f8d0adf4717"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/DeletionRecovery.kt",
+      "sha256": "44842ef277ec82d76b1bb596f0ca91171e60873ac5a1b244df99de0404778d74"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/EraserMode.kt",
+      "sha256": "483a9a555b59a972445bbee2b320a2edf9e1b14735ce5a614d660537f937cc9a"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/InkEdit.kt",
+      "sha256": "a7988e70147ac3b4bd150bb3ba840a9aa944df13c1cfe81b54c7fee85354b2c3"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/InkSource.kt",
+      "sha256": "aa510497bb821854b650d78cda9d26870e12f829012865eb649db0fd7f5bf8f4"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/NotebookFiles.kt",
+      "sha256": "f3264e54590aa32ab5de9b393ec99844156ebb4ffc885ca2996a29578fcaa5d8"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/NotesStore.kt",
+      "sha256": "ac0e25a3a67314714b31ce1c5f6bcb8b0826ff31ec4fece3e8951e5f206ddea4"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/OnlineImages.kt",
+      "sha256": "93148e6a1367fe46157834a9ce7a4872141e5d4db4ff60625bf3d5357809bce1"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/PageRevisionLoad.kt",
+      "sha256": "d5fe1e54af3c45c775297db190925433aa8c00e85e04ef131df5efeded50bebf"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/PictureCamera.kt",
+      "sha256": "fe499f2bf08ba79ad38fc01ee7e1a52e79d1d618dc9908a9fc9b521ba4e95084"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/PictureLibrary.kt",
+      "sha256": "f8565230bedcc42c177b502277d41b9da4a75c223636a6aaa76a5d08c29b0e10"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/VideoThumbnailSource.kt",
+      "sha256": "6c5c90c99819c3e852fa91c154768b87a1990e6afd242480ab2de188b4cdeac5"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/db/Daos.kt",
+      "sha256": "5723ca6f236fcb45ea7ac2b1eb5c1dac5374ad355e225ade70972765bc6276f6"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/data/db/Entities.kt",
+      "sha256": "68704d5119a9a2f77935c35a087de21bcd62e40ca4a905842e9a9047dcad7d24"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/diagnostics/DebugLog.kt",
+      "sha256": "f80b201c4aea95dbfadfff6d5fc1250ad83c2c5ead7a0ba283e8ee469bb6e25b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/localization/Localization.kt",
+      "sha256": "b74726aca214ce133b9c85a10804139e92969703ca6ea39007e01b60cd182378"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/localization/MathText.kt",
+      "sha256": "e7924a6e58c82dadd76b61a3db9c694ddf1447080752aa91edbd3d7dd146474c"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/math/MathEngine.kt",
+      "sha256": "691284997b97ccbef1fea81667cedde6efb812575f6855f847d8f25809cc0b2f"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/math/MathRuntime.kt",
+      "sha256": "977cb2e09b0e296bf07c937a6ab9205b8924b4f19a12d4ff3cebc88cc942b005"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/Document.kt",
+      "sha256": "9374e254536b44dda7eb5ec8481722d9bbde5d867e29ae99d24e7025bc452502"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/DocumentCodec.kt",
+      "sha256": "bf01debf9b7faa29e0e6479bff0df04e6679b7c3ec1092528ac1dae712f5e6c8"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/DocumentTextIndex.kt",
+      "sha256": "63715f3b4060cea05030b3c9eeab914be510a0824cf296b6eed31a4546410a66"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/LinkUrl.kt",
+      "sha256": "0afd7eca6104b13f8f3bf067b2e3e31cb43d759ff6ad9d3b3e3c7b25770a6759"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/PageSpace.kt",
+      "sha256": "e1ee670276f7469c867b11252af0ba13d6e00e1021d417754e1ce1a6014de207"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/TableOps.kt",
+      "sha256": "d462c93e39754e2f01975cbafc0127e7f5703612426ce7c7554dd3a59e7d8e24"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/VideoLink.kt",
+      "sha256": "57777f251ac13be823503a14847f4a8d5f30998c7ee401eb4327f4ce48782537"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/InkPage.kt",
+      "sha256": "809d2a700ce47ca14188868e30e4f4c1223620809eecfab1e74c2e11eaaa438f"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/InkSelection.kt",
+      "sha256": "97d41e60531bdd90ec7bb80cf8f081b6fda089ae41edfc198e389edefd9023f5"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/LassoRegion.kt",
+      "sha256": "93caa7fe0b6a6ae9b4841f133b0e13d718cd6576204f108e23f0fd7f4f5acef4"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/Ruler.kt",
+      "sha256": "f1565fa83afef78b3b5dcff29ff7a4120c50c4a1c970e8074bb8c0a80efb52ab"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/ShapeArm.kt",
+      "sha256": "9be109e64f8170e7bde58b3c1ee9be0200ad2d84d9d7d1634ce11be0955b1f39"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/ShapeEnd.kt",
+      "sha256": "cc05a2cb9f7756768dc696f4714d8e027e4eff7987330e74a1432155b76e8db1"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/ShapeFill.kt",
+      "sha256": "caa1a4a1329a54a219c29ff5b34c589bb13ba40b7d704b8841e0f5bc47b51b99"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/ShapeSeed.kt",
+      "sha256": "c44d20d8d28abc8df207bea32caae254d4f6af89bbeceeb954fdbfc4bbe09beb"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/ShapeSegment.kt",
+      "sha256": "fc3502d2ffebdb442b13be398e2ef945df158b416bbb325d21b8aa9657d571bf"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/ShapeTrace.kt",
+      "sha256": "b5ce7133e3974efcdce5d2593a618ac3bf4a4888360851c2a47fa0e4b70d7871"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/ShapeTypes.kt",
+      "sha256": "24639d2b2ebf62c08c7e6fce4282644ed765595263275e665034a2da643e6569"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/StraightLineFit.kt",
+      "sha256": "fd6184631fed60d9b9aaaea3b4c0d2ea17ab9ba2da9e69b95f23510dacb11eb2"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ink/StraightenHold.kt",
+      "sha256": "2ad63715c276d6a4ff51d69e77d35a71f16140d9c23f47ce205c71b206ca1f40"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ocr/HullSupportTree.kt",
+      "sha256": "02122649cfc8414e9b01c078c6d70fe6d3d40dc5294d2bf0caba5125fc5d3e92"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ocr/ReadingRowCandidates.kt",
+      "sha256": "4b9e22470a6f33d85a9c2b7317e4d8e42e1a68c088ed7ab1b3d92cc696321a91"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ocr/TextDetection.kt",
+      "sha256": "babe376c18a61012b1f0c065e0fb5769859f4df0cd67052707f941744a0e8c49"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/search/ContentSearch.kt",
+      "sha256": "fd1d608049e68362f7b6bd05cf11ea62737798d8981d7bb399fe3ffa20f3ca2d"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/search/FuzzyMatcher.kt",
+      "sha256": "ca123e6cf637b0bc565815895c888d675d20e4a46d11e6858197fa9bc46085ca"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/pdf/PageTiling.kt",
+      "sha256": "f984362e4b706c2dbe474ae810f6cee6aa04d2c2fdfee604df9879543631d2a0"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/pdf/PdfBoundsIndex.kt",
+      "sha256": "84734010717c3dc22b7016d57b5e14321b3712f8a954a0e4262b5368db3b2c4d"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/pdf/PdfExport.kt",
+      "sha256": "c5bd95f31176527da0f6a35d9d240dec99cdcd909f7a119b0afa929487ca5a90"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/pdf/PdfPaper.kt",
+      "sha256": "c9e8ca31636a9486195f0cc38f329cbf4bb75cf8b63b1ce8bafa5f83518544b2"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/richtext/AutoEquationSyntax.kt",
+      "sha256": "85631e9a916e3d578537a77e6405e55110771622f866bc96802e8dc648f62316"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/richtext/HtmlPaste.kt",
+      "sha256": "c55f72d040b0d9785e566fd04d2ea74bcb66b4b85ad30b71c7d2b03a7e3c0aa8"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/richtext/LivePreview.kt",
+      "sha256": "ed0df17cf018a792bcff0ddc6360e31e22245ef3bbfba5e6475248442623662f"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/richtext/RichTextBuffer.kt",
+      "sha256": "95daf8aa50a49d307b32405ae6d35f0356c38c2134e179ee59e7780d76d822b6"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/richtext/RunNormalization.kt",
+      "sha256": "876757f9dff5cdb3ad26a2b44df92782ec4af1b8a9ef9d074830250873072183"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/search/ContentSearchService.kt",
+      "sha256": "ebd264683256ffb9ab5478e53615e9991dbb6b3d94af02bd6957755d34956c7e"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/search/SearchReveal.kt",
+      "sha256": "f52eb11da705764d8a41ede7b745fa0e6e06c2f3b40f8e8a6211661bfcd188d7"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/account/AccountHost.kt",
+      "sha256": "eadc93b1bec3826033b5abf1814a99a15f806d01e4da32f67bd5f8b282549fe3"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/CanvasExtent.kt",
+      "sha256": "75e0384e5824ac6b095031fcb4b68e4cbcbbcce07931bcdc9aa3a443ec171bba"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/CanvasTouch.kt",
+      "sha256": "a80166936ab10c906796009e2524567aac7328b67db3569543f1645fbe525781"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/InkLayer.kt",
+      "sha256": "52c4f7b84fa9202ce32de6a066108f6728d436dbbd8701b04ffb9c281f799bbe"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/InkSelectionFrame.kt",
+      "sha256": "8f4c70c58ee4237e9930161cf5d02da3e35b01738704425361d28fca6441bdaf"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/InkSelectionToolkit.kt",
+      "sha256": "d1ff0da9fa26c40306540bb3aaabcf112092a9b4fbecb555b437bb5ba500be7d"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/InsertCursorBadge.kt",
+      "sha256": "97594532a0400bea264eb35a87fa8de0a45678b94831a1966b2bcf040fdc6818"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/PictureAssetLoader.kt",
+      "sha256": "a8e793073b8509d568040c7f78b11a150a7057bfe8ff4b1a4eb41ad1d4491707"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/PictureDemand.kt",
+      "sha256": "05af6b7cf6a58c88355de1118d18f22e5bf4d11ea39b967afd77755c00b2e3b9"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/PictureRendering.kt",
+      "sha256": "ebef8ceab155feed06fdba9e914448819b81d617b134f9045779c078da69edd5"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/PreviewOffsetIndex.kt",
+      "sha256": "debce368eb7f163cf5087dd7915acd39efe6b68ed1736e24c6867b83b46cf54a"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/PrimeResizePointer.kt",
+      "sha256": "bba23b403eca3b16d80e270c5929e2af870941e987a5a823052a4a74777508eb"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/RichTextRendering.kt",
+      "sha256": "9141e6ecab9f43193d791bf801d2936194039cfef2e463f662064aca652299ab"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/RulerLayer.kt",
+      "sha256": "fc4cca28bb9df5b03e0643e5ec8d6c938b4ca4464bd0db3947c3a6482c6b17f5"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/SelectionColorPicker.kt",
+      "sha256": "26e4175169e125199ee6643a13896ae5dcd55fc920f8c41ed35d87861a2df99c"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/SelectionFrame.kt",
+      "sha256": "07e29b6e890323930bb1beae2f4992b95fd188e03e2f8fca696c6baadeb6dc1a"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/ShapeDrawing.kt",
+      "sha256": "519634b49d72a9b1dc48ae94bc965099219ef396a87cd6d7b0d49df373ad485d"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/TextBoxPreviews.kt",
+      "sha256": "ced89fd61b78e2cd1315007a80b92bbb3984d60594d941c84d8d23904b0890cb"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/TextBoxReveal.kt",
+      "sha256": "7a179aebdf07e51cbe0f3617df297e6003517c13ce20705e5a8d90b77c280c9e"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/TextCaretKeys.kt",
+      "sha256": "224fe997cf323d37c058db7183f1bf18a02210fe60ad4cd58a4ec02c472fd227"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/TextClipboardActions.kt",
+      "sha256": "680e7798bba62104633b57c593a8f4a1b0b513a230e2949741166ae79cc7b150"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/TextContextMenu.kt",
+      "sha256": "34a99c40995e4acce5c80d6a75e8aeec562366ebdfb8cb741aa22924d8aa2d4b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/ContextMenu.kt",
+      "sha256": "e999fb5da481987507928d9fa091b68727bef393651d341518dbb802ac4dbf97"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/DefaultChoiceItem.kt",
+      "sha256": "d2f38062ef34347a41851a05fae5ef87e9377f1a7008f8f08708f97ae4b588a7"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/DesktopDialogFrame.kt",
+      "sha256": "18694819b0fa01cabe87603bc5d446c77f83cf45d6f35e2edabdb0f3163eacea"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/DestinationFrame.kt",
+      "sha256": "28efcbc405a9d16d7bcc54646108da711342eeb112e94e23b57577e1061edced"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/HoverTooltip.kt",
+      "sha256": "87fdf66a68d7580b6a9308bd40ce0be34859f9e0ab590eb6f2c1186f6c3b0f2b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/ImmediatePopupMotionScheme.kt",
+      "sha256": "f3917950dba90776ef0a198308832585c734e60ace21ce7aa63cd05ca26c94a4"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/ScaledDropdownMenu.kt",
+      "sha256": "1c2141f81f43aa893c5622abd93b79f68c306ced19e7bb7fdfdb0ad9d987feb1"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/SwipeToHide.kt",
+      "sha256": "39fe41cb2a209e67d3726c8896f83d650280cafad715f422bbc5f462cc18dbaa"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/ToolPane.kt",
+      "sha256": "5f8542df7d8703067d58aaa7c8c03dec295a704de6fa8bf1c5c6cbbf72189b37"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/TooltipDismissals.kt",
+      "sha256": "d0e50a9c119569b952d5c0654cfda69d10c34127c21f34c1c5e8f990d9d7a765"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/components/TooltipPlacement.kt",
+      "sha256": "1d23bfe56ce45e6fdeb0ca6f66cac02b2add7a65ea9736a081311c375ed71022"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/AccountSymbols.kt",
+      "sha256": "f5ebc028d694e9efe40855bea62a4604ff0d93c4a32f5990546291ab1bb690a2"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/ContextSymbols.kt",
+      "sha256": "a41682917a032b4040125d61fe2792f6b45bbdc24823cec3d09cdf672886af18"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/DocumentGlyphs.kt",
+      "sha256": "1c3d59d4677680e04dc5cd35537f827e33815505041e9181284fd97e16ac5aa7"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/DocumentSymbols.kt",
+      "sha256": "9fff84fdce685a89f14eb064d8b623d9288a475e99803c031e2d1fbd8a6702a2"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/DrawSymbols.kt",
+      "sha256": "261a906b34595aed43d33212e2dc4c048f33680cd6c6b6f010419378bd3d4312"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/FileGlyphs.kt",
+      "sha256": "d754ec72e2250789a97c94051ab24ad8041c3b83f2d0b2b5b54238c15f0b3e71"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/NavigationSymbols.kt",
+      "sha256": "554271b2544fb8da6fa13c93f4b34ecb487087df8f1ac62832935036e0229e33"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/NotebookGlyphs.kt",
+      "sha256": "e542d3a31e74510185bfa26a1a536c3e5acbff18a61383c52f3161d805ea9eaf"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/ObjectSymbols.kt",
+      "sha256": "cfceefbe54e3fe27918e4ff51c957db28d98053c9c05c6f1de122f17fef1ebbb"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/SettingsGlyphs.kt",
+      "sha256": "bc556e30dbd553168f6dbe9e2cb618225c0f27bd1046fa532c3cbf06ffee10c5"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/SettingsSymbols.kt",
+      "sha256": "999bd59c90273f057997362cf37d647741cbf28fc65d68fa9bb5d9c9f673b097"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/ShellSymbols.kt",
+      "sha256": "31694a04f07fa640fa22069aa2cbd036141f68eab070c606bfe76d03eb70bdbb"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/ViewGlyphs.kt",
+      "sha256": "0c6e4a1dd2dafc8cb6908f598d1e671048bbedabfbcbde76820cbecba52a31e0"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/icons/ViewSymbols.kt",
+      "sha256": "cb41dd7dd4a8add709d159251593f921a80a22e0ab77a10c28408912344fca5b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/keyboard/ShortcutKeys.kt",
+      "sha256": "1f714c574bc297930e253cc280fa8a2ff67c30c5404c73132252d185cb0b7752"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/keyboard/TextInputSessions.kt",
+      "sha256": "589e7e89fb2846b96ae1af8f38efb6cdc68cb443c678a35ba4b96b11212d1f5a"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/navigation/NavigationDialogs.kt",
+      "sha256": "d390c8af9ec2ce8e7dbef4f170beaa7513e90c35055add5315d1671a3565d11b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/navigation/NavigationDivider.kt",
+      "sha256": "3f64111210868934349197221c95c9b031f6da3baf83107d0f20527bb617e117"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/navigation/NavigationPaneWidths.kt",
+      "sha256": "a4753d5f63312f7e8c79c7cb944a29ff0c9a827882d3ce170076812abd2ff0eb"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/navigation/NavigationPanes.kt",
+      "sha256": "fba52c3f298e566fd95f0066bbac25e376ac98026fa8fddf4cefde23904d00d7"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/navigation/NotebookRail.kt",
+      "sha256": "afa60b072b1bed1bda2e13db90028d75cdad33408962cb1c4ee5b41c83714fa1"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/navigation/PageListPane.kt",
+      "sha256": "ea471a69713bdd59d8b6f8ef274188186ade8b06b8922d10b03e80a440f0c0ce"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/navigation/Reorderable.kt",
+      "sha256": "92452af91b3fd0efce094af56788b1bbe4fc20f6abec8d1899ed8d3107e7f710"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/navigation/SectionTabsBar.kt",
+      "sha256": "a477ae5e046516dc9a1612d5252741643e18ae98180f1fb695c207e59ae5a596"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/RibbonControls.kt",
+      "sha256": "c5c9b2dcd27547b4c8476029f7070dc8b8812657b698657c529405cdfd623a5b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/RibbonStyle.kt",
+      "sha256": "5b05962d19d625c46be364498af127de4a532146a399f2f3db2f230d63889dc8"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/document/CameraDialog.kt",
+      "sha256": "3c88a12368528268bfe0c9f1b7c724a06e108681c51c4f4f02427bcb1c2b8837"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/document/DocumentRibbon.kt",
+      "sha256": "4680af8d935bfcc00ea0c65ff83878bf2b0df18f1888b32a39fc497ba0be27f3"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/document/DocumentTab.kt",
+      "sha256": "3b8f8d9c2479f0dccffd0722e4fefff97d5c6136dddce7db9291ae3212458786"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/document/LinkButton.kt",
+      "sha256": "77110341fdebe86eda9d6fe818d4659764289bd62c5ca184da6439e549239e7c"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/document/OnlineImageDialog.kt",
+      "sha256": "4e75e7533d7a6f30e904220bf91c7505911d1a20429cb15ab38987ef249f6ac2"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/document/PictureMenu.kt",
+      "sha256": "43794d615ad909f293209d3144c071ef3f50a3d7c13c45059cac8354fbaa6dcb"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/document/PictureObjectTools.kt",
+      "sha256": "c002f9c5d1ba8c6c55771f3a61c5b119066bf7cbd7da1ead71981d397f39c6b3"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/document/TextPickers.kt",
+      "sha256": "138ad7d7191fcf4175802a169b6043fc3e51d5625a227ac8e99fab3159e35f9c"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/CalculatorWindow.kt",
+      "sha256": "59982cd1025757030e8262e74d0376dc094f3ea756963c37f7fe0ed13e522496"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/ColorWheel.kt",
+      "sha256": "b2fd88b454dde426b715fbb11e7716e6f99bc456a2234f2962a9106378e9b2c3"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/DrawMath.kt",
+      "sha256": "0f53cba926a610caa75a37ef26b16798d1594074a9b984de9b7353ceb9d8ef12"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/DrawObjectTools.kt",
+      "sha256": "18fe6f7148fd9e82417fbaeb2cb5852fd106a4249c2b99c4d52ed385e0b2b61a"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/DrawRibbon.kt",
+      "sha256": "eb0e67e885d04c4ae5b6568d90bacfc6c708a47e5f06e0d7b2d39be7ac5f07f4"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/DrawToolkitSymbols.kt",
+      "sha256": "349e75ed01d5331a80563f1db5f67d34ec84c55dd427fa5ac56f4865e5ac361c"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/EquationKit.kt",
+      "sha256": "fdbe1291f9b0b99cf1bcd183991d5c44458b5573a296921999e7ffb7473fa660"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/HandCalculator.kt",
+      "sha256": "96fe48161944bb09b88e441eda358f1ea164143d33407283d279a50f585c5c17"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/InkControls.kt",
+      "sha256": "83079805959e1fa60e5125f372fccf1064033a342265d0e5485ed915e20995e5"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/InkMathPane.kt",
+      "sha256": "1d01ccf45961aa692b8e5711343410d7cb1131c1bbd6e756d01db9b09873a8d0"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/InsertSpace.kt",
+      "sha256": "99957ab17c622c8c1faa69ce1803cdd63ce45ad7956696dc46473a9bc79adfd1"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/MathPane.kt",
+      "sha256": "5603fd80f802e90048bfabbdb0e8f12956d6236cc85d6db72b50dac00696718b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/MathPaneLayout.kt",
+      "sha256": "765eae9dc6aa3eb4f5e4e7d09dc8b86ecdd9d84a84a48445e78f11df34a9395b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/ShapeMenu.kt",
+      "sha256": "1e435b4663c73ec230d064bcdb16ea3b70193ddded3c8b59f1107ce005c15e2f"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/ShapeObjectTools.kt",
+      "sha256": "08fdcde3ea3acbb2e580379bec1fd9079af7db10fd06fd51227af57af620ccf1"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/TableChrome.kt",
+      "sha256": "064080db031439ae8a9283c2cea5bc89c83ffde5ebd2ea4e7b25e7274c920d40"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/TableContent.kt",
+      "sha256": "cf6ab3186b20a82496891ff5aaa6e1192c1ab5263b74604055619592b9ad0585"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/TableKit.kt",
+      "sha256": "a961cb7317d1911df9cb4c3599402ce20daf22c854e3282745bdbbedc9877213"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/TableObjectTools.kt",
+      "sha256": "8454d50af5ee5800ac58b3fefe489d6c698f92933b5a078216a9db107190cc90"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/draw/ToolkitControls.kt",
+      "sha256": "cb6821d16db245ab7090ca0971b20ff8be63bc0d92a1eb04fa438aa515c38760"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/file/ClosedNotebooksScreen.kt",
+      "sha256": "9f88c32210107c4d3650931a36bf96af126688fbdda483cfbdc6bcfaa6c66d1b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/file/ExportPdfDialog.kt",
+      "sha256": "f369b2d02e729a5f15b3634f53d2da4a411d8cc4d104fceee3f9dccc52f190ac"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/file/FilePane.kt",
+      "sha256": "b5a7f9aac2124cc58b4dcded375506c50aa46107582ffdebff7280cbd3adeb31"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/file/FileRibbon.kt",
+      "sha256": "db1cc98a6c3dc1b0635f0bd72f447a4aa2e88d74e6862840005feaa524445f21"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/file/NotebookTransferDialog.kt",
+      "sha256": "33ccf809a489252fd4188b7809c9487783cf0bc719c51feaff1f6511c08b6388"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/settings/AboutDialog.kt",
+      "sha256": "215322996080f53cad3c54417e3a01504f205b0429c8117df5303d17075868a8"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/settings/HardwarePane.kt",
+      "sha256": "56a75e7d75aa63be55fbeeed28980c513d687d99048873159bac25ac7c8f9b9c"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/settings/InterfaceDialog.kt",
+      "sha256": "66ec3150b591e9b3667cb83f8c3ad3c35c6787740af7167984d75c226f7b2957"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/settings/InterfaceSettings.kt",
+      "sha256": "0aef42466c2ff923650687e5c5e890a9cb0705ff942e9920c713d7fa89f58925"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/settings/ModelsPane.kt",
+      "sha256": "3fddcf63b53dd41cf57d683059c9bd51362772d55b5e77cb376146228dd857db"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/settings/SettingsRibbon.kt",
+      "sha256": "3f5a8b354e7e986d719094aa225b397a247b23dfddc523fb4bfc09508a6652c2"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/settings/ShortcutDialogs.kt",
+      "sha256": "004ed28a5a2dd84bbd5f1067df4f4bd6563059c6f8e02746491c03bae59736d9"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/view/PaperSizePane.kt",
+      "sha256": "6158450b930cbde7eb4d48f4b173ba7bcf3437a63f8515afc390ec917492bbe1"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/view/ViewRibbon.kt",
+      "sha256": "c4aca5981e83d2c134fbc70a2984a7bfef5132e1831d2194979246b2cd159bfc"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/ribbon/view/ViewTab.kt",
+      "sha256": "7bb619c463c45032beff719509a0570c86c1af2ec39902b7262639aa914bfb5c"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/search/SearchPane.kt",
+      "sha256": "f06a3809e87f0d65404968275792ac2251bc7e3254510c64f5499eff091db17b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasDemand.kt",
+      "sha256": "af62e89fff45efe9f65e2a6de1173917a23240854d39fbed6ea1d7f34286f95b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasDrafts.kt",
+      "sha256": "e3044ba219c68411774cad236946565c2ca75e40d760febf39ce695ed3a7c7e3"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasInteractionState.kt",
+      "sha256": "58312a32984d6d74cc375238b219d9923089e98122d854c46f30c8dfbd89eb3f"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasPageTitle.kt",
+      "sha256": "166f6b4c36213645c4a083c7aba4849df9549c0e6d3a0acdb07243739b528ba7"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasPaper.kt",
+      "sha256": "d5b9efdafcf2f4ae685244b0c5221462efe257bc44d4393d8d8fb1d8636fce66"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasPrimeObjects.kt",
+      "sha256": "959790371faece0f8083a8ebe10b1fc3d96f640ea440400e49e674da1f601979"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasSelection.kt",
+      "sha256": "a2354bd65e308fc5953d9f1def3877d95341d48829e82276c8524746f94261ce"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasSelectionGestures.kt",
+      "sha256": "98999d80fe869ee4294860279d4a40c008af069cd66643ce1edd6795b8d60af1"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasSelectionWorker.kt",
+      "sha256": "946082151513312043e62d30338b86d0b19004d10c9183b4d71091eb38e6f3cc"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasTextBoxes.kt",
+      "sha256": "85b85f46eed493fcdd606ab396fc59baff0f6957105fb4bda3b3a2c8ea273599"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasTouchViewport.kt",
+      "sha256": "0774f6014a8af2e149bfb449e1503a5078dd1e12e5b284189f541a5c147f5905"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasViewControl.kt",
+      "sha256": "52b58f0858b38b27ca6e5d40f644c3514d6c859c1557d7c011795c355c0bdfee"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/LassoPathBuffer.kt",
+      "sha256": "d122b8fb792cd5b13be4134dbf6c3b40f40c9a2830140fbec46e10092d33a1c6"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/PageCanvas.kt",
+      "sha256": "0232e0eb285f1e76489ffd464af94bf9161c8f1bd684136d4f99d414e09da131"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/PanPointerIcon.kt",
+      "sha256": "861f264cca8fd424c1d735828674f6cd42bb24d1ff33303c320761489131a472"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/TextPreparation.kt",
+      "sha256": "4e7a34f6581ea964d30a59415f082b2d38481b949a2929aac359b222e0c2c519"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/TopNavigation.kt",
+      "sha256": "7128afcef60ddb1ec56b0f10bd7c4bb50953606d3e49c085b8d54e4abda157ca"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspaceContent.kt",
+      "sha256": "1adf5488410413cfc972808cbc0ec04da4059f281af9ce2b056f26ebe33e7e85"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspaceDialogs.kt",
+      "sha256": "eb4c885af86d9ec5bbd6e1ba1d72d74bb0f9c2d066f7a70c749d516c3e0ab8fb"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspaceDockedPane.kt",
+      "sha256": "e5bac41ec5ac672cd9a9eb98292c3dccb61114d65d0a7de53316e9953783b46f"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspaceNavigation.kt",
+      "sha256": "0dd556caaef9da06a69a4a7c89d7f570e336eabb29153299f596dec4f0d13cd1"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspacePage.kt",
+      "sha256": "cc74b053975c28e5ee688348b151dd1368f242f9f507ae6d0f45a030ca2bbd9b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspaceRibbon.kt",
+      "sha256": "652e7163dee5199868d2d95253fe46049753fbfd5f4ca42363ecd72b76fb3d6d"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspaceScreen.kt",
+      "sha256": "072b1fc6237b467dc9591800eb2e77ce947e6222550da272003e6ecc04ffbbd3"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspaceShortcuts.kt",
+      "sha256": "f29e09fbc92be9611f894b7703a5d155721a788b9a40c4bca4fb9b4915fe4085"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspaceStatus.kt",
+      "sha256": "1ea09f5b93153fde1709b75ac50399be73ad953ef4e77080a6b109e13a8475e2"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/ZoomedCanvas.kt",
+      "sha256": "f0a0ed2a99e2a0e19280311217acc64dd46ef0f7cbd86f0286d47db77e2d8666"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/theme/Theme.kt",
+      "sha256": "1e4e0b391488d4447df640bd730d4acbd26256aa155ec5b6d50840c25d342667"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/CanvasObjects.kt",
+      "sha256": "685c95316220d75f55e057ecc69b9b2c4fdb0ece3520592ed4ea43f481a05d59"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/CanvasViewport.kt",
+      "sha256": "fb15b425d8e8bea3230da84b0e3282fe33ee533933c48add2206781a4b7874e5"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/EditorDefaults.kt",
+      "sha256": "1770feb09d7be6578053590d0c227b0fb684086f526e2195d69b5e5b41888627"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/FileActions.kt",
+      "sha256": "0989a2d9c51908be6447cd2a314498c216b393110095c70090c519412a20505b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/InkGeometryPublication.kt",
+      "sha256": "00c53d49fe2e77cf213c1448fa777e7ee69e0f8f97c30ef21db35fd43082e65e"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/InkSettings.kt",
+      "sha256": "08e4ef046f65204bbc97a09d3d399cb1590069cbd29e833ca8c0b569af1cd89c"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/InkTool.kt",
+      "sha256": "effe3c04a42930009e213d58d7991910b67673fc316affc4be911f6db8202015"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/InputSettings.kt",
+      "sha256": "4b388051750f0439d1a4c9e1ac1a0922f6cb3a88d73e5f7fd9c3b89fc7dc2766"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/KeyBindings.kt",
+      "sha256": "cfff839e98c37803607c8ac5ff2246858fa5663ffac960a3528ff7abf9e69601"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/NavigationActions.kt",
+      "sha256": "9e94270e7c6ec5ffcb0cdc8c3cde3223b8b6d14a505e1fe067e5ec9436ec49df"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/NavigationEdits.kt",
+      "sha256": "13c5216408d9ef4d69bd5672aa1df28f875219011ccdefe07391fac5a45177f2"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/NavigationVisibility.kt",
+      "sha256": "e5e0ea78bba1c6efef969313dddf672d6b60909eff475ebc151670b20dc64210"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/NotebookCloud.kt",
+      "sha256": "c7a2fa132c962f94623598030ebf2e5a02710ec72f5ae4c79de6554ed84bca68"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/PageStyleEdits.kt",
+      "sha256": "0093a713969b822b65938a22bc69f3ebb444e4640d3dfc1c5f11c617a1b9841b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/PendingInkQueue.kt",
+      "sha256": "c298aa97be44d9ba1eeff2978ffbb8956d0bed5a8992aaeb07cbe5a7e1a3b0d9"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/TableEdit.kt",
+      "sha256": "c0758865ee7982200693637acc7ef52fe4080f82d5d68ffe799b23128804dd47"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/TextClipboard.kt",
+      "sha256": "64b2c7c5df23f0f15630e9481fec93240351e925d671bfc20b0054f57bd5e978"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/ViewSettings.kt",
+      "sha256": "90544ef840cd4d3d2a54985ef7819db8793538c74110cb7be59e8f44645a07d6"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/WorkspaceSession.kt",
+      "sha256": "5586f488140dab2ba57d1c2df25be36bc0391b4390451c013099375d7552f40d"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/WorkspaceState.kt",
+      "sha256": "25c7ad99952362291522aaa8cf6f72a94fc74298adb1a1f627df855682f0a35d"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ai/AiModelCatalogTest.kt",
+      "sha256": "09d24d7af5292bd6b07def3cf23b30911a671d7c74cc460ef18769593535021e"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ai/FormulaEngineSelectionTest.kt",
+      "sha256": "bead33fe38f290d7d88b5e163b2c257e604ab20d5ce029df1f2e3d11a4728d14"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ai/RecognitionStemTest.kt",
+      "sha256": "b63e5743192a04d15d6e3c8f4632447154be541a232af2bf7f2cf519d6d07c74"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/data/AutomaticColorTest.kt",
+      "sha256": "6e52edb9086226ce31a5a34e3b56ec3cf64c33d8dcf297892c3f5f87b7530083"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/data/NotebookFilesTest.kt",
+      "sha256": "3ecf87947e1aa0e3bb986ca7e58d8c8df15e44e92c6d95c6600ab0c7b0cfc411"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/data/PagePreviewPerformanceTest.kt",
+      "sha256": "c1f5a36f66aa12f7a8d486fe385f562737c2e03ef81c705893ec3501d3334218"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/diagnostics/DebugLogTest.kt",
+      "sha256": "753141e3907d0455a5812798f6683b31736ca43fa66bbf39a039060bef383ccb"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/localization/LocalizationTest.kt",
+      "sha256": "40528d0d70a1b9668b458acc034f7257f35016b6b9f971633d72ce72e610ba2c"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/model/BinaryCodecTest.kt",
+      "sha256": "bca701f7fbaf7f467c3baead3a399164712eed10cdb3e5ceb2cf3e6c3f5017ed"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/model/DocumentCodecTest.kt",
+      "sha256": "5db0804428e464f18b1e275d3536bc22cfbb8fa102133ebfb2e2a778ee425298"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/model/DocumentSerializationTest.kt",
+      "sha256": "4e672876fec22f59a821f2fcfba8eccbc814d149ea7a620b23e93deb3fecce77"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/model/EquationOutlineTest.kt",
+      "sha256": "5dfdd87fd9bc2937e2e2027b5c67a30698d3768d427e288e71208225c22b3dba"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/model/LinkUrlTest.kt",
+      "sha256": "ef6186f3f10333ea4304a575804bb56dfdff8f7ddf85edee2ce9588bac4883e4"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/model/PageDocBlankTest.kt",
+      "sha256": "80c9ec8518810eb474399e815f1a560e7668cbe5efd607659ad9dbb36d9c3ba1"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/model/PageStyleTest.kt",
+      "sha256": "0a60ed7f1e29f78bf1d8dd90b5290ea8645443e062f01198a6e8f03b8de76b64"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/model/SchemaMigrationTest.kt",
+      "sha256": "57adc97b3d3dcd5e6f5b0c63fff66fdb983cabfe147d9482955a7178f5448e52"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/model/VideoLinkTest.kt",
+      "sha256": "2bf6da08e139e84563d6b41bb9f9c2f83933b5cc70f2db3ac02a5b3845520768"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/model/ink/PreparedLassoRegionTest.kt",
+      "sha256": "d0103904e9e4ff580bea721725c165e44d1820121a4ce188d8e7c55dca52a1e4"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/pdf/PdfBoundsIndexTest.kt",
+      "sha256": "71ad4099394e812dcac1aa652d202dec541c09f7825e2b8bd5d10fc61785e7c3"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/pdf/PdfFittingOrderTest.kt",
+      "sha256": "26ed7bd7dbe0a94557739d6faf0188482b95d5c2b88dfbcdfb45afcebff47ab4"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/richtext/AutoEquationSyntaxTest.kt",
+      "sha256": "53fd82411118f64b513539425d6151b2d40ae21946540d89610286602700f601"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/richtext/HtmlPasteTest.kt",
+      "sha256": "e24b7ddc716b6f93f227ebbfbf013d6a34a993b6ed2d300a34de434a96d162a6"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/richtext/RichTextBufferTest.kt",
+      "sha256": "a380a5cfe238732cf8044aee6d25a3d20d6a1df6fa43a73d5c974321869c0beb"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/richtext/RunNormalizationTest.kt",
+      "sha256": "1cc0b5837c203accc084beeddf377e6ba699d2e89af53d1faf8b713fb2e17747"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/CanvasExtentTest.kt",
+      "sha256": "953b0e50c9e7f6ca410ae8c3e5bedf3d782ff5ac853852b289852ca1cf8ce936"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/PendingInsertTest.kt",
+      "sha256": "af3f27a1103ca735202d74262490b9d0fddce9d47570a72bea89a040d3e88355"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/PictureDemandTest.kt",
+      "sha256": "06389bf952734fc99924a8ec623c1977841117251d172504bf168cb6ac1012cb"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/PreviewOffsetIndexTest.kt",
+      "sha256": "103faf81ce923a0161390502fc2a2484ce652f5c4dbc261dee2be50e1d6409a1"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/PreviewProjectionTest.kt",
+      "sha256": "9371eb57dfb215a95d7b4aa3d576dd4fe0e096269965b166dcfba595dbe3a01a"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/PreviewSpanProjectionTest.kt",
+      "sha256": "8502c09f0de3de0d794b083a81bdbc8ec33963a4371f1b3f22ae3273e1e591cf"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/PrimeResizeDiagonalTest.kt",
+      "sha256": "dc6319ee26822733a16419eb47fbc795a2f51f562c71605295e496f717312daf"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/RichTextRenderingTest.kt",
+      "sha256": "aa03503723518d861f4f9e889dd8ad294cc2beba96343a64e40ee40d9b924bc4"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/SelectionColorPlacementTest.kt",
+      "sha256": "06b40b3240b25cfd421203734802d58c528b2f7b0419bbce584c891d52a2ec0b"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/SelectionFrameTest.kt",
+      "sha256": "7d636763ef189d74f0becf29803e938edd6df73c27189e653cdca9c18acb4fe9"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/SelectionToolkitPlacementTest.kt",
+      "sha256": "aef3bf74ac690f3c9dfff830076e1ce4eea3e35410126198b4849034438dcbc8"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/StoredEquationPreviewTest.kt",
+      "sha256": "45100cf7491536af796b89da55cd5ee798e3452c5b03e10a89fa33747680684a"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/canvas/TextMenuLinkTest.kt",
+      "sha256": "1e4f797e2c5c2aeeb940e37e392ff459843bbc3d3c8fcbb7033e2c9d94639f4a"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/components/DelayedTooltipStateTest.kt",
+      "sha256": "b328aa9e4134dd8f50d5f6f360569b47ec074090d582a26cbaed8bd72a8db253"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/components/TooltipPlacementTest.kt",
+      "sha256": "b3152c6780c899a61cdad00e612200433f7b7f8c81858d28fa1d684e3ff95731"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/navigation/NavigationPaneWidthsTest.kt",
+      "sha256": "c7b5e2608f8da958145bbe98205fb33982dea93d280796a03b225a90f4e05e78"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/navigation/PageSortTest.kt",
+      "sha256": "732e91e43bde1e3b9193b2d2626c560d188b479b7c1ad3d869eb54e5fcfc8b28"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/ribbon/settings/InterfaceSettingsTest.kt",
+      "sha256": "ff8a5311c3623b9910c4f4cb8f7042bd8dde7bd6edf0f01108538681c43630ce"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/shell/CanvasDemandTest.kt",
+      "sha256": "135b5b8b6c5acbbc8fc2dfa0fff44e4d5077749678d2c7c1e538db0430307823"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/shell/TextPreparationTest.kt",
+      "sha256": "c3dd322c1078cd9d5624239d1ba819c0ecc3b1de8fa6f62288aad34878c5aa73"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/CanvasViewportTest.kt",
+      "sha256": "c5d06f786a32af118776f76aacbf2e85f486e4977f1857ba7ff4a3ec4381bc9a"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/DrawPlacementTest.kt",
+      "sha256": "642c8ca806e313f5ee5aca6250f63fc4113d0b20bbf40ecc01a86ba1dc8cf1e2"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/FakeNotebookFiles.kt",
+      "sha256": "9c29d7013b8e1e3065dbe09032e62071d9547d19b78071dfd5bd6fab0737c3fd"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/FakeNotesStore.kt",
+      "sha256": "c464a1783835ccde936fa1c8be81391d07094c0414a625b1b47306d732e25c1d"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/FileSessionTest.kt",
+      "sha256": "f6046b6f96db8a7e6d91108afc67305abf1ca90a8eab8102dfd7aebe198d5eff"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/InkSettingsTest.kt",
+      "sha256": "2182bb98eca545cf12e93a09958d142bdf18adfe2dad6f7d73bc4f807da40030"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/InkToolStateTest.kt",
+      "sha256": "bf136da5a9dd3e1c74d4f164ddc41c1ef2f108e8caf53b98dc622eb1d7aa2017"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/KeyBindingsTest.kt",
+      "sha256": "6641349455d248377c4f077f8a53e7390f8a0ce1287454b8b60bc353ecb3a8af"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/NavigationEditsTest.kt",
+      "sha256": "19fa785771136465adfe11f381ccb16d860ea97e0993ccf6e224b1b311605b14"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/NavigationVisibilityTest.kt",
+      "sha256": "8c877951b08fc429b3caf59dcefdaf6431aaa2628b2321efe9d2a8061a3c5e19"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/NotebookTransferSessionTest.kt",
+      "sha256": "724dfdc195a6f0f9a35e6feb087c06550a212ac94b7907153fb969e58429dab0"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/PageStyleEditsTest.kt",
+      "sha256": "2f38bebe13633dc7e34939cbbb5dd7475022a448fddcaee0a74aadc3eb2451f4"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/PdfExportSessionTest.kt",
+      "sha256": "cca2e384edc5688f520c575ed81cb501bb056e3a4a360216188768a0b056cfaf"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/PendingInkQueueTest.kt",
+      "sha256": "31f1c8d35228a13706c6cc27cffcb98abdbe2b603792bd1c3bcd8b1a03783a37"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/PrimeObjectContractTest.kt",
+      "sha256": "34f0f79100228399f66569a1616f08e6d2ef7463e90cfa34065bcda31417637b"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/SearchRevealTest.kt",
+      "sha256": "be2b96237893b3e7fe6f870cafc731eb18d79d277ea56fb9fabb4391a048b0fe"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/TableEditTest.kt",
+      "sha256": "83733e55c6be4af283712fedc56d32cdee061136b390a50610d46f0fb14b9938"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/TextClipboardTest.kt",
+      "sha256": "ba41ea8b1279f5e53a29d946219ca2417ec306db9830959da7ece2a7892f76da"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/ViewSettingsTest.kt",
+      "sha256": "9966df57844dc38e37f4b1a491deb7045fd8373193af52b39597f2398b90e1cb"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/WorkspaceFixtures.kt",
+      "sha256": "338b5d2ec48902bc3c00282a8c3540de2a76468dcfadec66f8f18d83c1643039"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/WorkspaceProjectionTest.kt",
+      "sha256": "6472d5f77ab314936a488125f827ab9ac58338d0c32e3a94aafbc812b95458a8"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/WorkspaceSessionTest.kt",
+      "sha256": "b7e9f6402b1ff7d69876863b345f6bbeffb0b64e80303feb158423132455911c"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/WorkspaceStateTest.kt",
+      "sha256": "609c8ccc6eb0de21a9998ae746f869c826da81fda979835a349b053b851f557e"
+    },
+    {
+      "path": "shared/src/jsMain/kotlin/com/vivenotes/model/ink/LassoRegion.web.kt",
+      "sha256": "b1cc6a54ea8c5991c47f3259386d36c322644efe0fa342a1d8bef12413dca57b"
+    },
+    {
+      "path": "shared/src/jsMain/kotlin/com/vivenotes/ui/canvas/InkLayer.web.kt",
+      "sha256": "25859e417f97d88a5d26ab8a7fd035c8c6a6a32f230c81bf05a1968bf4842d1e"
+    },
+    {
+      "path": "shared/src/jsMain/kotlin/com/vivenotes/ui/canvas/PrimeResizePointer.js.kt",
+      "sha256": "abe7a41d80f6cda091e7c5b9226e1e4b90e88500c636774c087ac6b880ede6d9"
+    },
+    {
+      "path": "shared/src/jsMain/kotlin/com/vivenotes/ui/navigation/NavigationResizePointerIcon.js.kt",
+      "sha256": "4adbae9753883e34760cd122cff8078b2d22ca6aca9e49ca365095ae28b90e7a"
+    },
+    {
+      "path": "shared/src/jsMain/kotlin/com/vivenotes/ui/shell/PanPointerIcon.js.kt",
+      "sha256": "551c2e8f264f34fea7f2dc1087d421e0f24be7a3398a62a417be1301cb2b4721"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/AiModelStore.kt",
+      "sha256": "9ca96995392a0f0f4e5c1322dbe1f129aa664be64a2a63580e51d69c72bea3cc"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/DrawInkRecognition.kt",
+      "sha256": "85cfaa87b2e68cc0359397503f2c633c08f6dadd9a5d6d8867fe9131c9ce4b76"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/FormulaTokenizerDecoder.kt",
+      "sha256": "c7deefa70a3796af6bf565eaf1daa0c5ae216d56c7c463f3621a5dc9e21cd0af"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/ImageOcr.kt",
+      "sha256": "23d16236dda5392597df60ab3f5109c4cba2383cfe9e3dc233cf38221454f221"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/InkRecognitionEngine.kt",
+      "sha256": "e9c7dd97531123de46f198bf7c94009f6c2dcc256dd85772524b3dcf623ab72c"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/NativeCtcReduction.kt",
+      "sha256": "74e0fb09cc266fd6beeb08e8f62ae1a1a3db46f1a8dabd68a2df9ba144cdf21f"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/OwnedFloatArray.kt",
+      "sha256": "77249b23ad01d5f727bba4090cd14137f3473ae8822ee8e1b401dee1d0f20295"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/RecognitionImages.kt",
+      "sha256": "56e4992b8998b7f579bd4f3c1f802dd194fef389273b4d10f06cac90461fc050"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/VerifiedArtifactDownloader.kt",
+      "sha256": "dd90087489df7d9f669f32f6fcb2bc78adca47f76d6002d1c9ebce203668bd95"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/AppDirectories.kt",
+      "sha256": "8afcb1172acb024cc65efae4239daa32b5302643faed3e4a7787b1f3d39ede6f"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/AttachmentStore.kt",
+      "sha256": "2eac6757511eebd598c9d07218967df2d60af9d2e1a6a42298035463dc7b7b5c"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/AttachmentSweep.kt",
+      "sha256": "6070d242006c821ee38fca6f42f48089d89b5c174e5cf3d87e7da617cc675154"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/DatabaseBackupManager.kt",
+      "sha256": "3d4ceecac49b4e26c03f75ff1a3024c338e99a82b38ae87f16268ac4f196d3c3"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/DatabaseSnapshots.kt",
+      "sha256": "cb0978b6defd3ed491edefe7f1e568866e9fceac7cb1954614de39a5c9b27ab9"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/DecodedDocumentCache.kt",
+      "sha256": "de7768ab07a39d31ba7b5208bb6382fc04d5969dca5b239d4daa117ec2da5286"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/DocumentPictures.kt",
+      "sha256": "e145f777e808826f4c581e1165c08494e96be74478a1dccd9ed5096879836ea0"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/DocumentRevisions.kt",
+      "sha256": "de0fa09bf6cb92f2adaa3dfd4261b4ec2da4003ef0caed37c80f70d8328a5fdb"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/InkRevisions.kt",
+      "sha256": "3918dc04ba6f9711cf7d7d8da56992859b15d7f2ac48746c88e01f11bfb89ee2"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/LoadedInkCache.kt",
+      "sha256": "a8fedf37d22f0a2c6807feb05f0e754690564956ef94b414973cb977ec356387"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/NotebookTransferManager.kt",
+      "sha256": "4dd5f1439cc9321a358850af18309c49aac7bf6b6f4e33cee90b191a8d3e45ac"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/NotesLibrary.kt",
+      "sha256": "49447b9972cd5ca77e1f33251d85e71363d7c153f5980d256dc387f382699da0"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/NotesRepository.kt",
+      "sha256": "0ac8559666bc0af665b5312136fc62e20d3508cd22fdf15c26b309faf4ebc83f"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/OnlineImageSearch.kt",
+      "sha256": "2304607d2e73dbd8ceda829c1804e6637940ce5b72057bdc3c468a1ffd31661a"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/OpenverseClient.kt",
+      "sha256": "0462a4bb66160d375519d5913c57b74fddb4b72d76d784bbd50a4c08f5cb46c9"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/PictureHttp.kt",
+      "sha256": "50d8edd8ed73d5d1c0cc313e944cc4dc9fcc94311c379643d65a4e2c0e0b5dc0"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/PortedLogs.kt",
+      "sha256": "140f3497355141372ecba1f51e35b94545a7548e270b031c6028e2e033210e01"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/PreparedCheckpoints.kt",
+      "sha256": "c10a525e5377e98760aebb36138631633081fb359bc37ff25092b674dd938bf7"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/SystemClipboardHtml.kt",
+      "sha256": "38c90dc82cd7c159a5dd2e51f4e290ce4bc24e6e928106854e412b406c23fe44"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/WikimediaCommonsClient.kt",
+      "sha256": "272b2f2ba855b81e5834de6e9cadcc60d4df03bddfc405176232b2360b061179"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/billing/ManagedSubscriptionController.kt",
+      "sha256": "d21072df682b7daa1f3f46eaf2047f33475070a12112829408b19a1c159be239"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/billing/PlayBilling.kt",
+      "sha256": "3f67e227b56500c890389add6450f1d37b1aa53a415c345a8b37ad68bd5e50db"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/db/NotesDatabase.kt",
+      "sha256": "aa9ea30d749faa1adacc03d6b29fdd1654d7b2a2244d235ac5058b44c2dc6261"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/db/SearchBodySnapshots.kt",
+      "sha256": "46d91a92e13a23ab58537fc8b604a71449a5aac5b344c8d8f76afd7b8ab629bc"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/AttachmentBlobSync.kt",
+      "sha256": "a4031763a6ef71569438ef0ad511c2f018130f21ef0c08033bef89bb1ac7d732"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/AttachmentDownloadStages.kt",
+      "sha256": "084c1175330359028983a7b51be8a7acaf8baaeb7ec83caad492e063496995e7"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/CloudArchive.kt",
+      "sha256": "de6a9c0dd3f4f7b4f8d3fbdaa37ecbe666acfacb68841479b36cda623c458a4a"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/ForegroundSyncScheduler.kt",
+      "sha256": "5e4f8bce659898b79649f1f6073dec50f41effd05a43ef54a6997626cb5c42f3"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/GoogleIdentityProvider.kt",
+      "sha256": "c283d8ce035badcbe048625cccd3bd80435f815fccc4eefa4a922c6a9dd6c08c"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/HierarchySync.kt",
+      "sha256": "1c60d6f4c71f5eebd71d3b747747bce9b09bb41947024b4008827dbe24466ae9"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/RemoteInkSignal.kt",
+      "sha256": "8c19a71fdbc3510942b1de08407ed911a2b9bfe9eb93d9807e148728f5fbde88"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/SyncAccountStore.kt",
+      "sha256": "70a0e18cce4328d17bf660a1372fbf637824af1b329e074d05403bdf627897be"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/SyncAccounts.kt",
+      "sha256": "7a431c682a17efef994ef045f753621a320b4cf4dfc33fb92465d62d865b5553"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/SyncMetadataGate.kt",
+      "sha256": "8fbd867ff9a1fed000b5d87d6b8158d67e448bfb4f40e5d45d2c98845bc31743"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/sync/SyncServerClient.kt",
+      "sha256": "d2db77e16156890f0aca5825d305a4362a11affea2ecbfc4135e44e37be7afe8"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/DesktopInkPage.kt",
+      "sha256": "8dd9549d672909af259cc57b501bd9475721c28db70aaf2189818a52e1c7bd33"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/DesktopInkScenes.kt",
+      "sha256": "e55dba7475cce29723ca4b5637e82ff7b657b13e6f9c0f0feecadf1f0ddf9edf"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/DesktopInkSelection.kt",
+      "sha256": "51c133fbb9f1a8e50c1bbb729a2233e8d968574a325cc6b6f1310149854ff18c"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/DesktopPartialEraseGesture.kt",
+      "sha256": "e243c55792bb7aee996e38622077a99800eafce6b7b9bce9e434f1034cf7d255"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/InkAppendList.kt",
+      "sha256": "061ccb7535bb2ee4eca922c4aca5eead1ceb8602f13060d6acd2507b753ff319"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/InkCodec.kt",
+      "sha256": "ea20190566f9a9cbacaae1a01f658cde9a8d01c89598283c1803c04ac7fe0841"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/InkPageReader.kt",
+      "sha256": "490ce4d4e9f4fe7e3ca521ad7a2a26a81a9d0ece7ed8ad83ac197f06c756a3f3"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/InkSegmentStore.kt",
+      "sha256": "3a4aeebba933e77e5d9889197424e81d90f053dc872d98fea1016a1d79ccbdaf"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/InkTools.kt",
+      "sha256": "45ef73fc4b1233eec3107371164018e041035274d1262f69e672ba4087bdf675"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/LassoRegion.jvm.kt",
+      "sha256": "ad7d6245846be267846e46bae57a5e5dc2e30b8994399e471a1d2f95dd878bb3"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/StrokeInputBatchCodec.kt",
+      "sha256": "02378c3f5017e79a8c80c543af5f64f08decf0751afd5f0d0d5141b235f792e1"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/math/MathEngineProject.kt",
+      "sha256": "e1008508f5106a3ad9a92f2f31c9c1c078318eb453d6fc057ff470cbb202a7a5"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/math/SympyMathEngine.kt",
+      "sha256": "cdb671031807f925f271d653ae12d39fba6171240dbeca3afd5fe25f13b2c2bd"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/math/UvMathRuntime.kt",
+      "sha256": "d3379c0e6742ae0cbc57436015234fef497b3dc8227717c972ca2c185bddee91"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/pdf/ContentGroups.kt",
+      "sha256": "031d3a4b88fcd4f2d6a4b775f038f97c9b36fb1c72082c85b5c948b9805c62f1"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/pdf/PageMeasure.kt",
+      "sha256": "2f9a4fd040ea1c4cbd5e09226371fe5960e658462d2007580941132002013f4f"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/pdf/PageRenderer.kt",
+      "sha256": "3089d105470284f9b333d482655e13c902664cfa7ad58c738555e69414a04f69"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/pdf/PdfExporter.kt",
+      "sha256": "c2c41657962b707aa1e9f0b8b7a8e4e2ee4baac7d3bc19b67f55e74c2e678c0f"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/pdf/PdfSource.kt",
+      "sha256": "625f147bcb1386966a5a9fa16c514417d00dd9475e02785128cbf0f59e8adb75"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/pdf/PdfTextLayout.kt",
+      "sha256": "2992fc7b233e8c6da3d69b4f56583407b6eff9bceded839563311c0e77d39412"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/pdf/PdfVectorDocument.kt",
+      "sha256": "bcfd66b1c02ea2c14e6acff3a76b86904fbfbb3cfa3ce5b0cc080b72047af8e2"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/pdf/PdfVisibility.kt",
+      "sha256": "355cfa0c0921f41d68ef83c39078d1c4be4dece5daf7777bd81ee1bf9ae61188"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/search/DesktopContentSearch.kt",
+      "sha256": "077a26553bf585321a350430ec71f774786e5f5cb3c30450a8ec7d36c6eb04dc"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/search/PreparedSearchChunks.kt",
+      "sha256": "802b9933ed56d369708490f6afb4323304e25a871b37e987b156d90fc33a14af"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/search/SearchProcessPool.kt",
+      "sha256": "480951cc88451bf0203f810384dd8ba199c73d975175529eec6d6ccb060cdeab"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/search/SearchWorker.kt",
+      "sha256": "3a0c63a0c28e465396b6138b6b9d44e272cc34f0d367037e8413a961f1694b1c"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/account/AccountDestination.kt",
+      "sha256": "e2ca68fc56ce027443cb8164195fb7e9d63f9c0115d8c4be7736036bf1a4c9a3"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/account/AccountScreen.kt",
+      "sha256": "1bb05c7e4618e0282d51e83f4b0350927f81d88fe30ffd3fff4f3f0d4755ff0a"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/account/StripePages.kt",
+      "sha256": "cb7442de58019ba689dfeedba75358189dcee3688e68fa28b3d87ac08f18c79e"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/InkLayer.jvm.kt",
+      "sha256": "b0ae4e1ddb876a2ecdb374da0d5f8824345078dcf5bcb644f74faf3056abc6b9"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/InkLayerDiagnostics.kt",
+      "sha256": "4e218fc878efee8b54a0be0cb9bcebc3ff1e327a877e7d45ab9579d4c791d269"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/InkSceneExclusions.kt",
+      "sha256": "94882d5b398c2bd15c659f7b49bcc5c3171fc987167c3a24078330a2d8823740"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/PrimeResizeCursors.kt",
+      "sha256": "89fa0529c9244a380c208634a111f504436887a362beced2b761fc804700cee6"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/PrimeResizePointer.jvm.kt",
+      "sha256": "55dfb0e1d944639a3fcf6e456ff9f802dd0cf42a0cea456154e4ada740e509a9"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/SegmentedInkRasterCache.kt",
+      "sha256": "f41386bb55b28a2deea0c9722f08a472a145e3edac3932ec6abf060226268759"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/navigation/NavigationResizePointerIcon.jvm.kt",
+      "sha256": "94ee5b7fa37dc0a3d773110a858b92e74d9b42424f40abe2d4cbfb7a28c2c11f"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/shell/PanPointerIcon.jvm.kt",
+      "sha256": "c85b04e708cc91e0abfba741aaa3a6f21749fcca0d272c3ee0c5685f134a2e45"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/workspace/CreatedLabel.kt",
+      "sha256": "72d8b842f9d4a0f12e10decdf0188cb6cfe7af3782004831a9597967dca5ab92"
+    },
+    {
+      "path": "shared/src/jvmMain/python/.gitignore",
+      "sha256": "8203c42f2beb6d18410bc2aa0cb08a2bb570795497627c8f8fe9995c46f68b8d"
+    },
+    {
+      "path": "shared/src/jvmMain/python/.python-version",
+      "sha256": "861b3dd8083d28f336ef70f6755bc399538ddad627b1d095820ca34cb953cf14"
+    },
+    {
+      "path": "shared/src/jvmMain/python/degrees.py",
+      "sha256": "413f153fee0486bdea7fe4bb70651da36f59d1111531d7d438d8b082c8eef001"
+    },
+    {
+      "path": "shared/src/jvmMain/python/greeks.py",
+      "sha256": "ace0fde3f347ffb767c36f574459fdd4a25ffdd1cf9e5dfa24561bb2b2045bee"
+    },
+    {
+      "path": "shared/src/jvmMain/python/math_engine.py",
+      "sha256": "179def17d14fc14aa75c36cccc145cf39a8c385f948f8203ca7deb9a25580845"
+    },
+    {
+      "path": "shared/src/jvmMain/python/math_server.py",
+      "sha256": "23a5d867b253e1acd446605fd0656816b195e5b96a1f685d6590fc02010ae4d6"
+    },
+    {
+      "path": "shared/src/jvmMain/python/pyproject.toml",
+      "sha256": "c1a82e982a52f485954dc570d9db0f9db55dfedabd29348ee0b837b97d9a6cc4"
+    },
+    {
+      "path": "shared/src/jvmMain/python/uv.lock",
+      "sha256": "4f643639af2605358401a5849a1ff5a0ddb085dd6cd38b69dfa718662eebeff5"
+    },
+    {
+      "path": "shared/src/jvmMain/resources/ai/NOTICE.md",
+      "sha256": "db8fb09b7b58b9201b487cb923525129fdc97455b2dcf4d2ab216fbdaf1f9317"
+    },
+    {
+      "path": "shared/src/jvmMain/resources/ai/pp-ocrv6_small_det.onnx",
+      "sha256": "d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e"
+    },
+    {
+      "path": "shared/src/jvmMain/resources/ai/pp-ocrv6_small_rec.onnx",
+      "sha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634"
+    },
+    {
+      "path": "shared/src/jvmMain/resources/ai/ppocrv6_dict.txt",
+      "sha256": "b5f2bfe2bdd9448429e3e82b51c789775d9b42f2403d082b00662eb77e401c5d"
+    },
+    {
+      "path": "shared/src/jvmTest/composeResources/values-fr/strings.xml",
+      "sha256": "3cc633a5e6f77b46af98608a1ae9625ffe925aff50f46981b0040b6fa76c565a"
+    },
+    {
+      "path": "shared/src/jvmTest/composeResources/values/strings.xml",
+      "sha256": "8818ffd47a992c7ede7ce73bad940db2cb5d9a931cf8982fbc942033f06fa1d2"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/AppTest.kt",
+      "sha256": "ffb002bc9878d478a4a747b998d47cf0546309043b956e7238e3465ac1f2fd72"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/AiModelDownloadConcurrencyTest.kt",
+      "sha256": "edd0f534b1c141659ed37f7d14fa28dd73268a3be8021a1e60bced1c89ec74a9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/AiModelStoreTest.kt",
+      "sha256": "dd27c059aad89c1cfc3d578e0ef545401890a1b9808221c986d8cb79cef7e633"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/BundledOcrContractTest.kt",
+      "sha256": "cf904d5b32e938181d2168a5d623537f32907340b5d38f198b9b5f03aa15b798"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/CtcDecoderTest.kt",
+      "sha256": "29c4ab459cb2dfd260dfbf996876442f5223b70dcae87676ad7f6b1ebdd8823e"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/CtcFlatBufferTest.kt",
+      "sha256": "a3f85939e5a8da51b72420355f29913d59d84eeaae4c6502bee9a0a11cbcaa8d"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/DrawInkRecognitionTest.kt",
+      "sha256": "f803fdecea62b98c5f43d99f8183901129fbe9f7fff7714a1477f0369ef48dbd"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/FormulaTokenizerCacheTest.kt",
+      "sha256": "65da78d6a32ed8a04126de4e4d60e1fc96f1d662041a11e73817d4482da9622e"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/FormulaTokenizerDecoderTest.kt",
+      "sha256": "282fa1d3679da713c26f334af9ab995664b38c5f5b92506eb2224cc03eb8084d"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/NativeCtcKernelProfile.kt",
+      "sha256": "4d193eac3fbf875d0cf99a6d6bb8cda847c02d386770e381c7898c6c5141628a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/NativeCtcProfileAdapter.kt",
+      "sha256": "4da62e9737fba9281cacd376c6e7934ab6716e69bed95a0652e593fcdb851aec"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/NativeCtcReductionTest.kt",
+      "sha256": "d1ce4b620ab06aa8854707689f44d7335b71841423a34b52d658530f8b2a7f4f"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/OcrCtcProfile.kt",
+      "sha256": "e26f562973063e06530ee5b78f5fa60e440a78c6ba0e9695fa82c78bfb357097"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/OcrGeometryProfileTest.kt",
+      "sha256": "75fda2b1bd35514a84ad71359823becb42e18af0dfcab4e0c1d15ef6c2b5b373"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/OcrOutputCopyTest.kt",
+      "sha256": "baf439ac2454fe668aab236aa36d39762acad17e2819655720f02124acdd0d64"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/OnnxRecognitionSmokeTest.kt",
+      "sha256": "41fd03043c9c2ac01e1f5755eb4e17b2759159de848cb9aef95b9379d3671e5b"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/RecognitionImagesTest.kt",
+      "sha256": "18e7d7dc780ab79bef15d16ceabdb04f261eb96ef7b1ac6d1a9454ebac27b562"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/RecognitionPreprocessTest.kt",
+      "sha256": "1263f0b39e61e0d2d2e38063da95455f7b16b1524d5bbcbde532a4b7c4e602cd"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/RecognitionTestImages.kt",
+      "sha256": "cc4c099f93d31934b0a807c690250e6a545f63f31dd4cc3d3196034254dcd873"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/VerifiedArtifactDownloaderTest.kt",
+      "sha256": "7935a2cdab7498bad77eaf683d6a21f1a4a2175477612c56acd6c02976bf5647"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/AppDirectoriesTest.kt",
+      "sha256": "f3fd0794fabc24dffc3047b32d3ed647ace1685596fc7937465665c83bcdef8d"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/AttachmentStoreTest.kt",
+      "sha256": "e3313c2693d66521a7abd25d11f1ae03518b9fa9bea9915e3e3e2de2ce9c729a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/AttachmentSweepTest.kt",
+      "sha256": "800185e6f8c37a18000004e2bd4f9849fc2471c7cbfbba821bdc193be655e366"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/AutomaticColorPersistenceTest.kt",
+      "sha256": "fbd682cb81f36667624106d207689e4f836bfde77dabb619d2457848c2f0e124"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/BlankFlushTest.kt",
+      "sha256": "ca8ee5fa12293bbc24518dfdf300a877cf7f9e1731c5ae656715eb6320735c2c"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/CheckpointPreparationTest.kt",
+      "sha256": "2d3cd44deb13e0bfbea5e54e9fec4ce5202ae7f8e80bfd13f2265222308dab97"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/DatabaseBackupManagerTest.kt",
+      "sha256": "162d29c3834a33304023a65dceff2b0d6cb50e0d2c00042084f947f529c728cc"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/DeletionPurgeTest.kt",
+      "sha256": "77e9e22f10db9d716ecad626d6f1f57a30c2e80efff1b0606f7aa729bce1cc70"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/DesktopInkPersistenceTest.kt",
+      "sha256": "b4ffb33b573272ee88b8f3bdfd96762b25ea376bef54c6e26ba6cf8daf751640"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/DesktopInkSelectionPersistenceTest.kt",
+      "sha256": "fba2c950df6e65971f1bd71736376cbf3d6ada31cb793a4a8edaf5d951e57879"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/DesktopPartialErasePersistenceTest.kt",
+      "sha256": "cda10919e834a2f130942c90376d5c4e51449e8f2d635579a200fbfecad5cd3c"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/DrawToolsPersistenceTest.kt",
+      "sha256": "d37a943b5ac665de697bdff8a645404eb5f35b6691d80218620eefd7036a4077"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/HierarchyStorageTest.kt",
+      "sha256": "f10957ed61b01db0f93c953b403c35a0bade811c9f9006176521bc849a7ae83b"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/InkReopeningPersistenceTest.kt",
+      "sha256": "e3944b226b2d19a0e649d2d5a262fda8def6a32740cfebd77a533dbf52c794be"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/InkStorageTest.kt",
+      "sha256": "f8e95d6b1f35890c7cd4c2e8086d14424515b34e158dc5a99c19b974ba109241"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/InkToolkitPersistenceTest.kt",
+      "sha256": "d01477eacdf0033f0f094a9430a0d5025b5a18b5269e66896bf6eacc8df0c5bc"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/LoadedInkCacheTest.kt",
+      "sha256": "411d37f48ae68b4335c7b7bf3b22ffb05dd37493149bd68b535c69dec41c4213"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/NotebookTransferManagerTest.kt",
+      "sha256": "bcb8f9054949b463e2b598d65433c0e6ed307398a146ec0d569ed10487b862c7"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/NotesLibraryTest.kt",
+      "sha256": "31f0398e8ab06892cef67ba38f386c197433cc16068fed4d8bb618b82208e7ec"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/NotesRepositoryTest.kt",
+      "sha256": "9c3a3bdda6bc0565e116416b237eafb3509d2d170b685f1d20442c24e3f5e037"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/OnlineImagePreviewTest.kt",
+      "sha256": "41febb32523c2ad3be7230a4cbdd1c5926ffdbca556accce4295203de17e5085"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/OnlineImageSearchLogTest.kt",
+      "sha256": "d578aa877993998b66cc72902a9492e9eb738103e094c6e8b46b8cb919864445"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/OnlineImageSearchTest.kt",
+      "sha256": "791627f185dcb2850157c8a062e54e6687d551519ac3985abf07fc200975a22e"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/OpenverseClientTest.kt",
+      "sha256": "3b9d34543dfb0e92041b7feb5a31fcfdaba3bdf783814ba53e1ada27de42d2af"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/OutboxReadPlanTest.kt",
+      "sha256": "a502be46b0abca81c66d94a750caa7b6cc07e890efa75456f6efa52aa7e538cc"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/PersistencePerformanceTest.kt",
+      "sha256": "983112b3c8ab087f8dc129b0a81bd5f12f5fbcfa3efcb99f4950b47a570555f5"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/PictureHttpTest.kt",
+      "sha256": "1555c4aa3ba4e6a9a349bc1fd3118c566ea3949464aafa361b7627431ebd52cc"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/PrimeObjectPersistenceTest.kt",
+      "sha256": "254430c6cecef59f955c14741f14c58ccf49569b72ef7eebcda8e030a420e03a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/RawSql.kt",
+      "sha256": "f302778b944bc8034d01f97c8bc95eec975da5091e21a5318d9245cad6e72d70"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/SearchBodySnapshotsTest.kt",
+      "sha256": "d3f14a609ca13ca3e7ff0cb288333dac042cc7f01032675a487d071b1b7140fd"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/SystemClipboardHtmlTest.kt",
+      "sha256": "18cad20d0ef63f0d6fe5c4e13ce4d3c49f643792ee6eb7675137d13993423e51"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/WikimediaCommonsClientTest.kt",
+      "sha256": "57c2848623ebcb39c104f647b1d3c929bec5b1110e5d4a7d03cb68e68b6658ee"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/billing/ManagedSubscriptionControllerTest.kt",
+      "sha256": "79bb275f32b85febea9b50d42f4ed967f54fcc8742aa8885b16bff1e2a78ecf7"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/db/SchemaCompatibilityTest.kt",
+      "sha256": "1d6d00e9a6dd17121cf91d25737ed45b05d9396e62e3428ff40af594557b315b"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/AttachmentConcurrencyTest.kt",
+      "sha256": "477942e439ca7b088df1f5368cf36c959beb5c8fa20329aff809dd5e8f4a9377"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/AttachmentDiscoveryConcurrencyTest.kt",
+      "sha256": "9da215a43c571426b47daca580050457dfd794bac83555220a7d1eec28af9cdb"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/AttachmentDownloadStagesTest.kt",
+      "sha256": "6648447b26ec70c86c9912d84b9fe3a773640246012046022d6db7b15fc39571"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/DesktopLiveSyncProbeTest.kt",
+      "sha256": "7919a5cbae6badd959dad189bf985ce54b342d2ad0a5b25c532ad8ec6499c2d0"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/DesktopSyncAccountStoreTest.kt",
+      "sha256": "77b0ccabf3e0e10a7c1c7b939104057d16e9bf4140bf5e2f3ff66f91fe725d88"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/ForegroundSyncSchedulerTest.kt",
+      "sha256": "6c92bf4314088b5819b30d155f257e76224d282101845a17377077cfe308db64"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/GoogleIdentityProviderTest.kt",
+      "sha256": "dcd52edbbf12b707cc2162f55d47efb39fe4db3678d3f9907cc90ede5cbea3a1"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/HierarchySyncTest.kt",
+      "sha256": "859499b93902ca445e0a7ae86ccbb3f146e3efff4fdc73d402980cda9973008a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/InkSyncCostTest.kt",
+      "sha256": "a2c825b1b4db7d4c4bbdb08b5dc36da1fa148374f6e0df81a84f80689fd629e8"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/SyncAccountStoreTest.kt",
+      "sha256": "8ffffc076766ad67f9ab558b021a4d60a94f2756462c5e79028ae4610ee6fa34"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/SyncMetadataGateTest.kt",
+      "sha256": "67a49ffda00076b479f3cce41249942a831dca060136da75704c603deb126e0b"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/SyncServerClientTest.kt",
+      "sha256": "84b98dce25115a4f3eb7b9f3efe4016605af5708fb9c08b6996c3026a816bbc9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/SyncStatusTest.kt",
+      "sha256": "8d975b1e41584cf0c50963972e3d2ccb20d227c0d1c82ebd8d10b086031d81ee"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/sync/TemporaryAttachmentBytes.kt",
+      "sha256": "928f8d6c055c16e89a3a1463592d404cf13bb49f44ab02a8427b9d4aff6e70b9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/DesktopInkOverlayTest.kt",
+      "sha256": "1ea576b2e90308f2a83539b6578cef48cc34591a5c214a89d8da4560208e53fe"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/DesktopInkReplayTest.kt",
+      "sha256": "7cbc2262caa9bd7be8cadbb3b375b3603558b96c8ed8b535ac6e288f7c480465"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/DesktopInkSelectionTest.kt",
+      "sha256": "d4e677c5c65b06a5a5efe5f7faf156079f4da9459d36ac211f13cb5ee50855c0"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/EraseInputObservationTest.kt",
+      "sha256": "e32f57cf78787fc82b82ddb47aa47197947b4608f2054c6ce07f472e853017a0"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkDeferredIndexTest.kt",
+      "sha256": "d87338546aa405d62332f2284ff81da5a724471b193d0600092574967fab2e38"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkFixtures.kt",
+      "sha256": "d66914c01a4abf586dfe4b52ac18cf4d8d05ef9ad36ace6079d114572eaaecb5"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkGeometryPublicationTest.kt",
+      "sha256": "299447209fdbd6df8bcb82f6aff804e0e98404906b2da6a7e9a2d403c50b8edf"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkGroupingTest.kt",
+      "sha256": "25f556da424aa8b3245d859d9277af9543acf3244659553cb4634800da6e1516"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkLocalEraseTest.kt",
+      "sha256": "ab5dad7d0727186707017f2dfbbaa70413e46b2e548f46dcb253f8257f4654dc"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkPageReaderTest.kt",
+      "sha256": "ba00a91ecfdfeb92ee4d9ded8df943d217df41f944523aed4379446dd9610d2a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkSegmentQueryScalingTest.kt",
+      "sha256": "8265a1d49048ca5fbc39aa1f3277e7c88f7c3b68c6976de018f07839839634f4"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkSegmentRetentionTest.kt",
+      "sha256": "eb6d9453e54d4a6821d2e113a78f17d455a6cc404af58a6feb87651bd3ae3ba9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkSourceMembershipTest.kt",
+      "sha256": "c58cdd51aa8c5c146923ecc11d55daf3ff5950c4f46a3ff3fbef6c1265631133"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkToolkitCommandsTest.kt",
+      "sha256": "b10d2ee050595fe0df345a53eb3fa92f168a2478626e4b2726ab079f1a4b474e"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InkToolsTest.kt",
+      "sha256": "87215adc666697e6a06acac2766cc2e8cc3900fd457975b370b229be70273406"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/InsertSpaceTest.kt",
+      "sha256": "82817ff7495e3abdbd772790b39914c97fbc404fe173c9b56a685bd0a14ac541"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ink/StrokeInputBatchCodecTest.kt",
+      "sha256": "850db1ef9c6304c85b1193f4b56e8e35d74cb5aeec76545572f980636848d518"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/localization/LocalizedUiTest.kt",
+      "sha256": "c1846c23c0df8511692d6d1227d6addca073780035ce5c4ab1b7a0ef62f2ec2c"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/localization/ResourceCatalogTest.kt",
+      "sha256": "3e2074c718abeff84bc0ffb0b90d1c88c9d25a3debfea57990648488f772ee3e"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/math/MathEngineProjectTest.kt",
+      "sha256": "fe6824a36d27a59b9fb0c382ab561c1a87039ceb81e1710c7c62eb9fea4b4310"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/math/MathRuntimeFixture.kt",
+      "sha256": "c43afffc1a3aa39876f85382dba91b3d2316b7659dbfbf0c6904d10a9cb652a5"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/math/SympyMathEngineProcessTest.kt",
+      "sha256": "8356c518a170fa79029bdd9648ac2a851e69413657436cddbd31dfff96077764"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/math/SympyMathEngineTest.kt",
+      "sha256": "9459a6073cc9a3b3747544b22958dc9c9e52caddd4e3e229fe802578d9181ea1"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/math/UvMathRuntimeTest.kt",
+      "sha256": "8fbaa6adf0ae3ff67c4120d56caaab397a15bc0a01acc129badd4a6155d83da2"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/AndroidPageSpaceTest.kt",
+      "sha256": "85c78c25258b263ad89d2cf90df0d21bc7fcb166460167f98415805f2bbea30f"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/AndroidTableOpsTest.kt",
+      "sha256": "df988365f5d5879e19d2b0983c75a49c259dd1f8f0b913f1bbb76004d356daad"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ink/AndroidRulerTest.kt",
+      "sha256": "3ead53e757699259386f4486744a09c3c84791e79b70b2e701b1a6f3281ed6fa"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ink/AndroidStraightLineFitTest.kt",
+      "sha256": "bde3c04e30412af97ddea79281487724693917a2cd0863303020222ef448cec5"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ink/ShapeArmTest.kt",
+      "sha256": "3b0ac552775b212820dd116840f435bc0ce634782bb912fcf8d6cccb137afa67"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ink/ShapeEndTest.kt",
+      "sha256": "7df261d6284be777b5cd6ff2e99e617b908dcf282723295e8b0972ed2eabfb5c"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ink/ShapeFillTest.kt",
+      "sha256": "c0a7ad669937dea556a6e65110e0a14fd59adb07ffcbd17030a3bcd873dd5c78"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ink/ShapeResizeTest.kt",
+      "sha256": "e776a49cb7a434804e3218814082bd56e0a06020323accb511fd1d8cd88d0e59"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ink/ShapeTraceTest.kt",
+      "sha256": "cb0b4d706a815d20a841141c38ec1299d873ff5f607722f592b64f97ccdbf3e9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/ReadingRowCandidatesTest.kt",
+      "sha256": "053fcbef975ded168ff1c0b646ab09b8bc6e61b3c83ab0ec72ef5ad5f668cf95"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/TextDetectionTest.kt",
+      "sha256": "d63837b73aba0be962a78a8eaecb30bb389fe712d34bc7be4cdb3d9a54a2d15c"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/TextMinAreaRectOptimizationTest.kt",
+      "sha256": "1b8a885277ade5c0c4ab6e41ac98804cb3448a4b755be4fd2368c29bd8ad4cd9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/TextReadingOrderOptimizationTest.kt",
+      "sha256": "dbadd92a89c1f9b0e8524a6a5e431ced585edfd715e98662d09abe4ab18a6ba7"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/search/ContentSearchTest.kt",
+      "sha256": "199577cef94d179af7d7122a89a52032b10bc90f513dd85ca1b5d88df15d8e1a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/search/FuzzyMatcherOptimizationTest.kt",
+      "sha256": "75f142f045153f6346d5913a47a6a021069e5893c5de2909d441c97e7c437074"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/search/FuzzyMatcherTest.kt",
+      "sha256": "65b7c5b6a67e155862430c52b768de9d9936800e0ccef039db18bb6de20ab7ba"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/search/OriginalFuzzyMatcher.kt",
+      "sha256": "d6d4185cc4415b1360c3d1c1cbe3f98151a5c6508b75be5e10bb994fece463f0"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/pdf/ContentGroupTest.kt",
+      "sha256": "7effeec405e18547c9d28a7173ffc344385b0d136763287c7ce3e77f9c63d2e2"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/pdf/PageTilingTest.kt",
+      "sha256": "3ff75db8da7a63d9fc5df00953dbe33732c39edff75c1d42638d5e9e1d1ac7ba"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/pdf/PdfExportTest.kt",
+      "sha256": "50eea54686c0c7ea13f75da08b5873ea69ef451d9659bc2912e31dce4e0fd377"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/pdf/PdfGroupingIndexTest.kt",
+      "sha256": "c3e41377ad55bbe72322b74efe4a07649ef7200c5d1ea5211cc1e2f19e78dad7"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/pdf/PdfIndexedRenderingTest.kt",
+      "sha256": "c1531e39bd20aeffa44300ebc816a29463dae33af7a7d637e8cf7fc1f00e8a81"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/pdf/PdfRenderingTest.kt",
+      "sha256": "485f4a1cee0dd10218b36906b24de82d810d9793c16da1d000fcfdade4d55fdc"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/pdf/PdfStartupTest.kt",
+      "sha256": "c7251e0033a54224d2f382ea06329e1bb227906b3d03c2ac723de4765bcf2862"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/pdf/PdfTextWrappingTest.kt",
+      "sha256": "d92b7e0a069834e27188032a23fe81cbb6cca9c4825738d063f41737cab6b5f6"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/performance/ComputePerformanceCases.kt",
+      "sha256": "dfe808fcdb58ae0894e185e4400cf18c8c47b52c8a26a2f1a74b5d332cc4afce"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/performance/ComputePerformanceCasesTest.kt",
+      "sha256": "23e34695542db6baa2b2a001b3a056a4219fdcfdd218ec37e762a174b745a4a4"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/performance/InkPerformanceCases.kt",
+      "sha256": "9dc4c1a2fde1025561f41ec104fcd44b45271f95685b0c1fb3fdb5f247275b9a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/performance/InkPerformanceCasesTest.kt",
+      "sha256": "2d7f5fbaab6fda53f03d881a48f54820dcce1a23a79343b6808b6a4c0cfa3572"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/performance/PerformanceBaseline.kt",
+      "sha256": "f65f980ac763b45dda0f7da39e957b3232757e55c36ec5c071d779eaa1eadfba"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/performance/PerformanceBaselineTest.kt",
+      "sha256": "5518724286a1d2f083e423aeab07586609b0a0facdbfba05aead695aa25c37ef"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/richtext/BrowserClipboardFixtureTest.kt",
+      "sha256": "3de4858eed69986d5536baf5837b57c6942d9716cfbaaace7734141a48275b85"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/search/ContentSearchIndexPicturesTest.kt",
+      "sha256": "b9157d242e24db0aa2b5053cc4a36adb78f508aef37552aafc0fee8409a85159"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/search/DesktopContentSearchTest.kt",
+      "sha256": "0ea0f285b451ef50a1ccc7bca1c5953fdba5a385447d0cc5936a225bc849f1be"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/search/PreparedSearchChunksTest.kt",
+      "sha256": "8dbecd32d850cabed1690b495e264f3349a372d0214ee07d5348a9ac20e3f52c"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/search/SearchIndexingLifecycleTest.kt",
+      "sha256": "2c8a67de5dde792649f81c37c34804f99e731c2d9401c908e7a473b8325aff80"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/search/SearchPaneTest.kt",
+      "sha256": "d7805292824b339d45a0ec8faadb1c1ec7f08303b9df2449b80413a3d1aadb2c"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/search/SearchProcessPoolTest.kt",
+      "sha256": "4f5bfe9be445c58fdcb53d9e405feb6668da1da2d95531a3b7038012c69826f0"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/account/AccountScreenTest.kt",
+      "sha256": "6c5b0de25e556cefe45c7e7ad3b53356ade425394bfd789349d3ac9d9c6c8a56"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/account/GoogleBrowserPanelTest.kt",
+      "sha256": "16046d2a98d1d4b0cb9a374a46dc6e642577c5f7ce6c1f7a3161d22b6594d1c1"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/account/StoragePlanTest.kt",
+      "sha256": "94ff125dde8b968959067c2db6127eb47aec30e7ab7c1cda4372be4e418fc45a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/account/StripePagesTest.kt",
+      "sha256": "64b635c2987f7f0a73ad4575e63b234d372d4b46780ae9153a5bdf9c4616c645"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/DrawToolsInteractionTest.kt",
+      "sha256": "a6ba0ea393de37fb3038bf21d1bdd2172cae1b4f9f8a389043686f5a5778d3e5"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkAuthoringIntegrationTest.kt",
+      "sha256": "d73c14903bc0f003cc038e563fe59d0613844c65a8279dd68668827b102c8dec"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkFollowupPerformanceScenario.kt",
+      "sha256": "5f26f566028ef001d5b53c92e531f7ea01790bc6c643e8dfda37dadeb77adb74"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkLayerCacheRegressionTest.kt",
+      "sha256": "670b8eac9bf91959e406c509c2abc9d9deac43722fc18d57780b515b42faf923"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkLayerOverlayRegressionTest.kt",
+      "sha256": "529e77d64bb3c52c0d319025b200f050159261aaba2af727d8428e82e37fe03a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkLayerPerformanceScenario.kt",
+      "sha256": "e3beacd09e09e4548f6ecd44310c2cf30c2e42871d98987c5b8d3d2c0f5be578"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkLayerTest.kt",
+      "sha256": "0f4f1920aff511355b1d15ff095533417c387e1996dab4dca7d92fc226566c22"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkProjectionReclamationInteractionTest.kt",
+      "sha256": "b30dc72a484d2c64ec79ae6729adeb25c732b357fa93a5d0f32b200289d1e6cc"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkReopeningSceneTest.kt",
+      "sha256": "3f75cf7fc40bf7c62181ca591bcc348dc44d2692a51a46e543ef78753469539b"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkSceneExclusionsTest.kt",
+      "sha256": "f0c35301ae0b649a86e938b4baca369b400ce85d26db508decfb19c13661f7f9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkSelectionInteractionTest.kt",
+      "sha256": "3607823ae5a0735d8c19dcb4e3f956bf9f9ffb33eb534d92f849573cdd528da4"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkToolkitInteractionTest.kt",
+      "sha256": "79e293adbe4ae61f7e938d93cc65bca2a625f530c653b3c85b766ce7b528f2c7"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InsertCursorBadgeTest.kt",
+      "sha256": "7b1bb86626523e8e8ab2bc6254364159372580112e0cf86a3e0eab0295b6f7c1"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/PartialEraseInteractionTest.kt",
+      "sha256": "20ee05d0fcccc2501b5189af6a6cca2eed5e4c0ff54c46b66449843fca669816"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/PictureAssetLoaderTest.kt",
+      "sha256": "345b2c11097371d6065103423026b34946a45494af19e4e67ab89a447f56ac48"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/PictureRenderingTest.kt",
+      "sha256": "3ce3997f6c6621f9ce8f6f2783e15a4ce82b137e7f3cd9f82e22af6b2ed89c1f"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/PrimeObjectInteractionTest.kt",
+      "sha256": "6afb64ac4cff6c9f4ce69540a84944d853fa7a1d1c55e80509e5b7d21ed99e46"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/PrimeResizePointerTest.kt",
+      "sha256": "82c09cc6eebcb2319aff58431444f17f9835f2fd7bc9deb070cf270b5d9dba2f"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/RichTextLayoutTest.kt",
+      "sha256": "d0c0c1e82f29a4ca69dbac1ecfa95928492d7841938f0ba5f9d86e240527ea3e"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/SegmentedInkRasterCacheTest.kt",
+      "sha256": "4f4c78e545631cfc5eccb16b41f64bf907881103d7f7a849661289a4dcee1db4"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/SelectionColorPickerTest.kt",
+      "sha256": "1a9c218532a7e2171a64dd7e398328f409076effaa1b391107fc87e82a0e034d"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/SelectionColorReferenceTest.kt",
+      "sha256": "cfd44c20389dad4c26065a3537286dda7ae3650781c60ab1f6f15e1ca4d63a67"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/ShapeDrawingTest.kt",
+      "sha256": "e5456f8edd3e405e2615cc2f133ef64eba8eef0ec8db5bc9857aca6b390d011f"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/TextBoxPreviewsTest.kt",
+      "sha256": "bb48f5125c2a2312ebecb293ff53e7fcf05694e4a9a2dbf7a103c16b9ad811da"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/TextContextMenuTest.kt",
+      "sha256": "8fcf92d75bb24ea7b50e0fd4538d1cb65ab3a8eaac606a115f8b353ef00ba527"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/VideoThumbnailDispatchTest.kt",
+      "sha256": "33b47fc76d6eca0fdce77a73928bb59a69abec681a87b79b1649fda21eb41274"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/components/HoverTooltipRuleTest.kt",
+      "sha256": "aef6f522d6b455f14f9c370ac394249fe4754739eb361262b1c1ddc0a0a59e64"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/components/ScaledDropdownMenuTest.kt",
+      "sha256": "40ae92d9b2fe06b96c6536b436e4cbed06e2765ec22173981bad158b7862bd59"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/components/TouchTooltipTest.kt",
+      "sha256": "f68179ee98cedd0d1881f7bb2c42982266201faf739b12f0c6965e1d9f8c7042"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/components/WavyProgressAssertions.kt",
+      "sha256": "00618aa85e3c7cf40c904e54d1bd37fd2ec0c6ca3dc4ad7eb621e8570d6bf1f3"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/icons/RibbonIconArtworkTest.kt",
+      "sha256": "75ea162ca0986bfa006117248ef36e0b414c9389dcb9f3a460fe907546fb57ca"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/icons/SymbolRenderingTest.kt",
+      "sha256": "9a2154ae1e9db6ae9fbda3876597c9af285af2afb679b403fe52a7d388afbb76"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/keyboard/ShortcutKeysTest.kt",
+      "sha256": "58e7ee21d84b918eb4bdf8e10104436a8049bda1c1a45b92f22a8a6d4176f389"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/navigation/NavigationMenuTest.kt",
+      "sha256": "351c9b4a4cdc148a3eea693f092e6a14a022dd386f3a9b0478a4b3636e9a9de4"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/navigation/NavigationResizePointerIconTest.kt",
+      "sha256": "e0a28ce669babf92d1b64c14acd53f48937cc3ceeb625ad849205f088390c595"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/navigation/NavigationResizingTest.kt",
+      "sha256": "8da66a0b8eec8e92eddee248e2389e7d629d9ed0e85202ec2e6c7b775439b8a9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/navigation/NotebookRailTest.kt",
+      "sha256": "0824e48d46a8fc9cdf6289f6e0a6b13062fc6545208723b49330f6a5b7d257d3"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/navigation/PageListPaneTest.kt",
+      "sha256": "a2c12cd09b0990bfeae5ee82c63d18abcfa73c987941264aa1caea3b5831c8c0"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/navigation/PaneTouchTest.kt",
+      "sha256": "52358992dd0128921fa66f5dbfd37c930f9c6a58ff688fca820d1811dfb4c275"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/navigation/RecordingNavigation.kt",
+      "sha256": "093fafac5a4aecc32cfa3e8695c75009e8b147656e821686ef7434fafd0805aa"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/navigation/SectionTabsBarTest.kt",
+      "sha256": "3bb12145cf4bb04592c8057fbf5bcdbb468292e744882ff2ec52dffa0e977595"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/document/CameraDialogTest.kt",
+      "sha256": "e649cc7c0e72df428a32784a003414b0cdfa955a2f164e6d9e5e93f68b7e5680"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/document/DocumentColorPickerTest.kt",
+      "sha256": "3dfd3992cd4a7d9494d228fb66de371060357369a23a8f7aa5f1fa448e4ccfe2"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/document/DocumentPickerDefaultsTest.kt",
+      "sha256": "4a88487d2a9d3b02418544a10cf0ab78fea57857687204cbd8245d09e779fc61"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/document/DocumentTabTest.kt",
+      "sha256": "728d585e8a7b98ab8640a42bcdd353f00b4dd97f0af243e0846038c4bb3576c0"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/document/InsertPictureTest.kt",
+      "sha256": "20a8b9a8a9dd741e45f54c85580ccf80f2a87d8896dfccd9a19c9a16244180ab"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/AndroidHandCalculatorTest.kt",
+      "sha256": "02266ba00992fde7884be7eb3988a69d6a591504c9189d014a9e757f47896cab"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/CalculatorInteractionTest.kt",
+      "sha256": "d10f8d210f84b4ed8608584c3ecbb1fbef340e1a11934e619a583abde25d152c"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/DrawMathCancellationTest.kt",
+      "sha256": "fda19204d337a0138bc0e53463d40f0cd683af038bf77cc8998dd95af073493b"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/DrawPlacementInteractionTest.kt",
+      "sha256": "e7fca2a258f97885faf38e7a261d4e9345d4c989afef1aefc2a2dc10907f5f77"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/DrawRibbonStyleTest.kt",
+      "sha256": "4f326f6ac17abd6926e7403d9afffc5ef2d07fe99954a4e03252ff3e108b0905"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/DrawToolkitKeyboardTest.kt",
+      "sha256": "cfa997f4433c46e6e09d40e38fe67878afcefac50e21a8378c338bb4d2ffc4d5"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/DrawToolkitReferenceTest.kt",
+      "sha256": "117565173c0c8755ecbed391a41482f000ae1593b3b2e5b1382069d7645ae006"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/DrawVisualReviewTest.kt",
+      "sha256": "319eac38e47a045be92a6d6d99d24fbebf7b015470868140cc5e8848049afeca"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/InkColorRenderingTest.kt",
+      "sha256": "6abe87ab07bac4aabf31dc45135d411f07e27d3d3735a1c6ff9712646de72a1b"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/InkColorWheelTest.kt",
+      "sha256": "30ce4ed4302e227c6c15c0d1d9a2ec45e682497c855d00ccb9cf4d6c427f5123"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/InkControlsTest.kt",
+      "sha256": "32dda9b7b22ed9cfb2a24c252b5186130b96e41fa6b48182bb8d54feb69c9fcc"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/InkPaletteSpecificationTest.kt",
+      "sha256": "67534a86c54ce3f3f3673d4b0ecf629cd7e2cddd8bbe7aa48fa9020eb9e42d55"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/MathPaneReferenceTest.kt",
+      "sha256": "5d27773f7f69406a6b75421e510f3cbe565e983dd1ca6ae8da21881df659588d"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/ShapeColorTest.kt",
+      "sha256": "4224905a86a452d47286df215930d159c9a584360cbc90d30a51928290b07257"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/draw/TableHandlesInteractionTest.kt",
+      "sha256": "f785b38b08d2c420fe04b354546004f91064220e03ebe349be64024d7d5df3cb"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/file/ClosedNotebooksScreenTest.kt",
+      "sha256": "1765f6ce04fec6d7c7028b34d4b2bd80786019e15ffe7b095aa1e36b5014ac99"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/file/ExportPdfDialogTest.kt",
+      "sha256": "9f1850395c934a63fe303a206467f9801b83d6954cd7eaf1aeb5a8aff6e36ce5"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/file/FileTabTest.kt",
+      "sha256": "8df425841b0908f5d9baf625ed643578e1c617cdc5c4fd19029c324112749626"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/file/PdfExportPreviewTest.kt",
+      "sha256": "e760a944d97835732779e2d9c00a863afdc2422ddd66dab3e5e87e8082b8ddf3"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/settings/AboutDialogTest.kt",
+      "sha256": "d4857deb96512fa406d0cb8e403987b2fe9c8b97e98c601c3d067a87f0d20c74"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/settings/HardwarePaneTest.kt",
+      "sha256": "aa613082641d0e12529e5d5169284747549212ab31f72c0ae803b2c1b4f263e7"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/settings/InterfaceDialogTest.kt",
+      "sha256": "ed11cbac6769029794533e004bc7035e1dcf320b483c079d7fd2934b82578b4b"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/settings/LinkPreviewsSettingTest.kt",
+      "sha256": "27f0c9aebcd676f808f953c622b8b3f98ff3365d72833f3ab2e7406c9ae32329"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/settings/ModelsPaneTest.kt",
+      "sha256": "afd36669b7133670f0a5ffafc384ff90763bd391cd43c7a5bd1f9f44aa418e84"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/settings/SettingsRibbonStyleTest.kt",
+      "sha256": "d4c3f9489e9b90da7ee6cf6d1af32cd029e19b525df29c8e87aaf3f716f77b22"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/view/PaperDefaultChoiceTest.kt",
+      "sha256": "c271586c290374439539bf192aee268802ce7814abe8cb10919e08af00ecbb9b"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/view/PaperSizePaneTest.kt",
+      "sha256": "3e7feae3cb89032ea57b3f94ec234930ba7b410bbb22d81d7d45fce92c10723f"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/ribbon/view/ViewTabTest.kt",
+      "sha256": "58984ead1c6b36df5ff15f75ef4dd1b72d5077c5d302fad2a405eb14e7203372"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/CanvasInteractionStateTest.kt",
+      "sha256": "cbaf9084ef4640cb9591970ffda543b0bfe07508827225df6eae8d8e26e44386"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/CanvasLassoWorkerUiTest.kt",
+      "sha256": "6acce4e1ca6e4a2511b9545c58e1dcaadf874ae5b1171c3f022bd33065e748d0"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/CanvasSelectionWorkerTest.kt",
+      "sha256": "ae636a0f91fcb65cb1280ac9b96433cde80ed8116ce54b63c1b3e6ba91d4ce7f"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/CanvasTextPreparationTest.kt",
+      "sha256": "1bcb298664cd604b3d5293e2c8a9681ed0834ad551b2fa578c45e48ee5799327"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/CanvasTouchTest.kt",
+      "sha256": "a8b0a5698611a3673573d12fe24bb1f6af3678d8cabb1d50c912865cd7e51f30"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/CanvasVideoMeasurementTest.kt",
+      "sha256": "41d391a7443fe70efd623da84e368c4e788de032eb99ddcda192bcdbd8406f51"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/CanvasVirtualizationTest.kt",
+      "sha256": "886221ae747d1b541fde022095ad38e9b78ba7a9c776474d23e7a851ba33b73a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/DesktopChromeTest.kt",
+      "sha256": "0ea556f613f4ed963c9becb891d08e0b638192b4420e316f08dd925ee338cf2e"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/EscapeDismissalTest.kt",
+      "sha256": "0d55c1712ed85aca85522021e1b6dbe4a8679cf8b755586eb7985072cc181ebf"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/KeyboardFocusTest.kt",
+      "sha256": "a1a023bab444832a2ea108a48db510441fa6e1f3a24b1364a881fd82d059ed37"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/LassoPathBufferTest.kt",
+      "sha256": "c1f41a825b35d12c60481e8a7e0156169bdc3b780c23bc6387bab05014b214d1"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/PageViewTest.kt",
+      "sha256": "291f9840b30745a147e58347d73bed60e0628c3c5bb7c5bb4877a1bcaf0b2534"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/PanPointerIconTest.kt",
+      "sha256": "9c789f638897ae1cbdeaa887ec1d322d48c9ebef689159c377850741d02ee43f"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/TextBoxEditingTest.kt",
+      "sha256": "218ce8d753861728075147a18837dce61bf3ab1a3938157f12bdd7f928fa2108"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/TopNavigationTest.kt",
+      "sha256": "34d0f703c23e7b906427018abb3634c354ba2e2822257b8a3e3f2294b01cdf66"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/WorkspaceCompositionTest.kt",
+      "sha256": "c718b56712fe4e2e498956ef36844dd4faa994a6e438b8ec2d8a6253fff9a64e"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/WorkspaceScreenTest.kt",
+      "sha256": "e36617d47a0ec6334a40fa241af4838f61fc3dce0797e4245c8f9661b13ce33a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/workspace/AndroidPenPaletteTest.kt",
+      "sha256": "ee95ce5e6abd5ab86e3fc28deaf0090879318b57077623e7e80b2506dc237fc6"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/workspace/CreatedLabelTest.kt",
+      "sha256": "247807fc4f8da6dbf4c749cab0fd38f716aadddbc06e4974610bbbaefbb1efd9"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ai/android-ocr/en_pp-ocrv5_mobile_rec.onnx",
+      "sha256": "8307465d3c9ef2ba4055c3bd0be55aafe11f518630212b7598b70ccb376028ac"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ai/android-ocr/pp-ocrv5_mobile_det.onnx",
+      "sha256": "1eb7b4f7ab657ebd1c66d5f79bca7497f29768a2e3c15e52daecbba1a8e4a039"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ai/android-ocr/ppocrv5_en_dict.txt",
+      "sha256": "e025a66d31f327ba0c232e03f407ae8d105e1e709e7ccb3f408aa778c24e70d6"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ai/unimernet-small-handwriting.png",
+      "sha256": "735d3507158368c98a5111a0733a3753caf6979d40ba9519b2b659c5f942f68e"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/clipboard/chromium-linux.html",
+      "sha256": "93b0ed346960c3d17160d9db81b816cfe0a26564621de07d7dce6d36b03990fb"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/clipboard/firefox-linux.html",
+      "sha256": "0946d4be434b4f791529b3a2594c9f32615deeba3e2dc03776e0684cbbe0e579"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/icons/close_notebook_android.svg",
+      "sha256": "b9c3186479ee9a5ed60139126d616a5476e69f406ff5b913eeef5b71cdd1dab9"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/icons/closed_notebooks_android.svg",
+      "sha256": "97ed22e1b138faf398d42b7955037106b6bc4f6f89a60441cde5b3ad2e2d7cf3"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/icons/cloud-notebook.svg",
+      "sha256": "8fb69beb406f366af6498589e3b7ffd0e4d2895389beae7b592a599e8cda3d1b"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/icons/display_settings_24px.svg",
+      "sha256": "3855f46e7f6096c45fd7c216f45f7cc02011a1f9febd768642ffdd2a741000d3"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/icons/ic_fluent_eraser_24_regular.svg",
+      "sha256": "73508c834e4db5a43230d07328e288c6f8e659fc046deba554314a4fde63908d"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/icons/notebook_regular.svg",
+      "sha256": "5cc8adfc2c82985515f4a838d0b25a97dcf4a30eb9c65da151f7163237f8cec4"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/edges.txt",
+      "sha256": "3421ed81c46d69b6de748ede10dc818cf5c631cf8f70fda75e8bd183e0b53943"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/empty.bin",
+      "sha256": "e6cbe353852c9db7133dcfeeb8a8aaea9a9ddb8009c0979d92b5a754b524de44"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/empty.txt",
+      "sha256": "edb35ae433a6eda4ea82c87f2988e3e23135323e5b9fc8121b7e8923da985c1e"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/mouse-long.bin",
+      "sha256": "6c2e2c8082773e9b716ddb48da266c9112ded5b20eb5f61ecbf070c4b2bede11"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/mouse-long.txt",
+      "sha256": "64b9c7e6c12fcb38d5ee4ae070097be4391fe21d8b5a4a64ed6f920c5112e0d0"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/stylus-pressure-tilt-orientation.bin",
+      "sha256": "aa805e3394663b2273c61f69e2a672e130fabc800050e3ee1069f16bb0848f64"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/stylus-pressure-tilt-orientation.txt",
+      "sha256": "620cce7786b7c01a5bce4998496fce14c22aa23a38ace9415d456b30656bbe7e"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/touch-single.bin",
+      "sha256": "9269a5da8d0366c7f7743abca14bad586b9ee544a49c924e4dbb4ea330b902f5"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/touch-single.txt",
+      "sha256": "9e438dbe1e467ea59183c936df59ebedd7999428b5792d63f18b94aa708b7b21"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/two-point-unknown.bin",
+      "sha256": "0d2eda2b36f63dab20138f488f62091be332c8f05540896d897697de9f579e7d"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/two-point-unknown.txt",
+      "sha256": "4c73d8390e1a628a4ad05d1f57d1e70da93b20bf93acc9645fe3ffd9a7b41020"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/ink/androidx-ink-1.1.0-alpha06/verdicts.txt",
+      "sha256": "e6359c8a1069a56ed9997e9696f92310d65f17e4297863083f371fe65266844e"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/pictures/red.avif",
+      "sha256": "8d099d85e17f7a63768af2aa552a19439c7af77c674fdad303a4687c7102fe7f"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/pictures/red.bmp",
+      "sha256": "94efb904a632d7bb9ce3d829b2708bdbeb8ea4d89053a0c670ca8775cc30af02"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/pictures/red.gif",
+      "sha256": "b121cd0e59d69c1511d4d37290e94e3cb4947d952aa6c450b0e991b42c2ec723"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/pictures/red.tiff",
+      "sha256": "ed90b4d92b1826606f29d0c18fdd6e5509c8819bbf62212d3fa2966affbabc30"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/schemas/android-baseline-1.json",
+      "sha256": "41c4c0ce2ef6a9d527f31e4618b6a10bc715baf2a3878b7e9e73efa25ed05cc1"
+    },
+    {
+      "path": "shared/src/jvmTest/resources/schemas/android-baseline-2.json",
+      "sha256": "74af6454ee1d8b0b585dfd608f78721d216af505122b3541337b7599723447dd"
+    },
+    {
+      "path": "shared/src/wasmJsMain/kotlin/com/vivenotes/model/ink/LassoRegion.web.kt",
+      "sha256": "b1cc6a54ea8c5991c47f3259386d36c322644efe0fa342a1d8bef12413dca57b"
+    },
+    {
+      "path": "shared/src/wasmJsMain/kotlin/com/vivenotes/ui/canvas/InkLayer.web.kt",
+      "sha256": "25859e417f97d88a5d26ab8a7fd035c8c6a6a32f230c81bf05a1968bf4842d1e"
+    },
+    {
+      "path": "shared/src/wasmJsMain/kotlin/com/vivenotes/ui/canvas/PrimeResizePointer.wasmJs.kt",
+      "sha256": "abe7a41d80f6cda091e7c5b9226e1e4b90e88500c636774c087ac6b880ede6d9"
+    },
+    {
+      "path": "shared/src/wasmJsMain/kotlin/com/vivenotes/ui/navigation/NavigationResizePointerIcon.wasmJs.kt",
+      "sha256": "4adbae9753883e34760cd122cff8078b2d22ca6aca9e49ca365095ae28b90e7a"
+    },
+    {
+      "path": "shared/src/wasmJsMain/kotlin/com/vivenotes/ui/shell/PanPointerIcon.wasmJs.kt",
+      "sha256": "551c2e8f264f34fea7f2dc1087d421e0f24be7a3398a62a417be1301cb2b4721"
+    }
+  ],
+  "backend": "windows",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "cpu": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+  "logicalCpus": 10,
+  "captureManifestSha256": "3c99f89f6b95919afaca9c7e10f6aaa0a966cb3bfa99a7eb25e4131afc44e792",
+  "recordingSha256": "6841bea62ff098f805188a1b29e5f933de3afe6f83db3273e1a05975419867f7",
+  "analysisManifestSha256": "d8a47761d0bb09e52549f79b308ce99812e8423a6793b705dd1866cd39a68f3d",
+  "toolFiles": [
+    {
+      "path": "desktop_runtime.py",
+      "sha256": "1733f15c391e3d8a6b6b6f466d0de0d713c21bef7b0514ad7585d563d1de8408"
+    },
+    {
+      "path": "test_desktop_runtime.py",
+      "sha256": "7b29eafc5dee44cd4b79d09fbba6c101e0335efbaea1c5cde26095132a736f70"
+    },
+    {
+      "path": "USAGE.md",
+      "sha256": "226aa9661658596cb0233a20136c03e0a60a570bf3dfcbfde8f58728cbb442f5"
+    },
+    {
+      "path": "classpath.init.gradle",
+      "sha256": "74de155e032b069465cdf6e405e39bd619689c082b76bee62255225e75f696b2"
+    },
+    {
+      "path": "DesktopRuntimeProbe.kt",
+      "sha256": "da0ed451105130f1ed8386a7d8be85b27433033d207a6e8fd329c76e1135e6f0"
+    },
+    {
+      "path": "RuntimeRenderProbe.kt",
+      "sha256": "602fd70e964c36c4ca2fafdc96832fc97494950e67603c47877100335ccc73d5"
+    },
+    {
+      "path": "text-preparation/text_runtime.py",
+      "sha256": "f9dadcdd2429b57e1ab819dfaa07f2146ea208391b9dc37cdef7fb49b7d50a7a"
+    },
+    {
+      "path": "text-preparation/DesktopRuntimeProbe.kt",
+      "sha256": "dda666c573242ef9c92d979ed0890d6140dc6f2a2bf88c3e60fe14810dadeb95"
+    },
+    {
+      "path": "text-preparation/test_text_runtime.py",
+      "sha256": "295a7c177a5066185b5880826d8679b1924ccc97409f3199555b426205949154"
+    },
+    {
+      "path": "text-preparation/USAGE.md",
+      "sha256": "5df8730c86f0c7c8a059f42278a62b64b99fd3749bb433f8aa7157660f05056b"
+    }
+  ],
+  "probeSources": [
+    {
+      "path": "DesktopRuntimeProbe.kt",
+      "sha256": "dda666c573242ef9c92d979ed0890d6140dc6f2a2bf88c3e60fe14810dadeb95"
+    },
+    {
+      "path": "RuntimeRenderProbe.kt",
+      "sha256": "602fd70e964c36c4ca2fafdc96832fc97494950e67603c47877100335ccc73d5"
+    }
+  ],
+  "probeClasses": [
+    {
+      "path": "com/vivenotes/runtimeprobe/DesktopRuntimeProbe$await$1.class",
+      "sha256": "db94662fe77f2dda74d46b2bc01008b0166686908bbea15721018e51e8eb5008"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/DesktopRuntimeProbe$ProbeDatabase.class",
+      "sha256": "045febea6667477f9097aaba82a4565d5d48aef46a48188b05946c98c6693cbe"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/DesktopRuntimeProbe$seed$1$2$1.class",
+      "sha256": "742d324ff23dfaad8471e772b6ce454a00f29fa56392c5820f5fad496fd27b7a"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/DesktopRuntimeProbe$seed$1$2.class",
+      "sha256": "b0338126827e2f43ece73dbbed02aa10ca592a3840278c431afadaf48eeee17e"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/DesktopRuntimeProbe$seed$1.class",
+      "sha256": "e7e2bf1afda82c8b0b3b075630d0b50544a0e427b275052a166874052c04e5a5"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/DesktopRuntimeProbe$Target.class",
+      "sha256": "e2f7e54defaf32f8663f19c305183607295bc33a58a0199ff67079402b704c5a"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/DesktopRuntimeProbe$verify$1.class",
+      "sha256": "ba7d2c27a6a7f0548f929e49c1aae2d1f4128bbe1aa764a280705aae2a2dbe1f"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/DesktopRuntimeProbe.class",
+      "sha256": "cc973dc7f60667a4bfcd82d83295ed6114c393a88f888f41e1fbd08f57833f0f"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/ObservedInput.class",
+      "sha256": "9a8c1b35169d657c6f5657700fb18db7dd5bbc858652b70ee95786d19259889d"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/ProbePhase.class",
+      "sha256": "59303934c4b60e06233989ca8818e80e8c0079b4003c5f530e7d202c8bd67d2a"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/RecordingResult.class",
+      "sha256": "ffa7af6161bb1708b10e0f60f3b1cf54ff38d6d29b68ed3a0fafa1dcb00e8c3c"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/RecordingToken.class",
+      "sha256": "63cb54026aabf72d6a2d0578d121a01c38f8cc979c88e77bbeda5238c9aece46"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/RenderCounters$1.class",
+      "sha256": "28e7762ed1513c675996cab6c3c4cafe715a747a67164ef44861ff4f1cfc1589"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/RenderCounters.class",
+      "sha256": "9657df09dab7c4f60288eaeda9933c03e950121bea09aca0bf7b4148936859d4"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/RenderPhase.class",
+      "sha256": "5512d3f74bae033d2784e7dccd18a738c35da334b1431caec25bf9c93f6beb87"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/RuntimeComposeRenderEvent.class",
+      "sha256": "b1dcb4ae8a5eae3c939a559d578c1ab21dd13d5dcfbc9286ad6b289248520ebc"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/RuntimeInputToDrawEvent.class",
+      "sha256": "06aa5cd2f9a6dff7be59c6b1861d4caee906c566c01435d3f6a294a6a586271e"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/RuntimeRenderProbe$Binding.class",
+      "sha256": "84e7a07c2de70185e5c00a6305416e5f70bda4901dd0807d766fa9ff8afea35e"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/RuntimeRenderProbe$Companion.class",
+      "sha256": "ef4d4bd5f084aaea8b0b20e6a4b175f6e567dda5191d378a4aeb8c2aef34f9d1"
+    },
+    {
+      "path": "com/vivenotes/runtimeprobe/RuntimeRenderProbe.class",
+      "sha256": "ed6ce2a0f0075ae934a7f27b19bb788324c2708b857fcf23ea07d8fd35c3804e"
+    }
+  ],
+  "runtimeArtifacts": [
+    {
+      "name": "main",
+      "sha256": "fc90909f186e8d509055db24ee2e20c01db30a33cf29f5d9a018fa41c4194800",
+      "kind": "directory",
+      "projectArtifact": true
+    },
+    {
+      "name": "main",
+      "sha256": "ae8216389c88854928bbdc282e9ba871fdf71f06627793ee5ba2fe6e8bea5089",
+      "kind": "directory",
+      "projectArtifact": true
+    },
+    {
+      "name": "shared-jvm-0.1.0.jar",
+      "sha256": "a9900ac025489e5578b07d8b0068273e2481472a2a17e43cf1e51998b2534da0",
+      "kind": "file",
+      "projectArtifact": true
+    },
+    {
+      "name": "002-byteink-compose-0.1.0-SNAPSHOT.jar",
+      "sha256": "824fafc5b4853b90a2477584a4d870d2ee86e6b9d8d3d43eb3db03e4d54a09b9",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "011-desktop-jvm-1.13.0-alpha02.jar",
+      "sha256": "ccf74d60d6d48ab7d89eca28cf287aecc405e9d536bec877c76e4163799a4f50",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "007-library-jvm-0.1.14.jar",
+      "sha256": "bc163eb7a196b8186918133bf9031792ba3c7764f36ccc8179809d95ef36bca9",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "008-material3-ripple-desktop-1.13.0-alpha02.jar",
+      "sha256": "ce07be419b3febad91b489d1da929821f097ff48e7e84d6c9f692360146e3dbd",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "009-material3-desktop-1.13.0-alpha02.jar",
+      "sha256": "674b92477e230ac20f4468aebdf0fcf24fcd873ad81292c508cbd35190eeae3d",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "010-library-desktop-1.13.0-alpha02.jar",
+      "sha256": "867ec503b15b82f127d660609df5a7b8f10620e392391a0ea1261eb230adfcb1",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "012-material-desktop-1.13.0-alpha02.jar",
+      "sha256": "8225e3a34458cceb5ead7f7be1c91a19839378afe9ad87e44a8481b8dd5a710d",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "013-animation-core-desktop-1.13.0-alpha02.jar",
+      "sha256": "b150d685686028475e541935e1d6f2ea48e3ff7e298ec002453fd63cd04d326d",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "014-material-ripple-desktop-1.13.0-alpha02.jar",
+      "sha256": "391ddcd0e8c491cbeda6bce00423a96583818cde3df0f988405c037c55b84a74",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "015-animation-desktop-1.13.0-alpha02.jar",
+      "sha256": "dd7df69721963c30fd8af68d779b45482f5aad156e640abe6786b8655585ce1b",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "016-foundation-layout-desktop-1.13.0-alpha02.jar",
+      "sha256": "a2de0004c36889c190e7b10765a10767468ff2fa6d677759447d0491ae52b90a",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "017-foundation-desktop-1.13.0-alpha02.jar",
+      "sha256": "e76d9f826de48a15ab2b4013775086a75dc67945b7dc170851be60e142917e8c",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "018-ui-skiko-desktop-1.13.0-alpha02.jar",
+      "sha256": "517a6e7874bfceb4ebd929d4cdb0f57caa32666bb24f26452494de2453d2e1e2",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "019-ui-unit-desktop-1.13.0-alpha02.jar",
+      "sha256": "18aed0065bc9e36100cd98a713ac9547994e334fb7e0016f46631d854bd3d015",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "020-ui-graphics-desktop-1.13.0-alpha02.jar",
+      "sha256": "e421910550cfe3e0f3a208d22ab2ddb5987e7597f3b67511b76a2ecbbe1d655c",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "021-ui-geometry-desktop-1.13.0-alpha02.jar",
+      "sha256": "2e8fabd49660ca72835679b6227cc3257cb2ccb4d3a611e1749ce00eda3992bb",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "022-ui-backhandler-desktop-1.13.0-alpha02.jar",
+      "sha256": "d2ced847edaca42296a907e90559efef6dbfb67c24d9994ba3db09f14c31a47f",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "023-ui-util-desktop-1.13.0-alpha02.jar",
+      "sha256": "24835324992e80e395d44844ab3c04cab48ca8a6fec132f3de18096d94db6e8c",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "024-ui-text-desktop-1.13.0-alpha02.jar",
+      "sha256": "d87b89b9ed7d8f9aeb54a9d83fb4c0556b64e9f4f48d256c995c1a1e03f48258",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "026-ui-tooling-preview-desktop-1.13.0-alpha02.jar",
+      "sha256": "8f01ac4be301a98db5c4a2399801cda0f719ca344db6f33c6592bea20192c54d",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "027-ui-desktop-1.13.0-alpha02.jar",
+      "sha256": "c0466f41c34a0293337be268e39a0695be8fbec2dcc61efc7a7d142da3cba469",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "053-room-common-jvm-2.8.5.jar",
+      "sha256": "dc7b4e1a75a790f29c97afd5516b8bf8002d9b6e83e295bc569b33566f3b1ec0",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "054-room-runtime-jvm-2.8.5.jar",
+      "sha256": "b320c93bc97cbe75a997eb2107aaacd6964c0411c8a5873f0128fbabbee03fbc",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "028-lifecycle-viewmodel-desktop-2.11.0.jar",
+      "sha256": "175c349266ccbb6a2036615725b7066ee3f3319665c98af42206ab3a582a43c3",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "029-savedstate-compose-desktop-1.5.0.jar",
+      "sha256": "67be8f2949943826f652c2b5b6910a1af0872f1457e59445ab227c99023ff42b",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "030-savedstate-compose-desktop-1.3.6.jar",
+      "sha256": "0f3d045c5fd7e1301ab6c38cd0778067b0484cf39acac1233be71a723a6a8075",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "031-savedstate-desktop-1.5.0.jar",
+      "sha256": "58198c6c979a400fc7831f1ca51d8caa972ca0b1fbe3df5e469b53cf552332b5",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "032-lifecycle-common-jvm-2.11.0.jar",
+      "sha256": "e6a66e67b9f63a0fb6344f165c1d872376e5fe6d235bffb138af45122cf452a9",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "033-lifecycle-runtime-compose-desktop-2.11.0.jar",
+      "sha256": "d5336753ea4d5881ccfb8b0613e034eb241f0d8b4349536df1cd0ec86cf63664",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "034-lifecycle-runtime-desktop-2.11.0.jar",
+      "sha256": "09f75a4a8d763cee5d6af36f422139a0205d3f6df2e2c5288cae42836f0b36ea",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "035-lifecycle-runtime-desktop-2.11.0.jar",
+      "sha256": "3e5b56c54c826dbc2a8d8162af4d020840dbd3e742b8be3bf78546afdc2f7376",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "036-lifecycle-viewmodel-desktop-2.11.0.jar",
+      "sha256": "38384ad114f3231a5bfe04608c2c514747574fff3e347a7266e12e6ad35a6a1c",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "037-lifecycle-common-jvm-2.11.0.jar",
+      "sha256": "50a826ef0d1bd27ff384e4dd9d147bd1f343cc78d044f7b32a7ec6ce9b3fd2ba",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "038-lifecycle-viewmodel-savedstate-desktop-2.11.0.jar",
+      "sha256": "5dbf963e5be555b61ce47e18f8dfa82fad3b5c0e79cbeed7c9dca6c556f53847",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "039-lifecycle-viewmodel-savedstate-desktop-2.11.0.jar",
+      "sha256": "ca21720ce7f370cb21cabb5329b959eda624107ec06282e3bdc92582917b1d27",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "040-lifecycle-viewmodel-compose-desktop-2.11.0.jar",
+      "sha256": "1b4c58125c7b3693444f40c8ab76881d17fa74726860c24872a3dec3e0fad34b",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "041-navigationevent-compose-desktop-1.1.0.jar",
+      "sha256": "0514f5d5c14de3b422c48a4eaf1d9dd2ce265041339e4c51ce30db8da1690874",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "042-navigationevent-compose-desktop-1.1.1.jar",
+      "sha256": "1d7d20d7826a2cc63ace9862cddd8a7085a11a3ea2cff258c28b3d58e57f143b",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "043-navigationevent-desktop-1.1.1.jar",
+      "sha256": "4c92508d4bd3b9cafb2785e8211057d39ed8465b529660223864a19625cedb5b",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "044-runtime-annotation-jvm-1.13.0-alpha03.jar",
+      "sha256": "e291a6ae01ab71a7f48a568ec9744c6bf9b3f46ef72fbcdeb28c3407ae531c5e",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "046-runtime-retain-desktop-1.13.0-alpha03.jar",
+      "sha256": "fc4c2aa533a7f6ec52250cc60c3e8f69a3e6b8639aeeeb9570f8ffff07052788",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "047-runtime-saveable-desktop-1.13.0-alpha03.jar",
+      "sha256": "4d5ffd368d8a5bf4b45a9b57d779104e38b7308148811f05dbf7016e98e2380f",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "048-runtime-saveable-desktop-1.13.0-alpha02.jar",
+      "sha256": "55830da67bb21ca67669deb75da337b5eb597198f7fc4c3095daa0bce3fa6c3a",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "049-lifecycle-runtime-compose-desktop-2.11.0.jar",
+      "sha256": "4c94a5fa98b838a34b84eecb0fca5b291b417ab3af8518862b488f85868a2195",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "050-lifecycle-viewmodel-compose-desktop-2.11.0.jar",
+      "sha256": "b44ae28c255709eba43719179ab5a4a27b7a8d2075e20030e2e265211f320a0f",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "051-runtime-desktop-1.13.0-alpha02.jar",
+      "sha256": "b34e4050e3e60bb12851d72eca7e8c36f1557acd183de7681cbadd74f289c1f5",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "045-runtime-desktop-1.13.0-alpha03.jar",
+      "sha256": "2a6b81958ee0c83ea1effd264e3f949c6b5dfb3fc21c6e6ea6ff13bdee756bb8",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "003-byteink-kit-0.1.0-SNAPSHOT.jar",
+      "sha256": "55f184a1e81248663cb150992ed78dffbc6dc8831a1457ea46be5e549c346f93",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "056-byteink-core-0.1.0-SNAPSHOT.jar",
+      "sha256": "a663faadbf224bdc40f777b06c3aec9d3199d72e2fc7a3c8277fac0bd7fb8dbc",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "057-ink-nativeloader-jvm-1.1.0-alpha06-byteink.4.jar",
+      "sha256": "5b76f23d221050a300d9dc5b9f0cdcbff12d742c86f38b0660150d24b4f13619",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "058-datastore-core-okio-jvm-1.1.1.jar",
+      "sha256": "5071d03c7be9555fd81e5bd522b490a06a89694e4b937f307da72bc74e33c34a",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "059-datastore-preferences-core-jvm-1.1.1.jar",
+      "sha256": "bd2c7f41cb7d6e857903a03aa4da4dddc831445bd4148f1ac8d0a81f509d0628",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "060-datastore-core-jvm-1.1.1.jar",
+      "sha256": "30819f32f0cda25a2fc2e7c4a12045753e48b6b04cd126a1a42f010e441e022c",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "055-skiko-awt-0.153.0.jar",
+      "sha256": "9ce3403fa65493ee621e40b4c6c74191363519000c20b0331c1261db4950b9df",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "061-kotlinx-coroutines-core-jvm-1.11.0.jar",
+      "sha256": "d1d75aa01dffbb4d1c520e67e4c4e7f5f6174718e7cb4632412503f2f0e604fa",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "7f658fe952b5-kotlinx-coroutines-swing-1.11.0.jar",
+      "sha256": "7f658fe952b56176111faad8ac275268904608915d6c79374fa0c80fb288fb60",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "004-ratex-native-linux-x86-64-0.1.14.jar",
+      "sha256": "e35be8e334a7b3cc4e87a4a6249cd95792cc1c96d94717d8bb3e4e5320e5604b",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "005-ratex-native-linux-aarch64-0.1.14.jar",
+      "sha256": "eb33f18ed2dce4c75a530097ed48915867e37a7be92363ca0f284550b2de09d1",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "006-ratex-native-windows-x86-64-0.1.14.jar",
+      "sha256": "b80f913b7fdde1f98d922928868de2031f7afad0ea658eb97cb21b322cc78342",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "062-kotlinx-serialization-cbor-jvm-1.11.0.jar",
+      "sha256": "744e8db1d55f4a23f6656d5ac33723a5c13fdcfab477f7fd3457b49b6bd96723",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "063-kotlinx-serialization-core-jvm-1.11.0.jar",
+      "sha256": "f4a801c647d4351327cd9e1ac4113e2be9ea37a64ab0abae269c25a52e28f35d",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "064-kotlinx-serialization-json-jvm-1.11.0.jar",
+      "sha256": "563a25b4eb5c9128ae9c2479f3d1a5c44dcd176112b91cf03682e906eba5c935",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "065-sqlite-jvm-2.6.2.jar",
+      "sha256": "53b050b80e666228a12a0ae72d49531b3d69615ba8fb62733f697f8fdc7fd6f3",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "066-sqlite-bundled-jvm-2.6.2.jar",
+      "sha256": "e61efb0647288b486e595950724cc53c4f15eeeca03ce2184751d02de3cfaa17",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "067-graphics-shapes-desktop-1.1.0.jar",
+      "sha256": "8d7a4d3812cae2e3ef8272e97f6e9917ae45931f17cf1391f0246a92c955d9f4",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "068-ink-strokes-jvm-1.1.0-alpha06.jar",
+      "sha256": "1cd126545a318af442f0c957b4766445965cb6970540f4d315ce055f98369b60",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "069-ink-storage-jvm-1.1.0-alpha06.jar",
+      "sha256": "c7ffce2d75c68afa3fb4ba075e71a5070503e9b27915cb4345e8ef67f48225a7",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "070-ink-geometry-jvm-1.1.0-alpha06.jar",
+      "sha256": "a130db2fb3d28a1393767313dc83da2fff33cfe120f84ff002c35b585a75db8b",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "071-ink-brush-jvm-1.1.0-alpha06.jar",
+      "sha256": "e7e5997ecfb6b02d7a55ff6b72f98eef2390fade8d19fc22969c0029a88f030d",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "072-collection-jvm-1.6.0.jar",
+      "sha256": "839fcec147704611a222159fa84e3e062f68eee80caa549ddd1222d5210a13df",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "075-core-common-2.2.0.jar",
+      "sha256": "65308a06b1c00ee186cb9e19321383f043b993813f1522c47f4a3e3303bdba41",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "076-annotation-jvm-1.9.1.jar",
+      "sha256": "1e343917ebf27ba96fe4dc52b1cad7fd32b738fbc6355bb6cd5b3b305d7212d0",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "073-atomicfu-jvm-0.28.0.jar",
+      "sha256": "39576ec46b83412ff7a2909d24cccbba90400e91f9aa67b250309bc0872ecf52",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "074-kotlinx-datetime-jvm-0.7.1.jar",
+      "sha256": "3b8b98657c9aff3be7f6b4b575e9f3fb9a3a1f452a801da0f438901734acdade",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "077-okio-jvm-3.4.0.jar",
+      "sha256": "0139ec7a506dbbd54cad62291b019cb850534be097c8c66c1000d5fbe8edef3e",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "078-kotlin-stdlib-jdk8-1.8.0.jar",
+      "sha256": "05b62804441b0c9a1920b6b7d5cf7329a4e24b6258478e32b1f046ca01900946",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "079-kotlin-stdlib-jdk7-1.8.0.jar",
+      "sha256": "4c889d1d9803f5f2eb6c1592a6b7e62369ac7660c9eee15aba16fec059163666",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "080-kotlin-stdlib-2.4.21.jar",
+      "sha256": "bd8250210584cb659847dce9cda660f8e9906e5def7fbebcea93dc6dcb6a88a3",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "084-annotations-23.0.0.jar",
+      "sha256": "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "081-fop-core-2.11.jar",
+      "sha256": "dd1aa616877f80caa3adf0e98824a1d6c8d91fca17c363822d66ee125439169e",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "082-onnxruntime-1.31.0.jar",
+      "sha256": "d3f903af31fe8f01300adb6b2b67297aa5bee7895909afc32e76ef29a3921149",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "085-batik-extension-1.19.jar",
+      "sha256": "103479524662bb92323b4b0226657bca1b295e40227e56ea2f9bea1e55ae505f",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "086-batik-codec-1.19.jar",
+      "sha256": "b269b8ce120c49fb0560ec1675fc5d39cb062b536b0d87219290a76c3d98f0a7",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "087-batik-transcoder-1.19.jar",
+      "sha256": "12045f8e21d6c7fd2a729f42317207233f8e3446f3a2f6ea1171000864972274",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "088-batik-bridge-1.19.jar",
+      "sha256": "9ae79c592efbab0804923de85363d524a2cb36ebdc1f27faeec10c1907427e26",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "089-batik-script-1.19.jar",
+      "sha256": "1aacf6445f85d1e029c5691d55505ca1ba140414cba2c9620d7f82fc6aee55f3",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "090-batik-anim-1.19.jar",
+      "sha256": "9b3f6f8c84c0efd88174012a8fbac4427697e5854aef194d57c5f0910c15280a",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "091-batik-gvt-1.19.jar",
+      "sha256": "c8b1ea700d1c26dffe3a08a543efcaadc5fb77d5949e6a9a300c5e35c289c915",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "092-batik-svg-dom-1.19.jar",
+      "sha256": "f5cc6730ce1b6c552e9ccc0c41b4e4c233cc6260b6c3a10038ad41ea21364c2a",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "093-batik-parser-1.19.jar",
+      "sha256": "602e331c1c79de4a04525d75266dadbaf969524841155105d31ad54a7731de20",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "094-batik-svggen-1.19.jar",
+      "sha256": "6bf89ede81483da574b25d8645e512e030965e8fbe5605e2938bccaa87ebb6a6",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "095-batik-awt-util-1.19.jar",
+      "sha256": "c9ac9ed24e0b20984e7c65ce2fbe4915003c67f9ae96177bc32bef901b557a9a",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "096-fop-events-2.11.jar",
+      "sha256": "9fb837588ee12fe6ed9729009e8d28537a3cba752a08ac6ee256ce3d15d0dbdc",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "097-fop-util-2.11.jar",
+      "sha256": "f64ec432effe8e4ff1daa0ee8f7f1c91cccdd3c5e628c022598080ba9b6a0167",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "098-batik-dom-1.19.jar",
+      "sha256": "1dabf83687b2ec5a4ccd4a55e3520f7cd8863a4c23ba7f5e54ef3f882819997a",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "099-batik-css-1.19.jar",
+      "sha256": "c66afd6ac61d630e62e859db03670fa7a4f7241daaee29b531614e6900b9c6a9",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "100-xmlgraphics-commons-2.11.jar",
+      "sha256": "1a37948ebfedab0cd292cfc5007e65c2fa16a701b94c206152720d3a738561bc",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "101-commons-io-2.17.0.jar",
+      "sha256": "4aa4ca48f3dfd30b78220b7881d8cb93eac4093ec94361b6befa9487998a550b",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "65690c3f39b0-fontbox-3.0.3.jar",
+      "sha256": "65690c3f39b04a14d12c17f4998c15186ce877d3e2ec222c708577e3cc028030",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "123ea3187b49-pdfbox-io-3.0.3.jar",
+      "sha256": "123ea3187b497c54e661d50c3c867479bf77668ff450e50710c658f2bb4687ba",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "5828f96c09d8-commons-logging-1.3.3.jar",
+      "sha256": "5828f96c09d886f9b1a0993c7804b27cf4fcec8534517164f5137ac8b67ea9b9",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "105-jbr-api-1.9.0.jar",
+      "sha256": "7e37284e33b5b304ee6174dcaa92db949b257cc4c8991ca865e7daf5113d8279",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "106-jna-5.19.1.jar",
+      "sha256": "4fb141dd8ef6b0585ffceea4bc49602fbc6312fa977e2c488794ea3e6aafecae",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "108-batik-ext-1.19.jar",
+      "sha256": "e6264faa65d00d187eed932dff96e40da80e17fea66a1d92af4776ddb7811256",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "109-batik-xml-1.19.jar",
+      "sha256": "9b9364f7dec75c41c4a611596bd4dcbf08b51b753b6726573b542998addec6a5",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "110-batik-util-1.19.jar",
+      "sha256": "3f1389bbdbed3c4659a58a50ce12166fd31e3d066994dd63b5144d9245fd3db6",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "111-batik-constants-1.19.jar",
+      "sha256": "e1d42c4da56dd8b7a3a794285fe3ed05f932d0a2b5ce3face198f02cc501331f",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "112-batik-i18n-1.19.jar",
+      "sha256": "eb95e07c29feb276cf91aca9cf5362b43fe17601395aab5d8a6147a6d0859716",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "113-batik-shared-resources-1.19.jar",
+      "sha256": "e2dad47cfeff5c7d686e97787996accf85a5b19f602acb30b83fce9c247deecd",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "114-xml-apis-ext-1.3.04.jar",
+      "sha256": "d0b4887dc34d57de49074a58affad439a013d0baffa1a8034f8ef2a5ea191646",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "115-qdox-1.12.jar",
+      "sha256": "f9d7ad96f70d69e9c06c10e515b878f33810f1ad677cce9f6ae6772778d570ab",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "117-xml-apis-1.4.01.jar",
+      "sha256": "a840968176645684bb01aed376e067ab39614885f9eee44abe35a5f20ebe7fad",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "118-jspecify-1.0.0.jar",
+      "sha256": "1fad6e6be7557781e4d33729d49ae1cdc8fdda6fe477bb0cc68ce351eafdfbab",
+      "kind": "file",
+      "projectArtifact": false
+    },
+    {
+      "name": "119-skiko-awt-runtime-all-0.153.0.jar",
+      "sha256": "2c4a481b6236a3ef96f23e913752917d20b3dfe45c151fa5c212eb0aa4b6e931",
+      "kind": "file",
+      "projectArtifact": false
+    }
+  ],
+  "javaRuntimeArtifacts": [
+    {
+      "name": "release",
+      "sha256": "49037a1ca64e95ba0c482162084771f4e4b03b97711dc2e86ca67ae9a95bdc95",
+      "kind": "file"
+    },
+    {
+      "name": "modules",
+      "sha256": "3ade03dd7cea64bfe02c3af8aac35d9b2ae02950a46df69b9293e1065f4af46c",
+      "kind": "file"
+    },
+    {
+      "name": "jvm.dll",
+      "sha256": "bfd41000c15db377451d87ecf6fa8cd39ce0a2fbf4a62ca0929c590591e09755",
+      "kind": "file"
+    },
+    {
+      "name": "awt.dll",
+      "sha256": "ac8a3f076d3f3eb3d2ad85f3cdd5fc058deeae9e00924332ec389b9bc6e42009",
+      "kind": "file"
+    }
+  ],
+  "executables": [
+    {
+      "role": "java",
+      "sha256": "914021eac5853f534f6bd0175b994558cc8517e07817d03e3bf79150bbe64450"
+    },
+    {
+      "role": "jcmd",
+      "sha256": "1ee896ef09ea9828251e9c72e35fa96e167bb40fff2f9e2404a8fd6aa4e21ca7"
+    },
+    {
+      "role": "jfr",
+      "sha256": "aeae47320dccc5f3f0d2f05e999debf85d7e84e6c28311da2cf48053bb328832"
+    }
+  ],
+  "runtime": {
+    "schema": "vive-desktop-runtime-probe/1",
+    "javaRuntime": "27+35",
+    "javaVendor": "Azul Systems, Inc.",
+    "javaVm": "OpenJDK 64-Bit Server VM",
+    "profile": "dev",
+    "requestedBackend": "windows",
+    "awtToolkit": "sun.awt.windows.WToolkit",
+    "frame": {
+      "x": 30,
+      "y": 30,
+      "width": 1280,
+      "height": 900
+    },
+    "screen": {
+      "x": 0,
+      "y": 0,
+      "width": 2194,
+      "height": 1234
+    },
+    "scaleX": 1.75,
+    "scaleY": 1.75,
+    "inputSafety": "Every Robot action checks ownership and focus; points must stay inside the owned frame",
+    "completionScope": "Accessible state, read-only SQLite observations and completed Skia callbacks; no presentation or physical-latency timestamp"
+  },
+  "vmArgs": [
+    "-XX:NativeMemoryTracking=summary",
+    "-XX:StartFlightRecording=filename=<capture>/runtime.jfr,settings=profile,dumponexit=true",
+    "-Xmx2g",
+    "-Xms512m",
+    "--enable-native-access=ALL-UNNAMED",
+    "--add-exports=java.desktop/sun.awt=ALL-UNNAMED",
+    "--add-exports=java.desktop/sun.awt.windows=ALL-UNNAMED",
+    "-Dvivenotes.profile=dev",
+    "-Duser.language=en",
+    "-Duser.country=US",
+    "-Duser.home=<profile>/home",
+    "-Djava.util.prefs.userRoot=<profile>/preferences"
+  ],
+  "scope": "Sanitized descriptive summaries. Raw synthetic profiles, logs, accessibility dumps and JFR remain outside the repository."
+}

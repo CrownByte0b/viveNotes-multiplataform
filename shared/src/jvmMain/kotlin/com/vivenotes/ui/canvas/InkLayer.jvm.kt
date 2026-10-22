@@ -95,6 +95,8 @@ internal actual fun PlatformInkLayer(
     var frameRevision by remember(controller) { mutableLongStateOf(0L) }
     DisposableEffect(controller) { onDispose {
         controller.close()
+        val log = com.vivenotes.data.PortedLogs.sink
+        log.event("ink") { "viewport cache released ${rasterCache.work()}" }
         rasterCache.close()
         additionsCache.close()
         diagnostics?.rasterReleased()
@@ -376,6 +378,7 @@ internal actual fun PlatformInkLayer(
         controller.liveStroke?.let { drawInk(renderer, it, controller.strokeToView) }
         eraserPoint?.let { drawCircle(canvasInk.copy(alpha = 0.5f), settings.eraser.sizeDp / 2f * density, it,
             style = Stroke(width = density)) }
+        diagnostics?.viewportRasterDrawn(rasterCache.work())
         diagnostics?.drawn(renderer.pathBuildCount, rasterCache.rasterBuildCount + additionsCache.rasterBuildCount,
             finishedDrawn, finishedPathBuilds, rasterCache.retainedPixelBytes + additionsCache.retainedPixelBytes)
     }.documentExtent(canvasSize)) { }

@@ -22,6 +22,8 @@ internal data class InkLayerCounts(
 }
 
 internal class InkLayerDiagnostics {
+    var viewportRasterWork: InkViewportRasterWork? = null
+        private set
     var baseSceneBuilds: Long = 0L
         private set
     var retainedPixelBytes: Long = 0L
@@ -41,7 +43,11 @@ internal class InkLayerDiagnostics {
 
     fun sceneBuilt(base: Boolean = true) { sceneBuilds++; if (base) baseSceneBuilds++ }
     fun shapeAdvanced() { shapeAdvances++ }
-    fun rasterReleased() { retainedPixelBytes = 0L }
+    fun rasterReleased() {
+        retainedPixelBytes = 0L
+        viewportRasterWork = viewportRasterWork?.copy(retainedViews = 0, retainedPixelBytes = 0L)
+    }
+    fun viewportRasterDrawn(work: InkViewportRasterWork) { viewportRasterWork = work }
 
     fun inputObserved(sampleCount: Int = 1) {
         observations += sampleCount

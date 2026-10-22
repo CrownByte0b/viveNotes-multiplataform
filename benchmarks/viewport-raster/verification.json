@@ -1,0 +1,1090 @@
+{
+  "schema": "vive-viewport-raster-verification/1",
+  "status": "ready-for-user-commit",
+  "date": "2026-10-22",
+  "baseCommit": "5cbf74f9ca6fb83c51be3d41818894467aac1a9d",
+  "afterIdentity": "Base plus six exact uncommitted source/test files, built in an isolated public source copy. Native baseline overlays only the identical new probe; original ink/full-app baseline is fully clean.",
+  "sourceFiles": [
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/InkLayer.jvm.kt",
+      "sha256": "a02ccfe0bc3e181fecd068187ffc6aea7edd291ee7832b0d5e820a7278ca942e"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/InkLayerDiagnostics.kt",
+      "sha256": "90c02b7179fc374d151f7b7bc38674b22588cc44073a5c74aac9e8efc925fb36"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/SegmentedInkRasterCache.kt",
+      "sha256": "038c8340c99312943750b13a346afb04ecc575653be2d575f12407219288e511"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkViewportInteractionTest.kt",
+      "sha256": "31066a2ee8d635dab6430b70f14b3770bc344f17fc834cf5b7758a8474265255"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkViewportPerformanceScenario.kt",
+      "sha256": "e06d2144fcdd5b50d957a0467d8f763475e895727666a6f2aa62922c91f33ae9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkViewportRasterCacheTest.kt",
+      "sha256": "d5424194b56a6b63fec1404560fb186f769a2f49a09057faf987c0ba9aded54d"
+    }
+  ],
+  "toolFiles": [
+    {
+      "path": "benchmarks/compare_ink.py",
+      "sha256": "7ece425eea8476ad391e7545d5d2393436dc495bff6d4eae3a234d295b7429f1"
+    },
+    {
+      "path": "benchmarks/ink/capture.py",
+      "sha256": "467e0e3a0f998a75285b78f2bef435ac290ff78cec659422bcd038fd0813ca0b"
+    },
+    {
+      "path": "benchmarks/runtime/DesktopRuntimeProbe.kt",
+      "sha256": "da0ed451105130f1ed8386a7d8be85b27433033d207a6e8fd329c76e1135e6f0"
+    },
+    {
+      "path": "benchmarks/runtime/RuntimeRenderProbe.kt",
+      "sha256": "602fd70e964c36c4ca2fafdc96832fc97494950e67603c47877100335ccc73d5"
+    },
+    {
+      "path": "benchmarks/runtime/USAGE.md",
+      "sha256": "226aa9661658596cb0233a20136c03e0a60a570bf3dfcbfde8f58728cbb442f5"
+    },
+    {
+      "path": "benchmarks/runtime/classpath.init.gradle",
+      "sha256": "74de155e032b069465cdf6e405e39bd619689c082b76bee62255225e75f696b2"
+    },
+    {
+      "path": "benchmarks/runtime/desktop_runtime.py",
+      "sha256": "1733f15c391e3d8a6b6b6f466d0de0d713c21bef7b0514ad7585d563d1de8408"
+    },
+    {
+      "path": "benchmarks/runtime/test_desktop_runtime.py",
+      "sha256": "7b29eafc5dee44cd4b79d09fbba6c101e0335efbaea1c5cde26095132a736f70"
+    },
+    {
+      "path": "benchmarks/text-preparation/DesktopRuntimeProbe.kt",
+      "sha256": "dda666c573242ef9c92d979ed0890d6140dc6f2a2bf88c3e60fe14810dadeb95"
+    },
+    {
+      "path": "benchmarks/text-preparation/USAGE.md",
+      "sha256": "5df8730c86f0c7c8a059f42278a62b64b99fd3749bb433f8aa7157660f05056b"
+    },
+    {
+      "path": "benchmarks/text-preparation/test_text_runtime.py",
+      "sha256": "295a7c177a5066185b5880826d8679b1924ccc97409f3199555b426205949154"
+    },
+    {
+      "path": "benchmarks/text-preparation/text_runtime.py",
+      "sha256": "f9dadcdd2429b57e1ab819dfaa07f2146ea208391b9dc37cdef7fb49b7d50a7a"
+    },
+    {
+      "path": "benchmarks/viewport-raster/USAGE.md",
+      "sha256": "50a246851886d71df65aba13dc30b02fa4686000f694b2b3c763beeb49f1cc54"
+    },
+    {
+      "path": "benchmarks/viewport-raster/capture.py",
+      "sha256": "60f773079062c0790047384def234da77e87e4c774821ea39383e9eb701621df"
+    },
+    {
+      "path": "benchmarks/viewport-raster/test_capture.py",
+      "sha256": "0a03166a43903f50279c518395fbc71c5e77225c604772c3d97a337f0832baea"
+    }
+  ],
+  "report": {
+    "path": "benchmarks/viewport-raster/RESULTS.md",
+    "sha256": "afdff75e641ea4a509107f7e267a6b4b88c7a5874ad6af8515658a850e052828"
+  },
+  "resultFiles": [
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/comparison.json",
+      "sha256": "7ed336c8022edaa7df42f9d3bef769fb01561f2a7bbc4d8b12776d5ddb1cbe11"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-expectation-audit.json",
+      "sha256": "ef7a1124ea18af251e53af2cbd76ce980c669298bdf4dcc7f23a45660f1893af"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/app-fork-1-log.txt",
+      "sha256": "fc35b42d60a672d0a6b8666233207c941ee54749bdae51c541888536bdf52d08"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/app-fork-1-runtime.json",
+      "sha256": "96bab4e5763aa04e11ad1e49e3d97a7700ede03e6866bd26c4710094dcac6019"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/app-fork-1.json",
+      "sha256": "0b5bfe49bb2be7e867eab3b7c62ec32a040b7aaada9de3471f971b709cc338e6"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/app-fork-2-log.txt",
+      "sha256": "37957b5f602815b0b339f641780aa4ee39bbe13b8fe6f7e93161277433660de5"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/app-fork-2-runtime.json",
+      "sha256": "96bab4e5763aa04e11ad1e49e3d97a7700ede03e6866bd26c4710094dcac6019"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/app-fork-2.json",
+      "sha256": "5d7e79613433a7cf70e0486fa12ff7fdb05de8e4cd6204d59bd878d72ed206e5"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/app-fork-3-log.txt",
+      "sha256": "dd54eb69254d21957ff1809666b31debca609d7389e2b008087225a341b2eec6"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/app-fork-3-runtime.json",
+      "sha256": "96bab4e5763aa04e11ad1e49e3d97a7700ede03e6866bd26c4710094dcac6019"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/app-fork-3.json",
+      "sha256": "82c2694f4e050215abb416e0ab9d6bf92ee569ab8b02cf4965e989a2fa91acb1"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-1-log.txt",
+      "sha256": "9701b9e435ebd49c77c26866d485d68cacb2b4020790aafda015c42533925ccb"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-1-result.xml",
+      "sha256": "6b4808222f999e899fa3739f79a59683a7da72502dde4c5a4b9dbad78c2c1348"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-1-runtime.json",
+      "sha256": "922ee4ce2d7c329acc4102b5c6b67b0c3bc787ae8971f02844ee7db75fec1b24"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-1.json",
+      "sha256": "f93eda0f46e2ff3f273347a36c51c64e1ce3d4911fd33b0cb56bc8031678339f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-2-log.txt",
+      "sha256": "cf2ce0624574448f53997ca7b00b25e1cee6ae55c4cc7e2e4da2672313599ed5"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-2-result.xml",
+      "sha256": "a6b52b2f507ba7b06c96a98d55aeb4ca3039858c64320dd79b3cfb19b96f55ea"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-2-runtime.json",
+      "sha256": "f29f33a999610f3820f701f407b5f5363d3546a777c7195da2490b2b87c7a99e"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-2.json",
+      "sha256": "0937e1f54ac31f797fdb4a010aefa458c9f6f87e2d055a9fbdc7e61c328100f2"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-3-log.txt",
+      "sha256": "cf2ce0624574448f53997ca7b00b25e1cee6ae55c4cc7e2e4da2672313599ed5"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-3-result.xml",
+      "sha256": "a72a9aabfe31b0ad209d9545fb396550854ff4e319011d2a5a602eee6905d21c"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-3-runtime.json",
+      "sha256": "21f96c989cc0c03c698ca9af43ca09349588667f94a380bc61f63b07b74676f1"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/after/ink-fork-3.json",
+      "sha256": "dd31390be11a400732184fb796f5dfd7127f6b833554fc857d3e47573bb1be75"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/app-fork-1-log.txt",
+      "sha256": "974961be1d9a56756a476f236d9f702e7b1e094c9ef70139545678f1df1f96cc"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/app-fork-1-runtime.json",
+      "sha256": "0f0aa33906f81978a843d51ea543b305c3bc5b91a958b4750988b9381890fd9f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/app-fork-1.json",
+      "sha256": "93fcf51a849712e8656670d616acc247f7c2f5745185202ebb9222d41bbc4e4f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/app-fork-2-log.txt",
+      "sha256": "c98be743255c4e64ed5bfe6bfe405a5978292400e05fdf8c44eee94d082cf23a"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/app-fork-2-runtime.json",
+      "sha256": "0f0aa33906f81978a843d51ea543b305c3bc5b91a958b4750988b9381890fd9f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/app-fork-2.json",
+      "sha256": "489d15927d9f6aa87c3b1bbbe4cd0218ddc85556ab0c4e478fb035e2ee76320e"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/app-fork-3-log.txt",
+      "sha256": "bb7d4301d7ec1defe5349dd2fb495bf996e162e4354963c12bdef245deddf081"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/app-fork-3-runtime.json",
+      "sha256": "0f0aa33906f81978a843d51ea543b305c3bc5b91a958b4750988b9381890fd9f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/app-fork-3.json",
+      "sha256": "94039e934b7677bbc1f9688c3e7c621fcc86cff72d9cfcb84cfddb020d2afcb0"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-1-log.txt",
+      "sha256": "d268d2ac1b3b905549df6e554dcde703748fdd0fd81bd70ed31786fd94fe5f31"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-1-result.xml",
+      "sha256": "4dcb13b594baa7b31a328f5d4f4f0d2d79265c7682ddd3d1305268119dc38ddc"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-1-runtime.json",
+      "sha256": "62c7533ff84e6f5f6901469ea43a3f31bf2664e4315b55df0977362b0a2acbb6"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-1.json",
+      "sha256": "d46081ead43016aa2b7dc1793d3e4e5a19b83201b8b92d8fcb73b050ff225238"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-2-log.txt",
+      "sha256": "a308717b31b8c84b9fbadcd9e31558dc8d89ef0b87068f2317601235722bd924"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-2-result.xml",
+      "sha256": "6e507678acc8125ec8eef0294b0d883890c16da468c9c819a6a0bb55b163ea44"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-2-runtime.json",
+      "sha256": "d16f1ea00387715476576caf128a833d48fea6f2395a3286ea7cf48795d97f9b"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-2.json",
+      "sha256": "4ffda96c0fc47e6b1e7da3a909c5cd2817a79f51f1a54b28ed0438c092f8aa59"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-3-log.txt",
+      "sha256": "a308717b31b8c84b9fbadcd9e31558dc8d89ef0b87068f2317601235722bd924"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-3-result.xml",
+      "sha256": "b227f236fec28ac7076d76f88a7c1b8876ebfef6f48a0adcadab13cd6d7b25ce"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-3-runtime.json",
+      "sha256": "cd61035de9f68c918a7d0fb53b6279e4831867e544c10e0d1d5b30633afdf646"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/before/ink-fork-3.json",
+      "sha256": "22fb383933b74b9cd0015b363012fe8b57901980c0f08e0b7fb6c95f1dcc5b8f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/capture.init.gradle",
+      "sha256": "761b271de29bb1f90763a526109dd8e4e662922687bfc053def110a3cbe93697"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/comparison.json",
+      "sha256": "ff6e49296f4189bb1406e2b596cd18ee018aa33e29b4c4758e8ffa27d4d7e539"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/comparison.md",
+      "sha256": "3a31ddf0b1b3a3e75694553d2b955839de3b3323fa25fbe8eb247ba37e0d8667"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/environment.json",
+      "sha256": "92fbd7e0d56604f9d51cacd008696d360997f8ee2fe6923ac9b9abe5f6bf1b12"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/legacy-ink/execution.json",
+      "sha256": "5430dde74b6fa3f220f683c409aeab98f01c5a2dab845b3ee1e739c58ec49ca9"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-1-runtime.json",
+      "sha256": "403bed954a7179d0fe29c747b017aa014cc93fa6720ead3687adc99ba424e1bb"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-1.json",
+      "sha256": "4b65e452e52f339ba98a2fbd74fe6b198a241ef228be413e2c416c8e62bac8fb"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-1.log",
+      "sha256": "592192a0ee9ad7ef79f11777fda952fd4797d893363cd4ee49be1fabe9d4ae36"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-1.xml",
+      "sha256": "9a88c9e9892a8ba3ee903921587463b007fc8f77e322450e20223851b0913197"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-2-runtime.json",
+      "sha256": "403bed954a7179d0fe29c747b017aa014cc93fa6720ead3687adc99ba424e1bb"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-2.json",
+      "sha256": "8615d1884566c2d81d548d6e131fa43b2cb9d448538ff1b0c643863b8824286a"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-2.log",
+      "sha256": "b8de3bae598668df3330623b6aa37d1a387646f154b44310592d8fa9b00a7e3d"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-2.xml",
+      "sha256": "1ea20c055c28803339aa7fda9c33ef91186ae987d577aff92e2f844947fc1caa"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-3-runtime.json",
+      "sha256": "403bed954a7179d0fe29c747b017aa014cc93fa6720ead3687adc99ba424e1bb"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-3.json",
+      "sha256": "ea99153af11847f36a67a41a81df66ba99be9be202c0f79b2a09f416ad3f19e8"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-3.log",
+      "sha256": "cd353ecb593d57f28af1ac3f4c248504a57934e27b1c93a71a551d1cd948f1ee"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/after/fork-3.xml",
+      "sha256": "253d89bdd37b28ed368e351809e195df8cc43ac02d3e1ab96eb2218bd96808b3"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-1-runtime.json",
+      "sha256": "5d30eb0d4dbbd14265f18e7bf33b060066af4410f836bd7e1335c36d0cf0f65d"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-1.json",
+      "sha256": "cf6a6176991256604bc1122860300bb26d63d90d5d4b7634d505e9a7c36371c0"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-1.log",
+      "sha256": "2ff66338d7182e65162003d124fd0c91c74e90837b970727cb2f8505c528b3ac"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-1.xml",
+      "sha256": "863d4a4dbdd67765cd031d5e07fc9cbfa81642af17fcc40133acc1be26fc4f65"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-2-runtime.json",
+      "sha256": "5d30eb0d4dbbd14265f18e7bf33b060066af4410f836bd7e1335c36d0cf0f65d"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-2.json",
+      "sha256": "3a241bc397418c6b7e7cb82fe761993935a4a02ed4895f05f70b2c7e4694bc75"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-2.log",
+      "sha256": "637128f9cd539da782e8eb35feb9292b3f650907e4505002d730541696691812"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-2.xml",
+      "sha256": "5aa239ada1207b7055458aae299f7aa49f682957b868605495e3d9c96720fff3"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-3-runtime.json",
+      "sha256": "5d30eb0d4dbbd14265f18e7bf33b060066af4410f836bd7e1335c36d0cf0f65d"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-3.json",
+      "sha256": "21ed4c5f39147ea0e4cbe3f14deed449d7766006df6896d78b52ae93d5ad1dd4"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-3.log",
+      "sha256": "78bee195944e9e85ddb8fe6c788fccd40e30eb2a2cb18b5e2a9484290434dfe3"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/before/fork-3.xml",
+      "sha256": "1903e9b61f8943555cac75b167edc762dcc625a459adb9ca36a0391daf21a67f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/capture.init.gradle",
+      "sha256": "d74ca42c98e8f45b54dbd3359f41a3da86d0d8ad91cabf6d5e75698d43149f93"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/comparison.json",
+      "sha256": "924d0c7f44c22ec1dccf3cdf0773e91952bf3cc8386958d589832024d2152834"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/environment.json",
+      "sha256": "cdc2cbd28e00597b185dc4d0bca50dd5e0ae2aeabb4cb036b48c635574525540"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/native/execution.json",
+      "sha256": "a7a1356005a0d37b02063d3e5c2d9354a34fdc01c3096c30cd9ba3aaf20ecd8f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/shift-experiment.json",
+      "sha256": "8dafe775d5c21880d7089e4a74f986ab9433d3689e3396cb51228ffa299dade1"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork1/analysis.json",
+      "sha256": "5a7cf5db26caf09075ca03d0fab96c6b519a08d96ec1443d5302da5c1c7c32b2"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork1/provenance.json",
+      "sha256": "8c0883d85d798dd47f558fb7e374c2ded54a726d32c0104d65b731f7f6376eff"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork1/resources.json",
+      "sha256": "437f499dc2ac826306dcef20380e51440c2a617e79934d0c62e9419f9496cc46"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork1/summary.json",
+      "sha256": "dbe0ed28d7877364ef2e4bb4cc316383079d94659b9e254d7d45c7b82933afec"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork2/analysis.json",
+      "sha256": "279d8bc5a7052ddcdf22e4f9d570225b3bcf59c1841c8b0215b107869a046c6c"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork2/provenance.json",
+      "sha256": "a564fba6f90dc650fe99bcc1b736f044dd4beb7d2d0cf63b8a3e1689b61c9287"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork2/resources.json",
+      "sha256": "7f66def54ec95a7de6ec4fb6c33494ffd8484836e8d551268be40ec2af0464de"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork2/summary.json",
+      "sha256": "83295ef01b55c32a35313da3e439a1e055ad570906056bf2e34258e75235b12b"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork3/analysis.json",
+      "sha256": "9b9841ab4becad14812366fb0be591d1c53689b776fb72fc9158554d1b927a3c"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork3/provenance.json",
+      "sha256": "f30a9332229bcda99cbabe7df79a0c146f994930e5b3b418ed695c12a649ba11"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork3/resources.json",
+      "sha256": "6c79f676795861df4006247efdb6178fcd831b8aed0b1218cd7f9c90e6c7c80c"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/after-fork3/summary.json",
+      "sha256": "677a6ff2d6921318c409964324b0734009e712624d96a0fa315899d9544180d5"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork1/analysis.json",
+      "sha256": "b64056ac081e88830e5f27b5b38ca84763a40779497c1d743e1bf0c7a69929ac"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork1/provenance.json",
+      "sha256": "07dc8534aab288f5d7646d6361a8dffe2a15729748ab62138de532246563441a"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork1/resources.json",
+      "sha256": "d72aaacdae637de70993341fefadd9770f7a3c42c8b474b9a1f23abdc44085ba"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork1/summary.json",
+      "sha256": "c008136aa23ea4044ab05b89012415dd0774ece81ec4846b1699b1da74033af3"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork2/analysis.json",
+      "sha256": "42d931a478ddd488783fa0df0d01e91b3ab4330dd06b1adfc57bd0d2efc416ed"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork2/provenance.json",
+      "sha256": "d63749ddb7233cea453313efc576fc9d2c3d0a5acd1620ac4a733610bc19506a"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork2/resources.json",
+      "sha256": "41e7eb486ad1d92340b0dfa6de2942734677742b27bf70645736cb9988bb39b5"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork2/summary.json",
+      "sha256": "fd9401d7ce152ac5d5512f91f19cae6b3c7a22ef644f4e50caa9f07708f46dab"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork3/analysis.json",
+      "sha256": "8a243379760f35cc2c954b2100b319320f0488967f8221b8f527727006b1ab43"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork3/provenance.json",
+      "sha256": "f980a843b20742a8d168a06e81f75d0acc4240b61e3fa2aadcaad4aac3a83446"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork3/resources.json",
+      "sha256": "627fbd97024c749b3715c575d688e36dbc641f0d011684fcbf3224399afbd507"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/windows/before-fork3/summary.json",
+      "sha256": "e0eaa82241c3b2ecd39602cf9a40b2aa99904ddacce85bec7f94485e0875d190"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork1/analysis.json",
+      "sha256": "d8280a1254a250d04639f175234650c0118cdc71ff6da39e4ceca6e807bd3d5c"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork1/provenance.json",
+      "sha256": "a88c2b55f66c00306c135c4348e4b7447a1e9b4f9495316700e18753ec9ef33d"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork1/resources.json",
+      "sha256": "9d5aa7ba7441667c20b97623a083eb77a54597f30050e4d00ccfab749c57acd1"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork1/summary.json",
+      "sha256": "3cd33f15f5850de34a1526784912cd136a0587241b647d0975e96ccd7d3b9e93"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork2/analysis.json",
+      "sha256": "1bb341550fab298eb729489033c4f2d569a480f5ca8d18e3ea85ced716a4b1ac"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork2/provenance.json",
+      "sha256": "7a928ae71ba0d3b3616d3de3b10df35becd587d4c47da02f84ca10e3e242e7c1"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork2/resources.json",
+      "sha256": "5fa3daef6be5b8eaf9fa4fd455f41ef31b6704181a346256cb911e910404b26a"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork2/summary.json",
+      "sha256": "36e51a396a691e0181a069c0ba44b2c3a48e75fccfdda96b4b640c071a2ce32d"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork3/analysis.json",
+      "sha256": "deafa4e88b1179598114ee24b64bbc99f28213dc8c8a657308e00aff52d6a801"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork3/provenance.json",
+      "sha256": "3b11f4438ae86112e6c073a1ed20497fe77278cc3032bb0a85a5639bf52a66ff"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork3/resources.json",
+      "sha256": "5ca5383f5d3bdc8e9f5ea45ef0d338897ca44b54b0239cd854aa610adc9a01bd"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/after-fork3/summary.json",
+      "sha256": "3b3176438243d28d52be7510bdc30608a94e5bd5758f8ad534a9861ab09891b9"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork1/analysis.json",
+      "sha256": "d888a8b09be6778188e323fe0e1a0be9837832e6a90dd0efa618ef448c1b0d4b"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork1/provenance.json",
+      "sha256": "8361b096b5ba17c8d3c90986fc8959ed3da6fbca5bc73d94f1d5e7d5f31193e8"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork1/resources.json",
+      "sha256": "c3ca3cc95dac4c7da74ce234b044cdc8fd0e074a4c75c469be7f1de3007d561f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork1/summary.json",
+      "sha256": "ce45549e63c092db087451332b0b894be13bb86676b91349521b17226976dae4"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork2/analysis.json",
+      "sha256": "c7d1b35f0b8d87302306dc097732de565352d29b131dc9624f4d31918e5f43e0"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork2/provenance.json",
+      "sha256": "8b9bbf9b8ad87ca67c2d7ab4b454c444e1eaeab3929e4b37b55677aebe5c9e2f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork2/resources.json",
+      "sha256": "236072799b5affa2ada821d7e8284da115431b63c3ee8f9199a101f9a1775875"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork2/summary.json",
+      "sha256": "5a0d4e02c54b656bb30b3498d960feea2ec73e4f545b67846e0bebd448dfd840"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork3/analysis.json",
+      "sha256": "f0ea01602cf04245d77c51ed23a5d686e78e081fcc1a112dd953161fc70029b9"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork3/provenance.json",
+      "sha256": "626a2622e0c96269a7868f5f8a8f8d8ac12c7fd3639e6c044f13e9c4e2a31382"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork3/resources.json",
+      "sha256": "09f1ef17c08f825dfcd604a49392dfe5278b0b8262f8e75c29e1642039e9d14a"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-viewport-raster/x11/before-fork3/summary.json",
+      "sha256": "6b8c4d56dd0a5642663febe73418d2c5135f086907cbb7072124fda16f3e9184"
+    }
+  ],
+  "tests": {
+    "fullJvm": {
+      "modules": [
+        {
+          "module": "shared",
+          "tests": 2085,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 7,
+          "passed": 2078
+        },
+        {
+          "module": "desktopApp",
+          "tests": 162,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 7,
+          "passed": 155
+        }
+      ],
+      "tests": 2247,
+      "passed": 2233,
+      "skipped": 14,
+      "failures": 0,
+      "errors": 0,
+      "log": "build/viewport-raster-verification-20261022/full-jvm-2.log",
+      "xml": "build/viewport-raster-verification-20261022/full-verified-xml",
+      "command": "env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 JAVA_HOME=/home/mahalo/.gradle/jdks/azul_systems__inc_-27-amd64-linux.2 xvfb-run -a -s '-screen 0 1920x1200x24 -nolisten tcp' ./gradlew :shared:jvmTest --rerun :desktopApp:test --rerun lint :desktopApp:assemble --offline --max-workers=1"
+    },
+    "newRegressions": {
+      "nativeRaster": 6,
+      "compose": 2,
+      "total": 8
+    },
+    "windowsFocusedJvm": {
+      "passed": 29,
+      "failures": 0,
+      "scope": "Zulu 27 console execution of target-25 compiled test JARs; not native Windows Gradle or a full suite"
+    },
+    "pythonLinux": {
+      "runtime": 41,
+      "text": 3,
+      "originalInk": 11,
+      "viewport": 8,
+      "passed": 63,
+      "skipped": 0
+    },
+    "pythonWindows": {
+      "passed": 43,
+      "skipped": 1,
+      "skipReason": "Symlink creation unavailable on this host"
+    },
+    "probeContracts": {
+      "passed": 25,
+      "nativeSqliteFixture": true
+    },
+    "scannerContracts": {
+      "passed": 14
+    },
+    "lint": true,
+    "desktopAssembly": true
+  },
+  "benchmarks": {
+    "native": {
+      "freshProcesses": 6,
+      "pairs": 3,
+      "casesPerProcess": 20,
+      "exactFreshRasterPixels": true,
+      "rawAndConfiguredJvmArgumentsCompatible": true
+    },
+    "originalInk": {
+      "freshProcesses": 12,
+      "appCasesPerProcess": 48,
+      "rendererCasesPerProcess": 8,
+      "structuralDeviations": 43,
+      "failedHistoricalPreservationChecks": 15
+    },
+    "fullApp": {
+      "platforms": [
+        "x11",
+        "windows"
+      ],
+      "freshProcessesPerPlatform": 6,
+      "pairsPerPlatform": 3,
+      "all12CapturesVerified": true,
+      "all6ComparisonsCompatible": true,
+      "all12JfrCountParity": true,
+      "independentWindowsDecodedJfrEquality": true,
+      "independentWindowsExportJsonEquality": true
+    },
+    "order": [
+      [
+        "before",
+        "after"
+      ],
+      [
+        "after",
+        "before"
+      ],
+      [
+        "before",
+        "after"
+      ]
+    ],
+    "sourceArtifactBinding": "Source and binary inventories are independently frozen; isolated build commands/logs bind them operationally; hashes alone do not establish compilation",
+    "afterViewportWork": [
+      {
+        "platform": "x11",
+        "fork": 1,
+        "disposalSnapshots": [
+          {
+            "requests": 175,
+            "hits": 143,
+            "fullBuilds": 32,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 134295,
+            "allocatedPixels": 19890252,
+            "updatedPixels": 19890252,
+            "capacityEvictions": 28,
+            "retainedViews": 4,
+            "retainedPixelBytes": 9950544
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3835,
+            "allocatedPixels": 621522,
+            "updatedPixels": 621522,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 2486088
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3835,
+            "allocatedPixels": 621522,
+            "updatedPixels": 621522,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 2486088
+          }
+        ]
+      },
+      {
+        "platform": "x11",
+        "fork": 2,
+        "disposalSnapshots": [
+          {
+            "requests": 173,
+            "hits": 143,
+            "fullBuilds": 30,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 125390,
+            "allocatedPixels": 18647208,
+            "updatedPixels": 18647208,
+            "capacityEvictions": 26,
+            "retainedViews": 4,
+            "retainedPixelBytes": 9950544
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3835,
+            "allocatedPixels": 621522,
+            "updatedPixels": 621522,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 2486088
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3835,
+            "allocatedPixels": 621522,
+            "updatedPixels": 621522,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 2486088
+          }
+        ]
+      },
+      {
+        "platform": "x11",
+        "fork": 3,
+        "disposalSnapshots": [
+          {
+            "requests": 173,
+            "hits": 143,
+            "fullBuilds": 30,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 125780,
+            "allocatedPixels": 18647208,
+            "updatedPixels": 18647208,
+            "capacityEvictions": 26,
+            "retainedViews": 4,
+            "retainedPixelBytes": 9950544
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3835,
+            "allocatedPixels": 621522,
+            "updatedPixels": 621522,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 2486088
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3835,
+            "allocatedPixels": 621522,
+            "updatedPixels": 621522,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 2486088
+          }
+        ]
+      },
+      {
+        "platform": "windows",
+        "fork": 1,
+        "disposalSnapshots": [
+          {
+            "requests": 134,
+            "hits": 100,
+            "fullBuilds": 34,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 134698,
+            "allocatedPixels": 60644636,
+            "updatedPixels": 60644636,
+            "capacityEvictions": 30,
+            "retainedViews": 4,
+            "retainedPixelBytes": 28552784
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3584,
+            "allocatedPixels": 1783548,
+            "updatedPixels": 1783548,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 7134192
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3584,
+            "allocatedPixels": 1783548,
+            "updatedPixels": 1783548,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 7134192
+          }
+        ]
+      },
+      {
+        "platform": "windows",
+        "fork": 2,
+        "disposalSnapshots": [
+          {
+            "requests": 127,
+            "hits": 92,
+            "fullBuilds": 35,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 138346,
+            "allocatedPixels": 62428184,
+            "updatedPixels": 62428184,
+            "capacityEvictions": 31,
+            "retainedViews": 4,
+            "retainedPixelBytes": 28552784
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3584,
+            "allocatedPixels": 1783548,
+            "updatedPixels": 1783548,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 7134192
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3584,
+            "allocatedPixels": 1783548,
+            "updatedPixels": 1783548,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 7134192
+          }
+        ]
+      },
+      {
+        "platform": "windows",
+        "fork": 3,
+        "disposalSnapshots": [
+          {
+            "requests": 130,
+            "hits": 97,
+            "fullBuilds": 33,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 130346,
+            "allocatedPixels": 58861088,
+            "updatedPixels": 58861088,
+            "capacityEvictions": 29,
+            "retainedViews": 4,
+            "retainedPixelBytes": 28552784
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3584,
+            "allocatedPixels": 1783548,
+            "updatedPixels": 1783548,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 7134192
+          },
+          {
+            "requests": 1,
+            "hits": 0,
+            "fullBuilds": 1,
+            "appendBuilds": 0,
+            "dirtyBuilds": 0,
+            "vectors": 3584,
+            "allocatedPixels": 1783548,
+            "updatedPixels": 1783548,
+            "capacityEvictions": 0,
+            "retainedViews": 1,
+            "retainedPixelBytes": 7134192
+          }
+        ]
+      }
+    ]
+  },
+  "audits": [
+    {
+      "path": "build/viewport-raster-verification-20261022/final-audit.json",
+      "sha256": "c0c7698026b008bf6b9d7264f269fb5d70e627a86285461774a46c7f607ed04a"
+    },
+    {
+      "path": "build/viewport-raster-verification-20261022/windows-independent-audit.json",
+      "sha256": "630d333df907221b91973a7a2ae1088e09947b9070f1741ae37a227136580f1f"
+    },
+    {
+      "path": "build/viewport-raster-verification-20261022/verified-source-files.json",
+      "sha256": "8bb87ad51a85bdd7395457368e6624c559d4ab64a62fce161abdb7583f530fb9"
+    },
+    {
+      "path": "build/viewport-raster-verification-20261022/full-verified-counts.json",
+      "sha256": "4d671553b8b1ae37b7ada6491e80998df67bd92606a4a92cc05ae7fe5f186881"
+    },
+    {
+      "path": "build/viewport-raster-verification-20261022/windows-public-inputs-sha256.json",
+      "sha256": "08580425b97e544d26422c51d36156b70b32edf3d53021ef2447129d46dd01e7"
+    },
+    {
+      "path": "build/viewport-raster-verification-20261022/windows-retry-runner.json",
+      "sha256": "1161f6d35057266f4e719b85528eb20edb92f7936197d9ffd9a9204aa00ea702"
+    },
+    {
+      "path": "build/viewport-raster-verification-20261022/legacy-expectation-audit.json",
+      "sha256": "ef7a1124ea18af251e53af2cbd76ce980c669298bdf4dcc7f23a45660f1893af"
+    },
+    {
+      "path": "build/viewport-raster-verification-20261022/cleanup.json",
+      "sha256": "2037f450e89c134373d84a10ae847ac79361f5f22793deb3f8f754ac8ca246bf"
+    }
+  ],
+  "cleanup": {
+    "complete": true,
+    "recordedAt": "2026-10-22T22:11:54.206733+00:00",
+    "windowsVm": "RDPWindows",
+    "initialState": "shut off",
+    "finalState": "shut off",
+    "ownedConsoleSession": 1,
+    "ownedConsoleLoggedOff": true,
+    "ownedWindowsJavaPythonRemaining": 0,
+    "sshMasterClosed": true,
+    "ownedXvfbClosed": true,
+    "otherVmsUntouched": true,
+    "userNotesAccountsUntouched": true
+  },
+  "retention": {
+    "manifest": "/home/mahalo/.local/state/vive-runtime-benchmarks/2026-10-22-viewport-raster/retention.json",
+    "manifestSha256": "7a99b0dd142b56b476135d16a93dbd71fbb74075f52b724503fb80e80cdec592",
+    "archiveCount": 7,
+    "archiveBytes": 799027793,
+    "archives": [
+      {
+        "name": "linux-final-runtime-evidence.tar.gz",
+        "bytes": 113271037,
+        "sha256": "af690511cf676fc41bb663b22a6e6d2625e27254d73eb7ed20ffad60e02d9a11"
+      },
+      {
+        "name": "native-and-original-ink-controls.tar.gz",
+        "bytes": 589903,
+        "sha256": "2d10f7357e9dfb986db0e7ca638a6f9acf1e8268f81b628543b8001387e51ac2"
+      },
+      {
+        "name": "exploratory-and-contract.tar.gz",
+        "bytes": 1902024,
+        "sha256": "2d2c6cbb786ae066cf407d4dc18da1fbd09546993e434e686ba54ddb024e00fe"
+      },
+      {
+        "name": "windows-raw-evidence.zip",
+        "bytes": 127316551,
+        "sha256": "abfacc567557bf2f10e63732536c005d55ebda04535e49b2cadff0649c4e24e0"
+      },
+      {
+        "name": "public-build-inputs.zip",
+        "bytes": 216099661,
+        "sha256": "730de83baed4f5773277890da7e4d10b3ac88ca154fc1c8146e2f2d1a380b281"
+      },
+      {
+        "name": "classpath-artifacts.tar.gz",
+        "bytes": 339311831,
+        "sha256": "614225198fe8b64536d05878b05af24fd3ba51d776c08cfbd2e0f8ca472a148b"
+      },
+      {
+        "name": "verification-evidence.tar.gz",
+        "bytes": 536786,
+        "sha256": "934577bdd91394637127b4bbf2e0a8a1eff7573a52f13855df21626d8eae7fe5"
+      }
+    ]
+  },
+  "secretScan": {
+    "status": "passed",
+    "scope": "Six viewport source/test files, new capture tools/report/verification and native, original ink-control and runtime result artifacts; memory and private build logs excluded",
+    "files": 137,
+    "bytes": 15505089,
+    "leaks": 0,
+    "report": "build/viewport-raster-verification-20261022/secret-scan-final.json"
+  },
+  "scope": {
+    "frozenOriginalArtifactsUnchanged": 691,
+    "protectedDocsUnchanged": true,
+    "byteInkAndroidServerDependenciesUnchanged": true,
+    "userNotesAccountsUntouched": true,
+    "indexEmpty": true,
+    "stagedCommittedPushed": false
+  }
+}
