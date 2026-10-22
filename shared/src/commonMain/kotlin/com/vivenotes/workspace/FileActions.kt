@@ -23,7 +23,10 @@ data class FilePaneState(
     val error: String? = null,
     /** The one closed notebook a move to the cloud, or back, is running for. */
     val cloudBusyNotebookId: String? = null,
-)
+) {
+    /** Whether the pane docks beside the page. Closed Notebooks covers the window, as on Android. */
+    val docked: Boolean get() = pane != null && pane != FilePane.ClosedNotebooks
+}
 
 /** What the File tab asks of whoever holds the workspace. */
 interface FileActions {

@@ -37,6 +37,7 @@ import com.vivenotes.ui.keyboard.ShortcutKeys
 import com.vivenotes.ui.keyboard.TextInputSessions
 import com.vivenotes.ui.navigation.NotebookPane
 import com.vivenotes.ui.ribbon.draw.*
+import com.vivenotes.ui.ribbon.file.ClosedNotebooksDestination
 import com.vivenotes.ui.ribbon.settings.AboutDialog
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
@@ -44,6 +45,7 @@ import com.vivenotes.ui.theme.ReportDarkTheme
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.EditorDefaults
 import com.vivenotes.workspace.FileActions
+import com.vivenotes.workspace.FilePane
 import com.vivenotes.workspace.InMemoryNavigation
 import com.vivenotes.workspace.InkSettings
 import com.vivenotes.workspace.InputSettings
@@ -183,8 +185,10 @@ fun WorkspaceScreen(
     val shortcutKeys = remember { ShortcutKeys() }
     val textInput = remember { TextInputSessions() }
     var workspaceHasFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(workspaceHasFocus, tooltipDismissals.hasOpenPopup, pdfExportOpen, accountOpen) {
-        if (pdfExportOpen || accountOpen || workspaceHasFocus || tooltipDismissals.hasOpenPopup) return@LaunchedEffect
+    // Closed Notebooks covers the window like Account does, and holds the focus the same way.
+    val closedNotebooksOpen = fileActions != null && state.filePane.pane == FilePane.ClosedNotebooks
+    LaunchedEffect(workspaceHasFocus, tooltipDismissals.hasOpenPopup, pdfExportOpen, accountOpen, closedNotebooksOpen) {
+        if (pdfExportOpen || accountOpen || closedNotebooksOpen || workspaceHasFocus || tooltipDismissals.hasOpenPopup) return@LaunchedEffect
         withFrameNanos { }
         if (!workspaceHasFocus && !tooltipDismissals.hasOpenPopup) canvasFocusRequester.requestFocus()
     }
@@ -233,6 +237,7 @@ fun WorkspaceScreen(
                         onExportPdf = { pdfExportOpen = true },
                         search = search, onOpenSearchPage = onOpenSearchPage, shortcutKeys = shortcutKeys,
                         textInput = textInput, developmentBuild = developmentBuild, debugLog = debugLog) }
+                    if (closedNotebooksOpen && fileActions != null) ClosedNotebooksDestination(state.filePane, fileActions)
                 }
                 // Composed while closed as well: it holds the state Android keeps above its Account
                 // destination, so a sign-in in flight outlives the screen it was started from.

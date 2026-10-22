@@ -416,12 +416,8 @@
     <!-- %1$s = item.key.kind; %2$s = location; %3$s = state.dateLabels[item.deletedAt].orEmpty() -->
     <string name="value_value_deleted_value">%1$s · %2$s · Deleted %3$s</string>
     <string name="restore">Restore</string>
-    <string name="closed_notebooks_stay_saved_and_can_be_reopened_here">Closed notebooks stay saved and can be reopened here.</string>
     <string name="loading_closed_notebooks">Loading closed notebooks…</string>
-    <string name="no_closed_notebooks">No closed notebooks</string>
     <!-- %1$s = row.sectionCount; %2$s = row.pageCount; %3$s = row.notebook.closedAt?.let { state.dateLabels[it] }.orEmpty() -->
-    <string name="value_sections_value_pages_closed_value">%1$s sections · %2$s pages · Closed %3$s</string>
-    <string name="reopen">Reopen</string>
     <string name="export_pdf">Export PDF</string>
     <string name="close_notebook">Close Notebook</string>
     <string name="export_notebook">Export Notebook</string>
@@ -658,7 +654,6 @@
     <!-- %1$s = item.name -->
     <string name="value_is_no_longer_available_to_restore">%1$s is no longer available to restore.</string>
     <string name="this_notebook_could_not_be_reopened">This notebook could not be reopened</string>
-    <string name="notebook_reopened">Notebook reopened.</string>
     <string name="this_notebook_could_not_be_reopened_6c30bb">This notebook could not be reopened.</string>
     <string name="ink_changes_could_not_be_saved_export_was_stopped">Ink changes could not be saved; export was stopped.</string>
     <!-- %1$s = result.notebookName -->
@@ -1205,10 +1200,12 @@
     <string name="account_delete_error_server">The cloud server could not accept the deletion request. Your account was not deleted.</string>
     <string name="account_delete_error_not_vive">The cloud service returned an unexpected account-deletion response.</string>
     <string name="account_delete_error_revoked">This device’s session has expired. Sign in again before requesting deletion.</string>
+    <string name="closed_notebooks_empty">No notebooks are closed. Closing one takes it off the panel without deleting anything.</string>
     <string name="closed_notebooks_on_device">On this device</string>
     <string name="closed_notebooks_in_cloud">In the cloud</string>
     <string name="closed_notebooks_in_cloud_supporting">These notebooks' pages are on your server and not on this device, so they cannot be searched or opened until you bring one back.</string>
     <string name="closed_notebooks_no_account">Connect an account on the Account screen to bring these back.</string>
+    <string name="closed_notebook_open">Open</string>
     <string name="closed_notebook_move_to_cloud">Move to cloud</string>
     <string name="closed_notebook_bring_back">Bring back to this device</string>
     <string name="closed_notebook_needs_account">Connect a server on the Account screen first. Moving a notebook to the cloud needs somewhere to put it.</string>

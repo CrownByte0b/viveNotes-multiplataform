@@ -10,8 +10,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,10 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -57,20 +53,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusProperties
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -100,6 +86,7 @@ import com.vivenotes.data.sync.SyncStatus
 import com.vivenotes.data.sync.SyncSummary
 import com.vivenotes.localization.Strings
 import com.vivenotes.ui.components.DesktopDialogFrame
+import com.vivenotes.ui.components.DestinationFrame
 import com.vivenotes.ui.icons.AccountSymbols
 import com.vivenotes.ui.icons.NavigationSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
@@ -1049,16 +1036,7 @@ fun AccountScreen(
 
 }
 
-/**
- * The full-window frame both Account destinations share: a header row with Back and the title over
- * a scrolling, centred body — the desktop's form of Android's `Scaffold` with a `TopAppBar`.
- *
- * Escape is system Back: [onEscape], which dismisses a dialog in front before it leaves the screen.
- * It is read after the focused field has had the key, and a dialog that holds the focus closes on
- * Escape itself. The frame takes the focus when it opens and keeps it, with [overlay] — the dialogs —
- * inside the same focus group, so the keys do not go on reaching the workspace underneath.
- */
-@OptIn(ExperimentalComposeUiApi::class)
+/** The full-window frame both Account destinations share: see [DestinationFrame]. */
 @Composable
 internal fun AccountDestinationFrame(
     title: String,
@@ -1067,75 +1045,7 @@ internal fun AccountDestinationFrame(
     onEscape: () -> Unit = onBack,
     overlay: @Composable () -> Unit = {},
     content: @Composable () -> Unit,
-) {
-    val focus = remember { FocusRequester() }
-    // Keys reach only the focused element and what contains it. A sign-in replaces the form whose
-    // field had the focus, and a closed dialog takes its button with it; then nothing here has the
-    // focus and Escape goes nowhere. The frame takes it back a frame later, as the workspace does
-    // for its canvas — which also gives it the focus when it opens.
-    var hasFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(hasFocus) {
-        if (hasFocus) return@LaunchedEffect
-        withFrameNanos { }
-        if (!hasFocus) focus.requestFocus()
-    }
-    Surface(
-        modifier = modifier
-            .fillMaxSize()
-            .testTag(AccountTags.SCREEN)
-            .focusRequester(focus)
-            .onFocusChanged { hasFocus = it.hasFocus }
-            .onKeyEvent { event ->
-                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
-                    onEscape()
-                    true
-                } else {
-                    false
-                }
-            }
-            .focusProperties { onExit = { cancelFocusChange() } }
-            .focusGroup()
-            .focusable(),
-        color = MaterialTheme.colorScheme.background,
-    ) {
-        Box(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize()) {
-                Surface(color = LocalDesktopColors.current.headerBar, shadowElevation = 1.dp) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .padding(horizontal = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier.testTag(AccountTags.BACK),
-                        ) {
-                            Icon(
-                                imageVector = AccountSymbols.ArrowBack,
-                                contentDescription = Strings.navigate_back,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                        Spacer(Modifier.width(4.dp))
-                        Text(title, style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 24.dp),
-                    contentAlignment = Alignment.TopCenter,
-                ) {
-                    content()
-                }
-            }
-            overlay()
-        }
-    }
-}
+) = DestinationFrame(title, onBack, AccountTags.SCREEN, AccountTags.BACK, modifier, onEscape, overlay, content)
 
 /**
  * The managed password-recovery destination.

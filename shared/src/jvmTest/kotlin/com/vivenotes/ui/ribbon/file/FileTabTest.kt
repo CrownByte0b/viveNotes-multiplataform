@@ -6,7 +6,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
@@ -27,15 +26,11 @@ import com.vivenotes.workspace.FilePaneState
 import com.vivenotes.data.DeletedItemKey
 import com.vivenotes.data.DeletedItemKind
 import com.vivenotes.data.db.PageRevisionSummary
-import com.vivenotes.data.db.ClosedNotebook
-import com.vivenotes.data.db.NotebookEntity
 import com.vivenotes.model.PageDoc
 import com.vivenotes.data.DeletedItem
 import com.vivenotes.workspace.NotebookTransferState
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
-import com.vivenotes.localization.Strings
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -179,62 +174,6 @@ class FileTabTest {
         onNodeWithTag(FilePaneTags.ConfirmRestore).performClick()
         runOnIdle { assertTrue("restore-revision" in calls) }
     }
-
-    /**
-     * Android's shelf: two groups, because a notebook on this device opens at once and one in the
-     * cloud has to come back first. With no account feature at all there is no Move to cloud, and the
-     * cloud group says a server is needed rather than offering a button that does nothing.
-     */
-    @Test
-    fun closedNotebookShelfReopensLocalContentAndMarksUnavailableContent() = runDesktopComposeUiTest(width = 2000, height = 900) {
-        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
-            filePane = FilePaneState(pane = FilePane.ClosedNotebooks,
-                closedNotebooks = listOf(localBook, remoteBook))))
-        onNodeWithTag(FilePaneTags.OnDeviceHeading).assertIsDisplayed()
-        onNodeWithTag(FilePaneTags.InCloudHeading).assertIsDisplayed()
-        onNodeWithText(Strings.closed_notebooks_no_account).assertIsDisplayed()
-        onNodeWithTag(FilePaneTags.closed("local")).fetchSemanticsNode()
-        onNodeWithTag(FilePaneTags.reopen("remote")).assertDoesNotExist()
-        onNodeWithTag(FilePaneTags.moveToCloud("local")).assertDoesNotExist()
-        onNodeWithTag(FilePaneTags.bringBack("remote")).assertIsNotEnabled()
-        onNodeWithTag(FilePaneTags.reopen("local")).performClick()
-        runOnIdle { assertTrue("reopen:local" in calls) }
-    }
-
-    /** With a server, a device row moves to the cloud and a cloud row comes back. */
-    @Test
-    fun aConnectedShelfMovesNotebooksToTheCloudAndBringsThemBack() = runDesktopComposeUiTest(width = 2000, height = 900) {
-        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
-            filePane = FilePaneState(pane = FilePane.ClosedNotebooks,
-                closedNotebooks = listOf(localBook, remoteBook))), fileActions = connectedActions)
-        onNodeWithText(Strings.closed_notebooks_in_cloud_supporting).assertIsDisplayed()
-        onNodeWithTag(FilePaneTags.moveToCloud("local")).assertIsEnabled().performClick()
-        onNodeWithTag(FilePaneTags.bringBack("remote")).assertIsEnabled().performClick()
-        runOnIdle { assertEquals(listOf("to-cloud:local", "back:remote"), calls) }
-    }
-
-    /** One operation at a time: while one row shows it is busy, every other row's buttons wait. */
-    @Test
-    fun aCloudOperationHoldsEveryOtherRowStill() = runDesktopComposeUiTest(width = 2000, height = 900) {
-        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
-            filePane = FilePaneState(pane = FilePane.ClosedNotebooks, closedNotebooks = listOf(localBook, remoteBook),
-                cloudBusyNotebookId = "remote")), fileActions = connectedActions)
-        onNodeWithTag(FilePaneTags.cloudBusy("remote")).assertIsDisplayed()
-        onNodeWithTag(FilePaneTags.bringBack("remote")).assertDoesNotExist()
-        onNodeWithTag(FilePaneTags.moveToCloud("local")).assertIsNotEnabled()
-        onNodeWithTag(FilePaneTags.reopen("local")).assertIsNotEnabled()
-    }
-
-    private val connectedActions = object : FileActions by actions {
-        override val cloudConnected = MutableStateFlow(true)
-        override fun moveNotebookToCloud(id: String) { calls += "to-cloud:$id" }
-        override fun bringNotebookBack(id: String) { calls += "back:$id" }
-    }
-
-    private val localBook = ClosedNotebook(NotebookEntity("local", "Local Book", 0, 0,
-        createdAt = 1, updatedAt = 2, closedAt = 3), 2, 5, true)
-    private val remoteBook = ClosedNotebook(NotebookEntity("remote", "Remote Book", 0, 1,
-        createdAt = 1, updatedAt = 2, closedAt = 3), 1, 2, false)
 
     @Test
     fun withoutFileDialogsNeitherIsAvailable() = runDesktopComposeUiTest(width = 2000, height = 900) {

@@ -46,6 +46,29 @@ class FileSessionTest {
         assertEquals(notebookId, session.state.value!!.selectedNotebookId)
         assertEquals(pageId, session.state.value!!.selectedPageId)
         assertTrue(session.state.value!!.filePane.closedNotebooks.isEmpty())
+        // Straight back to the workspace, as Android's shelf does.
+        assertEquals(null, session.state.value!!.filePane.pane)
+    }
+
+    @Test
+    fun aFailedReopenKeepsClosedNotebooksOpenAndSaysSo() = runTest {
+        val session = started()
+        val actions = session.fileActions(files)
+        val notebookId = session.state.value!!.selectedNotebookId
+        actions.closeNotebook()
+        actions.openPane(FilePane.ClosedNotebooks)
+        runCurrent()
+        store.reopenFailure = IllegalStateException("disk gone")
+
+        actions.reopenNotebook(notebookId)
+        runCurrent()
+
+        val pane = session.state.value!!.filePane
+        assertEquals(FilePane.ClosedNotebooks, pane.pane)
+        assertFalse(pane.busy)
+        assertEquals(listOf(notebookId), pane.closedNotebooks.map { it.notebook.id })
+        assertNotNull(pane.error)
+        assertTrue(session.state.value!!.notebooks.isEmpty())
     }
 
     @Test

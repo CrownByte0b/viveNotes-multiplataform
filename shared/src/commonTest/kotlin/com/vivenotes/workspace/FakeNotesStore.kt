@@ -63,6 +63,9 @@ class FakeNotesStore : NotesStore {
     /** Thrown by every save while set, as a full disk or a vanished drive would. */
     var saveFailure: Exception? = null
 
+    /** Thrown by every reopen while set. */
+    var reopenFailure: Exception? = null
+
     /** Holds seeding — and so the whole first read — until completed, like a slow disk at launch. */
     var seedGate: CompletableDeferred<Unit>? = null
 
@@ -188,6 +191,7 @@ class FakeNotesStore : NotesStore {
     }
 
     override suspend fun reopenNotebook(id: String) {
+        reopenFailure?.let { throw it }
         val entry = closed.value.firstOrNull { it.notebook.id == id } ?: return
         closed.value = closed.value.filterNot { it.notebook.id == id }
         tree.value += entry.copy(notebook = entry.notebook.copy(closedAt = null))

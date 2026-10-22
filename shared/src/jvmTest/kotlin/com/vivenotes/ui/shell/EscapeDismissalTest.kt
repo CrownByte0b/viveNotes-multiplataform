@@ -107,7 +107,8 @@ class EscapeDismissalTest {
     }
 
     @Test fun escapeClosesAllFilePanesAndDoesNotExposeTheCoveredSettingsPane() {
-        FilePane.entries.forEach { pane ->
+        // Closed Notebooks covers the window instead of docking: ClosedNotebooksScreenTest.
+        FilePane.entries.filter { FilePaneState(pane = it).docked }.forEach { pane ->
             runDesktopComposeUiTest(width = 1600, height = 900) {
                 workspace(RibbonTab.Settings)
                 onNodeWithTag(HardwareTags.Open).performClick()
@@ -115,7 +116,7 @@ class EscapeDismissalTest {
                 val command = when (pane) {
                     FilePane.VersionHistory -> FileRibbonTags.VersionHistory
                     FilePane.DeletedItems -> FileRibbonTags.DeletedItems
-                    FilePane.ClosedNotebooks -> FileRibbonTags.ClosedNotebooks
+                    FilePane.ClosedNotebooks -> error("not docked")
                 }
                 onNodeWithTag(command).performClick()
                 onNodeWithTag(FilePaneTags.Pane).assertExists()

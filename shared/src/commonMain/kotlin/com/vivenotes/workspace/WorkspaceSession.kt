@@ -431,7 +431,6 @@ class WorkspaceSession(
                 val rows = attempt(Strings.closed_notebooks_could_not_be_read) { store.observeClosedNotebooks().first() }
                 update { state -> if (state.filePane.pane == pane)
                     state.copy(filePane = state.filePane.copy(loading = false, closedNotebooks = rows.orEmpty(),
-                        dateLabels = rows.orEmpty().mapNotNull { row -> row.notebook.closedAt?.let { it to createdLabel(it) } }.toMap(),
                         error = if (rows == null) Strings.closed_notebooks_could_not_be_read_59b638 else null)) else state }
             }
         }
@@ -526,11 +525,16 @@ class WorkspaceSession(
                     openWhenListed(it.id)
                 }
             }
+            // Straight back to the workspace, as Android's shelf does: the notebook is in the
+            // navigation now with its first section open. A failure keeps the screen and says so.
+            if (reopened != null) {
+                update { state -> if (state.filePane.pane == FilePane.ClosedNotebooks) state.copy(filePane = FilePaneState()) else state }
+                return@enqueue
+            }
             val rows = attempt(Strings.closed_notebooks_could_not_be_read) { store.observeClosedNotebooks().first() }
             update { state -> if (state.filePane.pane == FilePane.ClosedNotebooks)
                 state.copy(filePane = state.filePane.copy(busy = false, closedNotebooks = rows.orEmpty(),
-                message = if (reopened != null) Strings.notebook_reopened else null,
-                error = if (reopened != null) null else Strings.this_notebook_could_not_be_reopened_6c30bb)) else state }
+                error = Strings.this_notebook_could_not_be_reopened_6c30bb)) else state }
         }
     }
 

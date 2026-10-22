@@ -32,6 +32,7 @@ import com.vivenotes.ui.ribbon.draw.TableTags
 import com.vivenotes.ui.navigation.NavigationTestTags
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.shell.UnreadablePageMessage
+import com.vivenotes.ui.ribbon.file.ClosedNotebooksTags
 import com.vivenotes.ui.ribbon.file.FileRibbonTags
 import com.vivenotes.ui.ribbon.file.FilePaneTags
 import com.vivenotes.ui.shell.WorkspaceTestTags
@@ -397,11 +398,14 @@ class AppTest {
                 waitUntil(timeoutMillis = 10_000) {
                     app.session.state.value?.filePane?.closedNotebooks?.any { it.notebook.id == notebookId } == true
                 }
-                onNodeWithTag(FilePaneTags.reopen(notebookId)).performClick()
+                onNodeWithTag(ClosedNotebooksTags.Screen).assertIsDisplayed()
+                onNodeWithTag(ClosedNotebooksTags.open(notebookId)).performClick()
                 waitUntil(timeoutMillis = 10_000) {
                     app.session.state.value?.selectedNotebookId == notebookId &&
                         app.session.state.value?.selectedPage?.body == "A page worth keeping"
                 }
+                // Reopening returns to the workspace, as Android's shelf does.
+                onNodeWithTag(ClosedNotebooksTags.Screen).assertDoesNotExist()
 
                 onNodeWithTag(FileRibbonTags.DeleteNotebook).performClick()
                 onNodeWithTag(FilePaneTags.ConfirmNotebook).performClick()

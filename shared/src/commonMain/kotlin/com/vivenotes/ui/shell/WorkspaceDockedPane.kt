@@ -57,7 +57,7 @@ internal fun WorkspaceDockedPane(
     onCloseInkMath: () -> Unit,
     aiModels: AiModels?,
 ) {
-    if (state.filePane.pane != null && fileActions != null) {
+    if (state.filePane.docked && fileActions != null) {
         VerticalDivider(modifier = Modifier.fillMaxHeight(),
             color = MaterialTheme.colorScheme.outlineVariant)
         FilePaneContent(state.filePane, fileActions, onRestoreRevision = onRestoreRevision)

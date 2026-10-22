@@ -203,7 +203,7 @@ internal fun WorkspaceContent(
                 // here ahead of the focused control, after it below, and in the text box being edited.
                 .onPreviewKeyEvent { event ->
                     shortcutKeys.dismiss(event) {
-                        if (state.filePane.pane != null && fileActions != null) {
+                        if (state.filePane.docked && fileActions != null) {
                             fileActions.closePane()
                             // A File pane may be covering a previously selected settings/search pane.
                             openPane = null
@@ -294,7 +294,7 @@ internal fun WorkspaceContent(
                 val showPagePane = maxWidth >= 760.dp && state.pageListVisible
                 val paneMotion = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
                 val dockedWidth = when {
-                    state.filePane.pane != null && fileActions != null -> ToolPaneWidth + 1.dp
+                    state.filePane.docked && fileActions != null -> ToolPaneWidth + 1.dp
                     openPane == DockedPane.Math -> MathPaneWidth + 1.dp
                     openPane != null -> ToolPaneWidth + 1.dp
                     else -> 0.dp
