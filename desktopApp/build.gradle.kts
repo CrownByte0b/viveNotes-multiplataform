@@ -147,12 +147,21 @@ val cloudBaseUrlOverride = localSetting("vive.cloudBaseUrl", "")
 
 /**
  * A Google OAuth client of the Desktop app type, in the project that holds the Android app's Web
- * client, and the not-confidential secret Google issues installed apps with it. Empty until filled
- * in, which leaves Sign in with Google disabled and explained, as an Android build without
- * `vive.googleWebClientId` does. The server must list the same id in `GOOGLE_CLIENT_IDS`.
+ * client, and the not-confidential secret Google issues installed apps with it. One client serves
+ * both profiles; the local Docker server and the managed deployment must each list its id in
+ * `GOOGLE_CLIENT_IDS`. Never committed: `local.properties` locally, and the release workflows'
+ * `VIVE_GOOGLE_DESKTOP_CLIENT_ID`/`_SECRET` repository secrets, which only fill in what `-P` and
+ * `local.properties` leave unset. Empty leaves Sign in with Google disabled and explained, as an
+ * Android build without `vive.googleWebClientId` does.
  */
-val googleDesktopClientId = localSetting("vive.googleDesktopClientId", "")
-val googleDesktopClientSecret = localSetting("vive.googleDesktopClientSecret", "")
+val googleDesktopClientId = localSetting(
+    "vive.googleDesktopClientId",
+    providers.environmentVariable("VIVE_GOOGLE_DESKTOP_CLIENT_ID").orNull.orEmpty(),
+)
+val googleDesktopClientSecret = localSetting(
+    "vive.googleDesktopClientSecret",
+    providers.environmentVariable("VIVE_GOOGLE_DESKTOP_CLIENT_SECRET").orNull.orEmpty(),
+)
 
 compose.desktop {
     application {
@@ -220,6 +229,7 @@ tasks.test {
     inputs.files(fileTree(rootProject.file("packaging/windows")))
     inputs.file(rootProject.file(".github/workflows/windows-msi.yml"))
     inputs.file(rootProject.file(".github/workflows/desktop-tests.yml"))
+    inputs.file(rootProject.file(".github/workflows/flatpak.yml"))
     systemProperty("vivenotes.test.projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
     systemProperty("vivenotes.test.gradleHome", gradle.gradleHomeDir!!.absolutePath)

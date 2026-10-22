@@ -1032,6 +1032,10 @@
     <string name="account_google_sign_in">Continue with Google</string>
     <string name="account_google_signing_in">Signing in with Google</string>
     <string name="account_google_unconfigured">Sign in with Google is not available in this build.</string>
+    <string name="account_google_browser_waiting">Finish signing in in your browser. If it did not open, or Google showed an error, copy the link into another browser or try again.</string>
+    <string name="account_google_copy_link">Copy link</string>
+    <string name="account_google_link_copied">Link copied</string>
+    <string name="account_google_try_again">Try again</string>
     <string name="account_link_title">Finish connecting this account</string>
     <string name="account_link_body">An account already uses this email address. Enter its password once and your Google sign-in will be linked to it from now on.</string>
     <string name="account_link_email">Account email</string>

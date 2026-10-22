@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.net.URI
 import java.util.Locale
 import java.util.UUID
 
@@ -273,6 +274,16 @@ class SyncAccounts(
 
     /** False when this build has no Google Web client id; the screen says so rather than failing. */
     val googleSignInAvailable: Boolean get() = google.configured
+
+    /** Google's page while [signInWithGoogle] waits on the browser, else null; desktop only. */
+    val googleSignInPage: StateFlow<URI?> get() = google.browserPage
+
+    /**
+     * Gives up on the browser step of a running [signInWithGoogle], which then returns
+     * [CloudSignInResult.Dismissed]. False once Google has answered, when there is nothing left to
+     * give up on safely. See [GoogleIdentityProvider.abandonBrowserSignIn].
+     */
+    fun abandonGoogleBrowserSignIn(): Boolean = google.abandonBrowserSignIn()
 
     /** Billing and coupons exist only on the one managed deployment compiled into this build. */
     fun isManagedAccount(account: SyncAccount?): Boolean =

@@ -1,7 +1,12 @@
 package com.vivenotes.data.sync
 
 import com.sun.net.httpserver.HttpServer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -11,10 +16,15 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.Base64
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -30,9 +40,13 @@ class GoogleIdentityProviderTest {
     private val tokenRequests = CopyOnWriteArrayList<Map<String, String>>()
     private var tokenStatus = 200
     private var tokenBody = """{"id_token":"${idToken("owner@example.com")}","access_token":"unused"}"""
+
+    /** Runs as Google's token endpoint receives a code, before it answers. */
+    @Volatile private var onTokenRequest: () -> Unit = {}
     private val google: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0).apply {
         createContext("/token") { exchange ->
             tokenRequests += form(exchange.requestBody.readBytes().decodeToString())
+            onTokenRequest()
             val body = tokenBody.toByteArray()
             exchange.responseHeaders.add("Content-Type", "application/json")
             exchange.sendResponseHeaders(tokenStatus, body.size.toLong())
@@ -150,6 +164,64 @@ class GoogleIdentityProviderTest {
 
         assertEquals(GoogleIdToken.Rejected(ConnectFailure.GoogleNotConfigured), provider.requestIdToken("nonce"))
         assertTrue(tokenRequests.isEmpty())
+    }
+
+    /** Google's page is on offer while the browser is awaited, for the screen's Copy link, and not after. */
+    @Test
+    fun theOpenedPageIsOfferedOnlyWhileTheBrowserIsAwaited() = runBlocking {
+        val offered = CopyOnWriteArrayList<URI?>()
+        lateinit var provider: GoogleIdentityProvider
+        provider = provider(browser = { uri ->
+            offered += provider.browserPage.value
+            followRedirect(uri, code = "auth-code")
+        })
+        assertNull(provider.browserPage.value)
+
+        assertTrue(provider.requestIdToken("nonce") is GoogleIdToken.Received)
+
+        assertEquals(listOf<URI?>(opened.single()), offered)
+        assertNull(provider.browserPage.value)
+        assertFalse(provider.abandonBrowserSignIn(), "a finished sign-in has nothing to abandon")
+    }
+
+    /** Try again: the wait ends as a dismissal and its loopback address stops answering. */
+    @Test
+    fun abandoningTheBrowserStepEndsTheSignInAsDismissed() = runBlocking {
+        val provider = provider(browser = { })
+        assertFalse(provider.abandonBrowserSignIn(), "nothing is waiting yet")
+        val signIn = async(Dispatchers.Default) { provider.requestIdToken("nonce") }
+        val page = withTimeout(5_000) { provider.browserPage.first { it != null } }!!
+
+        assertTrue(provider.abandonBrowserSignIn())
+
+        assertEquals(GoogleIdToken.Dismissed, withTimeout(5_000) { signIn.await() })
+        assertNull(provider.browserPage.value)
+        assertFalse(provider.abandonBrowserSignIn(), "the same wait cannot be abandoned twice")
+        assertFailsWith<IOException> { followRedirect(page, code = "late-code") }
+        assertTrue(tokenRequests.isEmpty())
+    }
+
+    /**
+     * Once Google has answered, the code is on its way to becoming a device token, so Try again
+     * leaves the sign-in to finish rather than dropping a credential halfway.
+     */
+    @Test
+    fun aSignInGoogleHasAnsweredCannotBeAbandoned() = runBlocking {
+        val exchanging = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        onTokenRequest = {
+            exchanging.countDown()
+            release.await(5, TimeUnit.SECONDS)
+        }
+        val provider = provider(browser = { uri -> followRedirect(uri, code = "auth-code") })
+        val signIn = async(Dispatchers.Default) { provider.requestIdToken("nonce") }
+        assertTrue(exchanging.await(5, TimeUnit.SECONDS))
+
+        assertNull(provider.browserPage.value)
+        assertFalse(provider.abandonBrowserSignIn())
+
+        release.countDown()
+        assertTrue(withTimeout(5_000) { signIn.await() } is GoogleIdToken.Received)
     }
 
     private fun provider(

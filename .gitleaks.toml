@@ -3,6 +3,14 @@
 [extend]
 useDefault = true
 
+# The built-in rules catch a Google OAuth client secret only beside a key-like name. The desktop's
+# lives in local.properties and CI secrets, never in git, wherever it would appear.
+[[rules]]
+id = "google-oauth-client-secret"
+description = "Google OAuth client secret"
+regex = '''GOCSPX-[0-9A-Za-z_-]{28}'''
+keywords = ["gocspx-"]
+
 [[allowlists]]
 description = "Fake device token (base64 of some-example-device-token) and fixed idempotency keys"
 targetRules = ["generic-api-key"]

@@ -57,11 +57,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -88,6 +92,7 @@ import com.vivenotes.localization.Strings
 import com.vivenotes.ui.components.DesktopDialogFrame
 import com.vivenotes.ui.components.DestinationFrame
 import com.vivenotes.ui.icons.AccountSymbols
+import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.NavigationSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.ui.icons.ShellSymbols
@@ -112,6 +117,11 @@ internal object AccountTags {
     /** On the spinner inside the Google button, so a test can tell waiting from idle. */
     const val GOOGLE_PROGRESS = "account-google-progress"
     const val GOOGLE_STATUS = "account-google-status"
+
+    /** Shown while the Google sign-in waits on the browser: what to do if that browser let them down. */
+    const val GOOGLE_BROWSER_PANEL = "account-google-browser-panel"
+    const val GOOGLE_COPY_LINK = "account-google-copy-link"
+    const val GOOGLE_TRY_AGAIN = "account-google-try-again"
     const val SELF_HOST = "account-self-host"
 
     /** The password-account link dialog, raised only by `409 account_link_required`. */
@@ -231,6 +241,12 @@ fun AccountScreen(
     googleAvailable: Boolean = true,
     signingInWithGoogle: Boolean = false,
     onSignInWithGoogle: () -> Unit = {},
+    /**
+     * Google's page while the sign-in waits on the browser, else null. With it the screen offers to
+     * copy the link into another browser, or to start the sign-in over with [onRetryGoogle].
+     */
+    googleSignInPage: String? = null,
+    onRetryGoogle: () -> Unit = {},
     /**
      * The last Google attempt's failure, or null. Separate from [connection] because the two routes
      * fail independently and a message under the wrong button is a message about the wrong thing.
@@ -679,6 +695,11 @@ fun AccountScreen(
                     signingIn = signingInWithGoogle,
                     onClick = onSignInWithGoogle,
                 )
+
+                if (signingInWithGoogle && googleSignInPage != null) {
+                    Spacer(Modifier.height(10.dp))
+                    GoogleBrowserPanel(page = googleSignInPage, onRetry = onRetryGoogle)
+                }
 
                 if (!googleAvailable) {
                     Spacer(Modifier.height(10.dp))
@@ -1304,6 +1325,62 @@ private fun GoogleSignInButton(
             )
             Spacer(Modifier.width(12.dp))
             Text(Strings.account_google_sign_in)
+        }
+    }
+}
+
+/**
+ * What to do while the Google sign-in waits on a browser that may never come back: the default
+ * browser did not open, or Google showed an error there. Copy link puts Google's page on the
+ * clipboard for another browser on this computer — its answer still comes back to this app's
+ * loopback address — and Try again starts over with a fresh challenge.
+ */
+@Composable
+private fun GoogleBrowserPanel(page: String, onRetry: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    // Per page, so a new attempt's link is not announced as already copied.
+    var copied by remember(page) { mutableStateOf(false) }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(AccountTags.GOOGLE_BROWSER_PANEL),
+    ) {
+        Text(
+            text = Strings.account_google_browser_waiting,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(
+                onClick = {
+                    clipboard.setText(AnnotatedString(page))
+                    copied = true
+                },
+                modifier = Modifier
+                    .testTag(AccountTags.GOOGLE_COPY_LINK)
+                    .semantics { liveRegion = LiveRegionMode.Polite },
+            ) {
+                Icon(
+                    imageVector = if (copied) AccountSymbols.CheckCircle else DocumentSymbols.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(ButtonDefaults.IconSize),
+                )
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                Text(if (copied) Strings.account_google_link_copied else Strings.account_google_copy_link)
+            }
+            TextButton(onClick = onRetry, modifier = Modifier.testTag(AccountTags.GOOGLE_TRY_AGAIN)) {
+                Icon(
+                    imageVector = AccountSymbols.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(ButtonDefaults.IconSize),
+                )
+                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                Text(Strings.account_google_try_again)
+            }
         }
     }
 }

@@ -7,6 +7,9 @@ import com.vivenotes.data.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
@@ -26,6 +29,7 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicReference
 
 /** What asking for a Google identity produced. */
 sealed interface GoogleIdToken {
@@ -84,6 +88,25 @@ class GoogleIdentityProvider(
     /** False when this build has no Google client id, which is a state the screen shows rather than hides. */
     val configured: Boolean get() = clientId.isNotBlank()
 
+    private val page = MutableStateFlow<URI?>(null)
+
+    /**
+     * Google's page while a sign-in waits for the browser to come back with its answer, else null.
+     *
+     * The screen offers it to copy into another browser, for when the default one did not open it
+     * or Google showed an error there.
+     */
+    val browserPage: StateFlow<URI?> = page.asStateFlow()
+
+    private val waiting = AtomicReference<BrowserWait?>(null)
+
+    /**
+     * Ends the wait for the browser as though the person had closed Google's page, so that a new
+     * sign-in can start. False when no sign-in is waiting, which includes one whose answer has
+     * already arrived: from there it is exchanging a code, and finishes rather than being dropped.
+     */
+    fun abandonBrowserSignIn(): Boolean = waiting.get()?.abandon() == true
+
     /**
      * Opens Google's sign-in in the browser and returns the ID token it produced.
      *
@@ -113,19 +136,26 @@ class GoogleIdentityProvider(
                         "prompt" to "select_account",
                     ),
                 )
-                try {
-                    openBrowser(authorization)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (failure: Exception) {
-                    Log.w(TAG, "No browser to sign in with", failure)
-                    return@withContext GoogleIdToken.Rejected(ConnectFailure.GoogleNotConfigured)
-                }
-
-                val answer = withTimeoutOrNull(timeoutMillis) { awaitRedirect(listener, state) }
-                    ?: return@withContext GoogleIdToken.Dismissed
+                val wait = BrowserWait()
+                waiting.set(wait)
+                page.value = authorization
+                val answer = try {
+                    try {
+                        openBrowser(authorization)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        Log.w(TAG, "No browser to sign in with", failure)
+                        return@withContext GoogleIdToken.Rejected(ConnectFailure.GoogleNotConfigured)
+                    }
+                    withTimeoutOrNull(timeoutMillis) { awaitRedirect(listener, state, wait) }
+                } finally {
+                    // However the wait ended, the page is no longer one to offer, and a code being
+                    // exchanged is no longer a sign-in to abandon.
+                    if (waiting.compareAndSet(wait, null)) page.value = null
+                } ?: return@withContext GoogleIdToken.Dismissed
                 when (answer) {
-                    RedirectAnswer.Denied -> GoogleIdToken.Dismissed
+                    RedirectAnswer.Denied, RedirectAnswer.Abandoned -> GoogleIdToken.Dismissed
                     is RedirectAnswer.Failed -> {
                         Log.w(TAG, "Google answered the sign-in with ${answer.error}")
                         GoogleIdToken.Rejected(ConnectFailure.GoogleNotConfigured)
@@ -139,25 +169,27 @@ class GoogleIdentityProvider(
     /**
      * Serves the loopback address until the redirect with [state] arrives.
      *
-     * Accepts with a short timeout so cancellation — the person leaving, or [timeoutMillis] — is
-     * noticed between connections rather than only when the browser next speaks.
+     * Accepts with a short timeout so cancellation — the person leaving, or [timeoutMillis] — and
+     * [abandonBrowserSignIn] are noticed between connections rather than only when the browser next
+     * speaks.
      */
-    private suspend fun awaitRedirect(listener: ServerSocket, state: String): RedirectAnswer {
+    private suspend fun awaitRedirect(listener: ServerSocket, state: String, wait: BrowserWait): RedirectAnswer {
         listener.soTimeout = ACCEPT_POLL_MILLIS
         while (true) {
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            if (wait.abandoned) return RedirectAnswer.Abandoned
             val socket = try {
                 listener.accept()
             } catch (_: SocketTimeoutException) {
                 continue
             }
-            val answer = socket.use { answer(it, state) }
+            val answer = socket.use { answer(it, state, wait) }
             if (answer != null) return answer
         }
     }
 
     /** Reads one request and answers it. Null unless it was the redirect this sign-in is waiting for. */
-    private fun answer(socket: Socket, state: String): RedirectAnswer? {
+    private fun answer(socket: Socket, state: String, wait: BrowserWait): RedirectAnswer? {
         socket.soTimeout = REQUEST_READ_MILLIS
         val requestLine = runCatching {
             val reader = socket.getInputStream().bufferedReader(Charsets.ISO_8859_1)
@@ -179,7 +211,7 @@ class GoogleIdentityProvider(
             parameters["error"] != null -> RedirectAnswer.Failed(parameters.getValue("error"))
             parameters["code"].isNullOrBlank() -> RedirectAnswer.Failed("missing_code")
             else -> RedirectAnswer.Code(parameters.getValue("code"))
-        }
+        }?.let { if (wait.claim()) it else RedirectAnswer.Abandoned }
         val (status, body) = if (result != null) {
             "200 OK" to returnPage(result is RedirectAnswer.Code)
         } else {
@@ -255,6 +287,25 @@ class GoogleIdentityProvider(
         data class Code(val code: String) : RedirectAnswer
         data object Denied : RedirectAnswer
         data class Failed(val error: String) : RedirectAnswer
+
+        /** [abandonBrowserSignIn] ended the wait; a redirect arriving after it is turned away. */
+        data object Abandoned : RedirectAnswer
+    }
+
+    /**
+     * One sign-in's wait for the browser. Its redirect and [abandonBrowserSignIn] race to end it, and
+     * whichever claims it first decides how the sign-in ends.
+     */
+    private class BrowserWait {
+        private val outcome = AtomicReference(Outcome.Waiting)
+
+        val abandoned: Boolean get() = outcome.get() == Outcome.Abandoned
+
+        fun claim(): Boolean = outcome.compareAndSet(Outcome.Waiting, Outcome.Answered)
+
+        fun abandon(): Boolean = outcome.compareAndSet(Outcome.Waiting, Outcome.Abandoned)
+
+        private enum class Outcome { Waiting, Answered, Abandoned }
     }
 
     private companion object {

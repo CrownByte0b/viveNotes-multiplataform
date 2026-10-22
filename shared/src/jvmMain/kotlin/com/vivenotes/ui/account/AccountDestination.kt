@@ -112,6 +112,10 @@ private fun AccountDestination(
     // the reason the screen keeps its messages apart: the two fail independently, and one button's
     // spinner has no business appearing under the other.
     var signingInWithGoogle by remember { mutableStateOf(false) }
+    // Set by Try again once the running sign-in's browser step has been given up on, so the
+    // dismissal that follows starts the next attempt instead of ending the flow.
+    var retryingGoogle by remember { mutableStateOf(false) }
+    val googleSignInPage by syncAccounts.googleSignInPage.collectAsState()
     var googleFailure by remember { mutableStateOf<ConnectFailure?>(null) }
     var linkRequired by remember { mutableStateOf(false) }
     var linking by remember { mutableStateOf(false) }
@@ -187,27 +191,38 @@ private fun AccountDestination(
                 // above this destination, exactly as `onConnect` does: it ends in a device token that
                 // is issued once, so a Back press must not cancel it.
                 connectScope.launch {
-                    when (val result = syncAccounts.signInWithGoogle()) {
-                        is CloudSignInResult.Connected -> {
-                            accountCreated = result.createdAccount
-                            selfHostConnection = ServerConnection.Connected(
-                                serverUrl = result.serverUrl,
-                                deviceName = result.deviceName,
-                                email = result.email,
-                                authProvider = AccountAuthProvider.Google,
-                            )
+                    do {
+                        retryingGoogle = false
+                        val result = syncAccounts.signInWithGoogle()
+                        when (result) {
+                            is CloudSignInResult.Connected -> {
+                                accountCreated = result.createdAccount
+                                selfHostConnection = ServerConnection.Connected(
+                                    serverUrl = result.serverUrl,
+                                    deviceName = result.deviceName,
+                                    email = result.email,
+                                    authProvider = AccountAuthProvider.Google,
+                                )
+                            }
+
+                            CloudSignInResult.LinkRequired -> linkRequired = true
+
+                            // The person closed the sign-in, or pressed Try again. Nothing to say.
+                            CloudSignInResult.Dismissed -> Unit
+
+                            is CloudSignInResult.Failed -> googleFailure = result.reason
                         }
-
-                        CloudSignInResult.LinkRequired -> linkRequired = true
-
-                        // The person closed the sign-in. Nothing to say about it.
-                        CloudSignInResult.Dismissed -> Unit
-
-                        is CloudSignInResult.Failed -> googleFailure = result.reason
-                    }
+                        // Each pass asks the server for a fresh challenge and opens a new page.
+                    } while (result == CloudSignInResult.Dismissed && retryingGoogle)
                     signingInWithGoogle = false
                 }
             }
+        },
+        googleSignInPage = googleSignInPage?.toString(),
+        onRetryGoogle = {
+            // Only while the browser step is still open. Once Google has answered, the attempt is
+            // exchanging its code, which ends in a device token, so it is left to finish.
+            retryingGoogle = syncAccounts.abandonGoogleBrowserSignIn()
         },
         googleFailure = googleFailure,
         linkRequired = linkRequired,

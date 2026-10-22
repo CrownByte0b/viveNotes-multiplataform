@@ -104,6 +104,17 @@ class GitleaksConfigTest(unittest.TestCase):
             self.scan(SYNC_TEST, f'val api_key = "{token}"'),
         )
 
+    def test_google_oauth_client_secrets_are_detected_anywhere(self):
+        # Assembled here so the repository never holds the pattern its own history scan looks for.
+        secret = "GOCSPX" + "-" + hashlib.sha256(b"fake desktop client secret").hexdigest()[:28]
+        for path, content in (
+            ("local.properties", f"vive.googleDesktopClientSecret={secret}\n"),
+            ("desktopApp/build.gradle.kts", f'val fallback = "{secret}"\n'),
+            ("notes.md", f"The desktop client secret is {secret} for now.\n"),
+        ):
+            with self.subTest(path=path):
+                self.assertEqual([("google-oauth-client-secret", path)], self.scan(path, content))
+
     def benchmark_checksums(self):
         return json.loads((ROOT / BENCHMARK_MANIFEST).read_text(encoding="utf-8"))["productionFiles"]
 
