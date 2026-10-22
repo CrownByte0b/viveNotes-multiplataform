@@ -2196,13 +2196,18 @@ private fun CardCheckoutButton(
             Text(Strings.account_subscription_subscribe_card)
         }
     }
+    val colors = ButtonDefaults.buttonColors(
+        containerColor = Color(0xFF00D4FF),
+        contentColor = Color.Black,
+    )
     if (filled) {
-        Button(onClick = onClick, enabled = enabled, modifier = buttonModifier, content = content)
+        Button(onClick = onClick, enabled = enabled, modifier = buttonModifier, colors = colors, content = content)
     } else {
         OutlinedButton(
             onClick = onClick,
             enabled = enabled,
             modifier = buttonModifier,
+            colors = colors,
             content = content,
         )
     }
