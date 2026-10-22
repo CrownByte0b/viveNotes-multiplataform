@@ -34,6 +34,16 @@ internal class DesktopInkSegment(projections: List<PageStroke>, sourceIds: Colle
     val ordinal by lazy { this.projections.mapIndexed { index, projection -> projection.projectionKey to index }.toMap() }
     val byGroup by lazy { this.projections.filter { it.groupId != null }.groupBy { it.groupId!! } }
     val groupIds: Set<String> = this.projections.mapNotNullTo(HashSet()) { it.groupId }
+    private val scenes = LinkedHashMap<Int, DesktopInkSceneData>()
+    @Synchronized
+    fun sceneData(canvasInk: Int, built: () -> Unit = {}): DesktopInkSceneData {
+        scenes.remove(canvasInk)?.let { scenes[canvasInk] = it; return it }
+        val result = DesktopInkSceneData(projections, canvasInk)
+        if (projections.isNotEmpty()) built()
+        scenes[canvasInk] = result
+        while (scenes.size > 2) scenes.remove(scenes.keys.first())
+        return result
+    }
 }
 
 internal class DesktopInkPage private constructor(

@@ -1,0 +1,1251 @@
+{
+  "schema": "vive-ink-reopening-comparison/1",
+  "baseCommit": "0bb1a792ff6c9120a192201e07a8bc525b06215b",
+  "after": "same base plus exact eleven source/test files in verification.json",
+  "forks": 3,
+  "order": [
+    [
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before"
+    ],
+    [
+      "before",
+      "after"
+    ]
+  ],
+  "aggregation": "median of three per-fork observations; quantiles are per-fork nearest ranks, not pooled",
+  "metrics": {
+    "firstTextPhaseMs": {
+      "unit": "ms",
+      "description": "robot_text_page scripted phase (Robot/polling included)"
+    },
+    "firstTextCallbackSumMs": {
+      "unit": "ms",
+      "description": "robot_text_page successful recording callbacks: sum"
+    },
+    "firstTextCallbackP50Ms": {
+      "unit": "ms",
+      "description": "robot_text_page successful recording callbacks: p50"
+    },
+    "firstTextCallbackP95Ms": {
+      "unit": "ms",
+      "description": "robot_text_page successful recording callbacks: p95"
+    },
+    "firstTextCallbackMaxMs": {
+      "unit": "ms",
+      "description": "robot_text_page successful recording callbacks: max"
+    },
+    "firstTextCallbacks": {
+      "unit": "count",
+      "description": "robot_text_page successful recording callback count"
+    },
+    "reopenTextPhaseMs": {
+      "unit": "ms",
+      "description": "robot_reopen_text scripted phase (Robot/polling included)"
+    },
+    "reopenTextCallbackSumMs": {
+      "unit": "ms",
+      "description": "robot_reopen_text successful recording callbacks: sum"
+    },
+    "reopenTextCallbackP50Ms": {
+      "unit": "ms",
+      "description": "robot_reopen_text successful recording callbacks: p50"
+    },
+    "reopenTextCallbackP95Ms": {
+      "unit": "ms",
+      "description": "robot_reopen_text successful recording callbacks: p95"
+    },
+    "reopenTextCallbackMaxMs": {
+      "unit": "ms",
+      "description": "robot_reopen_text successful recording callbacks: max"
+    },
+    "reopenTextCallbacks": {
+      "unit": "count",
+      "description": "robot_reopen_text successful recording callback count"
+    },
+    "returnInkPhaseMs": {
+      "unit": "ms",
+      "description": "robot_return_ink scripted phase (Robot/polling included)"
+    },
+    "returnInkCallbackSumMs": {
+      "unit": "ms",
+      "description": "robot_return_ink successful recording callbacks: sum"
+    },
+    "returnInkCallbackP50Ms": {
+      "unit": "ms",
+      "description": "robot_return_ink successful recording callbacks: p50"
+    },
+    "returnInkCallbackP95Ms": {
+      "unit": "ms",
+      "description": "robot_return_ink successful recording callbacks: p95"
+    },
+    "returnInkCallbackMaxMs": {
+      "unit": "ms",
+      "description": "robot_return_ink successful recording callbacks: max"
+    },
+    "returnInkCallbacks": {
+      "unit": "count",
+      "description": "robot_return_ink successful recording callback count"
+    },
+    "finalInkPhaseMs": {
+      "unit": "ms",
+      "description": "robot_final_ink scripted phase (Robot/polling included)"
+    },
+    "finalInkCallbackSumMs": {
+      "unit": "ms",
+      "description": "robot_final_ink successful recording callbacks: sum"
+    },
+    "finalInkCallbackP50Ms": {
+      "unit": "ms",
+      "description": "robot_final_ink successful recording callbacks: p50"
+    },
+    "finalInkCallbackP95Ms": {
+      "unit": "ms",
+      "description": "robot_final_ink successful recording callbacks: p95"
+    },
+    "finalInkCallbackMaxMs": {
+      "unit": "ms",
+      "description": "robot_final_ink successful recording callbacks: max"
+    },
+    "finalInkCallbacks": {
+      "unit": "count",
+      "description": "robot_final_ink successful recording callback count"
+    },
+    "viewportPhaseMs": {
+      "unit": "ms",
+      "description": "robot_viewport scripted phase (Robot/polling included)"
+    },
+    "viewportCallbackSumMs": {
+      "unit": "ms",
+      "description": "robot_viewport successful recording callbacks: sum"
+    },
+    "viewportCallbackP50Ms": {
+      "unit": "ms",
+      "description": "robot_viewport successful recording callbacks: p50"
+    },
+    "viewportCallbackP95Ms": {
+      "unit": "ms",
+      "description": "robot_viewport successful recording callbacks: p95"
+    },
+    "viewportCallbackMaxMs": {
+      "unit": "ms",
+      "description": "robot_viewport successful recording callbacks: max"
+    },
+    "viewportCallbacks": {
+      "unit": "count",
+      "description": "robot_viewport successful recording callback count"
+    },
+    "startupMs": {
+      "unit": "ms",
+      "description": "JVM main to workspace"
+    },
+    "processLifetimeSeconds": {
+      "unit": "s",
+      "description": "launched process lifetime"
+    },
+    "allCallbackSumMs": {
+      "unit": "ms",
+      "description": "sum of successful recording callbacks"
+    },
+    "allCallbackP95Ms": {
+      "unit": "ms",
+      "description": "per-fork recording callback nearest-rank p95"
+    },
+    "allCallbacks": {
+      "unit": "count",
+      "description": "successful recording callback count"
+    },
+    "shutdownCpuSeconds": {
+      "unit": "s",
+      "description": "process CPU sampled at shutdown hook"
+    },
+    "sampledPeakRssMiB": {
+      "unit": "MiB",
+      "description": "sampled peak process resident working set"
+    },
+    "finalUsedHeapMiB": {
+      "unit": "MiB",
+      "description": "idle_final end used Java heap, natural GC state"
+    },
+    "finalCommittedHeapMiB": {
+      "unit": "MiB",
+      "description": "idle_final end committed Java heap"
+    },
+    "maxObservedUsedHeapMiB": {
+      "unit": "MiB",
+      "description": "maximum event-snapshot used Java heap"
+    },
+    "finalNmtCommittedMiB": {
+      "unit": "MiB",
+      "description": "idle_final HotSpot NMT committed total"
+    },
+    "initialIdleCpuMs": {
+      "unit": "ms",
+      "description": "process CPU during initial two-second idle"
+    },
+    "finalIdleCpuMs": {
+      "unit": "ms",
+      "description": "process CPU during final two-second idle"
+    }
+  },
+  "platforms": {
+    "x11": {
+      "rows": [
+        {
+          "side": "before",
+          "fork": 1,
+          "values": {
+            "firstTextPhaseMs": 3221.46982,
+            "firstTextCallbackSumMs": 1401.647843,
+            "firstTextCallbackP50Ms": 8.862207,
+            "firstTextCallbackP95Ms": 82.747405,
+            "firstTextCallbackMaxMs": 114.521924,
+            "firstTextCallbacks": 61,
+            "reopenTextPhaseMs": 540.027631,
+            "reopenTextCallbackSumMs": 73.389434,
+            "reopenTextCallbackP50Ms": 0.297936,
+            "reopenTextCallbackP95Ms": 7.983498,
+            "reopenTextCallbackMaxMs": 47.037709,
+            "reopenTextCallbacks": 20,
+            "returnInkPhaseMs": 1112.904833,
+            "returnInkCallbackSumMs": 96.044337,
+            "returnInkCallbackP50Ms": 0.318385,
+            "returnInkCallbackP95Ms": 7.920389,
+            "returnInkCallbackMaxMs": 59.686961,
+            "returnInkCallbacks": 26,
+            "finalInkPhaseMs": 1018.651396,
+            "finalInkCallbackSumMs": 142.845807,
+            "finalInkCallbackP50Ms": 0.185843,
+            "finalInkCallbackP95Ms": 5.668941,
+            "finalInkCallbackMaxMs": 126.179374,
+            "finalInkCallbacks": 24,
+            "viewportPhaseMs": 2212.746575,
+            "viewportCallbackSumMs": 576.671512,
+            "viewportCallbackP50Ms": 19.073348,
+            "viewportCallbackP95Ms": 23.106982,
+            "viewportCallbackMaxMs": 23.713484,
+            "viewportCallbacks": 32,
+            "startupMs": 2843.531189,
+            "processLifetimeSeconds": 25.22381869100036,
+            "allCallbackSumMs": 2747.070015,
+            "allCallbackP95Ms": 58.613582,
+            "allCallbacks": 354,
+            "shutdownCpuSeconds": 31.15,
+            "sampledPeakRssMiB": 2728.83203125,
+            "finalUsedHeapMiB": 274.5,
+            "finalCommittedHeapMiB": 1114.0,
+            "maxObservedUsedHeapMiB": 593.0,
+            "finalNmtCommittedMiB": 1413.4072265625,
+            "initialIdleCpuMs": 20.0,
+            "finalIdleCpuMs": 10.0
+          },
+          "captureManifestSha256": "15872028a5765ad274fb815581550584ee1971caedea7b8c814eb65094463e59",
+          "recordingSha256": "cbd718592a4042b8934d9af873ac2899f4497555b99084f95ddd450dc30e7c56"
+        },
+        {
+          "side": "before",
+          "fork": 2,
+          "values": {
+            "firstTextPhaseMs": 3357.868839,
+            "firstTextCallbackSumMs": 1443.521594,
+            "firstTextCallbackP50Ms": 8.798736,
+            "firstTextCallbackP95Ms": 86.637727,
+            "firstTextCallbackMaxMs": 111.073853,
+            "firstTextCallbacks": 62,
+            "reopenTextPhaseMs": 534.586742,
+            "reopenTextCallbackSumMs": 76.337376,
+            "reopenTextCallbackP50Ms": 0.328815,
+            "reopenTextCallbackP95Ms": 7.252138,
+            "reopenTextCallbackMaxMs": 50.647417,
+            "reopenTextCallbacks": 21,
+            "returnInkPhaseMs": 1143.163001,
+            "returnInkCallbackSumMs": 103.075536,
+            "returnInkCallbackP50Ms": 0.46336,
+            "returnInkCallbackP95Ms": 8.919937,
+            "returnInkCallbackMaxMs": 65.030494,
+            "returnInkCallbacks": 25,
+            "finalInkPhaseMs": 1036.511329,
+            "finalInkCallbackSumMs": 155.249573,
+            "finalInkCallbackP50Ms": 0.212634,
+            "finalInkCallbackP95Ms": 5.504928,
+            "finalInkCallbackMaxMs": 137.729678,
+            "finalInkCallbacks": 24,
+            "viewportPhaseMs": 2426.012308,
+            "viewportCallbackSumMs": 606.941853,
+            "viewportCallbackP50Ms": 19.717382,
+            "viewportCallbackP95Ms": 23.926149,
+            "viewportCallbackMaxMs": 26.312713,
+            "viewportCallbacks": 33,
+            "startupMs": 2923.923038,
+            "processLifetimeSeconds": 25.475355595999645,
+            "allCallbackSumMs": 2839.266337,
+            "allCallbackP95Ms": 58.449992,
+            "allCallbacks": 361,
+            "shutdownCpuSeconds": 32.14,
+            "sampledPeakRssMiB": 2742.49609375,
+            "finalUsedHeapMiB": 273.5,
+            "finalCommittedHeapMiB": 1123.0,
+            "maxObservedUsedHeapMiB": 593.4410095214844,
+            "finalNmtCommittedMiB": 1450.80859375,
+            "initialIdleCpuMs": 30.0,
+            "finalIdleCpuMs": 0.0
+          },
+          "captureManifestSha256": "42ca620ec22fc597a6315e542c8d524aff1d267996684855cf44098f44c721c9",
+          "recordingSha256": "d35ea96565ddb0d0f794c696cbaffe9be647a67bd10bf3cb4f96974f6efe08d0"
+        },
+        {
+          "side": "before",
+          "fork": 3,
+          "values": {
+            "firstTextPhaseMs": 3044.812681,
+            "firstTextCallbackSumMs": 1435.169557,
+            "firstTextCallbackP50Ms": 8.33732,
+            "firstTextCallbackP95Ms": 82.177933,
+            "firstTextCallbackMaxMs": 117.235891,
+            "firstTextCallbacks": 61,
+            "reopenTextPhaseMs": 525.189689,
+            "reopenTextCallbackSumMs": 71.526698,
+            "reopenTextCallbackP50Ms": 0.251708,
+            "reopenTextCallbackP95Ms": 6.988167,
+            "reopenTextCallbackMaxMs": 46.763507,
+            "reopenTextCallbacks": 21,
+            "returnInkPhaseMs": 1138.507727,
+            "returnInkCallbackSumMs": 102.586338,
+            "returnInkCallbackP50Ms": 0.28945,
+            "returnInkCallbackP95Ms": 8.383028,
+            "returnInkCallbackMaxMs": 64.780339,
+            "returnInkCallbacks": 28,
+            "finalInkPhaseMs": 1028.93757,
+            "finalInkCallbackSumMs": 147.220924,
+            "finalInkCallbackP50Ms": 0.254423,
+            "finalInkCallbackP95Ms": 5.741669,
+            "finalInkCallbackMaxMs": 129.005724,
+            "finalInkCallbacks": 25,
+            "viewportPhaseMs": 2275.896136,
+            "viewportCallbackSumMs": 596.35425,
+            "viewportCallbackP50Ms": 19.446627,
+            "viewportCallbackP95Ms": 23.219466,
+            "viewportCallbackMaxMs": 23.689408,
+            "viewportCallbacks": 32,
+            "startupMs": 2868.356294,
+            "processLifetimeSeconds": 24.97802790300011,
+            "allCallbackSumMs": 2806.837145,
+            "allCallbackP95Ms": 61.322299,
+            "allCallbacks": 361,
+            "shutdownCpuSeconds": 31.99,
+            "sampledPeakRssMiB": 2782.70703125,
+            "finalUsedHeapMiB": 283.0,
+            "finalCommittedHeapMiB": 1126.0,
+            "maxObservedUsedHeapMiB": 600.0,
+            "finalNmtCommittedMiB": 1426.0595703125,
+            "initialIdleCpuMs": 40.0,
+            "finalIdleCpuMs": 0.0
+          },
+          "captureManifestSha256": "7f98b3064b8951ad1829343f0926341d5bd4ce60c445a5eeb8d539ac01405f7a",
+          "recordingSha256": "bb51e5c55d8257e9cfda172b2514de4f4a8abcefdd0c48e77ec18670af86e34a"
+        },
+        {
+          "side": "after",
+          "fork": 1,
+          "values": {
+            "firstTextPhaseMs": 3109.509091,
+            "firstTextCallbackSumMs": 1443.550625,
+            "firstTextCallbackP50Ms": 8.555045,
+            "firstTextCallbackP95Ms": 85.899113,
+            "firstTextCallbackMaxMs": 114.920112,
+            "firstTextCallbacks": 61,
+            "reopenTextPhaseMs": 513.655574,
+            "reopenTextCallbackSumMs": 68.061584,
+            "reopenTextCallbackP50Ms": 0.299639,
+            "reopenTextCallbackP95Ms": 10.708926,
+            "reopenTextCallbackMaxMs": 45.821298,
+            "reopenTextCallbacks": 21,
+            "returnInkPhaseMs": 600.781809,
+            "returnInkCallbackSumMs": 57.348048,
+            "returnInkCallbackP50Ms": 0.44184,
+            "returnInkCallbackP95Ms": 7.155655,
+            "returnInkCallbackMaxMs": 23.40595,
+            "returnInkCallbacks": 25,
+            "finalInkPhaseMs": 497.378319,
+            "finalInkCallbackSumMs": 38.018904,
+            "finalInkCallbackP50Ms": 0.288939,
+            "finalInkCallbackP95Ms": 4.942671,
+            "finalInkCallbackMaxMs": 22.2852,
+            "finalInkCallbacks": 21,
+            "viewportPhaseMs": 2249.11828,
+            "viewportCallbackSumMs": 617.367374,
+            "viewportCallbackP50Ms": 19.453321,
+            "viewportCallbackP95Ms": 24.349944,
+            "viewportCallbackMaxMs": 25.241087,
+            "viewportCallbacks": 33,
+            "startupMs": 2931.767953,
+            "processLifetimeSeconds": 23.973687415999848,
+            "allCallbackSumMs": 2628.744728,
+            "allCallbackP95Ms": 52.391791,
+            "allCallbacks": 355,
+            "shutdownCpuSeconds": 28.22,
+            "sampledPeakRssMiB": 1964.39453125,
+            "finalUsedHeapMiB": 458.0,
+            "finalCommittedHeapMiB": 1125.0,
+            "maxObservedUsedHeapMiB": 464.0,
+            "finalNmtCommittedMiB": 1416.439453125,
+            "initialIdleCpuMs": 10.0,
+            "finalIdleCpuMs": 0.0
+          },
+          "captureManifestSha256": "fdf197759c4a78a8c2aab5c5fcb32bfff94544e7eceaad88f39a23a3f353a6a8",
+          "recordingSha256": "c6f810404f475f18b4514e26958e8ac71d2a6622d568878af7512ef11f26b06e"
+        },
+        {
+          "side": "after",
+          "fork": 2,
+          "values": {
+            "firstTextPhaseMs": 3172.464501,
+            "firstTextCallbackSumMs": 1389.824303,
+            "firstTextCallbackP50Ms": 8.98991,
+            "firstTextCallbackP95Ms": 78.295106,
+            "firstTextCallbackMaxMs": 117.978162,
+            "firstTextCallbacks": 61,
+            "reopenTextPhaseMs": 520.075412,
+            "reopenTextCallbackSumMs": 62.904237,
+            "reopenTextCallbackP50Ms": 0.190713,
+            "reopenTextCallbackP95Ms": 9.27403,
+            "reopenTextCallbackMaxMs": 43.602402,
+            "reopenTextCallbacks": 21,
+            "returnInkPhaseMs": 610.483812,
+            "returnInkCallbackSumMs": 53.924914,
+            "returnInkCallbackP50Ms": 0.366106,
+            "returnInkCallbackP95Ms": 7.814467,
+            "returnInkCallbackMaxMs": 22.087154,
+            "returnInkCallbacks": 25,
+            "finalInkPhaseMs": 503.236549,
+            "finalInkCallbackSumMs": 40.653868,
+            "finalInkCallbackP50Ms": 0.249985,
+            "finalInkCallbackP95Ms": 5.751948,
+            "finalInkCallbackMaxMs": 23.357878,
+            "finalInkCallbacks": 20,
+            "viewportPhaseMs": 2238.39718,
+            "viewportCallbackSumMs": 603.790613,
+            "viewportCallbackP50Ms": 18.799137,
+            "viewportCallbackP95Ms": 23.097053,
+            "viewportCallbackMaxMs": 24.071194,
+            "viewportCallbacks": 34,
+            "startupMs": 2842.301261,
+            "processLifetimeSeconds": 23.978907634999814,
+            "allCallbackSumMs": 2564.229581,
+            "allCallbackP95Ms": 50.254881,
+            "allCallbacks": 347,
+            "shutdownCpuSeconds": 27.54,
+            "sampledPeakRssMiB": 1983.52734375,
+            "finalUsedHeapMiB": 445.0,
+            "finalCommittedHeapMiB": 1123.0,
+            "maxObservedUsedHeapMiB": 452.0,
+            "finalNmtCommittedMiB": 1412.9736328125,
+            "initialIdleCpuMs": 20.0,
+            "finalIdleCpuMs": 10.0
+          },
+          "captureManifestSha256": "e285c1bc9372c53596f6fc43d13a2a18e6da1b895b4b71bcff560db56c73bf72",
+          "recordingSha256": "cbfb82c31f9b63333a860542dba041594b1ebe38f47cc9ea13a88349d3f43231"
+        },
+        {
+          "side": "after",
+          "fork": 3,
+          "values": {
+            "firstTextPhaseMs": 3119.759977,
+            "firstTextCallbackSumMs": 1424.157258,
+            "firstTextCallbackP50Ms": 8.793517,
+            "firstTextCallbackP95Ms": 80.858556,
+            "firstTextCallbackMaxMs": 123.985295,
+            "firstTextCallbacks": 63,
+            "reopenTextPhaseMs": 515.407263,
+            "reopenTextCallbackSumMs": 69.497452,
+            "reopenTextCallbackP50Ms": 0.300481,
+            "reopenTextCallbackP95Ms": 10.706693,
+            "reopenTextCallbackMaxMs": 46.417882,
+            "reopenTextCallbacks": 21,
+            "returnInkPhaseMs": 639.650247,
+            "returnInkCallbackSumMs": 59.596573,
+            "returnInkCallbackP50Ms": 0.256868,
+            "returnInkCallbackP95Ms": 7.901853,
+            "returnInkCallbackMaxMs": 24.957458,
+            "returnInkCallbacks": 24,
+            "finalInkPhaseMs": 529.635386,
+            "finalInkCallbackSumMs": 38.553298,
+            "finalInkCallbackP50Ms": 0.224858,
+            "finalInkCallbackP95Ms": 5.974932,
+            "finalInkCallbackMaxMs": 20.838903,
+            "finalInkCallbacks": 23,
+            "viewportPhaseMs": 2292.238185,
+            "viewportCallbackSumMs": 618.32105,
+            "viewportCallbackP50Ms": 19.15322,
+            "viewportCallbackP95Ms": 24.097413,
+            "viewportCallbackMaxMs": 28.451456,
+            "viewportCallbacks": 34,
+            "startupMs": 2887.32789,
+            "processLifetimeSeconds": 23.98451655100007,
+            "allCallbackSumMs": 2610.804949,
+            "allCallbackP95Ms": 45.530115,
+            "allCallbacks": 361,
+            "shutdownCpuSeconds": 28.39,
+            "sampledPeakRssMiB": 1974.58984375,
+            "finalUsedHeapMiB": 442.5,
+            "finalCommittedHeapMiB": 1113.0,
+            "maxObservedUsedHeapMiB": 449.5,
+            "finalNmtCommittedMiB": 1402.9951171875,
+            "initialIdleCpuMs": 20.0,
+            "finalIdleCpuMs": 10.0
+          },
+          "captureManifestSha256": "cbd8c3ced96eb3fe64233a9633ff6ee305b1d2c3e9f694addc35b98609ca8dbf",
+          "recordingSha256": "7fee61d3301fc61cd9407d552b5ea0d78fd71c04ca102f2067dd34296bc38413"
+        }
+      ],
+      "medians": {
+        "firstTextPhaseMs": {
+          "before": 3221.46982,
+          "after": 3119.759977,
+          "changePercent": -3.15724959981154
+        },
+        "firstTextCallbackSumMs": {
+          "before": 1435.169557,
+          "after": 1424.157258,
+          "changePercent": -0.767316931040507
+        },
+        "firstTextCallbackP50Ms": {
+          "before": 8.798736,
+          "after": 8.793517,
+          "changePercent": -0.05931533802128186
+        },
+        "firstTextCallbackP95Ms": {
+          "before": 82.747405,
+          "after": 80.858556,
+          "changePercent": -2.28266856223468
+        },
+        "firstTextCallbackMaxMs": {
+          "before": 114.521924,
+          "after": 117.978162,
+          "changePercent": 3.017970602729303
+        },
+        "firstTextCallbacks": {
+          "before": 61,
+          "after": 61,
+          "changePercent": 0.0
+        },
+        "reopenTextPhaseMs": {
+          "before": 534.586742,
+          "after": 515.407263,
+          "changePercent": -3.5877206621783397
+        },
+        "reopenTextCallbackSumMs": {
+          "before": 73.389434,
+          "after": 68.061584,
+          "changePercent": -7.259696266358995
+        },
+        "reopenTextCallbackP50Ms": {
+          "before": 0.297936,
+          "after": 0.299639,
+          "changePercent": 0.5715992696418093
+        },
+        "reopenTextCallbackP95Ms": {
+          "before": 7.252138,
+          "after": 10.706693,
+          "changePercent": 47.63498708932454
+        },
+        "reopenTextCallbackMaxMs": {
+          "before": 47.037709,
+          "after": 45.821298,
+          "changePercent": -2.5860336862919886
+        },
+        "reopenTextCallbacks": {
+          "before": 21,
+          "after": 21,
+          "changePercent": 0.0
+        },
+        "returnInkPhaseMs": {
+          "before": 1138.507727,
+          "after": 610.483812,
+          "changePercent": -46.378597393568675
+        },
+        "returnInkCallbackSumMs": {
+          "before": 102.586338,
+          "after": 57.348048,
+          "changePercent": -44.09777255135084
+        },
+        "returnInkCallbackP50Ms": {
+          "before": 0.318385,
+          "after": 0.366106,
+          "changePercent": 14.988457370793217
+        },
+        "returnInkCallbackP95Ms": {
+          "before": 8.383028,
+          "after": 7.814467,
+          "changePercent": -6.782286782293934
+        },
+        "returnInkCallbackMaxMs": {
+          "before": 64.780339,
+          "after": 23.40595,
+          "changePercent": -63.86874418795493
+        },
+        "returnInkCallbacks": {
+          "before": 26,
+          "after": 25,
+          "changePercent": -3.8461538461538436
+        },
+        "finalInkPhaseMs": {
+          "before": 1028.93757,
+          "after": 503.236549,
+          "changePercent": -51.091634354453596
+        },
+        "finalInkCallbackSumMs": {
+          "before": 147.220924,
+          "after": 38.553298,
+          "changePercent": -73.8126232654266
+        },
+        "finalInkCallbackP50Ms": {
+          "before": 0.212634,
+          "after": 0.249985,
+          "changePercent": 17.565864349069304
+        },
+        "finalInkCallbackP95Ms": {
+          "before": 5.668941,
+          "after": 5.751948,
+          "changePercent": 1.4642417340381408
+        },
+        "finalInkCallbackMaxMs": {
+          "before": 129.005724,
+          "after": 22.2852,
+          "changePercent": -82.72541767216468
+        },
+        "finalInkCallbacks": {
+          "before": 24,
+          "after": 21,
+          "changePercent": -12.5
+        },
+        "viewportPhaseMs": {
+          "before": 2275.896136,
+          "after": 2249.11828,
+          "changePercent": -1.176585151511489
+        },
+        "viewportCallbackSumMs": {
+          "before": 596.35425,
+          "after": 617.367374,
+          "changePercent": 3.5235975932090824
+        },
+        "viewportCallbackP50Ms": {
+          "before": 19.446627,
+          "after": 19.15322,
+          "changePercent": -1.5087809315209144
+        },
+        "viewportCallbackP95Ms": {
+          "before": 23.219466,
+          "after": 24.097413,
+          "changePercent": 3.7810817871521962
+        },
+        "viewportCallbackMaxMs": {
+          "before": 23.713484,
+          "after": 25.241087,
+          "changePercent": 6.441917180959145
+        },
+        "viewportCallbacks": {
+          "before": 32,
+          "after": 34,
+          "changePercent": 6.25
+        },
+        "startupMs": {
+          "before": 2868.356294,
+          "after": 2887.32789,
+          "changePercent": 0.6614100221679076
+        },
+        "processLifetimeSeconds": {
+          "before": 25.22381869100036,
+          "after": 23.978907634999814,
+          "changePercent": -4.935458311253715
+        },
+        "allCallbackSumMs": {
+          "before": 2806.837145,
+          "after": 2610.804949,
+          "changePercent": -6.98409583004147
+        },
+        "allCallbackP95Ms": {
+          "before": 58.613582,
+          "after": 50.254881,
+          "changePercent": -14.26068961286141
+        },
+        "allCallbacks": {
+          "before": 361,
+          "after": 355,
+          "changePercent": -1.66204986149584
+        },
+        "shutdownCpuSeconds": {
+          "before": 31.99,
+          "after": 28.22,
+          "changePercent": -11.784932791497338
+        },
+        "sampledPeakRssMiB": {
+          "before": 2742.49609375,
+          "after": 1974.58984375,
+          "changePercent": -28.00026777613346
+        },
+        "finalUsedHeapMiB": {
+          "before": 274.5,
+          "after": 445.0,
+          "changePercent": 62.112932604735896
+        },
+        "finalCommittedHeapMiB": {
+          "before": 1123.0,
+          "after": 1123.0,
+          "changePercent": 0.0
+        },
+        "maxObservedUsedHeapMiB": {
+          "before": 593.4410095214844,
+          "after": 452.0,
+          "changePercent": -23.834047066537245
+        },
+        "finalNmtCommittedMiB": {
+          "before": 1426.0595703125,
+          "after": 1412.9736328125,
+          "changePercent": -0.9176290929510333
+        },
+        "initialIdleCpuMs": {
+          "before": 30.0,
+          "after": 20.0,
+          "changePercent": -33.333333333333336
+        },
+        "finalIdleCpuMs": {
+          "before": 0.0,
+          "after": 10.0,
+          "changePercent": null
+        }
+      }
+    },
+    "windows": {
+      "rows": [
+        {
+          "side": "before",
+          "fork": 1,
+          "values": {
+            "firstTextPhaseMs": 2127.4429,
+            "firstTextCallbackSumMs": 1498.816,
+            "firstTextCallbackP50Ms": 11.1428,
+            "firstTextCallbackP95Ms": 79.8138,
+            "firstTextCallbackMaxMs": 155.5763,
+            "firstTextCallbacks": 42,
+            "reopenTextPhaseMs": 145.0199,
+            "reopenTextCallbackSumMs": 66.1812,
+            "reopenTextCallbackP50Ms": 0.6782,
+            "reopenTextCallbackP95Ms": 58.826,
+            "reopenTextCallbackMaxMs": 58.826,
+            "reopenTextCallbacks": 4,
+            "returnInkPhaseMs": 1035.0734,
+            "returnInkCallbackSumMs": 109.405,
+            "returnInkCallbackP50Ms": 0.8059,
+            "returnInkCallbackP95Ms": 11.1513,
+            "returnInkCallbackMaxMs": 62.1974,
+            "returnInkCallbacks": 30,
+            "finalInkPhaseMs": 939.4997,
+            "finalInkCallbackSumMs": 89.2657,
+            "finalInkCallbackP50Ms": 0.5715,
+            "finalInkCallbackP95Ms": 10.0564,
+            "finalInkCallbackMaxMs": 62.3949,
+            "finalInkCallbacks": 27,
+            "viewportPhaseMs": 2293.5913,
+            "viewportCallbackSumMs": 840.6716,
+            "viewportCallbackP50Ms": 23.2968,
+            "viewportCallbackP95Ms": 28.7605,
+            "viewportCallbackMaxMs": 30.4034,
+            "viewportCallbacks": 38,
+            "startupMs": 3744.1601,
+            "processLifetimeSeconds": 23.70765760000006,
+            "allCallbackSumMs": 3621.7653,
+            "allCallbackP95Ms": 63.1923,
+            "allCallbacks": 302,
+            "shutdownCpuSeconds": 33.890625,
+            "sampledPeakRssMiB": 1778.19140625,
+            "finalUsedHeapMiB": 287.5,
+            "finalCommittedHeapMiB": 512.0,
+            "maxObservedUsedHeapMiB": 355.0,
+            "finalNmtCommittedMiB": 767.0029296875,
+            "initialIdleCpuMs": 0.0,
+            "finalIdleCpuMs": 31.25
+          },
+          "captureManifestSha256": "aeb75ced753d3a860862e099f5e51908004da54fda133f6c93ed54d9c0fecd69",
+          "recordingSha256": "03fe6e041556175a7a19e3554867cf5e33086f17a3f557573f35a89c3d88e764"
+        },
+        {
+          "side": "before",
+          "fork": 2,
+          "values": {
+            "firstTextPhaseMs": 2026.5159,
+            "firstTextCallbackSumMs": 1461.3478,
+            "firstTextCallbackP50Ms": 11.505,
+            "firstTextCallbackP95Ms": 95.8495,
+            "firstTextCallbackMaxMs": 145.0493,
+            "firstTextCallbacks": 43,
+            "reopenTextPhaseMs": 157.9998,
+            "reopenTextCallbackSumMs": 54.3067,
+            "reopenTextCallbackP50Ms": 1.1751,
+            "reopenTextCallbackP95Ms": 47.0794,
+            "reopenTextCallbackMaxMs": 47.0794,
+            "reopenTextCallbacks": 5,
+            "returnInkPhaseMs": 1030.4022,
+            "returnInkCallbackSumMs": 107.8087,
+            "returnInkCallbackP50Ms": 0.8772,
+            "returnInkCallbackP95Ms": 9.8525,
+            "returnInkCallbackMaxMs": 67.4,
+            "returnInkCallbacks": 23,
+            "finalInkPhaseMs": 1043.3189,
+            "finalInkCallbackSumMs": 68.3757,
+            "finalInkCallbackP50Ms": 0.5763,
+            "finalInkCallbackP95Ms": 8.5891,
+            "finalInkCallbackMaxMs": 42.2987,
+            "finalInkCallbacks": 27,
+            "viewportPhaseMs": 2223.7035,
+            "viewportCallbackSumMs": 850.1919,
+            "viewportCallbackP50Ms": 24.0335,
+            "viewportCallbackP95Ms": 28.6373,
+            "viewportCallbackMaxMs": 28.8621,
+            "viewportCallbacks": 37,
+            "startupMs": 3549.3459,
+            "processLifetimeSeconds": 23.33464779999997,
+            "allCallbackSumMs": 3539.376,
+            "allCallbackP95Ms": 63.9734,
+            "allCallbacks": 302,
+            "shutdownCpuSeconds": 38.296875,
+            "sampledPeakRssMiB": 1870.1796875,
+            "finalUsedHeapMiB": 363.0,
+            "finalCommittedHeapMiB": 512.0,
+            "maxObservedUsedHeapMiB": 367.0,
+            "finalNmtCommittedMiB": 839.1787109375,
+            "initialIdleCpuMs": 15.625,
+            "finalIdleCpuMs": 1781.25
+          },
+          "captureManifestSha256": "f5fbd8e1889bbe00e33372e31080f617ac1218adb56998f5748e1ccdc60dee1a",
+          "recordingSha256": "e7f040169b830ed8b1b53c5b7465a022233da95f740fa353426d72891e360322"
+        },
+        {
+          "side": "before",
+          "fork": 3,
+          "values": {
+            "firstTextPhaseMs": 2052.0883,
+            "firstTextCallbackSumMs": 1419.4946,
+            "firstTextCallbackP50Ms": 11.7797,
+            "firstTextCallbackP95Ms": 82.8743,
+            "firstTextCallbackMaxMs": 121.9154,
+            "firstTextCallbacks": 40,
+            "reopenTextPhaseMs": 170.759,
+            "reopenTextCallbackSumMs": 72.816,
+            "reopenTextCallbackP50Ms": 1.0351,
+            "reopenTextCallbackP95Ms": 64.7533,
+            "reopenTextCallbackMaxMs": 64.7533,
+            "reopenTextCallbacks": 5,
+            "returnInkPhaseMs": 1044.2933,
+            "returnInkCallbackSumMs": 112.7241,
+            "returnInkCallbackP50Ms": 0.8974,
+            "returnInkCallbackP95Ms": 12.168,
+            "returnInkCallbackMaxMs": 63.8423,
+            "returnInkCallbacks": 25,
+            "finalInkPhaseMs": 994.3321,
+            "finalInkCallbackSumMs": 74.8356,
+            "finalInkCallbackP50Ms": 0.7059,
+            "finalInkCallbackP95Ms": 9.6134,
+            "finalInkCallbackMaxMs": 49.312,
+            "finalInkCallbacks": 24,
+            "viewportPhaseMs": 2239.7737,
+            "viewportCallbackSumMs": 832.4737,
+            "viewportCallbackP50Ms": 24.2598,
+            "viewportCallbackP95Ms": 29.1947,
+            "viewportCallbackMaxMs": 30.5383,
+            "viewportCallbacks": 36,
+            "startupMs": 3574.1763,
+            "processLifetimeSeconds": 23.33811250000008,
+            "allCallbackSumMs": 3539.6532,
+            "allCallbackP95Ms": 64.7533,
+            "allCallbacks": 295,
+            "shutdownCpuSeconds": 33.9375,
+            "sampledPeakRssMiB": 1821.9765625,
+            "finalUsedHeapMiB": 350.5,
+            "finalCommittedHeapMiB": 512.0,
+            "maxObservedUsedHeapMiB": 355.5,
+            "finalNmtCommittedMiB": 762.31640625,
+            "initialIdleCpuMs": 31.25,
+            "finalIdleCpuMs": 15.625
+          },
+          "captureManifestSha256": "951d7f7c3f2f9c25ba47d335afb5ae1263c787b5caf38e40bb4be2666f00d7e9",
+          "recordingSha256": "c4ae6afaf32a79ac08645f434c4a928e989a6dae61ec1f6f108d53f95db97bfb"
+        },
+        {
+          "side": "after",
+          "fork": 1,
+          "values": {
+            "firstTextPhaseMs": 2007.2052,
+            "firstTextCallbackSumMs": 1376.1239,
+            "firstTextCallbackP50Ms": 11.6517,
+            "firstTextCallbackP95Ms": 80.7455,
+            "firstTextCallbackMaxMs": 117.0899,
+            "firstTextCallbacks": 41,
+            "reopenTextPhaseMs": 181.3056,
+            "reopenTextCallbackSumMs": 93.6553,
+            "reopenTextCallbackP50Ms": 1.4663,
+            "reopenTextCallbackP95Ms": 85.1211,
+            "reopenTextCallbackMaxMs": 85.1211,
+            "reopenTextCallbacks": 4,
+            "returnInkPhaseMs": 220.0506,
+            "returnInkCallbackSumMs": 66.5041,
+            "returnInkCallbackP50Ms": 3.8374,
+            "returnInkCallbackP95Ms": 28.1585,
+            "returnInkCallbackMaxMs": 28.1585,
+            "returnInkCallbacks": 9,
+            "finalInkPhaseMs": 193.8043,
+            "finalInkCallbackSumMs": 39.3417,
+            "finalInkCallbackP50Ms": 0.8594,
+            "finalInkCallbackP95Ms": 23.6054,
+            "finalInkCallbackMaxMs": 23.6054,
+            "finalInkCallbacks": 9,
+            "viewportPhaseMs": 2198.9912,
+            "viewportCallbackSumMs": 830.3094,
+            "viewportCallbackP50Ms": 23.2027,
+            "viewportCallbackP95Ms": 27.9161,
+            "viewportCallbackMaxMs": 29.6555,
+            "viewportCallbacks": 37,
+            "startupMs": 3680.6179,
+            "processLifetimeSeconds": 21.596070900000086,
+            "allCallbackSumMs": 3426.8575,
+            "allCallbackP95Ms": 63.5317,
+            "allCallbacks": 269,
+            "shutdownCpuSeconds": 30.34375,
+            "sampledPeakRssMiB": 1570.59375,
+            "finalUsedHeapMiB": 219.0,
+            "finalCommittedHeapMiB": 512.0,
+            "maxObservedUsedHeapMiB": 388.0,
+            "finalNmtCommittedMiB": 810.1357421875,
+            "initialIdleCpuMs": 15.625,
+            "finalIdleCpuMs": 46.875
+          },
+          "captureManifestSha256": "cb55dc1536958678c89332478f03b2e2b9e8f313809780843025c5a63f70ddce",
+          "recordingSha256": "7f1e26c149cea4757c6d4f6684c33c4c1fcac33959d8029a5e93614fcffa3649"
+        },
+        {
+          "side": "after",
+          "fork": 2,
+          "values": {
+            "firstTextPhaseMs": 1985.8469,
+            "firstTextCallbackSumMs": 1358.2421,
+            "firstTextCallbackP50Ms": 12.1057,
+            "firstTextCallbackP95Ms": 102.1486,
+            "firstTextCallbackMaxMs": 113.5373,
+            "firstTextCallbacks": 38,
+            "reopenTextPhaseMs": 176.8674,
+            "reopenTextCallbackSumMs": 91.1918,
+            "reopenTextCallbackP50Ms": 0.9798,
+            "reopenTextCallbackP95Ms": 82.3517,
+            "reopenTextCallbackMaxMs": 82.3517,
+            "reopenTextCallbacks": 4,
+            "returnInkPhaseMs": 221.8678,
+            "returnInkCallbackSumMs": 60.2618,
+            "returnInkCallbackP50Ms": 3.4689,
+            "returnInkCallbackP95Ms": 24.6543,
+            "returnInkCallbackMaxMs": 24.6543,
+            "returnInkCallbacks": 9,
+            "finalInkPhaseMs": 205.5101,
+            "finalInkCallbackSumMs": 38.6274,
+            "finalInkCallbackP50Ms": 0.8748,
+            "finalInkCallbackP95Ms": 24.2789,
+            "finalInkCallbackMaxMs": 24.2789,
+            "finalInkCallbacks": 8,
+            "viewportPhaseMs": 2201.3176,
+            "viewportCallbackSumMs": 835.1873,
+            "viewportCallbackP50Ms": 24.5213,
+            "viewportCallbackP95Ms": 30.0074,
+            "viewportCallbackMaxMs": 30.0301,
+            "viewportCallbacks": 36,
+            "startupMs": 3745.5879,
+            "processLifetimeSeconds": 21.63134739999998,
+            "allCallbackSumMs": 3379.8058,
+            "allCallbackP95Ms": 62.3397,
+            "allCallbacks": 276,
+            "shutdownCpuSeconds": 29.125,
+            "sampledPeakRssMiB": 1554.796875,
+            "finalUsedHeapMiB": 210.0,
+            "finalCommittedHeapMiB": 512.0,
+            "maxObservedUsedHeapMiB": 406.0,
+            "finalNmtCommittedMiB": 786.5888671875,
+            "initialIdleCpuMs": 0.0,
+            "finalIdleCpuMs": 46.875
+          },
+          "captureManifestSha256": "edb47f25898892390451bdf1dad1dbed07501302e1ec0c1b9d33bf4781bafc73",
+          "recordingSha256": "7bb4c66fb59bb4fcd72d217c4ddf018c526f403e1ddda7e77edf0d67a1dd79ed"
+        },
+        {
+          "side": "after",
+          "fork": 3,
+          "values": {
+            "firstTextPhaseMs": 2066.5465,
+            "firstTextCallbackSumMs": 1470.6367,
+            "firstTextCallbackP50Ms": 11.6465,
+            "firstTextCallbackP95Ms": 98.5215,
+            "firstTextCallbackMaxMs": 121.2144,
+            "firstTextCallbacks": 41,
+            "reopenTextPhaseMs": 183.8999,
+            "reopenTextCallbackSumMs": 98.3606,
+            "reopenTextCallbackP50Ms": 1.9744,
+            "reopenTextCallbackP95Ms": 87.3118,
+            "reopenTextCallbackMaxMs": 87.3118,
+            "reopenTextCallbacks": 5,
+            "returnInkPhaseMs": 258.1446,
+            "returnInkCallbackSumMs": 65.836,
+            "returnInkCallbackP50Ms": 2.7898,
+            "returnInkCallbackP95Ms": 27.9327,
+            "returnInkCallbackMaxMs": 27.9327,
+            "returnInkCallbacks": 11,
+            "finalInkPhaseMs": 216.7346,
+            "finalInkCallbackSumMs": 48.3828,
+            "finalInkCallbackP50Ms": 1.0543,
+            "finalInkCallbackP95Ms": 27.7034,
+            "finalInkCallbackMaxMs": 27.7034,
+            "finalInkCallbacks": 9,
+            "viewportPhaseMs": 2215.0123,
+            "viewportCallbackSumMs": 813.0594,
+            "viewportCallbackP50Ms": 24.3002,
+            "viewportCallbackP95Ms": 30.4732,
+            "viewportCallbackMaxMs": 30.5104,
+            "viewportCallbacks": 35,
+            "startupMs": 3658.136,
+            "processLifetimeSeconds": 21.880594900000006,
+            "allCallbackSumMs": 3464.9728,
+            "allCallbackP95Ms": 66.6388,
+            "allCallbacks": 271,
+            "shutdownCpuSeconds": 29.484375,
+            "sampledPeakRssMiB": 1621.87109375,
+            "finalUsedHeapMiB": 211.75001525878906,
+            "finalCommittedHeapMiB": 512.0,
+            "maxObservedUsedHeapMiB": 401.5,
+            "finalNmtCommittedMiB": 871.4375,
+            "initialIdleCpuMs": 0.0,
+            "finalIdleCpuMs": 31.25
+          },
+          "captureManifestSha256": "a6a02202ea996fcd3f99f6cd680e0902097875fa354dcb4d0296653067889b38",
+          "recordingSha256": "01cb922f6e99f3899581b2a9dc1d704b81850fb59fb9ed9cae77074687d268cb"
+        }
+      ],
+      "medians": {
+        "firstTextPhaseMs": {
+          "before": 2052.0883,
+          "after": 2007.2052,
+          "changePercent": -2.1871914575995466
+        },
+        "firstTextCallbackSumMs": {
+          "before": 1461.3478,
+          "after": 1376.1239,
+          "changePercent": -5.831869730121742
+        },
+        "firstTextCallbackP50Ms": {
+          "before": 11.505,
+          "after": 11.6517,
+          "changePercent": 1.2750977835723543
+        },
+        "firstTextCallbackP95Ms": {
+          "before": 82.8743,
+          "after": 98.5215,
+          "changePercent": 18.88064212910394
+        },
+        "firstTextCallbackMaxMs": {
+          "before": 145.0493,
+          "after": 117.0899,
+          "changePercent": -19.275791058626268
+        },
+        "firstTextCallbacks": {
+          "before": 42,
+          "after": 41,
+          "changePercent": -2.3809523809523836
+        },
+        "reopenTextPhaseMs": {
+          "before": 157.9998,
+          "after": 181.3056,
+          "changePercent": 14.75052500066456
+        },
+        "reopenTextCallbackSumMs": {
+          "before": 66.1812,
+          "after": 93.6553,
+          "changePercent": 41.51345094981656
+        },
+        "reopenTextCallbackP50Ms": {
+          "before": 1.0351,
+          "after": 1.4663,
+          "changePercent": 41.65781083953242
+        },
+        "reopenTextCallbackP95Ms": {
+          "before": 58.826,
+          "after": 85.1211,
+          "changePercent": 44.69979260871042
+        },
+        "reopenTextCallbackMaxMs": {
+          "before": 58.826,
+          "after": 85.1211,
+          "changePercent": 44.69979260871042
+        },
+        "reopenTextCallbacks": {
+          "before": 5,
+          "after": 4,
+          "changePercent": -19.999999999999996
+        },
+        "returnInkPhaseMs": {
+          "before": 1035.0734,
+          "after": 221.8678,
+          "changePercent": -78.56501770792293
+        },
+        "returnInkCallbackSumMs": {
+          "before": 109.405,
+          "after": 65.836,
+          "changePercent": -39.823591243544634
+        },
+        "returnInkCallbackP50Ms": {
+          "before": 0.8772,
+          "after": 3.4689,
+          "changePercent": 295.4514363885089
+        },
+        "returnInkCallbackP95Ms": {
+          "before": 11.1513,
+          "after": 27.9327,
+          "changePercent": 150.48828387721608
+        },
+        "returnInkCallbackMaxMs": {
+          "before": 63.8423,
+          "after": 27.9327,
+          "changePercent": -56.247346978414
+        },
+        "returnInkCallbacks": {
+          "before": 25,
+          "after": 9,
+          "changePercent": -64.0
+        },
+        "finalInkPhaseMs": {
+          "before": 994.3321,
+          "after": 205.5101,
+          "changePercent": -79.33184496407186
+        },
+        "finalInkCallbackSumMs": {
+          "before": 74.8356,
+          "after": 39.3417,
+          "changePercent": -47.429164729086146
+        },
+        "finalInkCallbackP50Ms": {
+          "before": 0.5763,
+          "after": 0.8748,
+          "changePercent": 51.79593961478397
+        },
+        "finalInkCallbackP95Ms": {
+          "before": 9.6134,
+          "after": 24.2789,
+          "changePercent": 152.5526868745709
+        },
+        "finalInkCallbackMaxMs": {
+          "before": 49.312,
+          "after": 24.2789,
+          "changePercent": -50.76472258273847
+        },
+        "finalInkCallbacks": {
+          "before": 27,
+          "after": 9,
+          "changePercent": -66.66666666666667
+        },
+        "viewportPhaseMs": {
+          "before": 2239.7737,
+          "after": 2201.3176,
+          "changePercent": -1.7169636378889686
+        },
+        "viewportCallbackSumMs": {
+          "before": 840.6716,
+          "after": 830.3094,
+          "changePercent": -1.2326097372624467
+        },
+        "viewportCallbackP50Ms": {
+          "before": 24.0335,
+          "after": 24.3002,
+          "changePercent": 1.1097010422951303
+        },
+        "viewportCallbackP95Ms": {
+          "before": 28.7605,
+          "after": 30.0074,
+          "changePercent": 4.335460092835652
+        },
+        "viewportCallbackMaxMs": {
+          "before": 30.4034,
+          "after": 30.0301,
+          "changePercent": -1.2278232039837689
+        },
+        "viewportCallbacks": {
+          "before": 37,
+          "after": 36,
+          "changePercent": -2.7027027027026973
+        },
+        "startupMs": {
+          "before": 3574.1763,
+          "after": 3680.6179,
+          "changePercent": 2.9780735774002087
+        },
+        "processLifetimeSeconds": {
+          "before": 23.33811250000008,
+          "after": 21.63134739999998,
+          "changePercent": -7.313209669377041
+        },
+        "allCallbackSumMs": {
+          "before": 3539.6532,
+          "after": 3426.8575,
+          "changePercent": -3.1866313908944566
+        },
+        "allCallbackP95Ms": {
+          "before": 63.9734,
+          "after": 63.5317,
+          "changePercent": -0.6904432154614226
+        },
+        "allCallbacks": {
+          "before": 302,
+          "after": 271,
+          "changePercent": -10.264900662251652
+        },
+        "shutdownCpuSeconds": {
+          "before": 33.9375,
+          "after": 29.484375,
+          "changePercent": -13.121546961325969
+        },
+        "sampledPeakRssMiB": {
+          "before": 1821.9765625,
+          "after": 1570.59375,
+          "changePercent": -13.797258300352034
+        },
+        "finalUsedHeapMiB": {
+          "before": 350.5,
+          "after": 211.75001525878906,
+          "changePercent": -39.58630092473921
+        },
+        "finalCommittedHeapMiB": {
+          "before": 512.0,
+          "after": 512.0,
+          "changePercent": 0.0
+        },
+        "maxObservedUsedHeapMiB": {
+          "before": 355.5,
+          "after": 401.5,
+          "changePercent": 12.939521800281284
+        },
+        "finalNmtCommittedMiB": {
+          "before": 767.0029296875,
+          "after": 810.1357421875,
+          "changePercent": 5.623552509450458
+        },
+        "initialIdleCpuMs": {
+          "before": 15.625,
+          "after": 0.0,
+          "changePercent": -100.0
+        },
+        "finalIdleCpuMs": {
+          "before": 31.25,
+          "after": 46.875,
+          "changePercent": 50.0
+        }
+      }
+    }
+  }
+}

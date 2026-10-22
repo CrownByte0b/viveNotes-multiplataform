@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+// For a normal hex color (#RRGGBB), replace # with 0xFF and wrap it in Color(...)
+
 private val DarkColors = darkColorScheme(
     primary = Color(0xFF3584E4),
     onPrimary = Color.White,

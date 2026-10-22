@@ -1,0 +1,430 @@
+{
+  "schema": "vive-desktop-runtime-capture/1",
+  "contractOnly": false,
+  "verified": true,
+  "processExitCode": 0,
+  "fixtureSha256": "faade8d9a17a80313cea756d51c2ed49a28ed8d66f72e71166ae2801d76f5d91",
+  "verification": {
+    "schema": "vive-desktop-runtime-probe/1",
+    "passed": true,
+    "originalInkRows": 40000,
+    "persistedRobotStrokes": 8,
+    "persistedTextToken": true,
+    "originalTextIntact": true,
+    "tokenOccurrences": 1,
+    "addedNativeInkValid": true,
+    "unexpectedEraseOrMove": false,
+    "notebooks": 1,
+    "sections": 1,
+    "pages": 2,
+    "fixtureSha256": "faade8d9a17a80313cea756d51c2ed49a28ed8d66f72e71166ae2801d76f5d91"
+  },
+  "rendering": {
+    "schema": "vive-runtime-render-observation/1",
+    "recordingScope": "original SkiaLayer.renderDelegate.onRender callback; Compose CPU work/command recording, before PictureRecorder.finishRecordingAsPicture",
+    "inputScope": "owned-frame AWT dispatch observation to first later successfully returned recording callback; delivered/coalesced events only",
+    "presentationMeasured": false,
+    "inputCausalityEstablished": false,
+    "requestsFrames": false,
+    "capturesInputContent": false,
+    "phaseAttribution": "frames belong to phase at callback entry; input observations belong to phase at dispatch",
+    "processCpuScope": "process CPU and idle CPU are separate launcher observations; callback elapsed time is not thread CPU time",
+    "layers": [
+      {
+        "index": 0,
+        "componentClass": "androidx.compose.ui.scene.skia.SurfaceSkiaLayerComponent$hierarchyRoot$1",
+        "delegateClass": "androidx.compose.ui.scene.ComposeSceneMediator"
+      }
+    ],
+    "observations": {
+      "completedCallbacks": 361,
+      "startedCallbacks": 361,
+      "failedCallbacks": 0,
+      "inFlightCallbacks": 0,
+      "inputObservations": 248,
+      "pendingInputs": 0,
+      "droppedPendingInputs": 0,
+      "unmatchedInputsAtClose": 0,
+      "maxPendingInputs": 512,
+      "maxNamedPhases": 64,
+      "closed": true,
+      "phases": [
+        {
+          "name": "observer_install",
+          "startedCallbacks": 30,
+          "completedCallbacks": 30,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 267677732,
+          "maxCallbackNanos": 93771440,
+          "inputObservations": 4,
+          "inputsFollowedByCallback": 4,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 10247829,
+          "inputToCallbackStartMaxNanos": 5938743,
+          "inputToCallbackEndTotalNanos": 105972393,
+          "inputToCallbackEndMaxNanos": 48856014
+        },
+        {
+          "name": "idle_initial",
+          "startedCallbacks": 0,
+          "completedCallbacks": 0,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 0,
+          "maxCallbackNanos": 0,
+          "inputObservations": 0,
+          "inputsFollowedByCallback": 0,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 0,
+          "inputToCallbackStartMaxNanos": 0,
+          "inputToCallbackEndTotalNanos": 0,
+          "inputToCallbackEndMaxNanos": 0
+        },
+        {
+          "name": "between_phases",
+          "startedCallbacks": 0,
+          "completedCallbacks": 0,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 0,
+          "maxCallbackNanos": 0,
+          "inputObservations": 0,
+          "inputsFollowedByCallback": 0,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 0,
+          "inputToCallbackStartMaxNanos": 0,
+          "inputToCallbackEndTotalNanos": 0,
+          "inputToCallbackEndMaxNanos": 0
+        },
+        {
+          "name": "robot_ink",
+          "startedCallbacks": 124,
+          "completedCallbacks": 124,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 127291516,
+          "maxCallbackNanos": 11386815,
+          "inputObservations": 116,
+          "inputsFollowedByCallback": 116,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 181814827,
+          "inputToCallbackStartMaxNanos": 13172107,
+          "inputToCallbackEndTotalNanos": 293850638,
+          "inputToCallbackEndMaxNanos": 22208766
+        },
+        {
+          "name": "autosave_settle",
+          "startedCallbacks": 0,
+          "completedCallbacks": 0,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 0,
+          "maxCallbackNanos": 0,
+          "inputObservations": 0,
+          "inputsFollowedByCallback": 0,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 0,
+          "inputToCallbackStartMaxNanos": 0,
+          "inputToCallbackEndTotalNanos": 0,
+          "inputToCallbackEndMaxNanos": 0
+        },
+        {
+          "name": "robot_viewport",
+          "startedCallbacks": 32,
+          "completedCallbacks": 32,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 596477159,
+          "maxCallbackNanos": 23693968,
+          "inputObservations": 27,
+          "inputsFollowedByCallback": 27,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 59199664,
+          "inputToCallbackStartMaxNanos": 17930316,
+          "inputToCallbackEndTotalNanos": 586319269,
+          "inputToCallbackEndMaxNanos": 41153008
+        },
+        {
+          "name": "robot_lasso",
+          "startedCallbacks": 34,
+          "completedCallbacks": 34,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 56564582,
+          "maxCallbackNanos": 39696561,
+          "inputObservations": 34,
+          "inputsFollowedByCallback": 34,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 33115125,
+          "inputToCallbackStartMaxNanos": 12987926,
+          "inputToCallbackEndTotalNanos": 60447579,
+          "inputToCallbackEndMaxNanos": 16528213
+        },
+        {
+          "name": "robot_text_page",
+          "startedCallbacks": 61,
+          "completedCallbacks": 61,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 1435401401,
+          "maxCallbackNanos": 117240179,
+          "inputObservations": 52,
+          "inputsFollowedByCallback": 52,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 84621358,
+          "inputToCallbackStartMaxNanos": 16571966,
+          "inputToCallbackEndTotalNanos": 547379709,
+          "inputToCallbackEndMaxNanos": 31088787
+        },
+        {
+          "name": "text_autosave_settle",
+          "startedCallbacks": 6,
+          "completedCallbacks": 6,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 8048512,
+          "maxCallbackNanos": 7399008,
+          "inputObservations": 0,
+          "inputsFollowedByCallback": 0,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 0,
+          "inputToCallbackStartMaxNanos": 0,
+          "inputToCallbackEndTotalNanos": 0,
+          "inputToCallbackEndMaxNanos": 0
+        },
+        {
+          "name": "robot_return_ink",
+          "startedCallbacks": 28,
+          "completedCallbacks": 28,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 102639982,
+          "maxCallbackNanos": 64782343,
+          "inputObservations": 7,
+          "inputsFollowedByCallback": 7,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 7901885,
+          "inputToCallbackStartMaxNanos": 2766056,
+          "inputToCallbackEndTotalNanos": 51165590,
+          "inputToCallbackEndMaxNanos": 11150946
+        },
+        {
+          "name": "robot_reopen_text",
+          "startedCallbacks": 21,
+          "completedCallbacks": 21,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 71563315,
+          "maxCallbackNanos": 46765482,
+          "inputObservations": 4,
+          "inputsFollowedByCallback": 4,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 3546579,
+          "inputToCallbackStartMaxNanos": 1857389,
+          "inputToCallbackEndTotalNanos": 19310928,
+          "inputToCallbackEndMaxNanos": 7089599
+        },
+        {
+          "name": "text_reopen_settle",
+          "startedCallbacks": 0,
+          "completedCallbacks": 0,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 0,
+          "maxCallbackNanos": 0,
+          "inputObservations": 0,
+          "inputsFollowedByCallback": 0,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 0,
+          "inputToCallbackStartMaxNanos": 0,
+          "inputToCallbackEndTotalNanos": 0,
+          "inputToCallbackEndMaxNanos": 0
+        },
+        {
+          "name": "robot_final_ink",
+          "startedCallbacks": 25,
+          "completedCallbacks": 25,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 147267110,
+          "maxCallbackNanos": 129007928,
+          "inputObservations": 4,
+          "inputsFollowedByCallback": 4,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 5108744,
+          "inputToCallbackStartMaxNanos": 2359342,
+          "inputToCallbackEndTotalNanos": 22403904,
+          "inputToCallbackEndMaxNanos": 8102734
+        },
+        {
+          "name": "idle_final",
+          "startedCallbacks": 0,
+          "completedCallbacks": 0,
+          "failedCallbacks": 0,
+          "totalCallbackNanos": 0,
+          "maxCallbackNanos": 0,
+          "inputObservations": 0,
+          "inputsFollowedByCallback": 0,
+          "droppedPendingInputs": 0,
+          "unmatchedInputsAtClose": 0,
+          "inputToCallbackStartTotalNanos": 0,
+          "inputToCallbackStartMaxNanos": 0,
+          "inputToCallbackEndTotalNanos": 0,
+          "inputToCallbackEndMaxNanos": 0
+        }
+      ]
+    }
+  },
+  "jvmMainToWorkspaceNanos": 2868356294,
+  "launchToWorkspaceEpochMillis": 3070,
+  "processLifetimeSeconds": 24.97802790300011,
+  "phaseNanos": {
+    "idle_initial": 2000148482,
+    "robot_ink": 3113365508,
+    "autosave_settle": 4818585,
+    "robot_viewport": 2275896136,
+    "robot_lasso": 887297432,
+    "robot_text_page": 3044812681,
+    "text_autosave_settle": 2405325114,
+    "robot_return_ink": 1138507727,
+    "robot_reopen_text": 525189689,
+    "text_reopen_settle": 2000107524,
+    "robot_final_ink": 1028937570,
+    "idle_final": 2000114858
+  },
+  "phaseEvidence": [
+    {
+      "phase": "idle_initial",
+      "evidence": {
+        "idleMillis": 2000,
+        "completedFramesBefore": 30,
+        "completedFramesAfter": 30
+      }
+    },
+    {
+      "phase": "robot_ink",
+      "evidence": {
+        "injectedStrokes": 8,
+        "penSelected": true,
+        "completedFramesBefore": 30,
+        "completedFramesAfter": 154
+      }
+    },
+    {
+      "phase": "autosave_settle",
+      "evidence": {
+        "persistedRobotStrokes": 8,
+        "pollMillis": 100,
+        "completedFramesBefore": 154,
+        "completedFramesAfter": 154
+      }
+    },
+    {
+      "phase": "robot_viewport",
+      "evidence": {
+        "scrollBefore": 0.0,
+        "scrollDown": 677.0,
+        "scrollRestored": 0.0,
+        "zoomBefore": 1.0,
+        "zoomChanged": 1.21,
+        "zoomRestored": 1.0,
+        "completedFramesBefore": 154,
+        "completedFramesAfter": 186
+      }
+    },
+    {
+      "phase": "robot_lasso",
+      "evidence": {
+        "lassoSelectionObserved": true,
+        "selectionCleared": true,
+        "completedFramesBefore": 186,
+        "completedFramesAfter": 220
+      }
+    },
+    {
+      "phase": "robot_text_page",
+      "evidence": {
+        "selectedPage": "runtime-probe-text",
+        "editorTokenObserved": true,
+        "completedFramesBefore": 220,
+        "completedFramesAfter": 281
+      }
+    },
+    {
+      "phase": "text_autosave_settle",
+      "evidence": {
+        "persistedTextToken": true,
+        "pollMillis": 100,
+        "settleMillis": 2000,
+        "completedFramesBefore": 281,
+        "completedFramesAfter": 287
+      }
+    },
+    {
+      "phase": "robot_return_ink",
+      "evidence": {
+        "selectedPage": "runtime-probe-ink",
+        "inkReady": true,
+        "completedFramesBefore": 287,
+        "completedFramesAfter": 315
+      }
+    },
+    {
+      "phase": "robot_reopen_text",
+      "evidence": {
+        "selectedPage": "runtime-probe-text",
+        "savedTokenObserved": true,
+        "completedFramesBefore": 315,
+        "completedFramesAfter": 336
+      }
+    },
+    {
+      "phase": "text_reopen_settle",
+      "evidence": {
+        "settleMillis": 2000,
+        "completedFramesBefore": 336,
+        "completedFramesAfter": 336
+      }
+    },
+    {
+      "phase": "robot_final_ink",
+      "evidence": {
+        "selectedPage": "runtime-probe-ink",
+        "inkReady": true,
+        "completedFramesBefore": 336,
+        "completedFramesAfter": 360
+      }
+    },
+    {
+      "phase": "idle_final",
+      "evidence": {
+        "idleMillis": 2000,
+        "completedFramesBefore": 361,
+        "completedFramesAfter": 361
+      }
+    }
+  ],
+  "closeRequestToShutdownHookNanos": 15918214,
+  "sampledPeakRssBytes": 2917879808,
+  "highWaterRssBytes": 2917879808,
+  "lastSampledProcessCpuSeconds": 31.94,
+  "validProcessSamples": 96,
+  "unavailableProcessSamples": 1,
+  "shutdownHookProcessCpuNanos": 31990000000,
+  "nmtSnapshots": [
+    "idle_final",
+    "idle_initial"
+  ],
+  "nmtAttemptedAt": [
+    "idle_final",
+    "idle_initial"
+  ],
+  "limits": [
+    "Completed render callbacks are not GPU/display presentation, physical input latency or FPS.",
+    "Input pacing, settle waits and accessibility traversal contribute to scripted phases.",
+    "JFR profile, render observer and NMT attach perturb execution; comparison requires identical instrumentation.",
+    "Normal startup maintenance and warm filesystem/native/OS caches remain part of this diagnostic.",
+    "Process samples can miss instantaneous peaks and final CPU; shutdown-hook CPU is not final process CPU."
+  ]
+}

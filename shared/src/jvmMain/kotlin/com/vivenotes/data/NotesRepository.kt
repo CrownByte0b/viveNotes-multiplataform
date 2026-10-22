@@ -39,7 +39,6 @@ import com.vivenotes.model.isBlank
 import com.vivenotes.model.migrated
 import com.vivenotes.model.TextDocumentCodec
 import com.vivenotes.model.newId
-import com.vivenotes.ink.InkPageReader
 import com.vivenotes.model.ink.InkPage
 
 /** Direct tombstone rows removed by one maintenance transaction; cascaded child counts are omitted. */
@@ -92,6 +91,7 @@ class NotesRepository(
     private val deletionPurge = db.deletionPurgeDao()
     private val sync = db.syncDao()
     private val documentDecodes = DecodedDocumentCache()
+    internal val loadedInk = LoadedInkCache(cpu)
     private val checkpointWindows = LinkedHashMap<String, Long>()
 
     /** Deterministic integration seam; invoked on [cpu], with no Room lease or transaction held. */
@@ -965,14 +965,20 @@ class NotesRepository(
         }
     }
 
-    override suspend fun loadInk(pageId: String): InkPage {
-        val strokes = inkFor(pageId)
-        val erases = partialErasesFor(pageId)
-        val moves = inkMovesFor(pageId)
-        val operationClock = latestInkOperationAt(pageId)
-        return withContext(Dispatchers.Default) { InkPageReader.read(pageId, strokes, erases, moves)
-            .copy(latestOperationAt = operationClock) }
+    override suspend fun loadInk(pageId: String): InkPage = loadedInk.load {
+        db.useReaderConnection { connection -> connection.deferredTransaction {
+            val page = pages.byId(pageId)
+            val section = page?.let { sections.byId(it.sectionId) }
+            val notebook = section?.let { notebooks.byId(it.notebookId) }
+            val available = page != null && page.deletedAt == null && section?.deletedAt == null &&
+                notebook != null && notebook.deletedAt == null && notebook.closedAt == null &&
+                notebook.cloudOnlyAt == null && localMetadata.value(deferredNotebookContentKey(notebook.id)) == null
+            StoredInkSnapshot(pageId, if (available) InkCacheOwner(sync.state()?.accountId, notebook.id) else null,
+                inkFor(pageId), partialErasesFor(pageId), inkMovesFor(pageId), latestInkOperationAt(pageId))
+        } }
     }
+
+    internal fun releaseLoadedInk() = loadedInk.close()
 
     /** Appends one stroke. Strokes are immutable, so this is the only way ink is ever written. */
     suspend fun addStroke(stroke: InkStrokeEntity): InkStrokeEntity = checkpointTransaction(listOf(stroke.pageId)) {

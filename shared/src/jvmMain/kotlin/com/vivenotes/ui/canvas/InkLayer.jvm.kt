@@ -25,6 +25,7 @@ import com.vivenotes.data.InkEdit
 import com.vivenotes.data.EraserMode
 import com.vivenotes.ink.DesktopPartialEraseGesture
 import com.vivenotes.ink.DesktopInkSegment
+import com.vivenotes.ink.DesktopInkSceneData
 import com.vivenotes.ink.DesktopErasePreparer
 import com.vivenotes.ink.PartialEraseRequest
 import com.vivenotes.ink.PartialEraseObservation
@@ -50,8 +51,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collectLatest
 
-private class InkSegmentSceneData(val scene: InkScene, val byRow: Map<String, List<InkSceneStroke>>,
-    val byProjection: Map<com.vivenotes.byteink.kit.InkProjectionKey, InkSceneStroke>)
 internal val LocalInkPreparationDispatcher = staticCompositionLocalOf<CoroutineDispatcher> { Dispatchers.Default }
 
 @Composable
@@ -140,29 +139,12 @@ internal actual fun PlatformInkLayer(
     val moving = (selection as? com.vivenotes.ink.DesktopInkSelection)?.takeIf {
         selectionOffset != Offset.Zero && it.page.geometry === native
     }
-    fun sceneFor(projections: List<com.vivenotes.byteink.kit.PageStroke>, base: Boolean): InkScene {
-        if (projections.isNotEmpty()) diagnostics?.sceneBuilt(base)
-        return InkScene(projections.map {
-        InkSceneStroke(it.stroke, it.strokeToPageTransform(),
-            automaticColorOr(it.stroke.brush.colorIntArgb, it.colorFollowsTheme, canvasInk.toArgb()))
-        })
-    }
-    fun rowsFor(scene: InkScene, projections: List<com.vivenotes.byteink.kit.PageStroke>) =
-        buildMap<String, MutableList<InkSceneStroke>> {
-            projections.forEachIndexed { index, projection ->
-                getOrPut(projection.id) { mutableListOf() }.add(scene.strokes[index])
-            }
-        }
     fun exclusions(rows: Set<String>, entries: Map<String, List<InkSceneStroke>>,
                    byProjection: Map<com.vivenotes.byteink.kit.InkProjectionKey, InkSceneStroke>): Set<InkSceneStroke> =
         inkSceneExclusions(rows, entries, displayed.excludedProjections, byProjection, moving?.held?.projections.orEmpty())
-    fun sceneData(segment: DesktopInkSegment, base: Boolean): InkSegmentSceneData {
-        val scene = sceneFor(segment.projections, base)
-        return InkSegmentSceneData(scene, rowsFor(scene, segment.projections), segment.projections.mapIndexed { index, projection ->
-            projection.projectionKey to scene.strokes[index]
-        }.toMap())
-    }
-    val stableSceneData = remember(pageId, canvasInk) { IdentityHashMap<DesktopInkSegment, InkSegmentSceneData>() }
+    fun sceneData(segment: DesktopInkSegment, base: Boolean): DesktopInkSceneData =
+        segment.sceneData(canvasInk.toArgb()) { diagnostics?.sceneBuilt(base) }
+    val stableSceneData = remember(pageId, canvasInk) { IdentityHashMap<DesktopInkSegment, DesktopInkSceneData>() }
     val stableScenes = remember(displayed.base, displayed.retainedSegments, canvasInk) {
         val segments = listOf(displayed.base) + displayed.retainedSegments
         val kept = Collections.newSetFromMap(IdentityHashMap<DesktopInkSegment, Boolean>()).apply { addAll(segments) }

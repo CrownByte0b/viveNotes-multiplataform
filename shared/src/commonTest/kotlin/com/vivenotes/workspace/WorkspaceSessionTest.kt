@@ -31,6 +31,29 @@ import kotlin.test.assertTrue
 class WorkspaceSessionTest {
 
     @Test
+    fun leavingAndReturningDuringInkPreparationRejectsTheEarlierVisit() = runTest {
+        val first = CompletableDeferred<Unit>()
+        val second = CompletableDeferred<Unit>()
+        var visits = 0
+        val source = object : InkSource {
+            override suspend fun loadInk(pageId: String): InkPage {
+                val visit = ++visits
+                if (visit == 1) first.await() else second.await()
+                return InkPage(pageId, listOf(stroke(if (visit == 1) "stale" else "fresh")))
+            }
+        }
+        val session = WorkspaceSession(store, backgroundScope, { "created $it" }, inkSource = source)
+        session.start(); runCurrent()
+        session.update { it.selectPage(series) }
+        session.update { it.selectPage(limits) }
+        first.complete(Unit); runCurrent()
+        assertNull(session.state.value!!.selectedPage!!.ink)
+        second.complete(Unit); runCurrent()
+        assertEquals(listOf("fresh"), session.state.value!!.selectedPage!!.ink!!.strokes.map { it.id })
+        assertTrue(store.saves.isEmpty())
+    }
+
+    @Test
     fun oneBodyObservationSuppliesTheInitialLoadAndLaterReplacements() = runTest {
         var subscriptions = 0
         val observing = object : com.vivenotes.data.NotesStore by store {

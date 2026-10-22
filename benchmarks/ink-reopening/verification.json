@@ -1,0 +1,731 @@
+{
+  "schema": "vive-ink-reopening-verification/1",
+  "status": "ready-for-user-commit",
+  "date": "2026-10-22",
+  "baseCommit": "0bb1a792ff6c9120a192201e07a8bc525b06215b",
+  "afterIdentity": "Uncommitted exact eleven source/test files on the base; compiled/captured in an isolated public source copy; existing user Theme comment preserved and excluded from capture builds",
+  "sourceFiles": [
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/workspace/WorkspaceSession.kt",
+      "sha256": "5586f488140dab2ba57d1c2df25be36bc0391b4390451c013099375d7552f40d"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/workspace/WorkspaceSessionTest.kt",
+      "sha256": "b7e9f6402b1ff7d69876863b345f6bbeffb0b64e80303feb158423132455911c"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/LoadedInkCache.kt",
+      "sha256": "a8fedf37d22f0a2c6807feb05f0e754690564956ef94b414973cb977ec356387"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/NotesLibrary.kt",
+      "sha256": "49447b9972cd5ca77e1f33251d85e71363d7c153f5980d256dc387f382699da0"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/data/NotesRepository.kt",
+      "sha256": "0ac8559666bc0af665b5312136fc62e20d3508cd22fdf15c26b309faf4ebc83f"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/DesktopInkPage.kt",
+      "sha256": "8dd9549d672909af259cc57b501bd9475721c28db70aaf2189818a52e1c7bd33"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ink/DesktopInkScenes.kt",
+      "sha256": "e55dba7475cce29723ca4b5637e82ff7b657b13e6f9c0f0feecadf1f0ddf9edf"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ui/canvas/InkLayer.jvm.kt",
+      "sha256": "b0ae4e1ddb876a2ecdb374da0d5f8824345078dcf5bcb644f74faf3056abc6b9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/InkReopeningPersistenceTest.kt",
+      "sha256": "e3944b226b2d19a0e649d2d5a262fda8def6a32740cfebd77a533dbf52c794be"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/data/LoadedInkCacheTest.kt",
+      "sha256": "411d37f48ae68b4335c7b7bf3b22ffb05dd37493149bd68b535c69dec41c4213"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/canvas/InkReopeningSceneTest.kt",
+      "sha256": "3f75cf7fc40bf7c62181ca591bcc348dc44d2692a51a46e543ef78753469539b"
+    }
+  ],
+  "toolFiles": [
+    {
+      "path": "benchmarks/runtime/desktop_runtime.py",
+      "sha256": "1733f15c391e3d8a6b6b6f466d0de0d713c21bef7b0514ad7585d563d1de8408"
+    },
+    {
+      "path": "benchmarks/runtime/test_desktop_runtime.py",
+      "sha256": "7b29eafc5dee44cd4b79d09fbba6c101e0335efbaea1c5cde26095132a736f70"
+    },
+    {
+      "path": "benchmarks/runtime/USAGE.md",
+      "sha256": "226aa9661658596cb0233a20136c03e0a60a570bf3dfcbfde8f58728cbb442f5"
+    },
+    {
+      "path": "benchmarks/runtime/classpath.init.gradle",
+      "sha256": "74de155e032b069465cdf6e405e39bd619689c082b76bee62255225e75f696b2"
+    },
+    {
+      "path": "benchmarks/runtime/DesktopRuntimeProbe.kt",
+      "sha256": "da0ed451105130f1ed8386a7d8be85b27433033d207a6e8fd329c76e1135e6f0"
+    },
+    {
+      "path": "benchmarks/runtime/RuntimeRenderProbe.kt",
+      "sha256": "602fd70e964c36c4ca2fafdc96832fc97494950e67603c47877100335ccc73d5"
+    },
+    {
+      "path": "benchmarks/text-preparation/text_runtime.py",
+      "sha256": "f9dadcdd2429b57e1ab819dfaa07f2146ea208391b9dc37cdef7fb49b7d50a7a"
+    },
+    {
+      "path": "benchmarks/text-preparation/DesktopRuntimeProbe.kt",
+      "sha256": "dda666c573242ef9c92d979ed0890d6140dc6f2a2bf88c3e60fe14810dadeb95"
+    },
+    {
+      "path": "benchmarks/text-preparation/test_text_runtime.py",
+      "sha256": "295a7c177a5066185b5880826d8679b1924ccc97409f3199555b426205949154"
+    },
+    {
+      "path": "benchmarks/text-preparation/USAGE.md",
+      "sha256": "5df8730c86f0c7c8a059f42278a62b64b99fd3749bb433f8aa7157660f05056b"
+    }
+  ],
+  "report": {
+    "path": "benchmarks/ink-reopening/RESULTS.md",
+    "sha256": "76bd25f73b70985680c142faf18566aa80e71e72e81c5f5524fa33635b7bb6b6"
+  },
+  "resultFiles": [
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/comparison.json",
+      "sha256": "de3c055fc9e2cf64a2b9c2b6086c136cf216d0ed0c01f75ef1a8ae655ee36160"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork1/analysis.json",
+      "sha256": "4870c8db434b682c7f7f6ffac97ed454cef789f4ac81094f7d17aa977f7b2c45"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork1/provenance.json",
+      "sha256": "9ef7ac0fcc0ccedfb0a20494319651317b4e9a08462cc3fc3e539873ad29958c"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork1/resources.json",
+      "sha256": "10cd2de1f9e399177ee3ef261fa0105a3cd10541abc1e5c5508e01f918592edd"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork1/summary.json",
+      "sha256": "bbd28cb9a552a20e36e75cc5f2c8562e9b8dcbfdf927058145103a10de7e8b3d"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork2/analysis.json",
+      "sha256": "ca670e41b029ddaaf05e1a421f3ee38d21e6c688563aea632abf80be7a0b75f8"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork2/provenance.json",
+      "sha256": "1dcb485ee722c4a666d91e14a87c9b890db9b6ba91bdaff676ccc5308493d753"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork2/resources.json",
+      "sha256": "d531a053fbb79e82f73fe3c6186e5da4a7c3a7151d91b1b8f7b2885d9095385f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork2/summary.json",
+      "sha256": "5d18a1387a5de5bf1c0442bdb7ea24cdf744f3edf52b0e0bdab9328088c5c1f6"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork3/analysis.json",
+      "sha256": "dfca8a2416f5766989766526a28502196d4db85f5f1f7ea3500ac28c436ea224"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork3/provenance.json",
+      "sha256": "8f0f820104d283748c1e4e9f557a8f8a7e5e04f38255975c61d259ba9a9f14f7"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork3/resources.json",
+      "sha256": "77a56477725f9fd74790d47cba43ff663177a714fb8f95a38c56fdcd699c55fc"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/after-fork3/summary.json",
+      "sha256": "db85345164c33f67533a29439c6bb1d0673a84b057971090f2e5f6c4472d7b04"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork1/analysis.json",
+      "sha256": "b076ffcc4ddcfeb595e41ebcfcadc3d6184fcabe54bbf323c835286efaecc194"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork1/provenance.json",
+      "sha256": "51329aa92d8270533b0a00627537aaf54b69067c6768e7b6b5d1179aa3a425b6"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork1/resources.json",
+      "sha256": "7103a95feb007cb0d4abbbcd6fa8f1cfad544061d58cb107fc1585ffe4e52c00"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork1/summary.json",
+      "sha256": "d5ffdf6605cb03e2ae6bb113e86d6d4ff5c238a6aeee041f6444d1c6b6f148e5"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork2/analysis.json",
+      "sha256": "4a6eb7b0d8af36b49ec19d89ac2c256d00238fed8c031219b4e20ad0538ec7df"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork2/provenance.json",
+      "sha256": "0d76cb0b752ccf22ffff9e77cc9b65309001b9bf4b27f6fd2801b69ab2210f0f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork2/resources.json",
+      "sha256": "37f4ba021596637b38e42587014641ab5b5444a9d6da04e90c2f835d09d08c28"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork2/summary.json",
+      "sha256": "a94beef8c0fab7295605c938b1790616f55a7306d383ff0e00dc8c669d0c240d"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork3/analysis.json",
+      "sha256": "1f6834122ef2fedb073e8bfc2e223bc63f007ef6eaf8b041ef0da9b01e8f2808"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork3/provenance.json",
+      "sha256": "f496c88523d8c2b532c1493de71a22e43994ebbec135f97ed0024fed466d1d34"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork3/resources.json",
+      "sha256": "6ab5bae822452d6744176fe4487a1e5e9c0acd5cc84a5bc21a81962646778ba7"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/windows/before-fork3/summary.json",
+      "sha256": "cc9356d8852e1757e7a7acc5310282e34ea97774aca38f7b417114ff74fdcfe3"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork1/analysis.json",
+      "sha256": "daebc4332e3dd2ac67e08fd9a6ed920a4eef1838e643d44c9d7e37bd90a72066"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork1/provenance.json",
+      "sha256": "14bd6dea1229e5c291ecce96b0fdf3475d57d40a9d4e49d19bc7c50c81c9ce0e"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork1/resources.json",
+      "sha256": "dfed53b6e39239656b55bd93839df3d918d7e3b08970f111842660705724a199"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork1/summary.json",
+      "sha256": "8230b1a19b203ac9c26788b5cd183dadf9ae7e0f55916bde35206da01dfb4757"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork2/analysis.json",
+      "sha256": "eb002215c5eb182ec26f70d5ab897b4060ba8ea28cc03e983626e26955d241a3"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork2/provenance.json",
+      "sha256": "13f85f209cfcc107ae7ad893882bd7a3b2fec41b6af4705a240cbc8811bc0810"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork2/resources.json",
+      "sha256": "8cdb50df058276805077145bad4ac6aff4d09761a3c4abdf74e9855d715b587f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork2/summary.json",
+      "sha256": "1d2e64dd3381bf8b02779e14a7224f1e83c69b9a8928facca065e83a7b491e59"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork3/analysis.json",
+      "sha256": "57770ab8b06a9a593cb730627cba3c2343b8649b08447e4d7c680fd57f05c852"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork3/provenance.json",
+      "sha256": "0e520566c74cb5f343ea84606ab5b3d21cadde9c6850616485077f53c1d6bd9b"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork3/resources.json",
+      "sha256": "6c0a2c31cb0d24b86e585669cc47ca7c68bcf8284ae3bfb48641422c711b0dea"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/after-fork3/summary.json",
+      "sha256": "4b8be327d9725eba5db86d6ef8e821ecaef411f87dab8de88c4d81b32ae0b381"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork1/analysis.json",
+      "sha256": "02f415687d9d78202e173d6df3bf742ad9d6b3426571e3bf0ad856558404dbd3"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork1/provenance.json",
+      "sha256": "95200d9ca0d4a6047542f9053748b977870365992179d5239a039ecb93954b7a"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork1/resources.json",
+      "sha256": "22149bb280a36af8d4e18b9d136eefd780701017b79ecd8548ade54edc85cefe"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork1/summary.json",
+      "sha256": "d460ba3b5e04194c3d7ec9dbf166badb0ee8b30c0ade2833b95b37e6493a0145"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork2/analysis.json",
+      "sha256": "22d1bbad18afbe201b42ee9e7569c5bee552f475447d8dba4ab2fd3a87c440b2"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork2/provenance.json",
+      "sha256": "3b6d7d431705177406c0bd2af8c759915e3448acd12877244a3006208a8e2973"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork2/resources.json",
+      "sha256": "e966936520f3b3f0aedc6d55dc3d685bb04d30996e1e1861dc6c55a859066cc4"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork2/summary.json",
+      "sha256": "45ce3a608ec3c2a6d8c2e76f723254d9fe4740ee76ebbde1ac21b6d08603731f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork3/analysis.json",
+      "sha256": "6feee44cf04e2cda44ab8990d06b749bd92ebf5a0ee20e1706a0abb536536369"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork3/provenance.json",
+      "sha256": "803bb941d3f25f96e5f002643c3c0579b2b5b5f27dfd255ca73be880fcfa716b"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork3/resources.json",
+      "sha256": "0d1da56ae168d2240f2465ac5885ef6f511b2a7bf00e535bc98f4e9200c10f35"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-ink-reopening/x11/before-fork3/summary.json",
+      "sha256": "6a4b4a3841027008feb15f716c4bd71f49fa3030b422dfe448453240108356fa"
+    }
+  ],
+  "tests": {
+    "fullJvm": {
+      "modules": [
+        {
+          "module": "shared",
+          "passed": 2070,
+          "tests": 2076,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 6
+        },
+        {
+          "module": "desktopApp",
+          "passed": 155,
+          "tests": 162,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 7
+        }
+      ],
+      "tests": 2238,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 13,
+      "passed": 2225,
+      "log": "build/ink-reopening-verification-20261022/full-jvm-1.log",
+      "xml": "build/ink-reopening-verification-20261022/full-verified-xml",
+      "command": "env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 JAVA_HOME=/home/mahalo/.gradle/jdks/azul_systems__inc_-27-amd64-linux.2 xvfb-run -a -s '-screen 0 1920x1200x24 -nolisten tcp' ./gradlew :shared:jvmTest --rerun :desktopApp:test --rerun lint :desktopApp:assemble --offline --max-workers=1"
+    },
+    "newRegressions": {
+      "cache": 9,
+      "persistence": 3,
+      "compose": 2,
+      "session": 1,
+      "total": 15
+    },
+    "windowsFocusedJvm": {
+      "passed": 68,
+      "failures": 0,
+      "scope": "Zulu 27 console runtime of target-25 compiled test JARs; not a native Windows Gradle build or full suite"
+    },
+    "pythonLinux": {
+      "passed": 44,
+      "skipped": 0
+    },
+    "pythonWindows": {
+      "passed": 43,
+      "skipped": 1,
+      "skipReason": "Symlink creation unavailable on Windows host"
+    },
+    "probeContracts": {
+      "passed": 25,
+      "nativeSqliteFixture": true
+    },
+    "scannerContracts": {
+      "passed": 14
+    },
+    "lint": true,
+    "desktopAssembly": true
+  },
+  "benchmarks": {
+    "platforms": [
+      "x11",
+      "windows"
+    ],
+    "freshProcessesPerPlatform": 6,
+    "pairsPerPlatform": 3,
+    "order": [
+      [
+        "before",
+        "after"
+      ],
+      [
+        "after",
+        "before"
+      ],
+      [
+        "before",
+        "after"
+      ]
+    ],
+    "all12CapturesVerified": true,
+    "all6ComparisonsCompatible": true,
+    "all12JfrCountParity": true,
+    "independentWindowsDecodedJfrEquality": true,
+    "independentWindowsExportJsonEquality": true,
+    "sourceArtifactBinding": "Sources and binary bytes independently frozen; isolated build execution logged separately",
+    "inkCounterFields": [
+      "rows",
+      "fullLoads",
+      "prefixLoads",
+      "hits",
+      "retainedPages"
+    ],
+    "afterLoads": [
+      {
+        "platform": "x11",
+        "fork": 1,
+        "completions": [
+          [
+            40000,
+            1,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            0,
+            2
+          ],
+          [
+            0,
+            2,
+            1,
+            1,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            2,
+            2
+          ]
+        ]
+      },
+      {
+        "platform": "x11",
+        "fork": 2,
+        "completions": [
+          [
+            40000,
+            1,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            0,
+            2
+          ],
+          [
+            0,
+            2,
+            1,
+            1,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            2,
+            2
+          ]
+        ]
+      },
+      {
+        "platform": "x11",
+        "fork": 3,
+        "completions": [
+          [
+            40000,
+            1,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            0,
+            2
+          ],
+          [
+            0,
+            2,
+            1,
+            1,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            2,
+            2
+          ]
+        ]
+      },
+      {
+        "platform": "windows",
+        "fork": 1,
+        "completions": [
+          [
+            40000,
+            1,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            0,
+            2
+          ],
+          [
+            0,
+            2,
+            1,
+            1,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            2,
+            2
+          ]
+        ]
+      },
+      {
+        "platform": "windows",
+        "fork": 2,
+        "completions": [
+          [
+            40000,
+            1,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            0,
+            2
+          ],
+          [
+            0,
+            2,
+            1,
+            1,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            2,
+            2
+          ]
+        ]
+      },
+      {
+        "platform": "windows",
+        "fork": 3,
+        "completions": [
+          [
+            40000,
+            1,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            0,
+            2
+          ],
+          [
+            0,
+            2,
+            1,
+            1,
+            2
+          ],
+          [
+            40008,
+            2,
+            1,
+            2,
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  "audits": [
+    {
+      "path": "build/ink-reopening-verification-20261022/final-audit.json",
+      "sha256": "8677b1b5f7610e5917e59b796a5c482de4f24b3b16146a122aa95ffa4a2d584a"
+    },
+    {
+      "path": "build/ink-reopening-verification-20261022/windows-independent-audit.json",
+      "sha256": "aee18c21563d6e71c89d5937ff3a199f84df8cda243166b00d391606add06d0c"
+    },
+    {
+      "path": "build/ink-reopening-verification-20261022/verified-source-files.json",
+      "sha256": "183e421dff7fa52aceeabe0cdd41c3c79961792b0a85c0687b5cdfbc4181f1bb"
+    },
+    {
+      "path": "build/ink-reopening-verification-20261022/full-jvm-counts.json",
+      "sha256": "807e83f0f4069f597c7087ac71b93fa4c549415b6ae9f71df28dc5e920f3166c"
+    },
+    {
+      "path": "build/ink-reopening-verification-20261022/windows-public-inputs-sha256.json",
+      "sha256": "806118cd928cebfd1815b31e10590830f6e57622ea4c77b6138d8a230781f1ac"
+    },
+    {
+      "path": "build/ink-reopening-verification-20261022/cleanup.json",
+      "sha256": "fe3110b89e0346882844925f6993cd1691095d8fe7cf5270ee8361ebda7f0b8e"
+    }
+  ],
+  "cleanup": {
+    "ownedXvfbClosed": true,
+    "windowsConsoleSession": 1,
+    "ownedWindowsSessionLoggedOff": true,
+    "temporarySshClosed": true,
+    "rdpWindowsInitialState": "shut off",
+    "rdpWindowsFinalState": "shut off",
+    "otherVmsUntouched": true,
+    "allOwnedTestJobsFinished": true
+  },
+  "scope": {
+    "frozenOriginalArtifactsUnchanged": 632,
+    "protectedDocsUnchanged": true,
+    "byteInkAndroidServerDependenciesUnchanged": true,
+    "userThemePreserved": true,
+    "userNotesAccountsUntouched": true,
+    "indexEmpty": true,
+    "stagedCommittedPushed": false
+  },
+  "retention": {
+    "manifest": "/home/mahalo/.local/state/vive-runtime-benchmarks/2026-10-22-ink-reopening/retention.json",
+    "manifestSha256": "64c66be5e24ee1b22d3fea9913ec9064da00974dcb48b8346d8b75529fd828c9",
+    "archiveCount": 6,
+    "archiveBytes": 823156271,
+    "archives": [
+      {
+        "name": "linux-final-evidence.tar.gz",
+        "bytes": 116655676,
+        "sha256": "c912be1fecc10e56a4ede911478ec52f0fc8fcb2ddbcc29dbb9c32573d74137f"
+      },
+      {
+        "name": "linux-exploratory-and-contract.tar.gz",
+        "bytes": 33782866,
+        "sha256": "e6889cdfc6802bb2c631a207c0be7d325a02b9c92b50ac702f7a7a6c2384c713"
+      },
+      {
+        "name": "windows-raw-evidence.zip",
+        "bytes": 115370061,
+        "sha256": "4eeb4a337cb1f19c5ec77d01ec7fc71982db1ce255282976ed013ba9a051409a"
+      },
+      {
+        "name": "public-build-inputs.zip",
+        "bytes": 215985834,
+        "sha256": "cd78b651196a5f5aca1972fc2f60f8a42de12d65bcd06f06d735209ecf42d470"
+      },
+      {
+        "name": "classpath-artifacts.tar.gz",
+        "bytes": 339224384,
+        "sha256": "e15e6f950ac048aa4593c4274e42cea5397cc8460e0c9ade2a22fb6d1fd2ae42"
+      },
+      {
+        "name": "verification-evidence.tar.gz",
+        "bytes": 2137450,
+        "sha256": "596abf5b2d4a6c0607f71aedb945c2ed1609f5f19eaa12ff45afbb5325d4c221"
+      }
+    ]
+  },
+  "secretScan": {
+    "status": "passed",
+    "scope": "Eleven ink source/test files, new report/verification and 49 new result JSON files; unrelated user change, memory and private build logs excluded",
+    "files": 62,
+    "bytes": 13155739,
+    "leaks": 0,
+    "report": "build/ink-reopening-verification-20261022/secret-scan-final.json"
+  }
+}

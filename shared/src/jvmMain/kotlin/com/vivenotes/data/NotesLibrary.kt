@@ -48,7 +48,10 @@ class NotesLibrary private constructor(
         }
     }
 
-    override fun close() = database.close()
+    override fun close() {
+        repository.releaseLoadedInk()
+        database.close()
+    }
 
     private suspend fun runMaintenance(name: String, work: suspend () -> Unit) {
         try {

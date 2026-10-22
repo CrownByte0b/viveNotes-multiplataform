@@ -772,9 +772,12 @@ class WorkspaceSession(
             return
         }
         deferredInkAbsorption = false
+        val observation = bodyObservationToken
         enqueue {
+            if (bodyObservationToken !== observation) return@enqueue
             val seen = remoteInkGeneration(pageId)
             val ink = attempt(Strings.this_page_s_ink_could_not_be_read) { source.loadInk(pageId) } ?: return@enqueue
+            if (bodyObservationToken !== observation) return@enqueue
             val now = current.value ?: return@enqueue
             if (now.selectedPageId != pageId) return@enqueue
             if (now.selectedInk != null || now.pendingInkEdits.any { it.pageId == pageId }) {
@@ -969,6 +972,7 @@ class WorkspaceSession(
                     val seen = remoteInkGeneration(pageId)
                     attempt(Strings.this_page_s_ink_could_not_be_read) { inkSource.loadInk(pageId) }
                         ?.let {
+                            if (bodyObservationToken !== token) return@let
                             acceptInk(pageId, it)
                             if (current.value?.selectedPageId == pageId) absorbedInkGeneration = seen
                         }
