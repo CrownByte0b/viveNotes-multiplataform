@@ -2,6 +2,7 @@ package com.vivenotes.data
 
 import com.vivenotes.data.AttachmentStore.Companion.sha256
 import com.vivenotes.data.db.NotesDatabase
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -15,6 +16,9 @@ import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.Surface
 import java.io.File
+import java.io.IOException
+import java.nio.file.AccessDeniedException
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -24,6 +28,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** The desktop half of Android's `AttachmentStore`, against a real database and directory. */
@@ -81,6 +86,135 @@ class AttachmentStoreTest {
         assertEquals(12, db.attachmentDao().byId(id)?.refCount)
         assertEquals(id, assertNotNull(store.bytes(id)).sha256())
         assertEquals(listOf(id), directory.listFiles().orEmpty().map { it.name })
+    }
+
+    @Test
+    fun concurrentStoresSharePublicationWithoutLosingReferences() = runBlocking<Unit> {
+        val otherStore = AttachmentStore(File(directory, "."), db)
+        val source = png(512, 256, transparentLeftHalf = true)
+        val start = CompletableDeferred<Unit>()
+        val imported = coroutineScope {
+            val imports = List(12) { index -> async(Dispatchers.IO) {
+                start.await()
+                assertNotNull((if (index % 2 == 0) store else otherStore).import(source))
+            } }
+            start.complete(Unit)
+            imports.awaitAll()
+        }
+
+        assertEquals(1, imported.distinct().size)
+        val id = imported.first().attachmentId
+        assertEquals(12, db.attachmentDao().byId(id)?.refCount)
+        assertEquals(id, assertNotNull(store.bytes(id)).sha256())
+        assertEquals(listOf(id), directory.listFiles().orEmpty().map { it.name })
+    }
+
+    @Test
+    fun aCompletePublicationIsReusedWithoutMovingOverItsReaders() {
+        val expected = "complete imported bytes".encodeToByteArray()
+        val target = File(root, expected.sha256()).apply { writeBytes(expected) }
+        val staged = File(root, "import.part").apply { writeBytes(expected) }
+
+        AttachmentStore.publishImportedFile(staged, target, expected) { _, _ ->
+            error("an already published file must not be moved over")
+        }
+
+        assertContentEquals(expected, target.readBytes())
+        assertTrue(staged.exists(), "the importer owns and cleans only its own stage")
+    }
+
+    @Test
+    fun aCompetingCompletePublicationCanReportWindowsAccessDeniedOrAlreadyExists() {
+        val expected = "complete imported bytes".encodeToByteArray()
+        val target = File(root, expected.sha256())
+        val staged = File(root, "import.part").apply { writeBytes(expected) }
+        val collisions = listOf(
+            AccessDeniedException(staged.path, target.path, "another publisher won"),
+            FileAlreadyExistsException(staged.path, target.path, "another publisher won"),
+        )
+
+        for (collision in collisions) {
+            target.delete()
+            AttachmentStore.publishImportedFile(staged, target, expected) { _, destination ->
+                destination.writeBytes(expected)
+                throw collision
+            }
+            assertContentEquals(expected, target.readBytes())
+            assertEquals(target.name, target.readBytes().sha256())
+            assertTrue(staged.exists())
+        }
+    }
+
+    @Test
+    fun accessDeniedWithoutACompletePublishedFileStillFails() {
+        val expected = "complete imported bytes".encodeToByteArray()
+        val target = File(root, expected.sha256())
+        val staged = File(root, "import.part").apply { writeBytes(expected) }
+        val failure = AccessDeniedException(staged.path, target.path, "directory denied")
+
+        val thrown = assertFailsWith<AccessDeniedException> {
+            AttachmentStore.publishImportedFile(staged, target, expected) { _, _ -> throw failure }
+        }
+
+        assertSame(failure, thrown)
+        assertFalse(target.exists())
+        assertContentEquals(expected, staged.readBytes())
+    }
+
+    @Test
+    fun aSameLengthMismatchedPublicationDoesNotHideAccessDenied() {
+        val expected = "complete imported bytes".encodeToByteArray()
+        val different = expected.copyOf().apply { this[lastIndex] = (this[lastIndex].toInt() xor 1).toByte() }
+        val target = File(root, expected.sha256())
+        val staged = File(root, "import.part").apply { writeBytes(expected) }
+        val failure = AccessDeniedException(staged.path, target.path, "another publisher won")
+
+        val thrown = assertFailsWith<AccessDeniedException> {
+            AttachmentStore.publishImportedFile(staged, target, expected) { _, destination ->
+                destination.writeBytes(different)
+                throw failure
+            }
+        }
+
+        assertSame(failure, thrown)
+        assertContentEquals(different, target.readBytes())
+        assertContentEquals(expected, staged.readBytes())
+    }
+
+    @Test
+    fun anExistingMismatchedPublicationIsNotReplacedOrRepaired() {
+        val expected = "complete imported bytes".encodeToByteArray()
+        val different = "another incomplete file".encodeToByteArray()
+        val target = File(root, expected.sha256()).apply { writeBytes(different) }
+        val staged = File(root, "import.part").apply { writeBytes(expected) }
+
+        assertFailsWith<FileAlreadyExistsException> {
+            AttachmentStore.publishImportedFile(staged, target, expected) { _, _ ->
+                error("a conflicting file must not be replaced")
+            }
+        }
+
+        assertContentEquals(different, target.readBytes())
+        assertContentEquals(expected, staged.readBytes())
+    }
+
+    @Test
+    fun unrelatedMoveErrorsPropagateEvenWhenACompleteTargetAppears() {
+        val expected = "complete imported bytes".encodeToByteArray()
+        val target = File(root, expected.sha256())
+        val staged = File(root, "import.part").apply { writeBytes(expected) }
+        val failure = IOException("unrelated move failure")
+
+        val thrown = assertFailsWith<IOException> {
+            AttachmentStore.publishImportedFile(staged, target, expected) { _, destination ->
+                destination.writeBytes(expected)
+                throw failure
+            }
+        }
+
+        assertSame(failure, thrown)
+        assertContentEquals(expected, target.readBytes())
+        assertContentEquals(expected, staged.readBytes())
     }
 
     @Test

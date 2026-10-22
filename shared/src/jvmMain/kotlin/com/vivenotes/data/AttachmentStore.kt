@@ -17,6 +17,9 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import java.io.File
+import java.io.IOException
+import java.nio.file.AccessDeniedException
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
@@ -86,16 +89,18 @@ class AttachmentStore(
          */
         override fun publish(staged: File, id: String): Boolean {
             val target = fileFor(id)
-            if (target.exists()) {
-                staged.delete()
-                return true
+            return withPublicationLock(target) {
+                if (target.exists()) {
+                    staged.delete()
+                    return@withPublicationLock true
+                }
+                if (!staged.renameTo(target)) {
+                    staged.delete()
+                    return@withPublicationLock false
+                }
+                _arrivals.update { it + 1 }
+                true
             }
-            if (!staged.renameTo(target)) {
-                staged.delete()
-                return false
-            }
-            _arrivals.update { it + 1 }
-            return true
         }
 
         override val arrivals: StateFlow<Long> get() = this@AttachmentStore.arrivals
@@ -147,8 +152,7 @@ class AttachmentStore(
             val staging = File.createTempFile("$id-", ".part", directory)
             try {
                 staging.writeBytes(encoded.bytes)
-                Files.move(staging.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING)
+                publishImportedFile(staging, file, encoded.bytes)
             } finally { staging.delete() }
         }
         db.withTransaction {
@@ -212,6 +216,45 @@ class AttachmentStore(
         const val QUALITY = 88
 
         private val ATTACHMENT_ID = Regex("[0-9a-f]{64}")
+        private val PUBLICATION_LOCKS = Array(64) { Any() }
+
+        private fun <T> withPublicationLock(target: File, block: () -> T): T {
+            val stripe = (target.canonicalPath.hashCode() and Int.MAX_VALUE) % PUBLICATION_LOCKS.size
+            return synchronized(PUBLICATION_LOCKS[stripe], block)
+        }
+
+        internal fun publishImportedFile(
+            staged: File,
+            target: File,
+            expectedBytes: ByteArray,
+            atomicMove: (File, File) -> Unit = { source, destination ->
+                Files.move(source.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
+            },
+        ) = withPublicationLock(target) {
+            if (target.exists()) {
+                if (!hasCompleteBytes(target, expectedBytes)) {
+                    throw FileAlreadyExistsException(target.path)
+                }
+                return@withPublicationLock
+            }
+            try {
+                atomicMove(staged, target)
+            } catch (failure: IOException) {
+                // Another process can publish between the recheck and move. Windows may report
+                // that collision as access denied; accept it only after proving the complete bytes.
+                if ((failure !is AccessDeniedException && failure !is FileAlreadyExistsException) ||
+                    !hasCompleteBytes(target, expectedBytes)) {
+                    throw failure
+                }
+            }
+        }
+
+        private fun hasCompleteBytes(target: File, expected: ByteArray): Boolean = try {
+            target.isFile && target.length() == expected.size.toLong() &&
+                target.readBytes().contentEquals(expected)
+        } catch (_: IOException) {
+            false
+        }
 
         internal fun ByteArray.sha256(): String =
             MessageDigest.getInstance("SHA-256").digest(this).joinToString("") { "%02x".format(it) }

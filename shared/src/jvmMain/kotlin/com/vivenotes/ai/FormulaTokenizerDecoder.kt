@@ -11,42 +11,64 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
+import java.security.MessageDigest
+import java.util.HexFormat
 
 /** Immutable BPE vocabularies shared by repeated formula results; model installs invalidate them. */
 internal object FormulaTokenizerDecoder {
-    private data class Identity(val path: String, val fileKey: Any?, val size: Long,
-        val modified: java.nio.file.attribute.FileTime, val created: java.nio.file.attribute.FileTime)
-    private data class Vocabulary(val specialIds: Set<Int>, val tokens: Map<Int, String>)
-    private val cache = LinkedHashMap<Identity, Vocabulary>(4, .75f, true)
+    private val cache = VocabularyCache()
 
-    @Synchronized
-    internal fun invalidate(tokenizer: File) {
-        val path = tokenizer.toPath().toAbsolutePath().normalize().toString()
-        cache.keys.removeAll { it.path == path }
-    }
+    internal fun invalidate(tokenizer: File) = cache.invalidate(tokenizer)
 
-    @Synchronized
-    private fun vocabulary(tokenizer: File): Vocabulary {
-        val path = tokenizer.toPath().toAbsolutePath().normalize()
-        val attributes = Files.readAttributes(path, BasicFileAttributes::class.java)
-        val identity = Identity(path.toString(), attributes.fileKey(), attributes.size(),
-            attributes.lastModifiedTime(), attributes.creationTime())
-        cache[identity]?.let { return it }
-        val root = Json.parseToJsonElement(tokenizer.readText(StandardCharsets.UTF_8)).jsonObject
-        val specialIds = root["added_tokens"]?.jsonArray.orEmpty().mapNotNullTo(mutableSetOf()) { entry ->
-            val token = entry.jsonObject
-            token["id"]?.jsonPrimitive?.intOrNull?.takeIf { token["special"]?.jsonPrimitive?.booleanOrNull == true }
-        }.toSet()
-        val tokens = buildMap {
-            root["model"]?.jsonObject?.get("vocab")?.jsonObject.orEmpty().forEach { (token, id) ->
-                id.jsonPrimitive.intOrNull?.takeIf { it in 0 until VOCAB_SIZE.toInt() }?.let { put(it, token) }
-            }
+    internal class VocabularyCache(
+        private val readAttributes: (Path) -> BasicFileAttributes = {
+            Files.readAttributes(it, BasicFileAttributes::class.java)
+        },
+        private val readBytes: (Path) -> ByteArray = Files::readAllBytes,
+    ) {
+        private data class Identity(val path: String, val fileKey: Any?, val size: Long,
+            val modified: java.nio.file.attribute.FileTime, val created: java.nio.file.attribute.FileTime,
+            val contentHash: String?)
+        internal data class Vocabulary(val specialIds: Set<Int>, val tokens: Map<Int, String>)
+        private val entries = LinkedHashMap<Identity, Vocabulary>(4, .75f, true)
+
+        @Synchronized
+        fun invalidate(tokenizer: File) {
+            val path = tokenizer.toPath().toAbsolutePath().normalize().toString()
+            entries.keys.removeAll { it.path == path }
         }
-        cache.keys.removeAll { it.path == identity.path }
-        return Vocabulary(specialIds, tokens).also {
-            cache[identity] = it
-            while (cache.size > 3) cache.remove(cache.keys.first())
+
+        @Synchronized
+        fun vocabulary(tokenizer: File): Vocabulary {
+            val path = tokenizer.toPath().toAbsolutePath().normalize()
+            val attributes = readAttributes(path)
+            val fileKey = attributes.fileKey()
+            // Some providers, including Windows, expose no file key. Replacements can keep
+            // every timestamp and the size, so those providers also need content identity.
+            val contents = if (fileKey == null) readBytes(path) else null
+            val contentHash = contents?.let {
+                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(it))
+            }
+            val identity = Identity(path.toString(), fileKey, attributes.size(),
+                attributes.lastModifiedTime(), attributes.creationTime(), contentHash)
+            entries[identity]?.let { return it }
+            val root = Json.parseToJsonElement((contents ?: readBytes(path)).toString(StandardCharsets.UTF_8)).jsonObject
+            val specialIds = root["added_tokens"]?.jsonArray.orEmpty().mapNotNullTo(mutableSetOf()) { entry ->
+                val token = entry.jsonObject
+                token["id"]?.jsonPrimitive?.intOrNull?.takeIf { token["special"]?.jsonPrimitive?.booleanOrNull == true }
+            }.toSet()
+            val tokens = buildMap {
+                root["model"]?.jsonObject?.get("vocab")?.jsonObject.orEmpty().forEach { (token, id) ->
+                    id.jsonPrimitive.intOrNull?.takeIf { it in 0 until VOCAB_SIZE.toInt() }?.let { put(it, token) }
+                }
+            }
+            entries.keys.removeAll { it.path == identity.path }
+            return Vocabulary(specialIds, tokens).also {
+                entries[identity] = it
+                while (entries.size > 3) entries.remove(entries.keys.first())
+            }
         }
     }
 
@@ -57,7 +79,7 @@ internal object FormulaTokenizerDecoder {
             .map(Long::toInt)
         if (ids.isEmpty()) return ""
 
-        val (specialIds, tokens) = vocabulary(tokenizer)
+        val (specialIds, tokens) = cache.vocabulary(tokenizer)
 
         require(ids.all { it in specialIds || it in tokens }) { Strings.formula_tokenizer_does_not_match_model }
         val encoded = buildString {

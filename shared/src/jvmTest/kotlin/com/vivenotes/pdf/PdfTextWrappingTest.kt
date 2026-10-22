@@ -53,7 +53,7 @@ class PdfTextWrappingTest {
 
     @Test
     fun oversizedTextWrapsToThePrintableWidthAtItsOriginalFontSize() = runBlocking {
-        val doc = oversizedPdfTextDoc()
+        val doc = oversizedPdfTextDoc(bodyRepeats = 30)
         val outline = doc.outlines.filterIsInstance<Outline.Text>().single()
         val original = PdfTextMeasurer().layout(outline.blocks,
             outline.width - PageMeasurer.TEXT_PADDING_DP * 2, PdfCanvasColors.forPage(doc.style))
@@ -69,12 +69,51 @@ class PdfTextWrappingTest {
                 val layout = page.texts.getValue(outline.id).layout
                 assertEquals(paper.tileWidthDp, page.boundsOf(outline.id)!!.width, .001f)
                 assertEquals(paper.tileWidthDp - PageMeasurer.TEXT_PADDING_DP * 2, layout.width, .001f)
-                assertTrue(layout.paragraphs[1].layout.lineCount > original.paragraphs[1].layout.lineCount)
+                assertTrue(layout.paragraphs[1].layout.lineCount > original.paragraphs[1].layout.lineCount,
+                    "a long paragraph must gain lines at the printable width (paper=$paper, " +
+                        "original=${original.paragraphs[1].layout.lineCount}, " +
+                        "wrapped=${layout.paragraphs[1].layout.lineCount})")
                 assertEquals(original.text, layout.text, "wrapping must retain every character")
                 assertTrue(layout.paragraphs.flatMap { it.layout.layoutInput.text.spanStyles }
                     .all { it.item.fontSize.value == 24f }, "wrapping must retain the chosen font size")
             } finally { page.close() }
         }
+    }
+
+    @Test
+    fun printableWidthCanChangeLineBreaksWithoutChangingTheLineCount() = runBlocking {
+        val outline = Outline.Text("same-line-count", x = 0f, y = 0f, width = 2000f,
+            blocks = listOf(Block("body", runs = listOf(Run("W ".repeat(90).trimEnd(),
+                setOf(Mark.FontSize(24), Mark.FontFamily("jetbrains_mono")))))))
+        val doc = PageDoc(style = PageStyle(hideTitle = true), outlines = listOf(outline))
+        val paper = PdfPaper.of(PaperSize.A4, Orientation.Landscape)
+        val colors = PdfCanvasColors.forPage(doc.style)
+        val text = PdfTextMeasurer()
+        val original = text.layout(outline.blocks, outline.width - PageMeasurer.TEXT_PADDING_DP * 2, colors)
+        val expected = text.layout(outline.blocks, paper.tileWidthDp - PageMeasurer.TEXT_PADDING_DP * 2, colors)
+        val originalParagraph = original.paragraphs.single().layout
+        val expectedParagraph = expected.paragraphs.single().layout
+        assertEquals(2, originalParagraph.lineCount, "the bundled-font fixture spans two original lines")
+        assertEquals(originalParagraph.lineCount, expectedParagraph.lineCount,
+            "both widths intentionally need two lines, so line count alone cannot detect reflow")
+        assertTrue(expectedParagraph.getLineEnd(0) < originalParagraph.getLineEnd(0),
+            "the narrower printable width must place fewer characters on the first line")
+
+        val page = PageMeasurer().measure("page", "Test", 0L, doc, emptyList(), paper)
+        try {
+            val actual = page.texts.getValue(outline.id).layout
+            val actualParagraph = actual.paragraphs.single().layout
+            assertEquals(paper.tileWidthDp, page.boundsOf(outline.id)!!.width, .001f)
+            assertEquals(expected.width, actual.width, .001f)
+            assertEquals(expectedParagraph.layoutInput.constraints, actualParagraph.layoutInput.constraints)
+            assertEquals((0 until expectedParagraph.lineCount).map(expectedParagraph::getLineStart),
+                (0 until actualParagraph.lineCount).map(actualParagraph::getLineStart))
+            assertEquals((0 until expectedParagraph.lineCount).map { expectedParagraph.getLineEnd(it) },
+                (0 until actualParagraph.lineCount).map { actualParagraph.getLineEnd(it) })
+            assertEquals(original.text, actual.text)
+            assertTrue(actualParagraph.layoutInput.text.spanStyles.all { it.item.fontSize.value == 24f })
+            assertEquals(doc, page.doc, "export reflow must preserve the source font and document")
+        } finally { page.close() }
     }
 
     @Test
