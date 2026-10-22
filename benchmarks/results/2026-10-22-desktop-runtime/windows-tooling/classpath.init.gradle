@@ -1,0 +1,32 @@
+import groovy.json.JsonOutput
+import org.gradle.api.tasks.testing.Test
+
+gradle.projectsEvaluated {
+    def desktop = gradle.rootProject.project(':desktopApp')
+    def shared = gradle.rootProject.project(':shared')
+    desktop.tasks.register('runtimeProbeClasspath') { task ->
+        dependsOn(desktop.tasks.named('classes'), shared.tasks.named('jvmJar'))
+        outputs.upToDateWhen { false }
+        doLast {
+            def destination = new File(gradle.startParameter.projectProperties.get('runtimeProbeOutput'))
+            if (destination.exists()) throw new GradleException('Use a new classpath output directory')
+            destination.mkdirs()
+            def compiler = shared.configurations.findByName('kotlinCompilerClasspath')
+            if (compiler == null) throw new GradleException('Kotlin compiler configuration is absent')
+            def launch = desktop.tasks.named('test', Test).get().javaLauncher.get()
+            def runtime = desktop.extensions.getByName('sourceSets').getByName('main').runtimeClasspath.files
+                .findAll { it.exists() }.collect { it.canonicalPath }
+            new File(destination, 'runtime-classpath.json').text = JsonOutput.prettyPrint(JsonOutput.toJson(runtime)) + '\n'
+            new File(destination, 'compiler-classpath.json').text = JsonOutput.prettyPrint(JsonOutput.toJson(
+                compiler.files.collect { it.canonicalPath })) + '\n'
+            new File(destination, 'launcher.json').text = JsonOutput.prettyPrint(JsonOutput.toJson([
+                java: launch.executablePath.asFile.canonicalPath,
+                javaHome: launch.metadata.installationPath.asFile.canonicalPath,
+                runtimeVersion: launch.metadata.javaRuntimeVersion,
+                vendor: launch.metadata.vendor,
+                target: '25',
+                runtimeEntries: runtime.size()
+            ])) + '\n'
+        }
+    }
+}

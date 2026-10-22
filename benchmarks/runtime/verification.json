@@ -1,0 +1,586 @@
+{
+  "schema": "vive-runtime-milestone-verification/1",
+  "status": "ready for user commit; next production optimization requires resume",
+  "testedCheckout": "765483b5c9c9f1795a82f242b39b4a487e5a337c",
+  "productionChanges": [],
+  "fullJvm": [
+    {
+      "module": "shared",
+      "tests": 2050,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 6,
+      "passed": 2044
+    },
+    {
+      "module": "desktopApp",
+      "tests": 162,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 7,
+      "passed": 155
+    }
+  ],
+  "fullJvmLogSha256": "57eb2f2cffc126d3990c64af670613ef10c6999ef470f2f7a5b7e65b6858ee99",
+  "lint": {
+    "passed": true,
+    "resources": 1133,
+    "kotlinFiles": 341
+  },
+  "desktopAssemblyPassed": true,
+  "runtimePythonContracts": {
+    "linux": 41,
+    "windows": 41,
+    "failures": 0
+  },
+  "gitleaksContracts": 14,
+  "deterministicProbeChecks": {
+    "x11": 23,
+    "windows": 25
+  },
+  "pairedCaptures": 6,
+  "completeCaptures": 12,
+  "captures": [
+    {
+      "platform": "x11",
+      "side": "before",
+      "fork": 1,
+      "sourceCommit": "0f5e37070b2532b001eb7db998048edd91b1c103",
+      "captureManifestSha256": "c40a641755c9df58427ea5740eec6913817ca38c811a04abc1aa60d23ef4f4ec",
+      "analysisManifestSha256": "3a30b3b3625f03bd271794ce977f74bd2f58f4446242d3e54c5d8a235ed9ca0c",
+      "verified": true
+    },
+    {
+      "platform": "x11",
+      "side": "before",
+      "fork": 2,
+      "sourceCommit": "0f5e37070b2532b001eb7db998048edd91b1c103",
+      "captureManifestSha256": "c0bee498f17a2166ea8272fe0f343a2904537b12a81726d8e58a34ad826fe2ff",
+      "analysisManifestSha256": "cbc9383ea977ff57fc6e87a24788edbadd6e3ec29c40c08dfbee4a5960521814",
+      "verified": true
+    },
+    {
+      "platform": "x11",
+      "side": "before",
+      "fork": 3,
+      "sourceCommit": "0f5e37070b2532b001eb7db998048edd91b1c103",
+      "captureManifestSha256": "823758afe71c9cd8e1b0d7df4ae30ae40590dd6d74c0ac36e04ff8722b0ab6fd",
+      "analysisManifestSha256": "ef8dce30fb8faba7293b9802edb82ee7e9a04593261664a7f6fdfe7ad18710d4",
+      "verified": true
+    },
+    {
+      "platform": "x11",
+      "side": "after",
+      "fork": 1,
+      "sourceCommit": "11c51a5593347dacfbf81a40e08f42779949ea7d",
+      "captureManifestSha256": "5c724b09fe494466302836da171d8ea6dec23714dae9d61467eb519350ab9f24",
+      "analysisManifestSha256": "46a99baf5cc71ba5a1169159ffc3b8dd2de63b7370a54ced858d954fa652211d",
+      "verified": true
+    },
+    {
+      "platform": "x11",
+      "side": "after",
+      "fork": 2,
+      "sourceCommit": "11c51a5593347dacfbf81a40e08f42779949ea7d",
+      "captureManifestSha256": "5e3e5cfd9dabd42d8d266c7951f02f832ae53cc16e2a50d1015b8a39d490faa6",
+      "analysisManifestSha256": "321cc512641ae2b4bafabf4c7da361d176487a2386c74181c072cd8a5ecf47b6",
+      "verified": true
+    },
+    {
+      "platform": "x11",
+      "side": "after",
+      "fork": 3,
+      "sourceCommit": "11c51a5593347dacfbf81a40e08f42779949ea7d",
+      "captureManifestSha256": "291a144f6b8ae4963908775eb651b99f50a41322bed01935551bb484e435fb4f",
+      "analysisManifestSha256": "b711ad7a6fb5de9450a4f3ba2bdf42a425200228ee3dd7dd6be80f8a519b1cd4",
+      "verified": true
+    },
+    {
+      "platform": "windows",
+      "side": "before",
+      "fork": 1,
+      "sourceCommit": "0f5e37070b2532b001eb7db998048edd91b1c103",
+      "captureManifestSha256": "04a134cd03130eb9689fc6d68120cbc43dbae184ae7d587b98a8e7d06bbfecb1",
+      "analysisManifestSha256": "cd2b45ad9215aa1cb78e862eb146624b070daf33f2a40b29a2a98c8f4b7523af",
+      "verified": true
+    },
+    {
+      "platform": "windows",
+      "side": "before",
+      "fork": 2,
+      "sourceCommit": "0f5e37070b2532b001eb7db998048edd91b1c103",
+      "captureManifestSha256": "9fcab1881e99dc98f0d2f74e9000bb023ce2f8d3375fafc11891ccd18c135e80",
+      "analysisManifestSha256": "6c10f19a01e48b023070d66746e6d50820b570c3936b31e86c89d3de195ae0ca",
+      "verified": true
+    },
+    {
+      "platform": "windows",
+      "side": "before",
+      "fork": 3,
+      "sourceCommit": "0f5e37070b2532b001eb7db998048edd91b1c103",
+      "captureManifestSha256": "847807b57c402858bd0094ca098aa2cfad7843da62c05c5ee83e33f934e17c06",
+      "analysisManifestSha256": "7b77b01a315bc6e7fb8727f8b7014d2a005d1e4184308cf0eec20355c2e55a2b",
+      "verified": true
+    },
+    {
+      "platform": "windows",
+      "side": "after",
+      "fork": 1,
+      "sourceCommit": "11c51a5593347dacfbf81a40e08f42779949ea7d",
+      "captureManifestSha256": "5e9e845dc41bb7d2972e46a2d61e7e17f4df4747013b22b41f7a5fde43bd3f3a",
+      "analysisManifestSha256": "746b9cb749f50c410a827bd9261ed0d23791baa086260c52def929cb5812a882",
+      "verified": true
+    },
+    {
+      "platform": "windows",
+      "side": "after",
+      "fork": 2,
+      "sourceCommit": "11c51a5593347dacfbf81a40e08f42779949ea7d",
+      "captureManifestSha256": "3933b4182dbb2b016d2e67ae015b39e72878243e5d45208643be2860b8d34f57",
+      "analysisManifestSha256": "c554e0f83152e34b3e7bb0d84032b255de81544504f0ce4d51d6024db9f5c127",
+      "verified": true
+    },
+    {
+      "platform": "windows",
+      "side": "after",
+      "fork": 3,
+      "sourceCommit": "11c51a5593347dacfbf81a40e08f42779949ea7d",
+      "captureManifestSha256": "3c94529bb62180dddd55f8f8ff46a7a7892d074719ed44190d6975b1b219b8cb",
+      "analysisManifestSha256": "9c0e2a8931269d74905795608d4d3ee3d7e38b165885e2ca3bda3be1863bb578",
+      "verified": true
+    }
+  ],
+  "windowsIndependentReanalysis": {
+    "passed": true,
+    "rows": [
+      {
+        "side": "before",
+        "fork": 1,
+        "captureManifestSha256": "04a134cd03130eb9689fc6d68120cbc43dbae184ae7d587b98a8e7d06bbfecb1",
+        "reanalysisEqual": true,
+        "comparisonSummaryEqual": true
+      },
+      {
+        "side": "after",
+        "fork": 1,
+        "captureManifestSha256": "5e9e845dc41bb7d2972e46a2d61e7e17f4df4747013b22b41f7a5fde43bd3f3a",
+        "reanalysisEqual": true,
+        "comparisonSummaryEqual": true
+      },
+      {
+        "side": "after",
+        "fork": 2,
+        "captureManifestSha256": "3933b4182dbb2b016d2e67ae015b39e72878243e5d45208643be2860b8d34f57",
+        "reanalysisEqual": true,
+        "comparisonSummaryEqual": true
+      },
+      {
+        "side": "before",
+        "fork": 2,
+        "captureManifestSha256": "9fcab1881e99dc98f0d2f74e9000bb023ce2f8d3375fafc11891ccd18c135e80",
+        "reanalysisEqual": true,
+        "comparisonSummaryEqual": true
+      },
+      {
+        "side": "before",
+        "fork": 3,
+        "captureManifestSha256": "847807b57c402858bd0094ca098aa2cfad7843da62c05c5ee83e33f934e17c06",
+        "reanalysisEqual": true,
+        "comparisonSummaryEqual": true
+      },
+      {
+        "side": "after",
+        "fork": 3,
+        "captureManifestSha256": "3c94529bb62180dddd55f8f8ff46a7a7892d074719ed44190d6975b1b219b8cb",
+        "reanalysisEqual": true,
+        "comparisonSummaryEqual": true
+      }
+    ]
+  },
+  "hostedCi": {
+    "source": "535b975639babaec0fb5fa6459142aa74b40e0ff",
+    "desktopRun": 39731270627,
+    "linux": "success",
+    "windows": "failure",
+    "remainingFailure": "ToolkitPopupKeyboardContractTest.selectedObjectPaletteKeepsNativeTypingAndEscapeInsideItsPopup: native typing timeout",
+    "msiRun": 39731270490,
+    "msiConclusion": "success",
+    "localCheckoutHostedRunObserved": false
+  },
+  "nativeWayland": {
+    "validPerformanceCapture": false,
+    "source": "11c51a5593347dacfbf81a40e08f42779949ea7d",
+    "actualHost": "JBR WLToolkit SwingGraphics / SkiaSwingLayer",
+    "limitation": "The observer supports mutable SkiaLayer delegates; the unchanged SwingGraphics host has no supported callback binding",
+    "failureManifestSha256": "555ea8af54e57356e1f9d21b1a7ec9212a5fdbfb4d0212b0caf6896e42033c8a"
+  },
+  "rawRetention": {
+    "outsideRepositoryAndTemporaryStorage": true,
+    "archives": [
+      {
+        "name": "linux-raw-evidence.tar.gz",
+        "bytes": 139978253,
+        "sha256": "e4efcd5f7650c6f210fc94b16096e93d675a0932a0fcff6b41c81eab3b3cff01"
+      },
+      {
+        "name": "public-build-inputs.zip",
+        "bytes": 157519275,
+        "sha256": "d4e5e4418a6f4e2b0b724e61d614d38ffa163120eccd4253c6ccee825577ae92"
+      },
+      {
+        "name": "public-probe-v2.zip",
+        "bytes": 155574,
+        "sha256": "9b31040e2176cc655be8306df6d03251492dab310775ed31b6acb66b915df8a5"
+      },
+      {
+        "name": "python-3.14.0-embed-amd64.zip",
+        "bytes": 11994671,
+        "sha256": "8d4d3590c10449d78aa4375f534e6d5f3027d67fdc362dd1a882279db6f90fdf"
+      },
+      {
+        "name": "windows-failed-preflight.zip",
+        "bytes": 16347865,
+        "sha256": "22781a2dcfa6256b691c4c67a54d0156ce6a2b61abc5a6f5ef252d7e041188a8"
+      },
+      {
+        "name": "windows-raw-evidence.zip",
+        "bytes": 133977862,
+        "sha256": "584f90b6b87edd547f84598d90243a8dfa4092e00b5d1e260f09ce1e31f02bbd"
+      },
+      {
+        "name": "zulu27-windows.zip",
+        "bytes": 231762081,
+        "sha256": "99395b64049c2754005746c4f4b66fdb80c98c3cabaa14d4b25a7f8815c997b8"
+      }
+    ]
+  },
+  "cleanup": {
+    "ownedLinuxDisplaysClosed": true,
+    "ownedWindowsConsoleLoggedOff": true,
+    "ownedSshClosed": true,
+    "RDPWindows": "running, original state",
+    "otherVm": "untouched"
+  },
+  "currentToolFiles": [
+    {
+      "path": "DesktopRuntimeProbe.kt",
+      "sha256": "da0ed451105130f1ed8386a7d8be85b27433033d207a6e8fd329c76e1135e6f0"
+    },
+    {
+      "path": "RESULTS.md",
+      "sha256": "ccb800dca77787078314f5a65026d8329164070bff66df8bc3eb6e7cc2be3db8"
+    },
+    {
+      "path": "RuntimeRenderProbe.kt",
+      "sha256": "602fd70e964c36c4ca2fafdc96832fc97494950e67603c47877100335ccc73d5"
+    },
+    {
+      "path": "USAGE.md",
+      "sha256": "226aa9661658596cb0233a20136c03e0a60a570bf3dfcbfde8f58728cbb442f5"
+    },
+    {
+      "path": "analyze_jfr.py",
+      "sha256": "7372956aa39b65389659a88052cc4d6019df4cf37f982a0ec53f169a305cb279"
+    },
+    {
+      "path": "classpath.init.gradle",
+      "sha256": "74de155e032b069465cdf6e405e39bd619689c082b76bee62255225e75f696b2"
+    },
+    {
+      "path": "desktop_runtime.py",
+      "sha256": "1733f15c391e3d8a6b6b6f466d0de0d713c21bef7b0514ad7585d563d1de8408"
+    },
+    {
+      "path": "export_results.py",
+      "sha256": "f917154ec60afdcb65630bb563037fe623527bec860237b454124ff9d6c0ad15"
+    },
+    {
+      "path": "test_analyze_jfr.py",
+      "sha256": "6ece2e42401b3990676a0e4831210fd308570cf2c954e93a98e3452c92b5efb1"
+    },
+    {
+      "path": "test_desktop_runtime.py",
+      "sha256": "7b29eafc5dee44cd4b79d09fbba6c101e0335efbaea1c5cde26095132a736f70"
+    },
+    {
+      "path": "test_export_results.py",
+      "sha256": "274a6a51a001484dcdbdaa81776ccd7b93cbd6e529de63d336f6134b30a1108e"
+    }
+  ],
+  "sanitizedResultFiles": [
+    {
+      "path": "comparison.json",
+      "sha256": "99f4fb49a8a207a16963d785cc96a3581bf1029a78bf2af133146ac77f4cd5fe"
+    },
+    {
+      "path": "windows/after-fork1/analysis.json",
+      "sha256": "e77817450f67a60a4254a07aca916231939dbb6229755e1f11d03aaa55698b72"
+    },
+    {
+      "path": "windows/after-fork1/provenance.json",
+      "sha256": "1b67ce78d569f10d4d2e14479d7eb6224d5115b7df017bb4aea1688dcd34aa9d"
+    },
+    {
+      "path": "windows/after-fork1/resources.json",
+      "sha256": "bbd9c8fb577ada801f98b241fe562bab1ac0838bc7d6e9bf86fb681bc216e85e"
+    },
+    {
+      "path": "windows/after-fork1/summary.json",
+      "sha256": "9c0517f5b5cf32bec37de42d02ac794c3bec380f32982bd77de0a82ad769c17e"
+    },
+    {
+      "path": "windows/after-fork2/analysis.json",
+      "sha256": "92b309073dd5eccb43d33ff9a0e31826edf038233ca5696fbc470fe003320c06"
+    },
+    {
+      "path": "windows/after-fork2/provenance.json",
+      "sha256": "66fcf63a40c44a97e90b767da8a1405bdb990dd20902129617cf95cb1ebd1356"
+    },
+    {
+      "path": "windows/after-fork2/resources.json",
+      "sha256": "756317896c3e80513f15def8b887bbf8f2bb012e1995f7b98d6e8384be269e35"
+    },
+    {
+      "path": "windows/after-fork2/summary.json",
+      "sha256": "4e0d1ff648cb397a1587ad0ae7981faa286d239ee744516a332ad92a2d7f1480"
+    },
+    {
+      "path": "windows/after-fork3/analysis.json",
+      "sha256": "abb0104b3b779f3d1babfb9f41e171f05b4e0d99ea442f609582258b0443bb12"
+    },
+    {
+      "path": "windows/after-fork3/provenance.json",
+      "sha256": "738722ba67e9dc1122d63f6c2cdef946fcfc0937d68f30be958938ed52333b43"
+    },
+    {
+      "path": "windows/after-fork3/resources.json",
+      "sha256": "a2dd71784880377e5a1f8a4d9061e2ffccd5b7149d5840a6ff42b59d8de64b0a"
+    },
+    {
+      "path": "windows/after-fork3/summary.json",
+      "sha256": "dc63e82f31e2ef59aee502ab2845b56c81e3482c467cf11aca0d148a2d455b2b"
+    },
+    {
+      "path": "windows/before-fork1/analysis.json",
+      "sha256": "bd113361cac53191f7321bf30101d5fce990e36e6c0e95cb41b79c8a1de97e20"
+    },
+    {
+      "path": "windows/before-fork1/provenance.json",
+      "sha256": "fa9d0f719cdba740452befea0891644a8bcbd98a0fe7114158ebaae210304424"
+    },
+    {
+      "path": "windows/before-fork1/resources.json",
+      "sha256": "9505865d430300b00c3a3bccbd72c5b82500f9797ac5475eaf4212c6025ce770"
+    },
+    {
+      "path": "windows/before-fork1/summary.json",
+      "sha256": "4257bba12e7c0a9f2f5be77120b8a6fd3aad77644d12ea6fcbdf7b81a6f98efc"
+    },
+    {
+      "path": "windows/before-fork2/analysis.json",
+      "sha256": "69f909310c304fcc0999ed71938b5393222966459f95e3e97225ce10746ae837"
+    },
+    {
+      "path": "windows/before-fork2/provenance.json",
+      "sha256": "ca78e8daaeec71255c549df2d0c4549ee918424a3a16ed4b5f88c6944fb14097"
+    },
+    {
+      "path": "windows/before-fork2/resources.json",
+      "sha256": "a6879dbd7c181cbe479a3d5c4acd230c939b7707f2eab7ad934165783ce59357"
+    },
+    {
+      "path": "windows/before-fork2/summary.json",
+      "sha256": "bb6d6a39aa0ad4e26cfb7d00c324246793308c7dbd3d1d0a2cfe268d141bf2d4"
+    },
+    {
+      "path": "windows/before-fork3/analysis.json",
+      "sha256": "344267775d57db3a42af80b946bf88842d222d40bea65f123e6d58096dbd12ab"
+    },
+    {
+      "path": "windows/before-fork3/provenance.json",
+      "sha256": "4313e7f462ff4d238b0f4f74bd9a659812bad6ddc5096e019f32ec035b436d65"
+    },
+    {
+      "path": "windows/before-fork3/resources.json",
+      "sha256": "9cbba8379c3f060b7113cc9f38c2deecb9271860ef234d4cc255989af0fffd61"
+    },
+    {
+      "path": "windows/before-fork3/summary.json",
+      "sha256": "695b00b10685e16acc9b9fe0135b5c0a6b81eac930d430686d4a9066f5a520ba"
+    },
+    {
+      "path": "windows-tooling/DesktopRuntimeProbe.kt",
+      "sha256": "da0ed451105130f1ed8386a7d8be85b27433033d207a6e8fd329c76e1135e6f0"
+    },
+    {
+      "path": "windows-tooling/RuntimeRenderProbe.kt",
+      "sha256": "602fd70e964c36c4ca2fafdc96832fc97494950e67603c47877100335ccc73d5"
+    },
+    {
+      "path": "windows-tooling/USAGE.md",
+      "sha256": "226aa9661658596cb0233a20136c03e0a60a570bf3dfcbfde8f58728cbb442f5"
+    },
+    {
+      "path": "windows-tooling/analyze_jfr.py",
+      "sha256": "7372956aa39b65389659a88052cc4d6019df4cf37f982a0ec53f169a305cb279"
+    },
+    {
+      "path": "windows-tooling/classpath.init.gradle",
+      "sha256": "74de155e032b069465cdf6e405e39bd619689c082b76bee62255225e75f696b2"
+    },
+    {
+      "path": "windows-tooling/desktop_runtime.py",
+      "sha256": "5a0fcf4e48cd9949b3839796c3c1ddc1e61f0f3b8a2b36fd5d0ebcd1f130d999"
+    },
+    {
+      "path": "windows-tooling/export_results.py",
+      "sha256": "f917154ec60afdcb65630bb563037fe623527bec860237b454124ff9d6c0ad15"
+    },
+    {
+      "path": "windows-tooling/test_analyze_jfr.py",
+      "sha256": "6ece2e42401b3990676a0e4831210fd308570cf2c954e93a98e3452c92b5efb1"
+    },
+    {
+      "path": "windows-tooling/test_desktop_runtime.py",
+      "sha256": "59abf06bb9489b9c722542c69f5ad425604cd0453ebe55380b1ff42f52170b1d"
+    },
+    {
+      "path": "windows-tooling/test_export_results.py",
+      "sha256": "274a6a51a001484dcdbdaa81776ccd7b93cbd6e529de63d336f6134b30a1108e"
+    },
+    {
+      "path": "x11/after-fork1/analysis.json",
+      "sha256": "2e045d465ec0e2305956020457356e47bad2cae30caafb567e2294a4c0012b70"
+    },
+    {
+      "path": "x11/after-fork1/provenance.json",
+      "sha256": "a354d6c88995886c7142499fa9a7b0c69639c5b8af507f67791acb5fab1c736a"
+    },
+    {
+      "path": "x11/after-fork1/resources.json",
+      "sha256": "563705b579739d657c1899d8e306fad7a9f3ca772af1d520bba175cd593a1965"
+    },
+    {
+      "path": "x11/after-fork1/summary.json",
+      "sha256": "da5d3a3ffdbe45d2d3f9014b9abef56adb7c5cb132fb4c79f915491845b7a3b6"
+    },
+    {
+      "path": "x11/after-fork2/analysis.json",
+      "sha256": "94af1b3824f0654731a3430bf8847ca44ff7f1a2f04a8027a994a5d1cf621f45"
+    },
+    {
+      "path": "x11/after-fork2/provenance.json",
+      "sha256": "42d9c4827042bd40f1d00cc1fd79a60aea14f2b3660651634c95f09c353505e2"
+    },
+    {
+      "path": "x11/after-fork2/resources.json",
+      "sha256": "bcf9d31b7c738e7bc0b2c9339bed60d6a595a7624436ec72abfb19ce7b5f0606"
+    },
+    {
+      "path": "x11/after-fork2/summary.json",
+      "sha256": "d0b5eb19dc8648d1a3edc38d3dc10ebf6621b33ff53df68d2ee7deb5977fe571"
+    },
+    {
+      "path": "x11/after-fork3/analysis.json",
+      "sha256": "052e377eeca45560c4555f4568e9678de821821ae8c1b2fd672f268d259e7beb"
+    },
+    {
+      "path": "x11/after-fork3/provenance.json",
+      "sha256": "3aba5f5a5529a398c9653bd3f19bfef4519f6784659a11d379992fa50f15f7c1"
+    },
+    {
+      "path": "x11/after-fork3/resources.json",
+      "sha256": "6bf279a27a8ef619fc5f8d970efc277844a3b458c7821c3135c1929c40ee4b43"
+    },
+    {
+      "path": "x11/after-fork3/summary.json",
+      "sha256": "3e1fc98460acdecffbe90ffa7ccba82f999285e21715aa1b264bb46d59ed9a26"
+    },
+    {
+      "path": "x11/before-fork1/analysis.json",
+      "sha256": "7821b43473cfe11f25fbebf85bac98c8cc3bb9ac5a16d4f793228c50a6924406"
+    },
+    {
+      "path": "x11/before-fork1/provenance.json",
+      "sha256": "14e01e1c5247893ee4b20e4ac81fd645c21ebd53a79432434fe824cbffeed32d"
+    },
+    {
+      "path": "x11/before-fork1/resources.json",
+      "sha256": "9de0091e3974a8457837288d1c87cf16a4c1949bca8fbc9b474cb256bb71bb36"
+    },
+    {
+      "path": "x11/before-fork1/summary.json",
+      "sha256": "04a4d6fb61dc926df2a3eb9f1b5255a5468bd14cefe4836dbc7698ee52e63f1c"
+    },
+    {
+      "path": "x11/before-fork2/analysis.json",
+      "sha256": "dbd3cc83b9fdbed207c0d5f6205e4c6b0d89040231c35ac84a999468c127ce3c"
+    },
+    {
+      "path": "x11/before-fork2/provenance.json",
+      "sha256": "3a67bafc6e21937a048feb0ca66fb8ba3e12a45da7701635d3c8fb102c342d4d"
+    },
+    {
+      "path": "x11/before-fork2/resources.json",
+      "sha256": "9cc60dbc0dc87b4642c5209ef03417e5b2afdffdbe12697b5a367995052d67d6"
+    },
+    {
+      "path": "x11/before-fork2/summary.json",
+      "sha256": "9c86ca6e1501291d2ffa5d450f673968f8bd5f7665b531ca79c532bbe62fc82d"
+    },
+    {
+      "path": "x11/before-fork3/analysis.json",
+      "sha256": "b1acdd64dab90c31444b8e5eb5f57f453aaee06f865e0fad60355b8e97929212"
+    },
+    {
+      "path": "x11/before-fork3/provenance.json",
+      "sha256": "30aa35780c3303ff9a042fae655f94f7aa4541d7be70a5773f6393a68469f684"
+    },
+    {
+      "path": "x11/before-fork3/resources.json",
+      "sha256": "f0cfc768b682224cbf9e4e33e02f94945bda7dfbc9c42d811ace13b56d4a38c3"
+    },
+    {
+      "path": "x11/before-fork3/summary.json",
+      "sha256": "7f04effe0b2a7aa37e1938967a50d4bb0d9dde3a4e8fd32be109cebd28bdaf77"
+    },
+    {
+      "path": "x11-tooling/DesktopRuntimeProbe.kt",
+      "sha256": "dbd96275ab7809f7d012671f150886ef7d6eb9ff932a50c3a98922a7b54cdaf3"
+    },
+    {
+      "path": "x11-tooling/RuntimeRenderProbe.kt",
+      "sha256": "602fd70e964c36c4ca2fafdc96832fc97494950e67603c47877100335ccc73d5"
+    },
+    {
+      "path": "x11-tooling/USAGE.md",
+      "sha256": "7955087c930572d5d28e9364997b19c1dd053d206e83edf4697b86c98fc3fb5f"
+    },
+    {
+      "path": "x11-tooling/analyze_jfr.py",
+      "sha256": "7372956aa39b65389659a88052cc4d6019df4cf37f982a0ec53f169a305cb279"
+    },
+    {
+      "path": "x11-tooling/classpath.init.gradle",
+      "sha256": "74de155e032b069465cdf6e405e39bd619689c082b76bee62255225e75f696b2"
+    },
+    {
+      "path": "x11-tooling/desktop_runtime.py",
+      "sha256": "3fbb204e1dac08595b7b53908dd7c956e7b82a1fbe5965c2c912c5f5919934cc"
+    },
+    {
+      "path": "x11-tooling/test_analyze_jfr.py",
+      "sha256": "6ece2e42401b3990676a0e4831210fd308570cf2c954e93a98e3452c92b5efb1"
+    },
+    {
+      "path": "x11-tooling/test_desktop_runtime.py",
+      "sha256": "c1332b4417b243c51c1f8b8977cdbb597e297046395df7bad8eae0de423f99ce"
+    }
+  ],
+  "secretScans": {
+    "toolingAndReport": "zero findings",
+    "sanitizedResults": "zero findings",
+    "scannerConfigurationChanged": false
+  },
+  "newReviewableFiles": 79
+}
