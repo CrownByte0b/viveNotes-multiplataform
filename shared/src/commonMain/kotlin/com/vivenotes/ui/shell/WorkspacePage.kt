@@ -67,6 +67,7 @@ internal fun WorkspacePage(
         latestOnStateChange { it.applyPreparedInkGeometry(source, prepared) }
     }) {
     PageCanvas(
+        debugLog = debugLog,
         state = state,
         searchHit = searchHit,
         searchRevealTick = searchRevealTick,

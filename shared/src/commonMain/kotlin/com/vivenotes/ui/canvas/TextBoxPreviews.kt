@@ -92,6 +92,7 @@ internal fun TextBoxPreviews(
     onToggleTodo: (String) -> Unit = {},
     onPreviewLayout: (PreviewLayout) -> Unit = {},
     onPreparationChanged: (Boolean) -> Unit = {},
+    onMeasurementReusable: (Boolean) -> Unit = {},
 ): Boolean {
     val equations = remember(source.text, storedEquations) {
         findAutoEquationCandidates(source.text).map {
@@ -115,7 +116,10 @@ internal fun TextBoxPreviews(
         prepared = true
     }
     val preparationFinished = prepared
-    SideEffect { onPreparationChanged(preparationFinished) }
+    SideEffect {
+        onPreparationChanged(preparationFinished)
+        onMeasurementReusable(thumbnails == null || videos.isEmpty())
+    }
     val density = LocalDensity.current
     val availableWidthSp = with(density) { availableWidthDp.dp.toPx().toSp().value }
     val entries = mutableListOf<PreviewEntry>()

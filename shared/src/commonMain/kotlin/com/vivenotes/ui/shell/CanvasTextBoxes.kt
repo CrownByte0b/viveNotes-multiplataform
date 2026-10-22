@@ -24,6 +24,10 @@ import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -54,6 +58,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFontFamilyResolver
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -67,9 +73,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.vivenotes.data.VideoThumbnailSource
+import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.localization.Strings
 import com.vivenotes.model.Outline
 import com.vivenotes.model.Mark
+import com.vivenotes.model.findVideoLinks
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.LinkTarget
 import com.vivenotes.richtext.TextSelection
@@ -93,6 +101,15 @@ import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.workspace.WorkspaceState
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
+
+private class TextPreparationCounters {
+    var editorStarts = 0
+    var textLayouts = 0
+    var placements = 0
+    var reused = 0
+}
 
 @Composable
 internal fun CanvasTextBoxes(
@@ -102,6 +119,8 @@ internal fun CanvasTextBoxes(
     workspaceState: State<WorkspaceState>,
     displayedOutlines: List<Outline>,
     measuredTextHeights: MutableMap<String, Float>,
+    measurementCache: TextMeasurementCache,
+    debugLog: DebugLog,
     textLayouts: MutableMap<String, TextLayoutResult>,
     previewLayouts: MutableMap<String, PreviewLayout>,
     menuState: MutableState<TextMenuRequest?>,
@@ -128,26 +147,94 @@ internal fun CanvasTextBoxes(
     onDeleteTextBox: (String) -> Unit,
 ) {
     val density = LocalDensity.current
-    val keys = remember(measuredTextHeights) { mutableStateMapOf<String, TextMeasurementKey>() }
+    val resolver = LocalFontFamilyResolver.current
+    val direction = LocalLayoutDirection.current
+    val style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, color = palette.ink)
+    val pageId = state.selectedPageId
+    val measurements = remember(pageId, measuredTextHeights) { mutableStateMapOf<String, MeasuredTextHeight>() }
+    val placedKeys = remember(pageId, measuredTextHeights) { mutableMapOf<String, TextMeasurementKey>() }
+    var admitted by remember(pageId, measuredTextHeights) { mutableStateOf(emptySet<String>()) }
+    val counters = remember(pageId, measuredTextHeights) { TextPreparationCounters() }
+    val observer = LocalTextPreparationObserver.current
     val visible by remember(viewport) { derivedStateOf { canvasDemandWindow(viewport()) } }
     val textOutlines = remember(displayedOutlines) { displayedOutlines.filterIsInstance<Outline.Text>() }
+    val requests = remember(textOutlines, density, style, resolver, direction, state.focusedTextOutlineId, thumbnails) {
+        textOutlines.associate { outline ->
+            val focused = state.focusedTextOutlineId == outline.id
+            outline.id to TextMeasurementKey(outline.blocks, outline.width, outline.minHeight,
+                density.density, density.fontScale, editing = focused, thumbnails = if (focused) null else thumbnails,
+                style = style, layoutDirection = direction, fontResolver = resolver)
+        }
+    }
+    val currentRequests by rememberUpdatedState(requests)
+    val known = requests.mapNotNull { (id, request) ->
+        (measurements[id]?.takeIf { it.matches(request) } ?: measurementCache.get(pageId, id, request))
+            ?.let { id to it }
+    }.toMap()
+    val pinned = state.selectedTextOutlineIds + listOfNotNull(state.focusedTextOutlineId, searchTarget,
+        menuState.value?.outlineId, keyboardFocusState.value)
+    val currentOutlines by rememberUpdatedState(textOutlines)
+    val currentWindow by rememberUpdatedState(visible)
+    val currentPinned by rememberUpdatedState(pinned)
+    LaunchedEffect(pageId, measurements) {
+        snapshotFlow {
+            val waiting = currentOutlines.filter { outline ->
+                val request = currentRequests.getValue(outline.id)
+                outline.id !in currentPinned && !textMayIntersectWindow(
+                    outline.x.coerceAtLeast(0f), outline.y.coerceAtLeast(0f),
+                    outline.width.coerceIn(120f, 2000f), currentWindow) &&
+                    measurements[outline.id]?.matches(request) != true &&
+                    measurementCache.get(pageId, outline.id, request) == null
+            }.map { it.id }
+            planTextPreparation(waiting, admitted)
+        }.collectLatest { plan ->
+            if (plan.next.isNotEmpty()) {
+                withFrameNanos { admitted = plan.retained + plan.next }
+            } else if (admitted != plan.retained) admitted = plan.retained
+        }
+    }
+    LaunchedEffect(pageId, measurements) {
+        debugLog.event("text-canvas") { "preparation started boxes=${textOutlines.size}" }
+        snapshotFlow { currentRequests.all { (id, request) -> measurements[id]?.matches(request) == true } }.first { it }
+        debugLog.event("text-canvas") { "preparation complete boxes=${currentOutlines.size} reused=${counters.reused} layouts=${counters.textLayouts}" }
+    }
     SideEffect {
         val ids = textOutlines.mapTo(HashSet()) { it.id }
-        keys.keys.filterNot { it in ids }.forEach(keys::remove)
+        measurements.keys.filterNot { it in ids }.forEach(measurements::remove)
+        placedKeys.keys.filter { it !in ids || placedKeys[it] != requests[it] }.toList().forEach { id ->
+            placedKeys.remove(id)
+            measuredTextHeights.remove(id)
+        }
+        measurementCache.retainBoxes(pageId, ids)
         textLayouts.keys.filterNot { it in ids }.forEach(textLayouts::remove)
         previewLayouts.keys.filterNot { it in ids }.forEach(previewLayouts::remove)
+        known.forEach { (id, measurement) ->
+            if (measurements[id] !== measurement) {
+                counters.reused++
+                val adopted = measurement.copy(key = requests.getValue(id))
+                measurements[id] = adopted
+                measuredTextHeights[id] = adopted.height
+                placedKeys[id] = adopted.key
+                measurementCache.put(pageId, id, adopted)
+            }
+        }
     }
+    var composed = 0
+    var background = 0
     textOutlines.forEachIndexed { index, outline ->
         key(outline.id) {
             val focused = state.focusedTextOutlineId == outline.id
-            val measureKey = TextMeasurementKey(outline.blocks, outline.width, outline.minHeight,
-                density.density, density.fontScale, editing = focused, thumbnails = if (focused) null else thumbnails)
+            val measureKey = requests.getValue(outline.id)
             val selected = outline.id in state.selectedTextOutlineIds
-            val pinned = focused || selected || outline.id == searchTarget ||
-                menuState.value?.outlineId == outline.id || keyboardFocusState.value == outline.id
-            val knownHeight = measuredTextHeights[outline.id]?.takeIf { keys[outline.id] == measureKey }
-            if (shouldComposeCanvasItem(outline.x.coerceAtLeast(0f), outline.y.coerceAtLeast(0f),
-                    outline.width.coerceIn(120f, 2000f), knownHeight, visible, pinned)) {
+            val knownHeight = known[outline.id]?.height
+            val needed = outline.id in pinned || if (knownHeight != null) {
+                shouldComposeCanvasItem(outline.x.coerceAtLeast(0f), outline.y.coerceAtLeast(0f),
+                    outline.width.coerceIn(120f, 2000f), knownHeight, visible, false)
+            } else textMayIntersectWindow(outline.x.coerceAtLeast(0f), outline.y.coerceAtLeast(0f),
+                outline.width.coerceIn(120f, 2000f), visible)
+            if (needed || (knownHeight == null && outline.id in admitted)) {
+                composed++
+                if (!needed) background++
                 CanvasTextBox(
                     outline = outline, index = index, focused = focused, lassoSelected = selected,
                     showSelectionToolkit = selected && state.selectedInk == null && state.selectedObjectIds.isEmpty() &&
@@ -156,7 +243,28 @@ internal fun CanvasTextBoxes(
                     selection = if (focused) state.editorSelection else TextSelection(0),
                     typingMarks = if (focused) state.typingMarks else emptySet(),
                     composition = if (focused) state.editorComposition else null,
-                    measurementKeys = keys, measurementKey = measureKey,
+                    measurementKey = measureKey,
+                    onMeasurement = { height, ready, reusable, fontsCurrent ->
+                        if (workspaceState.value.selectedPageId == pageId && currentRequests[outline.id] == measureKey) {
+                            counters.placements++
+                            measuredTextHeights[outline.id] = height
+                            placedKeys[outline.id] = measureKey
+                            if (ready) {
+                                val measurement = measurements[outline.id]?.takeIf {
+                                    it.height == height && it.matches(measureKey)
+                                } ?: MeasuredTextHeight(measureKey, height, fontsCurrent)
+                                measurements[outline.id] = measurement
+                                if (reusable) {
+                                    if (measurementCache.get(pageId, outline.id, measureKey) !== measurement)
+                                        measurementCache.put(pageId, outline.id, measurement)
+                                } else measurementCache.remove(pageId, outline.id)
+                            } else {
+                                measurements.remove(outline.id)
+                                measurementCache.remove(pageId, outline.id)
+                            }
+                        }
+                    },
+                    counters = counters,
                     workspaceState = workspaceState,
                     measuredTextHeights = measuredTextHeights,
                     textLayouts = textLayouts,
@@ -186,9 +294,14 @@ internal fun CanvasTextBoxes(
                 )
             } else {
                 CanvasItemPlaceholder(WorkspaceTestTags.textBox(outline.id), outline.x.coerceAtLeast(0f),
-                    outline.y.coerceAtLeast(0f), outline.width.coerceIn(120f, 2000f), knownHeight!!)
+                    outline.y.coerceAtLeast(0f), outline.width.coerceIn(120f, 2000f),
+                    knownHeight ?: maxOf(outline.minHeight, 80f))
             }
         }
+    }
+    SideEffect {
+        observer?.invoke(TextPreparationSnapshot(pageId, textOutlines.size, known.size, composed, background,
+            counters.editorStarts, counters.textLayouts, counters.placements, counters.reused))
     }
 }
 
@@ -204,8 +317,9 @@ private fun CanvasTextBox(
     selection: TextSelection,
     typingMarks: Set<Mark>,
     composition: TextSelection?,
-    measurementKeys: MutableMap<String, TextMeasurementKey>,
     measurementKey: TextMeasurementKey,
+    onMeasurement: (Float, Boolean, Boolean, () -> Boolean) -> Unit,
+    counters: TextPreparationCounters,
     measuredTextHeights: MutableMap<String, Float>,
     textLayouts: MutableMap<String, TextLayoutResult>,
     previewLayouts: MutableMap<String, PreviewLayout>,
@@ -242,16 +356,27 @@ private fun CanvasTextBox(
     val currentToggleTodo by rememberUpdatedState(onToggleTodo)
     val currentTextShortcut by rememberUpdatedState(onTextShortcut)
     val richText = remember(outline.blocks, selection, typingMarks) { RichTextBuffer(outline.blocks, selection, typingMarks) }
-    var previewPrepared by remember(outline.blocks, thumbnails, focused) { mutableStateOf(false) }
+    val asynchronousPreview = remember(richText.text, thumbnails, focused) {
+        !focused && thumbnails != null && findVideoLinks(richText.text).isNotEmpty()
+    }
+    var previewPrepared by remember(outline.blocks, thumbnails, focused) { mutableStateOf(!asynchronousPreview) }
+    var measurementReusable by remember(outline.blocks, thumbnails, focused) { mutableStateOf(!asynchronousPreview) }
+    DisposableEffect(Unit) {
+        counters.editorStarts++
+        onDispose { }
+    }
+    val currentMeasurement by rememberUpdatedState(onMeasurement)
     val measurementReady = focused || previewPrepared
     // A readiness change must cause a final placement even when the last thumbnail did not
     // change the outer size. Only that pass may release an offscreen preview from composition.
-    val publishPlacement: (LayoutCoordinates) -> Unit = remember(measurementReady, measurementKey, measuredTextHeights, measurementKeys) {
+    val publishPlacement: (LayoutCoordinates) -> Unit = remember(measurementReady, measurementReusable, measurementKey, measuredTextHeights) {
         { coordinates ->
             val height = coordinates.size.height / measurementKey.density
-            measuredTextHeights[outline.id] = height
-            if (measurementReady) measurementKeys[outline.id] = measurementKey
-            else measurementKeys.remove(outline.id)
+            val editor = textLayouts[outline.id]?.multiParagraph?.intrinsics
+            val preview = previewLayouts[outline.id]?.layout?.multiParagraph?.intrinsics
+            currentMeasurement(height, measurementReady && editor != null, measurementReusable) {
+                editor?.hasStaleResolvedFonts == false && preview?.hasStaleResolvedFonts != true
+            }
         }
     }
     val width = outline.width.coerceIn(120f, 2000f).dp
@@ -355,6 +480,7 @@ private fun CanvasTextBox(
                 onToggleTodo = { blockId -> currentToggleTodo(outline.id, blockId) },
                 onPreviewLayout = { previewLayouts[outline.id] = it },
                 onPreparationChanged = { previewPrepared = it },
+                onMeasurementReusable = { measurementReusable = it },
             )
         } else false
         SideEffect {
@@ -372,7 +498,7 @@ private fun CanvasTextBox(
             ),
             onValueChange = { onBodyChange(outline.id, it) },
             visualTransformation = BlockSeparators,
-            onTextLayout = { textLayouts[outline.id] = it },
+            onTextLayout = { counters.textLayouts++; textLayouts[outline.id] = it },
             decorationBox = { inner ->
                 Box(Modifier
                     .drawBehind {

@@ -116,6 +116,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.vivenotes.diagnostics.DebugLog
 
 @Composable
 internal fun PageCanvas(
@@ -183,6 +184,7 @@ internal fun PageCanvas(
     /** Edit a text box with this range selected, and give it the keyboard. */
     onEditTextAt: (String, TextSelection) -> Unit,
     onBodyChange: (String, TextFieldValue) -> Unit,
+    debugLog: DebugLog = DebugLog(),
     modifier: Modifier = Modifier,
 ) {
     val page = state.selectedPage
@@ -265,6 +267,12 @@ internal fun PageCanvas(
     val currentStateValue = rememberUpdatedState(state)
     val currentState by currentStateValue
     val measuredTextHeights = remember(page?.id) { mutableStateMapOf<String, Float>() }
+    val textMeasurementCache = remember(state.selectedNotebookId) { TextMeasurementCache() }
+    val notebookPages = remember(state.notebooks, state.selectedNotebookId) {
+        state.notebooks.firstOrNull { it.id == state.selectedNotebookId }?.sections
+            ?.flatMap { it.pages }?.mapTo(HashSet()) { it.id }.orEmpty()
+    }
+    SideEffect { textMeasurementCache.retainPages(notebookPages) }
     val textLayouts = remember(page?.id) { mutableStateMapOf<String, TextLayoutResult>() }
     // How each box's preview is laid out, while it is drawn in place of the box's editor.
     val previewLayouts = remember(page?.id) { mutableMapOf<String, PreviewLayout>() }
@@ -666,6 +674,8 @@ internal fun PageCanvas(
                         workspaceState = currentStateValue,
                         displayedOutlines = displayedOutlines,
                         measuredTextHeights = measuredTextHeights,
+                        measurementCache = textMeasurementCache,
+                        debugLog = debugLog,
                         textLayouts = textLayouts,
                         previewLayouts = previewLayouts,
                         menuState = interaction.textMenuState,

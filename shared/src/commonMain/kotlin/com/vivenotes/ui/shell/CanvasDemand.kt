@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -30,6 +33,9 @@ internal data class TextMeasurementKey(
     val fontScale: Float,
     val editing: Boolean = false,
     val thumbnails: VideoThumbnailSource? = null,
+    val style: TextStyle = TextStyle.Default,
+    val layoutDirection: LayoutDirection = LayoutDirection.Ltr,
+    val fontResolver: FontFamily.Resolver? = null,
 )
 
 internal data class TableMeasurementKey(

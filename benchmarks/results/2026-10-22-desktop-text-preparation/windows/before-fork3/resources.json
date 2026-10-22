@@ -1,0 +1,479 @@
+{
+  "eventSnapshots": [
+    {
+      "phase": "main_enter",
+      "state": "instant",
+      "processCpuNanos": 843750000,
+      "heapUsed": 24117248,
+      "heapCommitted": 536870912,
+      "threadCount": 9
+    },
+    {
+      "phase": "frame_visible",
+      "state": "instant",
+      "processCpuNanos": 4375000000,
+      "heapUsed": 70404336,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "workspace_ready",
+      "state": "instant",
+      "processCpuNanos": 9250000000,
+      "heapUsed": 162529280,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "nmt_initial_request",
+      "state": "instant",
+      "processCpuNanos": 9250000000,
+      "heapUsed": 162529280,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "nmt_initial_complete",
+      "state": "instant",
+      "processCpuNanos": 9250000000,
+      "heapUsed": 163577856,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "idle_initial",
+      "state": "begin",
+      "processCpuNanos": 9250000000,
+      "heapUsed": 163577856,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "idle_initial",
+      "state": "end",
+      "processCpuNanos": 9250000000,
+      "heapUsed": 165675008,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "robot_ink",
+      "state": "begin",
+      "processCpuNanos": 9250000000,
+      "heapUsed": 165675008,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "robot_ink",
+      "state": "end",
+      "processCpuNanos": 12984375000,
+      "heapUsed": 193986560,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "autosave_settle",
+      "state": "begin",
+      "processCpuNanos": 12984375000,
+      "heapUsed": 193986560,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "autosave_settle",
+      "state": "end",
+      "processCpuNanos": 13015625000,
+      "heapUsed": 193986560,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "robot_viewport",
+      "state": "begin",
+      "processCpuNanos": 13015625000,
+      "heapUsed": 193986560,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "robot_viewport",
+      "state": "end",
+      "processCpuNanos": 16828125000,
+      "heapUsed": 355467264,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "robot_lasso",
+      "state": "begin",
+      "processCpuNanos": 16828125000,
+      "heapUsed": 355467264,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "robot_lasso",
+      "state": "end",
+      "processCpuNanos": 17718750000,
+      "heapUsed": 368050176,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "robot_text_page",
+      "state": "begin",
+      "processCpuNanos": 17718750000,
+      "heapUsed": 369098752,
+      "heapCommitted": 536870912,
+      "threadCount": 32
+    },
+    {
+      "phase": "robot_text_page",
+      "state": "end",
+      "processCpuNanos": 23203125000,
+      "heapUsed": 324534272,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "text_autosave_settle",
+      "state": "begin",
+      "processCpuNanos": 23203125000,
+      "heapUsed": 324534272,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "text_autosave_settle",
+      "state": "end",
+      "processCpuNanos": 23640625000,
+      "heapUsed": 349700096,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "robot_return_ink",
+      "state": "begin",
+      "processCpuNanos": 23640625000,
+      "heapUsed": 349700096,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "robot_return_ink",
+      "state": "end",
+      "processCpuNanos": 25921875000,
+      "heapUsed": 373293056,
+      "heapCommitted": 554696704,
+      "threadCount": 33
+    },
+    {
+      "phase": "robot_reopen_text",
+      "state": "begin",
+      "processCpuNanos": 25921875000,
+      "heapUsed": 373293056,
+      "heapCommitted": 554696704,
+      "threadCount": 33
+    },
+    {
+      "phase": "robot_reopen_text",
+      "state": "end",
+      "processCpuNanos": 28734375000,
+      "heapUsed": 394264576,
+      "heapCommitted": 554696704,
+      "threadCount": 33
+    },
+    {
+      "phase": "text_reopen_settle",
+      "state": "begin",
+      "processCpuNanos": 28734375000,
+      "heapUsed": 395313152,
+      "heapCommitted": 554696704,
+      "threadCount": 33
+    },
+    {
+      "phase": "text_reopen_settle",
+      "state": "end",
+      "processCpuNanos": 28734375000,
+      "heapUsed": 395313152,
+      "heapCommitted": 554696704,
+      "threadCount": 33
+    },
+    {
+      "phase": "robot_final_ink",
+      "state": "begin",
+      "processCpuNanos": 28734375000,
+      "heapUsed": 395313152,
+      "heapCommitted": 554696704,
+      "threadCount": 33
+    },
+    {
+      "phase": "robot_final_ink",
+      "state": "end",
+      "processCpuNanos": 31578125000,
+      "heapUsed": 417412720,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "nmt_final_request",
+      "state": "instant",
+      "processCpuNanos": 31578125000,
+      "heapUsed": 417412720,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "nmt_final_complete",
+      "state": "instant",
+      "processCpuNanos": 32421875000,
+      "heapUsed": 409024112,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "idle_final",
+      "state": "begin",
+      "processCpuNanos": 32421875000,
+      "heapUsed": 409024112,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "idle_final",
+      "state": "end",
+      "processCpuNanos": 32437500000,
+      "heapUsed": 409024112,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "driver_complete",
+      "state": "instant",
+      "processCpuNanos": 32437500000,
+      "heapUsed": 409024112,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "window_close_request",
+      "state": "instant",
+      "processCpuNanos": 32437500000,
+      "heapUsed": 409024112,
+      "heapCommitted": 536870912,
+      "threadCount": 33
+    },
+    {
+      "phase": "process_shutdown",
+      "state": "instant",
+      "processCpuNanos": 32562500000,
+      "heapUsed": 412169840,
+      "heapCommitted": 536870912,
+      "threadCount": 38
+    }
+  ],
+  "nmt": {
+    "idle_final": {
+      "Total": {
+        "reservedBytes": 3806142464,
+        "committedBytes": 801062912
+      },
+      "Java Heap": {
+        "reservedBytes": 2147483648,
+        "committedBytes": 536870912
+      },
+      "Class": {
+        "reservedBytes": 1074929664,
+        "committedBytes": 13443072
+      },
+      "Thread": {
+        "reservedBytes": 58886144,
+        "committedBytes": 1099776
+      },
+      "Code": {
+        "reservedBytes": 265250816,
+        "committedBytes": 42145792
+      },
+      "GC": {
+        "reservedBytes": 100476928,
+        "committedBytes": 65886208
+      },
+      "GCCardSet": {
+        "reservedBytes": 239616,
+        "committedBytes": 239616
+      },
+      "Compiler": {
+        "reservedBytes": 463872,
+        "committedBytes": 463872
+      },
+      "Internal": {
+        "reservedBytes": 1746944,
+        "committedBytes": 1746944
+      },
+      "Other": {
+        "reservedBytes": 168960,
+        "committedBytes": 168960
+      },
+      "Symbol": {
+        "reservedBytes": 15316992,
+        "committedBytes": 15316992
+      },
+      "Native Memory Tracking": {
+        "reservedBytes": 6045696,
+        "committedBytes": 6045696
+      },
+      "Arena Chunk": {
+        "reservedBytes": 14784512,
+        "committedBytes": 14784512
+      },
+      "Tracing": {
+        "reservedBytes": 34834432,
+        "committedBytes": 34834432
+      },
+      "Logging": {
+        "reservedBytes": 0,
+        "committedBytes": 0
+      },
+      "Statistics": {
+        "reservedBytes": 0,
+        "committedBytes": 0
+      },
+      "Module": {
+        "reservedBytes": 199680,
+        "committedBytes": 199680
+      },
+      "Safepoint": {
+        "reservedBytes": 8192,
+        "committedBytes": 8192
+      },
+      "Synchronization": {
+        "reservedBytes": 788480,
+        "committedBytes": 788480
+      },
+      "Serviceability": {
+        "reservedBytes": 30720,
+        "committedBytes": 30720
+      },
+      "Metaspace": {
+        "reservedBytes": 67393536,
+        "committedBytes": 52058112
+      },
+      "String Deduplication": {
+        "reservedBytes": 1024,
+        "committedBytes": 1024
+      },
+      "Object Monitors": {
+        "reservedBytes": 40960,
+        "committedBytes": 40960
+      },
+      "JNI": {
+        "reservedBytes": 12288,
+        "committedBytes": 12288
+      }
+    },
+    "idle_initial": {
+      "Total": {
+        "reservedBytes": 3811100672,
+        "committedBytes": 784627712
+      },
+      "Java Heap": {
+        "reservedBytes": 2147483648,
+        "committedBytes": 536870912
+      },
+      "Class": {
+        "reservedBytes": 1074790400,
+        "committedBytes": 12386304
+      },
+      "Thread": {
+        "reservedBytes": 58885120,
+        "committedBytes": 1061888
+      },
+      "Code": {
+        "reservedBytes": 259804160,
+        "committedBytes": 22105088
+      },
+      "GC": {
+        "reservedBytes": 100023296,
+        "committedBytes": 65420288
+      },
+      "GCCardSet": {
+        "reservedBytes": 9216,
+        "committedBytes": 9216
+      },
+      "Compiler": {
+        "reservedBytes": 405504,
+        "committedBytes": 405504
+      },
+      "Internal": {
+        "reservedBytes": 1647616,
+        "committedBytes": 1647616
+      },
+      "Other": {
+        "reservedBytes": 168960,
+        "committedBytes": 168960
+      },
+      "Symbol": {
+        "reservedBytes": 14367744,
+        "committedBytes": 14367744
+      },
+      "Native Memory Tracking": {
+        "reservedBytes": 4998144,
+        "committedBytes": 4998144
+      },
+      "Arena Chunk": {
+        "reservedBytes": 32648192,
+        "committedBytes": 32648192
+      },
+      "Tracing": {
+        "reservedBytes": 30729216,
+        "committedBytes": 30729216
+      },
+      "Logging": {
+        "reservedBytes": 0,
+        "committedBytes": 0
+      },
+      "Statistics": {
+        "reservedBytes": 0,
+        "committedBytes": 0
+      },
+      "Module": {
+        "reservedBytes": 199680,
+        "committedBytes": 199680
+      },
+      "Safepoint": {
+        "reservedBytes": 8192,
+        "committedBytes": 8192
+      },
+      "Synchronization": {
+        "reservedBytes": 470016,
+        "committedBytes": 470016
+      },
+      "Serviceability": {
+        "reservedBytes": 30720,
+        "committedBytes": 30720
+      },
+      "Metaspace": {
+        "reservedBytes": 67354624,
+        "committedBytes": 46186496
+      },
+      "String Deduplication": {
+        "reservedBytes": 1024,
+        "committedBytes": 1024
+      },
+      "Object Monitors": {
+        "reservedBytes": 24576,
+        "committedBytes": 24576
+      },
+      "JNI": {
+        "reservedBytes": 12288,
+        "committedBytes": 12288
+      }
+    }
+  },
+  "limits": [
+    "Java used and committed heap are distinct from process RSS.",
+    "NMT accounts for HotSpot-owned categories, not all third-party native allocations.",
+    "Snapshots retain natural unequal GC states; no forced-GC or leak conclusion."
+  ]
+}

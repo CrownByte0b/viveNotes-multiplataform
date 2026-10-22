@@ -1,0 +1,519 @@
+{
+  "schema": "vive-text-preparation-verification/1",
+  "status": "ready-for-user-commit",
+  "date": "2026-10-22",
+  "baseCommit": "755073fabd6581ef8e5bc0f748b8b9598c964f36",
+  "afterIdentity": "Uncommitted exact source/test snapshot on the base commit; compiled and captured from an isolated public source copy",
+  "sourceFiles": [
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/canvas/TextBoxPreviews.kt",
+      "sha256": "ced89fd61b78e2cd1315007a80b92bbb3984d60594d941c84d8d23904b0890cb"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasDemand.kt",
+      "sha256": "af62e89fff45efe9f65e2a6de1173917a23240854d39fbed6ea1d7f34286f95b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/CanvasTextBoxes.kt",
+      "sha256": "85b85f46eed493fcdd606ab396fc59baff0f6957105fb4bda3b3a2c8ea273599"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/PageCanvas.kt",
+      "sha256": "0232e0eb285f1e76489ffd464af94bf9161c8f1bd684136d4f99d414e09da131"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/WorkspacePage.kt",
+      "sha256": "cc74b053975c28e5ee688348b151dd1368f242f9f507ae6d0f45a030ca2bbd9b"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/ui/shell/TextPreparation.kt",
+      "sha256": "4e7a34f6581ea964d30a59415f082b2d38481b949a2929aac359b222e0c2c519"
+    },
+    {
+      "path": "shared/src/commonTest/kotlin/com/vivenotes/ui/shell/TextPreparationTest.kt",
+      "sha256": "c3dd322c1078cd9d5624239d1ba819c0ecc3b1de8fa6f62288aad34878c5aa73"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ui/shell/CanvasTextPreparationTest.kt",
+      "sha256": "1bcb298664cd604b3d5293e2c8a9681ed0834ad551b2fa578c45e48ee5799327"
+    }
+  ],
+  "toolFiles": [
+    {
+      "path": "benchmarks/text-preparation/DesktopRuntimeProbe.kt",
+      "sha256": "dda666c573242ef9c92d979ed0890d6140dc6f2a2bf88c3e60fe14810dadeb95"
+    },
+    {
+      "path": "benchmarks/text-preparation/text_runtime.py",
+      "sha256": "f9dadcdd2429b57e1ab819dfaa07f2146ea208391b9dc37cdef7fb49b7d50a7a"
+    },
+    {
+      "path": "benchmarks/text-preparation/test_text_runtime.py",
+      "sha256": "295a7c177a5066185b5880826d8679b1924ccc97409f3199555b426205949154"
+    },
+    {
+      "path": "benchmarks/text-preparation/USAGE.md",
+      "sha256": "5df8730c86f0c7c8a059f42278a62b64b99fd3749bb433f8aa7157660f05056b"
+    }
+  ],
+  "report": {
+    "path": "benchmarks/text-preparation/RESULTS.md",
+    "sha256": "a8add88d6fe3489d49b8dbb4f7b34d613bb3228ae997e0c742c3f04c26530401"
+  },
+  "resultFiles": [
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/comparison.json",
+      "sha256": "7c69c5cd958b7d9ff36281d42bc2cf0ed69002ef7c06abbe120787561592a26a"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork1/analysis.json",
+      "sha256": "07e9820bb15180899f32faccffe09587ed2eb276a1beeaa6c60f4c8782bb0b87"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork1/provenance.json",
+      "sha256": "6e7f892c01e5c0799c5a28b87f48918c4e585e127f0dec02ed17c2ea84e1c14a"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork1/resources.json",
+      "sha256": "099b1b7d3a2b662fb277b18f050291387ef444cfc23598130cc202b249f2f0f1"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork1/summary.json",
+      "sha256": "028f1de8d11d43975fafce5077a4f9eae4ee22ec047f24091a5604998f6a3341"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork2/analysis.json",
+      "sha256": "beb85462636bc24f5ab9ef17c8124830a8c2cbbc3f628110edb31528cc6b1f42"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork2/provenance.json",
+      "sha256": "7e4ddb837f4407d648c53fe28e649e5015b18f5aa573de4106c9a14c93e28058"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork2/resources.json",
+      "sha256": "ad12336d620a293c825c816bc59578b0edecddc7ee587e6f696fd09b5abe1f50"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork2/summary.json",
+      "sha256": "9a1b6e4d22c519ad0bb18efcdf64509f5fce02ca7af2782870e374b80b21562c"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork3/analysis.json",
+      "sha256": "e486ea8dfdb2026cae168c6cb4184eafc208a6da4ef20ff47143b4146dbea7a7"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork3/provenance.json",
+      "sha256": "af49260d7bec846a7446c34c05e40995bc23fff68715f52b002ec2ab9d808811"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork3/resources.json",
+      "sha256": "5aacb17ebac0c27d384f0ba58b26d2845cdb507e578e13efabdde6fe1b5d11fe"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/after-fork3/summary.json",
+      "sha256": "319d0b7372a86a1fa85fb353ac7f5814a4a48a353f682069d120d8469b066e4f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork1/analysis.json",
+      "sha256": "28fcbd2311fecde570d30ca8c8be28fea98df9604044e84f6c33fa312e98b49f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork1/provenance.json",
+      "sha256": "fcbd8d1912075df4056bc960533165e320c8ccd174d0be151d65e0a6bd820732"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork1/resources.json",
+      "sha256": "70fb0a0891afba1b2e80f38f343277bb7e0f2130f22d468dec3458007241948c"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork1/summary.json",
+      "sha256": "3021d5a7152d7e11de6f6b919377f9cb6c0c111ce6c8855867dd2d1f8bd1f70a"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork2/analysis.json",
+      "sha256": "e5e9f1c5ebf67da179573cde4a316ef96a4f280464b318052d138297a1425091"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork2/provenance.json",
+      "sha256": "389e4b1a59edbe5504a9ab2748cdf12bc1879cb4039294d49834d9f052ec6775"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork2/resources.json",
+      "sha256": "c9450043c65c407611c6e5f62048591e45f09d7281d9706d6867d4e2febd4257"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork2/summary.json",
+      "sha256": "93e5e9aaa42984a4a49933613db268b378003e3497ce4d2ecd70721e5a15170c"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork3/analysis.json",
+      "sha256": "99e4c4994b2fa1e29cb5772d4df1128cfcc2070be8909577bec40453c2a6dfa6"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork3/provenance.json",
+      "sha256": "00534c024a94e2860bcb4b8f70f51eaf377967b6ad801f494c4bdb5f279cb34c"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork3/resources.json",
+      "sha256": "53a5b14a0d9ec809aec03fe5844fb34f3c0fa0c3280c770b261fbc0559642abe"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/windows/before-fork3/summary.json",
+      "sha256": "3f1511cc3798aef9d1cbd17fea4a1ed787f3eb33be99807508eee05df08aa78b"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork1/analysis.json",
+      "sha256": "6f12b527c00d4201ba9d7ed9bf506a5d9dbe27fb9be43bc7f980fa75b2bcd19d"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork1/provenance.json",
+      "sha256": "176106acc8b1eb00ed66a05c2587020728298199cc2bac9f8cc8248065261a93"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork1/resources.json",
+      "sha256": "32181326d7b32c188869649730c6ca93d183f955e0ab4a00859a37a1b8d5ff63"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork1/summary.json",
+      "sha256": "130d8f7b8c3c6c844c029d3f1a3233eb1ee23b29d817a6a7f11380987bbd5b8f"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork2/analysis.json",
+      "sha256": "36b77cfe39fdb7a5ee5c63de0dd8082d6c198fec20824642daa01923be2cdbc1"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork2/provenance.json",
+      "sha256": "28145a480908056c16fdaa6ef992213e8c8855f0790e8d0f487456661809f505"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork2/resources.json",
+      "sha256": "ebe81b19245ec9269a918a69ab3c426e80c9228e4c37386153f1012867eef569"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork2/summary.json",
+      "sha256": "412f87709a578b65cbb82c021336cc7252a8ef176d94f2110e9944e78f9858e7"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork3/analysis.json",
+      "sha256": "3f8d4988f639ca699aa6fef1451e756b3665ce38ccad163d6bc773dddbfad434"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork3/provenance.json",
+      "sha256": "52e628d7f1b13c76e77ba65d4bbe9fdca1613335c5cc98e72f66b588994de2cc"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork3/resources.json",
+      "sha256": "e29a12ce1b7d48b6e10e5dd32dba16174a10ca4c64f9ed95381d4f2bd59c9be8"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/after-fork3/summary.json",
+      "sha256": "b33e2037c58c73535f92f6eaeea92e246c6b3f3f1227697ff3c941689a7de2cd"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork1/analysis.json",
+      "sha256": "ed202a13a6df4d11a7121c392fbc69f3623e6a83394ee37799770002b7c05381"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork1/provenance.json",
+      "sha256": "0ad1293098d6d65ca6bece44fe3f666ac53c3bf6d2f2bd5f2a8ef3eafedaedf8"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork1/resources.json",
+      "sha256": "27740daf5d77082565869d099efdcfea4ec79ce4547e9b10ba75867b2bda61ea"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork1/summary.json",
+      "sha256": "0c7b34c1ad7f38f2d911596e3ffb20806ce7e6a8e5a2eefee25a63aa36a1a6c5"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork2/analysis.json",
+      "sha256": "d7ef671eb893a20ae99049e776881ae0afab8cb48fd5191d1ad40e184541e3fd"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork2/provenance.json",
+      "sha256": "2729cdc342b2458b5db74f8da4ffa9f8dd60ea4a7603187e0c26128c3fb0a7ca"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork2/resources.json",
+      "sha256": "220915d3ef9758a3cce72558ba432ebeef9cfc013ff8742b921101cc4b73ca59"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork2/summary.json",
+      "sha256": "63a5621d440a3e58aa74cb49e14158caeeaac27e6534556486dbf0a3be381fd6"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork3/analysis.json",
+      "sha256": "9f2a2e972c7629421f24ce22276c9b95dc9dcde4c4436a07f40bf5ca9fc213b7"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork3/provenance.json",
+      "sha256": "ac1e5dea7ceef5a8f4fccfa19097554baeb995c218634b4b646b5ec2cb8ee567"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork3/resources.json",
+      "sha256": "6568d89cb3372241082506b680235acade30a31301869e684413260cedc91504"
+    },
+    {
+      "path": "benchmarks/results/2026-10-22-desktop-text-preparation/x11/before-fork3/summary.json",
+      "sha256": "19b612c6bfa492d5a8b7a0acc31aef0096ae052f8afa3e20a5716addd987b1b5"
+    }
+  ],
+  "tests": {
+    "fullJvm": {
+      "modules": [
+        {
+          "module": "shared",
+          "tests": 2061,
+          "passed": 2055,
+          "skipped": 6,
+          "failures": 0,
+          "errors": 0
+        },
+        {
+          "module": "desktopApp",
+          "tests": 162,
+          "passed": 155,
+          "skipped": 7,
+          "failures": 0,
+          "errors": 0
+        }
+      ],
+      "passed": 2210,
+      "skipped": 13,
+      "failures": 0,
+      "errors": 0,
+      "log": "build/text-preparation-verification-20261022/full-jvm-verified.log",
+      "xml": "build/text-preparation-verification-20261022/full-verified-xml",
+      "command": "env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 JAVA_HOME=/home/mahalo/.gradle/jdks/azul_systems__inc_-27-amd64-linux.2 xvfb-run -a -s '-screen 0 1920x1200x24 -nolisten tcp' ./gradlew :shared:jvmTest --rerun :desktopApp:test --rerun lint :desktopApp:assemble --offline --max-workers=1"
+    },
+    "newRegressions": {
+      "domain": 5,
+      "compose": 6
+    },
+    "windowsFocusedJvm": {
+      "passed": 35,
+      "failures": 0,
+      "scope": "Zulu 27 console runtime of target-25 compiled test JARs; not a native Windows Gradle build or full suite"
+    },
+    "pythonLinux": {
+      "passed": 44,
+      "skipped": 0
+    },
+    "pythonWindows": {
+      "passed": 43,
+      "skipped": 1,
+      "skipReason": "Symlink creation unavailable on Windows host"
+    },
+    "probeContracts": {
+      "passed": 25,
+      "nativeSqliteFixture": true
+    },
+    "scannerContracts": {
+      "passed": 14
+    },
+    "lint": true,
+    "desktopAssembly": true
+  },
+  "benchmarks": {
+    "platforms": [
+      "x11",
+      "windows"
+    ],
+    "freshProcessesPerPlatform": 6,
+    "pairsPerPlatform": 3,
+    "order": [
+      [
+        "before",
+        "after"
+      ],
+      [
+        "after",
+        "before"
+      ],
+      [
+        "before",
+        "after"
+      ]
+    ],
+    "all12CapturesVerified": true,
+    "all6ComparisonsCompatible": true,
+    "all12JfrCountParity": true,
+    "independentWindowsDecodedJfrEquality": true,
+    "independentWindowsExportJsonEquality": true,
+    "sourceArtifactBinding": "Sources and binary bytes independently frozen; isolated build execution logged separately",
+    "afterPreparation": [
+      {
+        "platform": "x11",
+        "fork": 1,
+        "completions": [
+          {
+            "reused": 0,
+            "layouts": 1000
+          },
+          {
+            "reused": 1000,
+            "layouts": 1
+          }
+        ]
+      },
+      {
+        "platform": "x11",
+        "fork": 2,
+        "completions": [
+          {
+            "reused": 0,
+            "layouts": 1000
+          },
+          {
+            "reused": 1000,
+            "layouts": 1
+          }
+        ]
+      },
+      {
+        "platform": "x11",
+        "fork": 3,
+        "completions": [
+          {
+            "reused": 0,
+            "layouts": 1000
+          },
+          {
+            "reused": 1000,
+            "layouts": 1
+          }
+        ]
+      },
+      {
+        "platform": "windows",
+        "fork": 1,
+        "completions": [
+          {
+            "reused": 0,
+            "layouts": 1000
+          },
+          {
+            "reused": 1000,
+            "layouts": 4
+          }
+        ]
+      },
+      {
+        "platform": "windows",
+        "fork": 2,
+        "completions": [
+          {
+            "reused": 0,
+            "layouts": 1000
+          },
+          {
+            "reused": 1000,
+            "layouts": 4
+          }
+        ]
+      },
+      {
+        "platform": "windows",
+        "fork": 3,
+        "completions": [
+          {
+            "reused": 0,
+            "layouts": 1000
+          },
+          {
+            "reused": 1000,
+            "layouts": 4
+          }
+        ]
+      }
+    ]
+  },
+  "audits": [
+    {
+      "path": "build/text-preparation-verification-20261022/final-audit.json",
+      "sha256": "847a3331a206242799763a240c0b532e049435c604997a26655664a97636d430"
+    },
+    {
+      "path": "build/text-preparation-verification-20261022/windows-independent-audit.json",
+      "sha256": "fb08ff3f8b94ad274d7ec10c0bf0b8c04055e8575c07409647be87503fcdc791"
+    },
+    {
+      "path": "build/text-preparation-verification-20261022/verified-source-files.json",
+      "sha256": "6cef99adc978e6809c5fa55b9a3d0b890bfcd28bfa5bfee4afcff6e9eebd9e3e"
+    },
+    {
+      "path": "build/text-preparation-verification-20261022/full-jvm-counts.json",
+      "sha256": "1c76d13fb572910f9ddb2c7321d8e24496adc53a219971ce151fb01fbde182c3"
+    },
+    {
+      "path": "build/text-preparation-verification-20261022/windows-public-inputs-v2-sha256.json",
+      "sha256": "f6d9c79e3a43de2784e7693f8c53ec0246954aba1008c3b9201cb68068bb6e12"
+    }
+  ],
+  "retention": {
+    "manifest": "/home/mahalo/.local/state/vive-runtime-benchmarks/2026-10-22-text-preparation/retention.json",
+    "manifestSha256": "3a9d01de1f3eac74c145623ac9d8db37233d39845f3b297170881f97c941530e",
+    "archiveCount": 7,
+    "archiveBytes": 1089806556,
+    "archives": [
+      {
+        "name": "linux-final-evidence.tar.gz",
+        "bytes": 118544878,
+        "sha256": "30c7b798e38256071f1cf732ab9067aa2712b7af2cefadcf08e71e7235fef46c"
+      },
+      {
+        "name": "linux-exploratory-and-contract.tar.gz",
+        "bytes": 80634331,
+        "sha256": "fb4db0eed7e87fb3ff510b05be82ae808a7335cae347f4ca6c06a266fdcd75bd"
+      },
+      {
+        "name": "windows-raw-evidence.zip",
+        "bytes": 117896477,
+        "sha256": "393c82962ec8543e891b89be83db9d8951491d83287effa65661338a1106cc3e"
+      },
+      {
+        "name": "windows-initial-inputs.zip",
+        "bytes": 217267517,
+        "sha256": "b8f94993d39235e7715e1966784db817fa9aa3eb7ba51b4feca7bb634742f59d"
+      },
+      {
+        "name": "public-build-inputs.zip",
+        "bytes": 215752352,
+        "sha256": "0c1695d53c499a851690d120f7929f2c7204a039c5ebc368f22cbe29ad4a4d79"
+      },
+      {
+        "name": "classpath-artifacts.tar.gz",
+        "bytes": 339062434,
+        "sha256": "096be1f5f32bb227fd2034a2e031e366e336c618aa03dfb5a9ed28f13e8c5243"
+      },
+      {
+        "name": "verification-evidence.tar.gz",
+        "bytes": 648567,
+        "sha256": "e1846415680ac845bef98b88cb4388335d3a88101178eed8902cafe12b9dc6fb"
+      }
+    ]
+  },
+  "cleanup": {
+    "ownedXvfbClosed": true,
+    "windowsConsoleSession": 2,
+    "ownedWindowsSessionLoggedOff": true,
+    "temporarySshClosed": true,
+    "rdpWindowsLeftRunning": true,
+    "otherVmUntouched": true
+  },
+  "scope": {
+    "frozenOriginalBenchmarksUnchanged": true,
+    "protectedDocsUnchanged": true,
+    "byteInkAndroidServerDependenciesUnchanged": true,
+    "userNotesAccountsUntouched": true,
+    "indexEmpty": true,
+    "stagedCommittedPushed": false
+  },
+  "secretScan": {
+    "status": "passed",
+    "scope": "Eight source/test files, six text-preparation tooling/report/verification files, and 49 new result JSON files; memory and private build logs excluded",
+    "files": 63,
+    "leaks": 0,
+    "report": "build/text-preparation-verification-20261022/secret-scan-final.json"
+  }
+}
