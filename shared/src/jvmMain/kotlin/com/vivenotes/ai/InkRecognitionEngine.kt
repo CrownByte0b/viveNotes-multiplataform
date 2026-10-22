@@ -95,6 +95,14 @@ class OnnxInkRecognitionEngine(
     /** Serializes a formula model's claim on every lane, so two claims cannot each end up holding half. */
     private val exclusive = Mutex()
     private val sessions = mutableMapOf<ModelKind, OrtSession>()
+    private var closed = false
+    private var activeSessionUses = 0
+    private val textDecoder = NativeCtcDecoder(environment, NativeCtcReduction.DEFAULT_THREADS, log) {
+        synchronized(sessions) {
+            check(!closed) { "Recognition engine is closed" }
+            NativeCtcReduction.create(environment)
+        }
+    }
 
     /** Callers inside [keepFormulaModelLoaded]. Guarded by [sessions], under which [session] reads it. */
     private var formulaHolds = 0
@@ -113,7 +121,10 @@ class OnnxInkRecognitionEngine(
      * first OCR line after it, under [session]'s rule — exactly as it does after a formula.
      */
     override suspend fun keepFormulaModelLoaded(): Nothing {
-        synchronized(sessions) { formulaHolds++ }
+        synchronized(sessions) {
+            check(!closed) { "Recognition engine is closed" }
+            formulaHolds++
+        }
         try {
             loadFormulaModel()
             awaitCancellation()
@@ -267,9 +278,7 @@ class OnnxInkRecognitionEngine(
                     longArrayOf(1, 3, input.height.toLong(), input.width.toLong()),
                 ).use { tensor ->
                     detector.run(mapOf(detector.inputNames.first() to tensor)).use { output ->
-                        val probability = FloatArray(input.width * input.height)
-                        (output[0] as OnnxTensor).floatBuffer.get(probability)
-                        probability
+                        ownedFloatArray((output[0] as OnnxTensor).floatBuffer, input.width * input.height)
                     }
                 }
             }
@@ -317,12 +326,48 @@ class OnnxInkRecognitionEngine(
 
     override fun close() {
         synchronized(sessions) {
-            sessions.values.forEach(OrtSession::close)
-            sessions.clear()
+            if (closed) return
+            closed = true
+            if (activeSessionUses == 0) closeSessions()
         }
     }
 
-    /** Reduce copied logits before releasing the lane so queued crops retain only their text. */
+    /** Called under [sessions], after the final native use has released its output tensors. */
+    private fun closeSessions() {
+        val resident = sessions.toMap()
+        sessions.clear()
+        var failure: Exception? = null
+        fun release(block: () -> Unit) {
+            try {
+                block()
+            } catch (error: Exception) {
+                if (failure == null) failure = error else failure!!.addSuppressed(error)
+            }
+        }
+        release { textDecoder.close() }
+        resident.forEach { (kind, session) -> release {
+            session.close()
+            log.event("ai") { "closed ${kind.name} session" }
+        } }
+        failure?.let { throw it }
+    }
+
+    private inline fun <T> usingSessions(block: () -> T): T {
+        synchronized(sessions) {
+            check(!closed) { "Recognition engine is closed" }
+            activeSessionUses++
+        }
+        try {
+            return block()
+        } finally {
+            synchronized(sessions) {
+                activeSessionUses--
+                if (closed && activeSessionUses == 0) closeSessions()
+            }
+        }
+    }
+
+    /** Reduce native logits before releasing the lane so queued crops retain only their text. */
     private suspend fun readLine(image: Image): TextRecognitionResult {
         val input = preprocessText(image)
         return inLane {
@@ -334,16 +379,14 @@ class OnnxInkRecognitionEngine(
             ).use { tensor ->
                 session.run(mapOf(session.inputNames.first() to tensor)).use { output ->
                     val logits = output[0] as OnnxTensor
-                    val shape = (logits.info as TensorInfo).shape
-                    require(shape.size == 3 && shape[0] == 1L)
-                    decodeCtc(logits.floatBuffer, shape[1].toInt(), shape[2].toInt(), textCharacters)
+                    textDecoder.decode(logits, textCharacters)
                 }
             }
         }
     }
 
     /** Runs [block] holding one inference lane. Every OCR `run` goes through here. */
-    private suspend inline fun <T> inLane(block: () -> T): T = lanePermits.withPermit(block)
+    private suspend inline fun <T> inLane(block: () -> T): T = lanePermits.withPermit { usingSessions(block) }
 
     /**
      * Runs [block] holding every lane, for a formula model.
@@ -361,7 +404,7 @@ class OnnxInkRecognitionEngine(
                     held++
                 }
             }
-            return block()
+            return usingSessions(block)
         } finally {
             repeat(held) { lanePermits.release() }
         }
@@ -385,7 +428,9 @@ class OnnxInkRecognitionEngine(
      * closed by the first OCR line after the hold ends.
      */
     private fun session(kind: ModelKind): OrtSession = synchronized(sessions) {
+        check(!closed) { "Recognition engine is closed" }
         sessions.keys.filter { closes(kind, it) }.forEach { resident ->
+            if (resident == ModelKind.Text) textDecoder.close()
             sessions.remove(resident)?.close()
             log.event("ai") { "closed ${resident.name} session" }
         }
@@ -400,11 +445,9 @@ class OnnxInkRecognitionEngine(
     }
 
     private fun open(kind: ModelKind): OrtSession {
-        val options = OrtSession.SessionOptions().apply {
-            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-            setIntraOpNumThreads(inferenceThreads.coerceAtLeast(1))
-        }
-        val opened = options.use {
+        val opened = OrtSession.SessionOptions().use { options ->
+            options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+            options.setIntraOpNumThreads(inferenceThreads.coerceAtLeast(1))
             when (kind) {
                 ModelKind.Text -> {
                     val bytes = models.openTextModel().use { input -> input.readBytes() }

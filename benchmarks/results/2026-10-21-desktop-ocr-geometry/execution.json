@@ -1,0 +1,130 @@
+{
+  "runs": [
+    {
+      "fork": 1,
+      "side": "before",
+      "phase": "geometry",
+      "command": [
+        "./gradlew",
+        ":shared:ocrGeometryProfile",
+        "--offline",
+        "--max-workers=1",
+        "--console=plain",
+        "--no-configuration-cache",
+        "-I",
+        "/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/ocr/profile.init.gradle",
+        "-PocrRuntimeOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/before/geometry-fork-1-runtime.json",
+        "-PocrGeometryOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/before/geometry-fork-1.json"
+      ],
+      "status": "validated",
+      "startedAt": "2026-10-22T00:22:49.961159+00:00",
+      "finishedAt": "2026-10-22T00:23:00.341849+00:00",
+      "elapsedSeconds": 10.380617755999992
+    },
+    {
+      "fork": 1,
+      "side": "after",
+      "phase": "geometry",
+      "command": [
+        "./gradlew",
+        ":shared:ocrGeometryProfile",
+        "--offline",
+        "--max-workers=1",
+        "--console=plain",
+        "--no-configuration-cache",
+        "-I",
+        "/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/ocr/profile.init.gradle",
+        "-PocrRuntimeOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/after/geometry-fork-1-runtime.json",
+        "-PocrGeometryOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/after/geometry-fork-1.json"
+      ],
+      "status": "validated",
+      "startedAt": "2026-10-22T00:23:00.342073+00:00",
+      "finishedAt": "2026-10-22T00:23:10.436989+00:00",
+      "elapsedSeconds": 10.094839421002689
+    },
+    {
+      "fork": 2,
+      "side": "after",
+      "phase": "geometry",
+      "command": [
+        "./gradlew",
+        ":shared:ocrGeometryProfile",
+        "--offline",
+        "--max-workers=1",
+        "--console=plain",
+        "--no-configuration-cache",
+        "-I",
+        "/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/ocr/profile.init.gradle",
+        "-PocrRuntimeOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/after/geometry-fork-2-runtime.json",
+        "-PocrGeometryOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/after/geometry-fork-2.json"
+      ],
+      "status": "validated",
+      "startedAt": "2026-10-22T00:23:10.437260+00:00",
+      "finishedAt": "2026-10-22T00:23:19.936610+00:00",
+      "elapsedSeconds": 9.499267118997523
+    },
+    {
+      "fork": 2,
+      "side": "before",
+      "phase": "geometry",
+      "command": [
+        "./gradlew",
+        ":shared:ocrGeometryProfile",
+        "--offline",
+        "--max-workers=1",
+        "--console=plain",
+        "--no-configuration-cache",
+        "-I",
+        "/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/ocr/profile.init.gradle",
+        "-PocrRuntimeOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/before/geometry-fork-2-runtime.json",
+        "-PocrGeometryOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/before/geometry-fork-2.json"
+      ],
+      "status": "validated",
+      "startedAt": "2026-10-22T00:23:19.936836+00:00",
+      "finishedAt": "2026-10-22T00:23:29.718144+00:00",
+      "elapsedSeconds": 9.78122773999712
+    },
+    {
+      "fork": 3,
+      "side": "before",
+      "phase": "geometry",
+      "command": [
+        "./gradlew",
+        ":shared:ocrGeometryProfile",
+        "--offline",
+        "--max-workers=1",
+        "--console=plain",
+        "--no-configuration-cache",
+        "-I",
+        "/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/ocr/profile.init.gradle",
+        "-PocrRuntimeOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/before/geometry-fork-3-runtime.json",
+        "-PocrGeometryOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/before/geometry-fork-3.json"
+      ],
+      "status": "validated",
+      "startedAt": "2026-10-22T00:23:29.718378+00:00",
+      "finishedAt": "2026-10-22T00:23:39.479178+00:00",
+      "elapsedSeconds": 9.760677055000997
+    },
+    {
+      "fork": 3,
+      "side": "after",
+      "phase": "geometry",
+      "command": [
+        "./gradlew",
+        ":shared:ocrGeometryProfile",
+        "--offline",
+        "--max-workers=1",
+        "--console=plain",
+        "--no-configuration-cache",
+        "-I",
+        "/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/ocr/profile.init.gradle",
+        "-PocrRuntimeOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/after/geometry-fork-3-runtime.json",
+        "-PocrGeometryOutput=/home/mahalo/repos/viveHub/multiplataform-vive/benchmarks/results/2026-10-21-desktop-ocr-geometry/after/geometry-fork-3.json"
+      ],
+      "status": "validated",
+      "startedAt": "2026-10-22T00:23:39.479573+00:00",
+      "finishedAt": "2026-10-22T00:23:49.042299+00:00",
+      "elapsedSeconds": 9.56256620700151
+    }
+  ]
+}

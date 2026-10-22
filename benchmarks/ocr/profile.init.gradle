@@ -1,0 +1,73 @@
+import groovy.json.JsonOutput
+import java.nio.file.Files
+import java.security.MessageDigest
+import org.gradle.api.tasks.JavaExec
+
+// Independent diagnostics only: the frozen harness/build files remain unchanged.
+def hashFile = { File file ->
+    def digest = MessageDigest.getInstance('SHA-256')
+    file.withInputStream { input ->
+        byte[] buffer = new byte[65536]
+        int count
+        while ((count = input.read(buffer)) >= 0) { if (count > 0) digest.update(buffer, 0, count) }
+    }
+    digest.digest().encodeHex().toString()
+}
+def hashDirectory = { File file ->
+    def digest = MessageDigest.getInstance('SHA-256')
+    Files.walk(file.toPath()).withCloseable { paths ->
+        paths.filter { Files.isRegularFile(it) }.sorted().forEach { child ->
+            digest.update(file.toPath().relativize(child).toString().replace((char)92, (char)47).getBytes('UTF-8'))
+            digest.update((byte)0)
+            digest.update(hashFile(child.toFile()).getBytes('UTF-8'))
+        }
+    }
+    digest.digest().encodeHex().toString()
+}
+gradle.projectsEvaluated {
+    def shared = gradle.rootProject.project(':shared')
+    def baseline = shared.tasks.named('performanceBaseline', JavaExec)
+    ['ocrCtcProfile', 'ocrGeometryProfile'].each { name ->
+        shared.tasks.register(name, JavaExec) { task ->
+            dependsOn(shared.tasks.named('jvmTestClasses'))
+            classpath = baseline.get().classpath
+            javaLauncher.set(baseline.flatMap { it.javaLauncher })
+            minHeapSize = baseline.get().minHeapSize
+            maxHeapSize = baseline.get().maxHeapSize
+            setJvmArgs(baseline.get().jvmArgs)
+            systemProperties(baseline.get().systemProperties)
+            workingDir = baseline.get().workingDir
+            if (name == 'ocrCtcProfile') {
+                mainClass.set('com.vivenotes.ai.OcrCtcProfile')
+                args(shared.findProperty('ocrCtcOutput'), shared.findProperty('ocrCtcMode'),
+                     shared.findProperty('ocrCtcLanes'), shared.findProperty('ocrCtcThreads'), shared.findProperty('ocrCtcWidth'))
+            } else {
+                mainClass.set('org.junit.runner.JUnitCore')
+                args('com.vivenotes.ai.OcrGeometryProfileTest')
+                environment('VIVE_OCR_GEOMETRY_PROFILE', '1')
+                systemProperty('vivenotes.ocr.geometry.report', shared.findProperty('ocrGeometryOutput'))
+            }
+            outputs.upToDateWhen { false }
+            doFirst {
+                def launcher = task.javaLauncher.get()
+                def executable = launcher.executablePath.asFile.canonicalFile
+                def project = gradle.rootProject.projectDir.canonicalFile.toPath()
+                def entries = task.classpath.files.collect { candidate ->
+                    def file = candidate.canonicalFile
+                    def kind = file.isFile() ? 'file' : file.isDirectory() ? 'directory' : 'missing'
+                    [name: file.name, path: file.path, kind: kind,
+                     projectArtifact: file.toPath().startsWith(project),
+                     sha256: kind == 'file' ? hashFile(file) : kind == 'directory' ? hashDirectory(file) : null]
+                }
+                def report = [schema: 'vive-ocr-task-runtime/1', task: task.path, mainClass: task.mainClass.get(),
+                    javaExecutable: executable.path, javaExecutableSha256: hashFile(executable),
+                    javaRuntimeVersion: launcher.metadata.javaRuntimeVersion, vendor: launcher.metadata.vendor,
+                    vmVersion: launcher.metadata.jvmVersion, vmArgs: task.allJvmArgs, programArgs: task.args,
+                    workingDirectory: task.workingDir.canonicalPath, classpath: entries]
+                def target = new File(gradle.startParameter.projectProperties.get('ocrRuntimeOutput'))
+                if (target.exists()) throw new GradleException('Choose a new runtime report path')
+                target.text = JsonOutput.prettyPrint(JsonOutput.toJson(report)) + '\n'
+            }
+        }
+    }
+}

@@ -1,0 +1,105 @@
+{
+  "scope": "Exploratory single-fork controls and final special-float preflight; not the paired final benchmark. Native traces run after latency samples. source is the exact initial exploration snapshot; final-source identifies the later preflight. Raw embedded paths identify original build locations.",
+  "files": [
+    {
+      "path": "current-t1-s0-w3200-l2-ort_2026-10-21_20-38-09_833.json",
+      "sha256": "dcc8976be8b31f7aac62f528d28253df3db02b1977a18c556b99686362cc7e85"
+    },
+    {
+      "path": "current-t1-s0-w3200-l2.json",
+      "sha256": "4e66381f7cfd3d93ba498129851b9346262358fcb7ff3628986d39d58fb3dd74"
+    },
+    {
+      "path": "current-t1-s1-w3200-l2-ort_2026-10-21_20-38-16_752.json",
+      "sha256": "66d5f16dcac8350fe36d54d5824e1418bca88582aaa7ab7faae8f6ef65910a7e"
+    },
+    {
+      "path": "current-t1-s1-w3200-l2.json",
+      "sha256": "c8783744796c0fc713235df432f499b137442998d8ea8b1ce59546b601dac93d"
+    },
+    {
+      "path": "current-t4-s0-w3200-l2-ort_2026-10-21_20-38-13_161.json",
+      "sha256": "ebd119528e09bd399face8360c7a113e8d2fe1be8330503c4c354932a77e0d13"
+    },
+    {
+      "path": "current-t4-s0-w3200-l2.json",
+      "sha256": "9c772a0defc55b28262382850de4ec580fcf79ed43d1bc2e62c0f9d6acbb850b"
+    },
+    {
+      "path": "current-t4-s1-w3200-l2-ort_2026-10-21_20-38-06_202.json",
+      "sha256": "0500cd374d045e3b40be2340603eed17f7900e8d5bdad30763efdb5ce5027f96"
+    },
+    {
+      "path": "current-t4-s1-w3200-l2.json",
+      "sha256": "7bad000656e24cb30461b428ed4c3a8d93d43d0bc9ee92e24cfe1a733505e8ab"
+    },
+    {
+      "path": "final-source/InkRecognitionEngine.kt",
+      "sha256": "e9c7dd97531123de46f198bf7c94009f6c2dcc256dd85772524b3dcf623ab72c"
+    },
+    {
+      "path": "final-source/NativeCtcKernelProfile.kt",
+      "sha256": "4d193eac3fbf875d0cf99a6d6bb8cda847c02d386770e381c7898c6c5141628a"
+    },
+    {
+      "path": "final-source/NativeCtcReduction.kt",
+      "sha256": "74e0fb09cc266fd6beeb08e8f62ae1a1a3db46f1a8dabd68a2df9ba144cdf21f"
+    },
+    {
+      "path": "flat-t1-s0-w3200-l2.json",
+      "sha256": "a8bd3d9f3865c65aef72a8a21a52b86aa1fa8a5f3f3d435571e6cfe8cdea6cbf"
+    },
+    {
+      "path": "guarded-topk-final-normal-parity-ort_2026-10-21_20-43-56_880.json",
+      "sha256": "e086ce57faf7d89fd97be3c0c5a37b77cc13b9db8f0bbddce922bd1eff64e39b"
+    },
+    {
+      "path": "guarded-topk-final-normal-parity.json",
+      "sha256": "eba9cefe737b9dd367eea79c57d556fc57e575a10efacbd879394e87866f51e2"
+    },
+    {
+      "path": "guarded-topk-final-normal-parity.log",
+      "sha256": "c7a2a51de794c56367160acdac62f4448deec45c0c8b848dc4bd6ab428535534"
+    },
+    {
+      "path": "guarded-topk-t1-s0-w320-l2-ort_2026-10-21_20-38-18_532.json",
+      "sha256": "80e1a06176a2f017bab81f33dc2ffd3ea26ab5434e4d0e8c4968b54a6fbc5a60"
+    },
+    {
+      "path": "guarded-topk-t1-s0-w320-l2.json",
+      "sha256": "2ae7c44d7d62536bdf72bb09b0da8066d04af01e918494bb8ddd1694a07726b2"
+    },
+    {
+      "path": "guarded-topk-t1-s0-w3200-l2-ort_2026-10-21_20-38-02_924.json",
+      "sha256": "a6993a9a88191888f586fd5b7222436f0889ea749610cec907e730df83d452d6"
+    },
+    {
+      "path": "guarded-topk-t1-s0-w3200-l2.json",
+      "sha256": "54f205a213758eeede9d76142e05479518f831119a15fbe932b1d27089b5d616"
+    },
+    {
+      "path": "scalar-t1-s0-w3200-l2.json",
+      "sha256": "2eb99b847bf6c25bd98ae54c71e9a6b0a77f1849e10bd2476c43d8e7b508a4ce"
+    },
+    {
+      "path": "source/InkRecognitionEngine.kt",
+      "sha256": "aacf9a5f6b2280cee0a69b6bfdb1e9f4cdbc4324406f5d69e9243523dcb33cdb"
+    },
+    {
+      "path": "source/NativeCtcKernelProfile.kt",
+      "sha256": "778a99af38f45e54c0fb40e43a48befec578166f470d247c55d956a61dcee464"
+    },
+    {
+      "path": "source/NativeCtcReduction.kt",
+      "sha256": "d030327cadba9cf7b6d73db5183c9c7e65b5489e5216154ac13268f5c8b68676"
+    },
+    {
+      "path": "source/kernel.init.gradle",
+      "sha256": "fcfeaf48735b1de1942d1cd1537cd36ed7a2ac08a69935b9f77c5624c5b709d4"
+    },
+    {
+      "path": "summary.json",
+      "sha256": "04416817006ae01387f76c7ddfc055922b5416ffea22af555c057d7b07737f6e"
+    }
+  ]
+}

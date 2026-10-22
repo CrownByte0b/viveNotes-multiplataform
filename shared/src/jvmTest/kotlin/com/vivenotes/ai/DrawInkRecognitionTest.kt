@@ -1,5 +1,7 @@
 package com.vivenotes.ai
 
+import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.platform.registerSkikoComposeImplementation
 import com.vivenotes.ink.InkPageReader
 import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.ink.selectionLine
@@ -7,6 +9,10 @@ import com.vivenotes.ink.splitSelectionPage
 import kotlin.test.*
 
 class DrawInkRecognitionTest {
+    @OptIn(InternalComposeUiApi::class)
+    @BeforeTest
+    fun initializeStandaloneGraphics() = registerSkikoComposeImplementation()
+
     @Test
     fun selectedFragmentRasterNeverRebuildsItsErasedGapOrUnselectedSibling() {
         val (_, split) = splitSelectionPage()

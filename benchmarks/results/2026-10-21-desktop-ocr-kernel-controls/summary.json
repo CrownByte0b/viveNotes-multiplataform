@@ -1,0 +1,660 @@
+{
+  "scope": "Exploratory single-fork current-algorithm controls, not final before/after",
+  "sourceSha256": "778a99af38f45e54c0fb40e43a48befec578166f470d247c55d956a61dcee464",
+  "cases": [
+    {
+      "name": "guarded-topk-t1-s0-w3200-l2",
+      "command": [
+        "./gradlew",
+        "-I",
+        "/tmp/vive-native-ctc-kernel.init.gradle",
+        ":shared:nativeCtcKernelProfile",
+        "-PctcKernelOutput=/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/guarded-topk-t1-s0-w3200-l2.json",
+        "-PctcKernelMode=guarded-topk",
+        "-PctcKernelThreads=1",
+        "-PctcKernelSpinning=0",
+        "-PctcKernelWidth=3200",
+        "-PctcKernelLanes=2",
+        "-PctcKernelRecognizerThreads=4",
+        "--max-workers=1",
+        "--offline",
+        "--console=plain",
+        "--no-configuration-cache"
+      ],
+      "medianBatchWallNanos": 3087676,
+      "medianLaneWallNanos": 3022422,
+      "medianLaneCpuNanos": 3012418,
+      "medianLaneAllocatedBytes": 7416,
+      "processCpuNanos": 520000000,
+      "ortProfile": {
+        "path": "/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/guarded-topk-t1-s0-w3200-l2-ort_2026-10-21_20-38-02_924.json",
+        "sha256": "a6993a9a88191888f586fd5b7222436f0889ea749610cec907e730df83d452d6",
+        "runs": 8,
+        "scope": "Separate profiled session after all unprofiled samples; includes first cold graph run; raw trace retained",
+        "operators": [
+          {
+            "op": "TopK",
+            "events": 8,
+            "totalMicros": 23059,
+            "medianMicros": 2882
+          }
+        ]
+      },
+      "memory": [
+        {
+          "stage": "sessions-and-special-float-preflight-ready",
+          "VmRSS": 265031680,
+          "VmHWM": 282738688,
+          "Threads": 34,
+          "heapUsed": 77594624
+        },
+        {
+          "stage": "kernel-warmup-complete",
+          "VmRSS": 402067456,
+          "VmHWM": 402067456,
+          "Threads": 42,
+          "heapUsed": 30887480
+        },
+        {
+          "stage": "unprofiled-kernel-samples-complete",
+          "VmRSS": 402628608,
+          "VmHWM": 402628608,
+          "Threads": 42,
+          "heapUsed": 31936056
+        },
+        {
+          "stage": "unprofiled-kernel-idle",
+          "VmRSS": 402640896,
+          "VmHWM": 402640896,
+          "Threads": 42,
+          "heapUsed": 31936056
+        },
+        {
+          "stage": "all-sessions-closed",
+          "VmRSS": 317345792,
+          "VmHWM": 398987264,
+          "Threads": 37,
+          "heapUsed": 32984632
+        }
+      ]
+    },
+    {
+      "name": "current-t4-s1-w3200-l2",
+      "command": [
+        "./gradlew",
+        "-I",
+        "/tmp/vive-native-ctc-kernel.init.gradle",
+        ":shared:nativeCtcKernelProfile",
+        "-PctcKernelOutput=/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/current-t4-s1-w3200-l2.json",
+        "-PctcKernelMode=current",
+        "-PctcKernelThreads=4",
+        "-PctcKernelSpinning=1",
+        "-PctcKernelWidth=3200",
+        "-PctcKernelLanes=2",
+        "-PctcKernelRecognizerThreads=4",
+        "--max-workers=1",
+        "--offline",
+        "--console=plain",
+        "--no-configuration-cache"
+      ],
+      "medianBatchWallNanos": 11796969,
+      "medianLaneWallNanos": 11276990,
+      "medianLaneCpuNanos": 11198869,
+      "medianLaneAllocatedBytes": 7416,
+      "processCpuNanos": 4650000000,
+      "ortProfile": {
+        "path": "/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/current-t4-s1-w3200-l2-ort_2026-10-21_20-38-06_202.json",
+        "sha256": "0500cd374d045e3b40be2340603eed17f7900e8d5bdad30763efdb5ce5027f96",
+        "runs": 8,
+        "scope": "Separate profiled session after all unprofiled samples; includes first cold graph run; raw trace retained",
+        "operators": [
+          {
+            "op": "IsNaN",
+            "events": 8,
+            "totalMicros": 10551,
+            "medianMicros": 982
+          },
+          {
+            "op": "Where",
+            "events": 8,
+            "totalMicros": 69069,
+            "medianMicros": 5148
+          },
+          {
+            "op": "ArgMax",
+            "events": 8,
+            "totalMicros": 8949,
+            "medianMicros": 1095
+          },
+          {
+            "op": "GatherElements",
+            "events": 8,
+            "totalMicros": 79,
+            "medianMicros": 10
+          }
+        ]
+      },
+      "memory": [
+        {
+          "stage": "sessions-and-special-float-preflight-ready",
+          "VmRSS": 266711040,
+          "VmHWM": 280236032,
+          "Threads": 38,
+          "heapUsed": 75497472
+        },
+        {
+          "stage": "kernel-warmup-complete",
+          "VmRSS": 642191360,
+          "VmHWM": 642191360,
+          "Threads": 45,
+          "heapUsed": 30886952
+        },
+        {
+          "stage": "unprofiled-kernel-samples-complete",
+          "VmRSS": 642572288,
+          "VmHWM": 642572288,
+          "Threads": 45,
+          "heapUsed": 31935528
+        },
+        {
+          "stage": "unprofiled-kernel-idle",
+          "VmRSS": 642580480,
+          "VmHWM": 642580480,
+          "Threads": 45,
+          "heapUsed": 31935528
+        },
+        {
+          "stage": "all-sessions-closed",
+          "VmRSS": 376520704,
+          "VmHWM": 747757568,
+          "Threads": 37,
+          "heapUsed": 34032680
+        }
+      ]
+    },
+    {
+      "name": "current-t1-s0-w3200-l2",
+      "command": [
+        "./gradlew",
+        "-I",
+        "/tmp/vive-native-ctc-kernel.init.gradle",
+        ":shared:nativeCtcKernelProfile",
+        "-PctcKernelOutput=/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/current-t1-s0-w3200-l2.json",
+        "-PctcKernelMode=current",
+        "-PctcKernelThreads=1",
+        "-PctcKernelSpinning=0",
+        "-PctcKernelWidth=3200",
+        "-PctcKernelLanes=2",
+        "-PctcKernelRecognizerThreads=4",
+        "--max-workers=1",
+        "--offline",
+        "--console=plain",
+        "--no-configuration-cache"
+      ],
+      "medianBatchWallNanos": 14510422,
+      "medianLaneWallNanos": 14439978,
+      "medianLaneCpuNanos": 14384819,
+      "medianLaneAllocatedBytes": 7416,
+      "processCpuNanos": 2350000000,
+      "ortProfile": {
+        "path": "/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/current-t1-s0-w3200-l2-ort_2026-10-21_20-38-09_833.json",
+        "sha256": "dcc8976be8b31f7aac62f528d28253df3db02b1977a18c556b99686362cc7e85",
+        "runs": 8,
+        "scope": "Separate profiled session after all unprofiled samples; includes first cold graph run; raw trace retained",
+        "operators": [
+          {
+            "op": "IsNaN",
+            "events": 8,
+            "totalMicros": 10467,
+            "medianMicros": 999
+          },
+          {
+            "op": "Where",
+            "events": 8,
+            "totalMicros": 71545,
+            "medianMicros": 5601
+          },
+          {
+            "op": "ArgMax",
+            "events": 8,
+            "totalMicros": 35040,
+            "medianMicros": 4380
+          },
+          {
+            "op": "GatherElements",
+            "events": 8,
+            "totalMicros": 133,
+            "medianMicros": 17
+          }
+        ]
+      },
+      "memory": [
+        {
+          "stage": "sessions-and-special-float-preflight-ready",
+          "VmRSS": 268845056,
+          "VmHWM": 283193344,
+          "Threads": 32,
+          "heapUsed": 75497472
+        },
+        {
+          "stage": "kernel-warmup-complete",
+          "VmRSS": 643801088,
+          "VmHWM": 643801088,
+          "Threads": 42,
+          "heapUsed": 30887048
+        },
+        {
+          "stage": "unprofiled-kernel-samples-complete",
+          "VmRSS": 644726784,
+          "VmHWM": 644726784,
+          "Threads": 42,
+          "heapUsed": 31935624
+        },
+        {
+          "stage": "unprofiled-kernel-idle",
+          "VmRSS": 644734976,
+          "VmHWM": 644734976,
+          "Threads": 42,
+          "heapUsed": 31935624
+        },
+        {
+          "stage": "all-sessions-closed",
+          "VmRSS": 335138816,
+          "VmHWM": 750137344,
+          "Threads": 37,
+          "heapUsed": 32984200
+        }
+      ]
+    },
+    {
+      "name": "current-t4-s0-w3200-l2",
+      "command": [
+        "./gradlew",
+        "-I",
+        "/tmp/vive-native-ctc-kernel.init.gradle",
+        ":shared:nativeCtcKernelProfile",
+        "-PctcKernelOutput=/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/current-t4-s0-w3200-l2.json",
+        "-PctcKernelMode=current",
+        "-PctcKernelThreads=4",
+        "-PctcKernelSpinning=0",
+        "-PctcKernelWidth=3200",
+        "-PctcKernelLanes=2",
+        "-PctcKernelRecognizerThreads=4",
+        "--max-workers=1",
+        "--offline",
+        "--console=plain",
+        "--no-configuration-cache"
+      ],
+      "medianBatchWallNanos": 11791549,
+      "medianLaneWallNanos": 11501086,
+      "medianLaneCpuNanos": 11441521,
+      "medianLaneAllocatedBytes": 7416,
+      "processCpuNanos": 2340000000,
+      "ortProfile": {
+        "path": "/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/current-t4-s0-w3200-l2-ort_2026-10-21_20-38-13_161.json",
+        "sha256": "ebd119528e09bd399face8360c7a113e8d2fe1be8330503c4c354932a77e0d13",
+        "runs": 8,
+        "scope": "Separate profiled session after all unprofiled samples; includes first cold graph run; raw trace retained",
+        "operators": [
+          {
+            "op": "IsNaN",
+            "events": 8,
+            "totalMicros": 10845,
+            "medianMicros": 1022
+          },
+          {
+            "op": "Where",
+            "events": 8,
+            "totalMicros": 70587,
+            "medianMicros": 5453
+          },
+          {
+            "op": "ArgMax",
+            "events": 8,
+            "totalMicros": 9901,
+            "medianMicros": 1278
+          },
+          {
+            "op": "GatherElements",
+            "events": 8,
+            "totalMicros": 146,
+            "medianMicros": 19
+          }
+        ]
+      },
+      "memory": [
+        {
+          "stage": "sessions-and-special-float-preflight-ready",
+          "VmRSS": 266579968,
+          "VmHWM": 280829952,
+          "Threads": 37,
+          "heapUsed": 75497472
+        },
+        {
+          "stage": "kernel-warmup-complete",
+          "VmRSS": 641908736,
+          "VmHWM": 641908736,
+          "Threads": 45,
+          "heapUsed": 30886736
+        },
+        {
+          "stage": "unprofiled-kernel-samples-complete",
+          "VmRSS": 643358720,
+          "VmHWM": 643358720,
+          "Threads": 45,
+          "heapUsed": 31935312
+        },
+        {
+          "stage": "unprofiled-kernel-idle",
+          "VmRSS": 643366912,
+          "VmHWM": 643366912,
+          "Threads": 45,
+          "heapUsed": 31935312
+        },
+        {
+          "stage": "all-sessions-closed",
+          "VmRSS": 377331712,
+          "VmHWM": 748691456,
+          "Threads": 37,
+          "heapUsed": 32983888
+        }
+      ]
+    },
+    {
+      "name": "current-t1-s1-w3200-l2",
+      "command": [
+        "./gradlew",
+        "-I",
+        "/tmp/vive-native-ctc-kernel.init.gradle",
+        ":shared:nativeCtcKernelProfile",
+        "-PctcKernelOutput=/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/current-t1-s1-w3200-l2.json",
+        "-PctcKernelMode=current",
+        "-PctcKernelThreads=1",
+        "-PctcKernelSpinning=1",
+        "-PctcKernelWidth=3200",
+        "-PctcKernelLanes=2",
+        "-PctcKernelRecognizerThreads=4",
+        "--max-workers=1",
+        "--offline",
+        "--console=plain",
+        "--no-configuration-cache"
+      ],
+      "medianBatchWallNanos": 14125290,
+      "medianLaneWallNanos": 14048773,
+      "medianLaneCpuNanos": 13987316,
+      "medianLaneAllocatedBytes": 7416,
+      "processCpuNanos": 2270000000,
+      "ortProfile": {
+        "path": "/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/current-t1-s1-w3200-l2-ort_2026-10-21_20-38-16_752.json",
+        "sha256": "66d5f16dcac8350fe36d54d5824e1418bca88582aaa7ab7faae8f6ef65910a7e",
+        "runs": 8,
+        "scope": "Separate profiled session after all unprofiled samples; includes first cold graph run; raw trace retained",
+        "operators": [
+          {
+            "op": "IsNaN",
+            "events": 8,
+            "totalMicros": 10571,
+            "medianMicros": 984
+          },
+          {
+            "op": "Where",
+            "events": 8,
+            "totalMicros": 70690,
+            "medianMicros": 5374
+          },
+          {
+            "op": "ArgMax",
+            "events": 8,
+            "totalMicros": 34058,
+            "medianMicros": 4259
+          },
+          {
+            "op": "GatherElements",
+            "events": 8,
+            "totalMicros": 144,
+            "medianMicros": 18
+          }
+        ]
+      },
+      "memory": [
+        {
+          "stage": "sessions-and-special-float-preflight-ready",
+          "VmRSS": 265367552,
+          "VmHWM": 280588288,
+          "Threads": 31,
+          "heapUsed": 75497472
+        },
+        {
+          "stage": "kernel-warmup-complete",
+          "VmRSS": 641462272,
+          "VmHWM": 641462272,
+          "Threads": 42,
+          "heapUsed": 30886968
+        },
+        {
+          "stage": "unprofiled-kernel-samples-complete",
+          "VmRSS": 641765376,
+          "VmHWM": 641765376,
+          "Threads": 42,
+          "heapUsed": 31935544
+        },
+        {
+          "stage": "unprofiled-kernel-idle",
+          "VmRSS": 641777664,
+          "VmHWM": 641777664,
+          "Threads": 42,
+          "heapUsed": 31935544
+        },
+        {
+          "stage": "all-sessions-closed",
+          "VmRSS": 375959552,
+          "VmHWM": 746602496,
+          "Threads": 37,
+          "heapUsed": 32984120
+        }
+      ]
+    },
+    {
+      "name": "guarded-topk-t1-s0-w320-l2",
+      "command": [
+        "./gradlew",
+        "-I",
+        "/tmp/vive-native-ctc-kernel.init.gradle",
+        ":shared:nativeCtcKernelProfile",
+        "-PctcKernelOutput=/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/guarded-topk-t1-s0-w320-l2.json",
+        "-PctcKernelMode=guarded-topk",
+        "-PctcKernelThreads=1",
+        "-PctcKernelSpinning=0",
+        "-PctcKernelWidth=320",
+        "-PctcKernelLanes=2",
+        "-PctcKernelRecognizerThreads=4",
+        "--max-workers=1",
+        "--offline",
+        "--console=plain",
+        "--no-configuration-cache"
+      ],
+      "medianBatchWallNanos": 347892,
+      "medianLaneWallNanos": 314288,
+      "medianLaneCpuNanos": 315299,
+      "medianLaneAllocatedBytes": 2368,
+      "processCpuNanos": 60000000,
+      "ortProfile": {
+        "path": "/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/guarded-topk-t1-s0-w320-l2-ort_2026-10-21_20-38-18_532.json",
+        "sha256": "80e1a06176a2f017bab81f33dc2ffd3ea26ab5434e4d0e8c4968b54a6fbc5a60",
+        "runs": 8,
+        "scope": "Separate profiled session after all unprofiled samples; includes first cold graph run; raw trace retained",
+        "operators": [
+          {
+            "op": "TopK",
+            "events": 8,
+            "totalMicros": 2381,
+            "medianMicros": 295
+          }
+        ]
+      },
+      "memory": [
+        {
+          "stage": "sessions-and-special-float-preflight-ready",
+          "VmRSS": 260681728,
+          "VmHWM": 278528000,
+          "Threads": 31,
+          "heapUsed": 73400320
+        },
+        {
+          "stage": "kernel-warmup-complete",
+          "VmRSS": 285478912,
+          "VmHWM": 285478912,
+          "Threads": 42,
+          "heapUsed": 27925920
+        },
+        {
+          "stage": "unprofiled-kernel-samples-complete",
+          "VmRSS": 285704192,
+          "VmHWM": 285704192,
+          "Threads": 42,
+          "heapUsed": 28974496
+        },
+        {
+          "stage": "unprofiled-kernel-idle",
+          "VmRSS": 285720576,
+          "VmHWM": 285720576,
+          "Threads": 42,
+          "heapUsed": 28974496
+        },
+        {
+          "stage": "all-sessions-closed",
+          "VmRSS": 283107328,
+          "VmHWM": 283496448,
+          "Threads": 37,
+          "heapUsed": 30023072
+        }
+      ]
+    },
+    {
+      "name": "flat-t1-s0-w3200-l2",
+      "command": [
+        "./gradlew",
+        "-I",
+        "/tmp/vive-native-ctc-kernel.init.gradle",
+        ":shared:nativeCtcKernelProfile",
+        "-PctcKernelOutput=/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/flat-t1-s0-w3200-l2.json",
+        "-PctcKernelMode=flat",
+        "-PctcKernelThreads=1",
+        "-PctcKernelSpinning=0",
+        "-PctcKernelWidth=3200",
+        "-PctcKernelLanes=2",
+        "-PctcKernelRecognizerThreads=4",
+        "--max-workers=1",
+        "--offline",
+        "--console=plain",
+        "--no-configuration-cache"
+      ],
+      "medianBatchWallNanos": 5703643,
+      "medianLaneWallNanos": 5600358,
+      "medianLaneCpuNanos": 5520714,
+      "medianLaneAllocatedBytes": 29937248,
+      "processCpuNanos": 960000000,
+      "ortProfile": null,
+      "memory": [
+        {
+          "stage": "sessions-and-special-float-preflight-ready",
+          "VmRSS": 252805120,
+          "VmHWM": 277381120,
+          "Threads": 30,
+          "heapUsed": 69206016
+        },
+        {
+          "stage": "kernel-warmup-complete",
+          "VmRSS": 599293952,
+          "VmHWM": 599293952,
+          "Threads": 45,
+          "heapUsed": 151465992
+        },
+        {
+          "stage": "unprofiled-kernel-samples-complete",
+          "VmRSS": 599654400,
+          "VmHWM": 599654400,
+          "Threads": 45,
+          "heapUsed": 212402184
+        },
+        {
+          "stage": "unprofiled-kernel-idle",
+          "VmRSS": 599691264,
+          "VmHWM": 599691264,
+          "Threads": 45,
+          "heapUsed": 212402184
+        },
+        {
+          "stage": "all-sessions-closed",
+          "VmRSS": 539615232,
+          "VmHWM": 595894272,
+          "Threads": 39,
+          "heapUsed": 212402184
+        }
+      ]
+    },
+    {
+      "name": "scalar-t1-s0-w3200-l2",
+      "command": [
+        "./gradlew",
+        "-I",
+        "/tmp/vive-native-ctc-kernel.init.gradle",
+        ":shared:nativeCtcKernelProfile",
+        "-PctcKernelOutput=/home/mahalo/repos/viveHub/multiplataform-vive/build/ocr-milestone-verification-20261021/kernels/scalar-t1-s0-w3200-l2.json",
+        "-PctcKernelMode=scalar",
+        "-PctcKernelThreads=1",
+        "-PctcKernelSpinning=0",
+        "-PctcKernelWidth=3200",
+        "-PctcKernelLanes=2",
+        "-PctcKernelRecognizerThreads=4",
+        "--max-workers=1",
+        "--offline",
+        "--console=plain",
+        "--no-configuration-cache"
+      ],
+      "medianBatchWallNanos": 2039461,
+      "medianLaneWallNanos": 1977994,
+      "medianLaneCpuNanos": 1972401,
+      "medianLaneAllocatedBytes": 1064,
+      "processCpuNanos": 330000000,
+      "ortProfile": null,
+      "memory": [
+        {
+          "stage": "sessions-and-special-float-preflight-ready",
+          "VmRSS": 253026304,
+          "VmHWM": 277417984,
+          "Threads": 30,
+          "heapUsed": 69206016
+        },
+        {
+          "stage": "kernel-warmup-complete",
+          "VmRSS": 418861056,
+          "VmHWM": 418861056,
+          "Threads": 43,
+          "heapUsed": 60202776
+        },
+        {
+          "stage": "unprofiled-kernel-samples-complete",
+          "VmRSS": 419012608,
+          "VmHWM": 419012608,
+          "Threads": 42,
+          "heapUsed": 60202776
+        },
+        {
+          "stage": "unprofiled-kernel-idle",
+          "VmRSS": 419057664,
+          "VmHWM": 419057664,
+          "Threads": 42,
+          "heapUsed": 60202776
+        },
+        {
+          "stage": "all-sessions-closed",
+          "VmRSS": 358924288,
+          "VmHWM": 415518720,
+          "Threads": 37,
+          "heapUsed": 60202776
+        }
+      ]
+    }
+  ]
+}

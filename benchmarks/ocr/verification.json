@@ -1,0 +1,234 @@
+{
+  "command": ":shared:jvmTest :desktopApp:test lint :desktopApp:assemble --max-workers=1 --offline --console=plain",
+  "result": "BUILD SUCCESSFUL",
+  "elapsed": "2m27s",
+  "suites": {
+    "shared": {
+      "tests": 2015,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 6,
+      "passed": 2009
+    },
+    "desktop": {
+      "tests": 151,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 5,
+      "passed": 146
+    }
+  },
+  "skippedCases": [
+    {
+      "suite": "TEST-com.vivenotes.ai.OcrGeometryProfileTest",
+      "test": "profileRealDetectorHullsAndReadingOrder[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.ai.OnnxRecognitionSmokeTest",
+      "test": "uniMerNetReadsAPrintedFormula[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.ai.OnnxRecognitionSmokeTest",
+      "test": "switchingBetweenTinyAndSmallReloadsTheCorrectGraphsWhileHeld[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.data.sync.DesktopLiveSyncProbeTest",
+      "test": "exchangeOnlyAnOwnedTemporaryNotebookWithTheExistingAndroidApp[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.data.sync.HierarchySyncTest",
+      "test": "profileMetadataWaitBehindOneDelayedDesktopPictureUpload[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.ui.canvas.InkFollowupPerformanceScenario",
+      "test": "pairedCanonicalReplayAndFullRasterReferences[jvm]"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "aCameraTakenAwayMidStreamSaysItStopped"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "theCameraOpensAgainTheMomentAWindowLetsItGo"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "aSecondStreamOfTheSameCameraIsToldItIsBusy"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "framesArriveAndTheLastBecomesAPhotoTheStoreKeeps"
+    },
+    {
+      "suite": "TEST-com.vivenotes.desktop.camera.RealCameraTest",
+      "test": "theCameraIsListedByTheNameItsDriverGives"
+    }
+  ],
+  "focusedOcrTestsPassed": 125,
+  "focusedOcrSkippedCases": 3,
+  "pythonContractsPassed": 12,
+  "geometryCaptureForksPerVariant": 3,
+  "sourceSha256": [
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ocr/HullSupportTree.kt",
+      "sha256": "02122649cfc8414e9b01c078c6d70fe6d3d40dc5294d2bf0caba5125fc5d3e92"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ocr/ReadingRowCandidates.kt",
+      "sha256": "4b9e22470a6f33d85a9c2b7317e4d8e42e1a68c088ed7ab1b3d92cc696321a91"
+    },
+    {
+      "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ocr/TextDetection.kt",
+      "sha256": "babe376c18a61012b1f0c065e0fb5769859f4df0cd67052707f941744a0e8c49"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/InkRecognitionEngine.kt",
+      "sha256": "e9c7dd97531123de46f198bf7c94009f6c2dcc256dd85772524b3dcf623ab72c"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/NativeCtcReduction.kt",
+      "sha256": "74e0fb09cc266fd6beeb08e8f62ae1a1a3db46f1a8dabd68a2df9ba144cdf21f"
+    },
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/OwnedFloatArray.kt",
+      "sha256": "77249b23ad01d5f727bba4090cd14137f3473ae8822ee8e1b401dee1d0f20295"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/DrawInkRecognitionTest.kt",
+      "sha256": "f803fdecea62b98c5f43d99f8183901129fbe9f7fff7714a1477f0369ef48dbd"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/NativeCtcKernelProfile.kt",
+      "sha256": "4d193eac3fbf875d0cf99a6d6bb8cda847c02d386770e381c7898c6c5141628a"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/NativeCtcProfileAdapter.kt",
+      "sha256": "4da62e9737fba9281cacd376c6e7934ab6716e69bed95a0652e593fcdb851aec"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/NativeCtcReductionTest.kt",
+      "sha256": "d1ce4b620ab06aa8854707689f44d7335b71841423a34b52d658530f8b2a7f4f"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/OcrCtcProfile.kt",
+      "sha256": "e26f562973063e06530ee5b78f5fa60e440a78c6ba0e9695fa82c78bfb357097"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/OcrGeometryProfileTest.kt",
+      "sha256": "75fda2b1bd35514a84ad71359823becb42e18af0dfcab4e0c1d15ef6c2b5b373"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/OcrOutputCopyTest.kt",
+      "sha256": "baf439ac2454fe668aab236aa36d39762acad17e2819655720f02124acdd0d64"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/ReadingRowCandidatesTest.kt",
+      "sha256": "053fcbef975ded168ff1c0b646ab09b8bc6e61b3c83ab0ec72ef5ad5f668cf95"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/TextMinAreaRectOptimizationTest.kt",
+      "sha256": "1b8a885277ade5c0c4ab6e41ac98804cb3448a4b755be4fd2368c29bd8ad4cd9"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/TextReadingOrderOptimizationTest.kt",
+      "sha256": "dbadd92a89c1f9b0e8524a6a5e431ced585edfd715e98662d09abe4ab18a6ba7"
+    }
+  ],
+  "fullLog": "build/ocr-milestone-verification-20261021/full-jvm-2.log",
+  "totalPassed": 2155,
+  "totalSkipped": 11,
+  "comparableCtcCapture": {
+    "directory": "benchmarks/results/2026-10-21-desktop-ocr-ctc-verified",
+    "taskLaunchesValidated": 24,
+    "forksPerConfigurationVariant": 3,
+    "configurations": 4,
+    "compatibilityPassed": true,
+    "rawIntegrityReanalysisPassed": true,
+    "nativeProcessesWithOneReductionThread": 12,
+    "exceptionalCopiesInAll24Processes": 0
+  },
+  "comparableGeometryCapture": {
+    "directory": "benchmarks/results/2026-10-21-desktop-ocr-geometry",
+    "taskLaunchesValidated": 6,
+    "forksPerVariant": 3,
+    "casesPerFork": 12,
+    "compatibilityPassed": true,
+    "rawIntegrityReanalysisPassed": true,
+    "unchangedGeometrySourceFiles": [
+      {
+        "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ocr/HullSupportTree.kt",
+        "sha256": "02122649cfc8414e9b01c078c6d70fe6d3d40dc5294d2bf0caba5125fc5d3e92"
+      },
+      {
+        "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ocr/ReadingRowCandidates.kt",
+        "sha256": "4b9e22470a6f33d85a9c2b7317e4d8e42e1a68c088ed7ab1b3d92cc696321a91"
+      },
+      {
+        "path": "shared/src/commonMain/kotlin/com/vivenotes/model/ocr/TextDetection.kt",
+        "sha256": "babe376c18a61012b1f0c065e0fb5769859f4df0cd67052707f941744a0e8c49"
+      },
+      {
+        "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/OcrGeometryProfileTest.kt",
+        "sha256": "75fda2b1bd35514a84ad71359823becb42e18af0dfcab4e0c1d15ef6c2b5b373"
+      },
+      {
+        "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/ReadingRowCandidatesTest.kt",
+        "sha256": "053fcbef975ded168ff1c0b646ab09b8bc6e61b3c83ab0ec72ef5ad5f668cf95"
+      },
+      {
+        "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/TextDetectionTest.kt",
+        "sha256": "d63837b73aba0be962a78a8eaecb30bb389fe712d34bc7be4cdb3d9a54a2d15c"
+      },
+      {
+        "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/TextMinAreaRectOptimizationTest.kt",
+        "sha256": "1b8a885277ade5c0c4ab6e41ac98804cb3448a4b755be4fd2368c29bd8ad4cd9"
+      },
+      {
+        "path": "shared/src/jvmTest/kotlin/com/vivenotes/model/ocr/TextReadingOrderOptimizationTest.kt",
+        "sha256": "dbadd92a89c1f9b0e8524a6a5e431ced585edfd715e98662d09abe4ab18a6ba7"
+      }
+    ]
+  },
+  "integrity": {
+    "finalSourceFilesMatchedToFullTestsAndCtcCapture": 16,
+    "committedInkSourceFiles": 18,
+    "committedSyncSourceFiles": 9,
+    "committedCheckpointSourceFiles": 3,
+    "unchangedArchivedFiles": 50,
+    "originalFrozenCapturesUnchanged": true,
+    "originalNineHarnessFilesUnchanged": true,
+    "protectedDocsModelsDependenciesScannerRulesUnchanged": true,
+    "gitIndexEmpty": true
+  },
+  "baselineCommit": "e120e0104234e316a16226443677c4f40f22f5e1",
+  "captureMetadata": [
+    {
+      "path": "benchmarks/results/2026-10-21-desktop-ocr-ctc-verified/environment.json",
+      "sha256": "85954a12e5e950bd40078b932b756da2876554216fe4028fe68c3b1b174d7012"
+    },
+    {
+      "path": "benchmarks/results/2026-10-21-desktop-ocr-ctc-verified/comparison.json",
+      "sha256": "15f42a5e26bfc9699e719389b76edadad011ee853ca46633d721fee5f81548ab"
+    },
+    {
+      "path": "benchmarks/results/2026-10-21-desktop-ocr-geometry/environment.json",
+      "sha256": "788e44ee6b0eef8d08a373248a66439c654cd7ffcf429c646c216e24b5499a65"
+    },
+    {
+      "path": "benchmarks/results/2026-10-21-desktop-ocr-geometry/comparison.json",
+      "sha256": "adf406e76f62fc82e2c1eed8c3e1c3cb29bbf08060feb265f6e41d4fe13cf689"
+    },
+    {
+      "path": "benchmarks/results/2026-10-21-desktop-ocr-kernel-controls/integrity.json",
+      "sha256": "b8a34adbb59cc2db5f6db16424d90e6d4e4842a97a6658fc6fdea42a24ef3beb"
+    }
+  ],
+  "secretScan": {
+    "changedOrNewFiles": 223,
+    "bytes": 8307798,
+    "leaks": 0,
+    "elapsedMilliseconds": 445,
+    "redacted": true,
+    "scannerExceptionsChanged": false
+  }
+}

@@ -1,0 +1,23 @@
+import org.gradle.api.tasks.JavaExec
+
+gradle.projectsEvaluated {
+    def shared = gradle.rootProject.project(':shared')
+    def baseline = shared.tasks.named('performanceBaseline', JavaExec)
+    shared.tasks.register('nativeCtcKernelProfile', JavaExec) { task ->
+        dependsOn(shared.tasks.named('jvmTestClasses'))
+        classpath = baseline.get().classpath
+        javaLauncher.set(baseline.flatMap { it.javaLauncher })
+        minHeapSize = baseline.get().minHeapSize
+        maxHeapSize = baseline.get().maxHeapSize
+        setJvmArgs(baseline.get().jvmArgs)
+        systemProperties(baseline.get().systemProperties)
+        workingDir = baseline.get().workingDir
+        mainClass.set('com.vivenotes.ai.NativeCtcKernelProfile')
+        args(shared.findProperty('ctcKernelOutput'), shared.findProperty('ctcKernelMode'),
+             shared.findProperty('ctcKernelThreads'), shared.findProperty('ctcKernelSpinning'),
+             shared.findProperty('ctcKernelWidth'), shared.findProperty('ctcKernelLanes'),
+             shared.findProperty('ctcKernelRecognizerThreads'), shared.findProperty('ctcKernelArena') ?: '1',
+             shared.findProperty('ctcKernelPattern') ?: '1')
+        outputs.upToDateWhen { false }
+    }
+}

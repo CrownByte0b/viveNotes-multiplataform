@@ -1,0 +1,1537 @@
+{
+    "schema": "vive-ocr-ctc-profile/1",
+    "capturedAt": "2026-10-22T00:27:57.136735766Z",
+    "mode": "flat",
+    "lanes": 1,
+    "inferenceThreads": 1,
+    "inputShape": [
+        1,
+        3,
+        48,
+        3200
+    ],
+    "outputShape": [
+        1,
+        400,
+        18710
+    ],
+    "inputSha256": "b401143c724700fd78db9573e5d2209c560284030e0c5187ebf97f06f430e548",
+    "outputSha256": "43a10d5855cecaeebf55336190ab31e56761785fab21fd4f186ef9dadeb0454e",
+    "modelSha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+    "modelBytes": 21159378,
+    "dictionarySha256": "b5f2bfe2bdd9448429e3e82b51c789775d9b42f2403d082b00662eb77e401c5d",
+    "dictionaryBytes": 74947,
+    "readingSha256": "23462c7baed3bec4100969976f570a5bcfab4addbb2fdcbc8377c6be89e61f4f",
+    "confidenceBits": 1065284015,
+    "fixturePreparationNanos": 147616393,
+    "sessionOpenNanos": 92078734,
+    "sessionOpenScope": "bundled model read and SHA verification, options, native session creation/optimization",
+    "nativeReductionOpens": 0,
+    "cold": {
+        "wallNanos": 237044500,
+        "lanes": [
+            {
+                "wallNanos": 235534520,
+                "callerCpuNanos": 234383693,
+                "allocatedBytes": 30179392
+            }
+        ]
+    },
+    "pipelineWarmupBatches": 8,
+    "pipelineWarm": {
+        "batches": [
+            {
+                "wallNanos": 173302169,
+                "lanes": [
+                    {
+                        "wallNanos": 173204654,
+                        "callerCpuNanos": 172542546,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 174319192,
+                "lanes": [
+                    {
+                        "wallNanos": 174234481,
+                        "callerCpuNanos": 173540904,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 179373447,
+                "lanes": [
+                    {
+                        "wallNanos": 179290679,
+                        "callerCpuNanos": 178140456,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 175811317,
+                "lanes": [
+                    {
+                        "wallNanos": 175728519,
+                        "callerCpuNanos": 174955633,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 176484206,
+                "lanes": [
+                    {
+                        "wallNanos": 176392362,
+                        "callerCpuNanos": 174127650,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 176924282,
+                "lanes": [
+                    {
+                        "wallNanos": 176800467,
+                        "callerCpuNanos": 175618291,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 174210917,
+                "lanes": [
+                    {
+                        "wallNanos": 174110084,
+                        "callerCpuNanos": 173322414,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 177477423,
+                "lanes": [
+                    {
+                        "wallNanos": 177371743,
+                        "callerCpuNanos": 175958635,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 176150212,
+                "lanes": [
+                    {
+                        "wallNanos": 176066262,
+                        "callerCpuNanos": 174740754,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 177691821,
+                "lanes": [
+                    {
+                        "wallNanos": 177603684,
+                        "callerCpuNanos": 176339200,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 174241434,
+                "lanes": [
+                    {
+                        "wallNanos": 174159558,
+                        "callerCpuNanos": 173335620,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 177272725,
+                "lanes": [
+                    {
+                        "wallNanos": 177175820,
+                        "callerCpuNanos": 174846902,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 173783614,
+                "lanes": [
+                    {
+                        "wallNanos": 173685056,
+                        "callerCpuNanos": 172955543,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 175086620,
+                "lanes": [
+                    {
+                        "wallNanos": 175009543,
+                        "callerCpuNanos": 174302703,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 175874928,
+                "lanes": [
+                    {
+                        "wallNanos": 175796940,
+                        "callerCpuNanos": 175072547,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 175183324,
+                "lanes": [
+                    {
+                        "wallNanos": 175094996,
+                        "callerCpuNanos": 174433763,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 175548307,
+                "lanes": [
+                    {
+                        "wallNanos": 175463386,
+                        "callerCpuNanos": 174810387,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 177981472,
+                "lanes": [
+                    {
+                        "wallNanos": 177900577,
+                        "callerCpuNanos": 177084377,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            },
+            {
+                "wallNanos": 178090448,
+                "lanes": [
+                    {
+                        "wallNanos": 177997182,
+                        "callerCpuNanos": 175631579,
+                        "allocatedBytes": 29938848
+                    }
+                ]
+            },
+            {
+                "wallNanos": 176691851,
+                "lanes": [
+                    {
+                        "wallNanos": 176609744,
+                        "callerCpuNanos": 175674723,
+                        "allocatedBytes": 29938464
+                    }
+                ]
+            }
+        ],
+        "processCpuNanos": 3540000000,
+        "medianBatchWallNanos": 176150212,
+        "medianLaneWallNanos": 176066262,
+        "medianLaneCpuNanos": 174846902,
+        "medianLaneAllocatedBytes": 29938464
+    },
+    "kernelWarmupBatches": 40,
+    "kernelWarm": {
+        "batches": [
+            {
+                "wallNanos": 4703389,
+                "lanes": [
+                    {
+                        "wallNanos": 4635360,
+                        "callerCpuNanos": 4611581,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4593139,
+                "lanes": [
+                    {
+                        "wallNanos": 4543465,
+                        "callerCpuNanos": 4522101,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5017897,
+                "lanes": [
+                    {
+                        "wallNanos": 4963093,
+                        "callerCpuNanos": 4303514,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4488059,
+                "lanes": [
+                    {
+                        "wallNanos": 4445789,
+                        "callerCpuNanos": 4422998,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4303339,
+                "lanes": [
+                    {
+                        "wallNanos": 4265096,
+                        "callerCpuNanos": 4216267,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4827886,
+                "lanes": [
+                    {
+                        "wallNanos": 4768873,
+                        "callerCpuNanos": 4755533,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4827785,
+                "lanes": [
+                    {
+                        "wallNanos": 4761499,
+                        "callerCpuNanos": 4747936,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4503439,
+                "lanes": [
+                    {
+                        "wallNanos": 4450949,
+                        "callerCpuNanos": 4430021,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4365958,
+                "lanes": [
+                    {
+                        "wallNanos": 4317416,
+                        "callerCpuNanos": 4274047,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4806535,
+                "lanes": [
+                    {
+                        "wallNanos": 4748505,
+                        "callerCpuNanos": 4289807,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4564144,
+                "lanes": [
+                    {
+                        "wallNanos": 4516714,
+                        "callerCpuNanos": 4495573,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4575636,
+                "lanes": [
+                    {
+                        "wallNanos": 4528496,
+                        "callerCpuNanos": 4515663,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4965157,
+                "lanes": [
+                    {
+                        "wallNanos": 4910161,
+                        "callerCpuNanos": 4848654,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4297537,
+                "lanes": [
+                    {
+                        "wallNanos": 4254956,
+                        "callerCpuNanos": 4243461,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4254276,
+                "lanes": [
+                    {
+                        "wallNanos": 4215111,
+                        "callerCpuNanos": 4195342,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4264014,
+                "lanes": [
+                    {
+                        "wallNanos": 4221934,
+                        "callerCpuNanos": 4193819,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 6035129,
+                "lanes": [
+                    {
+                        "wallNanos": 5952192,
+                        "callerCpuNanos": 5155249,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5850759,
+                "lanes": [
+                    {
+                        "wallNanos": 5779834,
+                        "callerCpuNanos": 5754291,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4365286,
+                "lanes": [
+                    {
+                        "wallNanos": 4313589,
+                        "callerCpuNanos": 4292602,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4273061,
+                "lanes": [
+                    {
+                        "wallNanos": 4226903,
+                        "callerCpuNanos": 4212122,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4300332,
+                "lanes": [
+                    {
+                        "wallNanos": 4256338,
+                        "callerCpuNanos": 4223465,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4697177,
+                "lanes": [
+                    {
+                        "wallNanos": 4648084,
+                        "callerCpuNanos": 4587236,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4678472,
+                "lanes": [
+                    {
+                        "wallNanos": 4628426,
+                        "callerCpuNanos": 4615328,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 6025922,
+                "lanes": [
+                    {
+                        "wallNanos": 5954617,
+                        "callerCpuNanos": 5222166,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4609961,
+                "lanes": [
+                    {
+                        "wallNanos": 4558754,
+                        "callerCpuNanos": 4545896,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4643996,
+                "lanes": [
+                    {
+                        "wallNanos": 4599271,
+                        "callerCpuNanos": 4580915,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4238756,
+                "lanes": [
+                    {
+                        "wallNanos": 4196105,
+                        "callerCpuNanos": 4171328,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4633465,
+                "lanes": [
+                    {
+                        "wallNanos": 4590274,
+                        "callerCpuNanos": 4578659,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4662330,
+                "lanes": [
+                    {
+                        "wallNanos": 4613137,
+                        "callerCpuNanos": 4600268,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4735750,
+                "lanes": [
+                    {
+                        "wallNanos": 4691446,
+                        "callerCpuNanos": 4619665,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5074934,
+                "lanes": [
+                    {
+                        "wallNanos": 5017716,
+                        "callerCpuNanos": 4327890,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4314620,
+                "lanes": [
+                    {
+                        "wallNanos": 4269625,
+                        "callerCpuNanos": 4248210,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4310643,
+                "lanes": [
+                    {
+                        "wallNanos": 4277249,
+                        "callerCpuNanos": 4267486,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4919058,
+                "lanes": [
+                    {
+                        "wallNanos": 4877319,
+                        "callerCpuNanos": 4813248,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5363493,
+                "lanes": [
+                    {
+                        "wallNanos": 5309491,
+                        "callerCpuNanos": 5274191,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4380205,
+                "lanes": [
+                    {
+                        "wallNanos": 4332634,
+                        "callerCpuNanos": 4318098,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4361889,
+                "lanes": [
+                    {
+                        "wallNanos": 4313628,
+                        "callerCpuNanos": 4299786,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5129238,
+                "lanes": [
+                    {
+                        "wallNanos": 5063733,
+                        "callerCpuNanos": 4493868,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4870706,
+                "lanes": [
+                    {
+                        "wallNanos": 4820191,
+                        "callerCpuNanos": 4805855,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5181968,
+                "lanes": [
+                    {
+                        "wallNanos": 5117215,
+                        "callerCpuNanos": 5100477,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4923938,
+                "lanes": [
+                    {
+                        "wallNanos": 4861670,
+                        "callerCpuNanos": 4846621,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4709972,
+                "lanes": [
+                    {
+                        "wallNanos": 4658624,
+                        "callerCpuNanos": 4562460,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4292909,
+                "lanes": [
+                    {
+                        "wallNanos": 4250758,
+                        "callerCpuNanos": 4236461,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4249386,
+                "lanes": [
+                    {
+                        "wallNanos": 4204009,
+                        "callerCpuNanos": 4195520,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5291877,
+                "lanes": [
+                    {
+                        "wallNanos": 5222525,
+                        "callerCpuNanos": 4515469,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4738074,
+                "lanes": [
+                    {
+                        "wallNanos": 4671929,
+                        "callerCpuNanos": 4661064,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4708549,
+                "lanes": [
+                    {
+                        "wallNanos": 4654275,
+                        "callerCpuNanos": 4636888,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4299942,
+                "lanes": [
+                    {
+                        "wallNanos": 4251230,
+                        "callerCpuNanos": 4237011,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4325971,
+                "lanes": [
+                    {
+                        "wallNanos": 4284583,
+                        "callerCpuNanos": 4272174,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4267851,
+                "lanes": [
+                    {
+                        "wallNanos": 4231652,
+                        "callerCpuNanos": 4214879,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4330500,
+                "lanes": [
+                    {
+                        "wallNanos": 4296586,
+                        "callerCpuNanos": 4283620,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5554346,
+                "lanes": [
+                    {
+                        "wallNanos": 5480426,
+                        "callerCpuNanos": 4936859,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5041481,
+                "lanes": [
+                    {
+                        "wallNanos": 4978773,
+                        "callerCpuNanos": 4961553,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4588971,
+                "lanes": [
+                    {
+                        "wallNanos": 4531341,
+                        "callerCpuNanos": 4518946,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4325721,
+                "lanes": [
+                    {
+                        "wallNanos": 4268983,
+                        "callerCpuNanos": 4256294,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4276197,
+                "lanes": [
+                    {
+                        "wallNanos": 4222414,
+                        "callerCpuNanos": 4208726,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4326222,
+                "lanes": [
+                    {
+                        "wallNanos": 4285665,
+                        "callerCpuNanos": 4268740,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4908178,
+                "lanes": [
+                    {
+                        "wallNanos": 4843385,
+                        "callerCpuNanos": 4792740,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 6585757,
+                "lanes": [
+                    {
+                        "wallNanos": 6483932,
+                        "callerCpuNanos": 5223772,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4522465,
+                "lanes": [
+                    {
+                        "wallNanos": 4433346,
+                        "callerCpuNanos": 4431894,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4483351,
+                "lanes": [
+                    {
+                        "wallNanos": 4448013,
+                        "callerCpuNanos": 4432426,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4320521,
+                "lanes": [
+                    {
+                        "wallNanos": 4291847,
+                        "callerCpuNanos": 4280010,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4802798,
+                "lanes": [
+                    {
+                        "wallNanos": 4764535,
+                        "callerCpuNanos": 4725917,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5209671,
+                "lanes": [
+                    {
+                        "wallNanos": 5158664,
+                        "callerCpuNanos": 5139358,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4767581,
+                "lanes": [
+                    {
+                        "wallNanos": 4725230,
+                        "callerCpuNanos": 4685045,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5059525,
+                "lanes": [
+                    {
+                        "wallNanos": 5004170,
+                        "callerCpuNanos": 4522914,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4317336,
+                "lanes": [
+                    {
+                        "wallNanos": 4277199,
+                        "callerCpuNanos": 4265393,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4464685,
+                "lanes": [
+                    {
+                        "wallNanos": 4432685,
+                        "callerCpuNanos": 4414213,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4372440,
+                "lanes": [
+                    {
+                        "wallNanos": 4338415,
+                        "callerCpuNanos": 4327058,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4284002,
+                "lanes": [
+                    {
+                        "wallNanos": 4253794,
+                        "callerCpuNanos": 4242072,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4302066,
+                "lanes": [
+                    {
+                        "wallNanos": 4273281,
+                        "callerCpuNanos": 4259221,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4212486,
+                "lanes": [
+                    {
+                        "wallNanos": 4184463,
+                        "callerCpuNanos": 4172708,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 5034107,
+                "lanes": [
+                    {
+                        "wallNanos": 4986948,
+                        "callerCpuNanos": 4266496,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4424508,
+                "lanes": [
+                    {
+                        "wallNanos": 4385465,
+                        "callerCpuNanos": 4373433,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4797097,
+                "lanes": [
+                    {
+                        "wallNanos": 4748213,
+                        "callerCpuNanos": 4676543,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4781938,
+                "lanes": [
+                    {
+                        "wallNanos": 4738395,
+                        "callerCpuNanos": 4719143,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4791025,
+                "lanes": [
+                    {
+                        "wallNanos": 4752542,
+                        "callerCpuNanos": 4734470,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4473652,
+                "lanes": [
+                    {
+                        "wallNanos": 4433846,
+                        "callerCpuNanos": 4397618,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4318427,
+                "lanes": [
+                    {
+                        "wallNanos": 4285164,
+                        "callerCpuNanos": 4232392,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            },
+            {
+                "wallNanos": 4867170,
+                "lanes": [
+                    {
+                        "wallNanos": 4812737,
+                        "callerCpuNanos": 4332668,
+                        "allocatedBytes": 29937264
+                    }
+                ]
+            }
+        ],
+        "processCpuNanos": 410000000,
+        "medianBatchWallNanos": 4609961,
+        "medianLaneWallNanos": 4558754,
+        "medianLaneCpuNanos": 4432426,
+        "medianLaneAllocatedBytes": 29937264
+    },
+    "memory": [
+        {
+            "stage": "process-start",
+            "atNanos": 24038448381486,
+            "rssBytes": 58966016,
+            "peakRssBytes": 58966016,
+            "heapUsedBytes": 6291456,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 6035552,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 0,
+            "gcMillis": 0
+        },
+        {
+            "stage": "fixture-ready",
+            "atNanos": 24038616200714,
+            "rssBytes": 149553152,
+            "peakRssBytes": 149553152,
+            "heapUsedBytes": 25165824,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 11750040,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 0,
+            "gcMillis": 0
+        },
+        {
+            "stage": "onnx-environment-ready",
+            "atNanos": 24038709523643,
+            "rssBytes": 166805504,
+            "peakRssBytes": 166805504,
+            "heapUsedBytes": 25165824,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 12040392,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 0,
+            "gcMillis": 0
+        },
+        {
+            "stage": "recognizer-session-open",
+            "atNanos": 24038802601797,
+            "rssBytes": 252751872,
+            "peakRssBytes": 280358912,
+            "heapUsedBytes": 70254592,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 12208984,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 0,
+            "gcMillis": 0
+        },
+        {
+            "stage": "cold-inference-and-decode-complete",
+            "atNanos": 24039040759343,
+            "rssBytes": 381390848,
+            "peakRssBytes": 381390848,
+            "heapUsedBytes": 100663296,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 12548032,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 1843200,
+                    "buffers": 1
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 0,
+            "gcMillis": 0
+        },
+        {
+            "stage": "pipeline-warmup-complete",
+            "atNanos": 24040539863422,
+            "rssBytes": 582561792,
+            "peakRssBytes": 582561792,
+            "heapUsedBytes": 99614720,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 12054256,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 5529600,
+                    "buffers": 3
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 1,
+            "gcMillis": 3
+        },
+        {
+            "stage": "pipeline-samples-complete",
+            "atNanos": 24044062682577,
+            "rssBytes": 588611584,
+            "peakRssBytes": 588611584,
+            "heapUsedBytes": 69329472,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 11535048,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 3686400,
+                    "buffers": 2
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 4,
+            "gcMillis": 7
+        },
+        {
+            "stage": "pipeline-idle-before-close",
+            "atNanos": 24044563517467,
+            "rssBytes": 588619776,
+            "peakRssBytes": 588619776,
+            "heapUsedBytes": 69329472,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 11551568,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 3686400,
+                    "buffers": 2
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 4,
+            "gcMillis": 7
+        },
+        {
+            "stage": "frozen-output-validation-collected",
+            "atNanos": 24045271640457,
+            "rssBytes": 597938176,
+            "peakRssBytes": 597938176,
+            "heapUsedBytes": 7871024,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 11574896,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 1843200,
+                    "buffers": 1
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 5,
+            "gcMillis": 10
+        },
+        {
+            "stage": "kernel-warmup-complete",
+            "atNanos": 24045457301072,
+            "rssBytes": 598085632,
+            "peakRssBytes": 598085632,
+            "heapUsedBytes": 159932976,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 12208488,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 1843200,
+                    "buffers": 1
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 10,
+            "gcMillis": 13
+        },
+        {
+            "stage": "kernel-samples-complete",
+            "atNanos": 24045834223819,
+            "rssBytes": 598441984,
+            "peakRssBytes": 598441984,
+            "heapUsedBytes": 38341168,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 12284240,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 1843200,
+                    "buffers": 1
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 22,
+            "gcMillis": 20
+        },
+        {
+            "stage": "kernel-idle-output-still-open",
+            "atNanos": 24046334865934,
+            "rssBytes": 598454272,
+            "peakRssBytes": 598454272,
+            "heapUsedBytes": 38341168,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 12285432,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 1843200,
+                    "buffers": 1
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 22,
+            "gcMillis": 20
+        },
+        {
+            "stage": "all-result-tensors-closed",
+            "atNanos": 24046335443692,
+            "rssBytes": 598458368,
+            "peakRssBytes": 598458368,
+            "heapUsedBytes": 38341168,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 12294472,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 1843200,
+                    "buffers": 1
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 22,
+            "gcMillis": 20
+        },
+        {
+            "stage": "sessions-and-lanes-closed",
+            "atNanos": 24046343493921,
+            "rssBytes": 508260352,
+            "peakRssBytes": 595333120,
+            "heapUsedBytes": 38341168,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 12303656,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 1843200,
+                    "buffers": 1
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 22,
+            "gcMillis": 20
+        },
+        {
+            "stage": "closed-idle",
+            "atNanos": 24046844185589,
+            "rssBytes": 508264448,
+            "peakRssBytes": 595333120,
+            "heapUsedBytes": 38341168,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 11734752,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 1843200,
+                    "buffers": 1
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 22,
+            "gcMillis": 20
+        },
+        {
+            "stage": "closed-after-explicit-gc",
+            "atNanos": 24047347799251,
+            "rssBytes": 508596224,
+            "peakRssBytes": 595333120,
+            "heapUsedBytes": 7920088,
+            "heapCommittedBytes": 536870912,
+            "nonHeapUsedBytes": 11377872,
+            "bufferPools": [
+                {
+                    "name": "mapped",
+                    "bytes": 0,
+                    "buffers": 0
+                },
+                {
+                    "name": "direct",
+                    "bytes": 1843200,
+                    "buffers": 1
+                },
+                {
+                    "name": "mapped - 'non-volatile memory'",
+                    "bytes": 0,
+                    "buffers": 0
+                }
+            ],
+            "gcCount": 23,
+            "gcMillis": 23
+        }
+    ],
+    "nativeEvents": [],
+    "runtime": {
+        "java": "27+35",
+        "vendor": "Azul Systems, Inc.",
+        "vm": "OpenJDK 64-Bit Server VM",
+        "ort": "1.31.0",
+        "os": "Linux",
+        "arch": "amd64",
+        "processors": 24,
+        "maxHeapBytes": 2147483648,
+        "vmArgs": [
+            "-Djava.awt.headless=true",
+            "-Dvivenotes.performance.scratch=/tmp/vive-desktop-ocr-before-e120e01/shared/build/performance-tmp",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Xms512m",
+            "-Xmx2g",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ]
+    },
+    "timingScope": "session open separately; cold and warm recognizer inference+CTC include tensor allocation/close; image/preprocess excluded; kernel reuses one exact native output",
+    "allocationScope": "per measured lane-thread Java allocation samples; median is per lane; excludes main/native threads and native arenas; caller CPU excludes ORT workers, process CPU includes them",
+    "summaryScope": "upper median for even pipeline/kernel sample counts; every lane and batch observation is retained",
+    "memoryScope": "whole-process Linux RSS/HWM, heap and direct-buffer pools; includes JIT/libraries/allocators; not isolated native-memory accounting or an RSS cap",
+    "collectionScope": "explicit GC only after common frozen-output validation and after session closure; pipeline idle before close has no forced collection"
+}

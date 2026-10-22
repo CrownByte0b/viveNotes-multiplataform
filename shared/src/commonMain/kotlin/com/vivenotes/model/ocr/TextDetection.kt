@@ -175,8 +175,8 @@ object TextDetection {
      * The smallest enclosing rectangle, by trying each hull edge as its direction.
      *
      * Exact rather than a search: a minimum-area rectangle always shares an edge with the hull, so
-     * the candidate set is the hull's own edges. O(h²) on the hull, which for a text component is a
-     * few dozen points.
+     * the candidate set is the hull's own edges. Small text hulls retain the direct support scan;
+     * large hulls reuse extrema and prune conservative projection bounds.
      */
     fun minAreaRect(hull: List<Point>): Rect {
         if (hull.size < 3) {
@@ -195,6 +195,7 @@ object TextDetection {
 
         var best: Rect? = null
         var bestArea = Float.MAX_VALUE
+        val support = if (HullSupportTree.supports(hull)) HullSupportTree(hull) else null
         for (index in hull.indices) {
             val start = hull[index]
             val end = hull[(index + 1) % hull.size]
@@ -206,13 +207,21 @@ object TextDetection {
             var maxAlong = -Float.MAX_VALUE
             var minAcross = Float.MAX_VALUE
             var maxAcross = -Float.MAX_VALUE
-            for (point in hull) {
-                val along = point.x * ux + point.y * uy
-                val across = -point.x * uy + point.y * ux
-                minAlong = min(minAlong, along)
-                maxAlong = max(maxAlong, along)
-                minAcross = min(minAcross, across)
-                maxAcross = max(maxAcross, across)
+            if (support != null) {
+                support.project(ux, uy)
+                minAlong = support.minAlong
+                maxAlong = support.maxAlong
+                minAcross = support.minAcross
+                maxAcross = support.maxAcross
+            } else {
+                for (point in hull) {
+                    val along = point.x * ux + point.y * uy
+                    val across = -point.x * uy + point.y * ux
+                    minAlong = min(minAlong, along)
+                    maxAlong = max(maxAlong, along)
+                    minAcross = min(minAcross, across)
+                    maxAcross = max(maxAcross, across)
+                }
             }
             val spanAlong = maxAlong - minAlong
             val spanAcross = maxAcross - minAcross
@@ -366,13 +375,21 @@ object TextDetection {
         val sorted = items.map { item -> quadOf(item).let { Measured(item, it.top, it.left, it.height) } }
             .sortedWith(compareBy({ it.top }, { it.left }))
         val rows = mutableListOf<MutableList<Measured<T>>>()
+        val candidates = if (sorted.all { it.top.isFinite() }) ReadingRowCandidates(sorted.size) else null
         sorted.forEach { quad ->
-            val row = rows.firstOrNull { existing ->
-                val reference = existing.first()
+            fun matches(index: Int): Boolean {
+                val reference = rows[index].first()
                 val tolerance = min(reference.height, quad.height) * ROW_TOLERANCE
-                abs(quad.top - reference.top) <= tolerance
+                return abs(quad.top - reference.top) <= tolerance
             }
-            if (row == null) rows += mutableListOf(quad) else row += quad
+            val index = if (candidates == null) rows.indices.firstOrNull(::matches)
+                else candidates.first(quad.top, quad.height, ::matches)
+            if (index == null) {
+                rows += mutableListOf(quad)
+                candidates?.add(quad.top, quad.height)
+            } else {
+                rows[index] += quad
+            }
         }
         return rows.flatMap { row -> row.sortedBy { it.left }.map { it.item } }
     }
