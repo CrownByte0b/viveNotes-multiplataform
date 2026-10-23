@@ -180,6 +180,11 @@ class AiModelStore internal constructor(
                                 }
                                 completedBytes.addAndGet(artifact.bytes)
                             }
+                        } catch (failure: Throwable) {
+                            // Fails the wait below as well, so one that fails before its first byte
+                            // keeps the rest from starting downloads that would only be thrown away.
+                            began.completeExceptionally(failure)
+                            throw failure
                         } finally { began.complete(Unit) }
                     }.also { began.await() }
                 }
@@ -189,7 +194,7 @@ class AiModelStore internal constructor(
             setPackageState(engine, AiModelInstallState.Verifying)
             File(staging, VERIFIED_MARKER).writeText(formulaPackage.marker)
             installStagedDirectory(staging, formulaPackage.directory)
-            _state.update { current ->
+            finishDownload(engine) { current ->
                 val next = current.withFormula(engine, AiModelInstallState.Installed)
                 next.copy(
                     formulaEngine = formulaEngineInUse(chosenFormulaEngine, next.installedFormulaEngines),
@@ -207,10 +212,8 @@ class AiModelStore internal constructor(
             // act on. Which hop failed, and how far it got, goes to the debug log.
             log.failure("ai", "${formulaPackage.name} download after $completedBytes bytes", failure)
             staging.deleteRecursively()
-            setPackageState(
-                engine,
-                AiModelInstallState.Failed(failure.message?.takeIf { it.isNotBlank() } ?: Strings.download_failed),
-            )
+            val failed = AiModelInstallState.Failed(failure.message?.takeIf { it.isNotBlank() } ?: Strings.download_failed)
+            finishDownload(engine) { it.withFormula(engine, failed) }
         }
     }
 
@@ -220,6 +223,18 @@ class AiModelStore internal constructor(
      */
     private fun setPackageState(engine: FormulaEngine, install: AiModelInstallState) {
         _state.update { it.withFormula(engine, install) }
+    }
+
+    /**
+     * Shows where a download ended and stops counting it as active, in one step: Download pressed
+     * the moment the pane shows a failure is a retry, instead of being taken for the job that
+     * published it and has not quite returned.
+     */
+    private fun finishDownload(engine: FormulaEngine, finished: (AiModelsState) -> AiModelsState) {
+        synchronized(downloads) {
+            downloads.remove(engine)
+            _state.update(finished)
+        }
     }
 
     /** Which model formula recognition runs. Only an installed model can be chosen. */

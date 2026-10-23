@@ -4,8 +4,10 @@ import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -16,6 +18,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.util.Properties
+import java.util.concurrent.CountDownLatch
 
 /**
  * What the runtime does around uv: finds it and refuses an old one, records what an install was
@@ -294,6 +297,30 @@ class UvMathRuntimeTest {
         )
         assertFalse("a failed install left a record of success", File(root, "installed.properties").exists())
         MathEngineProject.FILES.forEach { name -> assertTrue(name, File(root, "project/$name").isFile) }
+    }
+
+    /**
+     * Install pressed the moment the pane shows the launch check's answer installs: the check has
+     * published its state by then but has not returned, and the press is not taken for the check.
+     */
+    @Test
+    fun installPressedAsTheCheckSettlesIsNotLostToTheCheck() = runBlocking {
+        assumeFalse("the stand-in uv is a shell script", windows)
+        val root = temporary.newFolder(UvMathRuntime.DIRECTORY)
+        val uv = File(temporary.newFolder("bin"), "uv").executable("#!/bin/sh\necho \"error: offline\" >&2\nexit 2\n")
+        val lookup = UvLookup.Found(uv, UvVersion(0, 12, 19))
+        val checking = CountDownLatch(1)
+        runtime(root, uv = { checking.await(); lookup }).use { runtime ->
+            // Unconfined, so the press runs on the check's own thread as it publishes NotInstalled.
+            launch(Dispatchers.Unconfined) {
+                runtime.state.first { it == MathRuntimeState.NotInstalled }
+                runtime.install()
+            }
+            checking.countDown()
+
+            val failed = withTimeoutOrNull(10_000) { runtime.state.first { it is MathRuntimeState.Failed } }
+            assertEquals(MathRuntimeState.Failed("error: offline"), failed)
+        }
     }
 
     /** Remove during an install stops uv rather than waiting for a download to finish. */

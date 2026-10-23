@@ -5,8 +5,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -19,6 +21,7 @@ import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
 import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * The model store on desktop paths: what is installed is read from the files, never remembered;
@@ -263,6 +266,8 @@ class AiModelStoreTest {
             assertTrue(lines.toString(), lines.any {
                 it.contains("UniMERNet Small download after ${AiModelCatalog.UNIMERNET_SMALL_ENCODER.bytes} bytes failed")
             })
+            // The decoder failed before its first byte, so the tokenizer after it never started.
+            assertFalse("$attempted", AiModelCatalog.UNIMERNET_SMALL_TOKENIZER.fileName in attempted)
         }
     }
 
@@ -293,7 +298,7 @@ class AiModelStoreTest {
     @Test
     fun aFailedDownloadLeavesNothingBehindAndRetryInstalls() = runBlocking<Unit> {
         val root = File(temporary.root, AiModelStore.DIRECTORY)
-        val lines = mutableListOf<String>()
+        val lines = Collections.synchronizedList(mutableListOf<String>())
         var fail = true
         val flaky = ArtifactDownloader { artifact, destination, onBytes ->
             if (fail && artifact == AiModelCatalog.UNIMERNET_DECODER) throw IOException("Chain validation failed")
@@ -317,6 +322,36 @@ class AiModelStoreTest {
             fail = false
             store.download(FormulaEngine.UniMerNetTiny)
             installed(store, FormulaEngine.UniMerNetTiny)
+        }
+    }
+
+    /**
+     * Retry pressed the moment the pane shows a failure downloads again: the failed job has
+     * published its state by then but has not returned, and the press is not taken for it.
+     */
+    @Test
+    fun aRetryPressedAsTheFailureShowsDownloadsAgain() = runBlocking<Unit> {
+        val failures = AtomicInteger()
+        val failingOnce = ArtifactDownloader { artifact, destination, onBytes ->
+            if (artifact == AiModelCatalog.UNIMERNET_DECODER && failures.getAndIncrement() == 0) {
+                throw IOException("Chain validation failed")
+            }
+            writing.download(artifact, destination, onBytes)
+        }
+        store(downloader = failingOnce).use { store ->
+            settle(store)
+            // Unconfined, so the retry runs on the download's own thread as it publishes the failure.
+            launch(Dispatchers.Unconfined) {
+                store.state.first { it.uniMerNet is AiModelInstallState.Failed }
+                store.download(FormulaEngine.UniMerNetTiny)
+            }
+            store.download(FormulaEngine.UniMerNetTiny)
+
+            val retried = withTimeoutOrNull(10_000) {
+                store.state.first { it.uniMerNet == AiModelInstallState.Installed }
+            }
+            assertEquals(AiModelInstallState.Installed, retried?.uniMerNet)
+            assertEquals(2, failures.get())
         }
     }
 

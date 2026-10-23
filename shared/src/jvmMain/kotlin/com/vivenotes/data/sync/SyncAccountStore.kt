@@ -4,6 +4,7 @@
 package com.vivenotes.data.sync
 
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -11,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -19,6 +21,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.ByteBuffer
+import java.nio.file.AccessDeniedException
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
 import java.security.MessageDigest
@@ -133,7 +136,7 @@ class SyncAccountStore(
             ?.let { serverScopedInstallationId(it, serverBaseUrl) }
             ?: UUID.randomUUID().toString()
         var assigned = ""
-        store.edit { prefs ->
+        write { prefs ->
             assigned = prefs[INSTALLATION_ID]
                 ?: candidate.also { prefs[INSTALLATION_ID] = it }
         }
@@ -141,7 +144,7 @@ class SyncAccountStore(
     }
 
     suspend fun setAccount(account: SyncAccount) {
-        store.edit { it[ACCOUNT] = syncAccountJson.encodeToString(SyncAccount.serializer(), account) }
+        write { it[ACCOUNT] = syncAccountJson.encodeToString(SyncAccount.serializer(), account) }
     }
 
     /**
@@ -150,7 +153,26 @@ class SyncAccountStore(
      * device list or the admin dashboard.
      */
     suspend fun clear() {
-        store.edit { it.remove(ACCOUNT) }
+        write { it.remove(ACCOUNT) }
+    }
+
+    /**
+     * DataStore's `edit`, tried again while Windows will not replace the file. DataStore reads its
+     * file without waiting for a write under way, and Windows refuses to replace a file that is open,
+     * so a write can fail with [AccessDeniedException] after its value is already showing. Each try
+     * reads the file again, so a later one writes what the refused one could not.
+     */
+    private suspend fun write(transform: suspend (MutablePreferences) -> Unit) {
+        var attempt = 1
+        while (true) {
+            try {
+                store.edit(transform)
+                return
+            } catch (refused: AccessDeniedException) {
+                if (attempt == REPLACE_ATTEMPTS) throw refused
+                delay(REPLACE_RETRY_MILLIS * attempt++)
+            }
+        }
     }
 
     /**
@@ -166,6 +188,10 @@ class SyncAccountStore(
 
         /** Separate from [ACCOUNT] so that forgetting a registration does not forget the install. */
         val INSTALLATION_ID = stringPreferencesKey("installationId")
+
+        /** Waits 50 ms longer each time, 750 ms in all: far longer than a read of this small file. */
+        const val REPLACE_ATTEMPTS = 6
+        const val REPLACE_RETRY_MILLIS = 50L
     }
 }
 

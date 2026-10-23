@@ -14,6 +14,7 @@ import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
+import java.awt.Component
 import java.awt.GraphicsEnvironment
 import java.awt.KeyboardFocusManager
 import java.awt.event.KeyEvent
@@ -57,6 +58,7 @@ class ToolkitPopupKeyboardContractTest {
             click(panel, "workspace-object-color")
             click(panel, "selection-color-custom")
             click(panel, "selection-custom-color")
+            awaitKeyboardIn(panel, "selection-custom-color")
             Thread.sleep(200)
             for (char in "#345678") key(KeyEvent.getExtendedKeyCodeForChar(char.uppercaseChar().code), char)
             waitFor("native typing in the shared selection palette") {
@@ -112,6 +114,7 @@ class ToolkitPopupKeyboardContractTest {
             click(panel, DrawRibbonTags.penKit(0))
             click(panel, "draw-ink-wheel-button")
             click(panel, "draw-ink-custom-color")
+            awaitKeyboardIn(panel, "draw-ink-custom-color")
             // The workspace fallback used to steal focus on the frame after a component popup opened.
             Thread.sleep(200)
             for (char in "#123456") key(KeyEvent.getExtendedKeyCodeForChar(char.uppercaseChar().code), char)
@@ -158,18 +161,38 @@ class ToolkitPopupKeyboardContractTest {
         }
     }
 
-    /** Inspect each native popup's owner as well as the main scene in the pinned Compose version. */
-    private fun node(panel: ComposePanel, tag: String): SemanticsNode? {
-        val container = ComposePanel::class.java.getDeclaredField("_composeContainer")
-            .apply { isAccessible = true }.get(panel) ?: return null
-        val layers = container.javaClass.getDeclaredField("layers").apply { isAccessible = true }.get(container) as List<*>
-        val owners = panel.semanticsOwners + layers.toList().flatMap { layer ->
-            val mediator = getter(layer!!, "getMediator")
-            @Suppress("UNCHECKED_CAST")
-            (mediator?.let { getter(it, "getSemanticsOwners") } as? Collection<SemanticsOwner>).orEmpty()
+    /**
+     * Waits until typing would reach [tag]: the field holds Compose focus and AWT focus, where [key]
+     * sends its events, is in the scene that shows it. A loaded machine can take longer than the
+     * click to move focus into a popup that has just opened.
+     */
+    private fun awaitKeyboardIn(panel: ComposePanel, tag: String) = waitFor("keyboard focus in $tag") {
+        val owner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner
+        val (component, field) = located(panel, tag) ?: return@waitFor false
+        owner != null && SwingUtilities.isDescendingFrom(owner, component) &&
+            field.config.getOrNull(SemanticsProperties.Focused) == true
+    }
+
+    private fun node(panel: ComposePanel, tag: String): SemanticsNode? = located(panel, tag)?.second
+
+    /** [tag]'s node with the component its scene takes keys on, the main scene's or a native popup's. */
+    private fun located(panel: ComposePanel, tag: String): Pair<Component, SemanticsNode>? =
+        scenes(panel).firstNotNullOfOrNull { (component, owners) ->
+            owners.firstNotNullOfOrNull { owner ->
+                owner.getAllSemanticsNodes(mergingEnabled = false).firstOrNull { it.config.getOrNull(SemanticsProperties.TestTag) == tag }
+            }?.let { component to it }
         }
-        return owners.firstNotNullOfOrNull { owner ->
-            owner.getAllSemanticsNodes(mergingEnabled = false).firstOrNull { it.config.getOrNull(SemanticsProperties.TestTag) == tag }
+
+    /** Inspect each native popup's owner as well as the main scene in the pinned Compose version. */
+    private fun scenes(panel: ComposePanel): List<Pair<Component, Collection<SemanticsOwner>>> {
+        val container = ComposePanel::class.java.getDeclaredField("_composeContainer")
+            .apply { isAccessible = true }.get(panel) ?: return emptyList()
+        val layers = container.javaClass.getDeclaredField("layers").apply { isAccessible = true }.get(container) as List<*>
+        return listOf(panel to panel.semanticsOwners) + layers.toList().mapNotNull { layer ->
+            val mediator = getter(layer!!, "getMediator") ?: return@mapNotNull null
+            @Suppress("UNCHECKED_CAST")
+            (getter(mediator, "getContentComponent") as Component) to
+                (getter(mediator, "getSemanticsOwners") as? Collection<SemanticsOwner>).orEmpty()
         }
     }
 

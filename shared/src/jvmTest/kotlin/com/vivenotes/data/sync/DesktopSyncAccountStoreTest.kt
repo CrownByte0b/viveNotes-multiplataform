@@ -4,10 +4,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import java.io.FileInputStream
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
 import kotlin.test.AfterTest
@@ -90,6 +93,27 @@ class DesktopSyncAccountStoreTest {
             assertEquals("rwx------", PosixFilePermissions.toString(Files.getPosixFilePermissions(directory)))
         }
         assertTrue(file.isFile)
+    }
+
+    /**
+     * Windows will not replace a file that is open, and DataStore reads its file without waiting for
+     * a write, so a write can meet a reader. A clear that does is written once the reader lets go,
+     * rather than leaving the registration on disk while the app shows it forgotten.
+     */
+    @Test
+    fun aClearThatMeetsAnOpenReaderStillReachesTheDisk() = runBlocking {
+        withStore { store ->
+            store.setAccount(ACCOUNT)
+            // FileInputStream, as DataStore's own reads use: on Windows it does not share deletion.
+            val reader = FileInputStream(file)
+            val released = launch(Dispatchers.IO) {
+                try { delay(200) } finally { reader.close() }
+            }
+            store.clear()
+            released.join()
+        }
+
+        withStore { store -> assertNull(store.account.first()) }
     }
 
     /** One store at a time per file, as DataStore requires; its scope is cancelled to release it. */

@@ -49,9 +49,10 @@ class PictureRenderingTest {
         val touchedEdt = AtomicBoolean()
         val library = library {
             if (EventQueue.isDispatchThread()) touchedEdt.set(true)
-            starts.incrementAndGet()
             val count = active.incrementAndGet()
             peak.accumulateAndGet(count) { a, b -> maxOf(a, b) }
+            // Counted last, so a test that sees two starts also sees the peak they reached.
+            starts.incrementAndGet()
             try { release.await(); bytes } finally { active.decrementAndGet() }
         }
         var shown: Map<String, PictureAsset> = emptyMap()

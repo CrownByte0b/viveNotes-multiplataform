@@ -103,7 +103,7 @@ class UvMathRuntime internal constructor(
                         log.event("math") { "runtime checked: not installed; installing by default" }
                         runInstall()
                     } else {
-                        _state.value = checked
+                        settle(checked)
                         log.event("math") {
                             "runtime checked: ${checked.describe()}" + if (removedByUser.exists()) " (removed by the user)" else ""
                         }
@@ -149,6 +149,16 @@ class UvMathRuntime internal constructor(
         sympy.close()
     }
 
+    /**
+     * Shows where the launch check or an install ended and stops counting it as under way, in one
+     * step: an Install pressed the moment the pane shows this starts an install, instead of being
+     * taken for the job that published it and has not quite returned.
+     */
+    private fun settle(settled: MathRuntimeState) = synchronized(this) {
+        installing = null
+        _state.value = settled
+    }
+
     private suspend fun runInstall() {
         // Asking for it again takes back the earlier Remove, whether or not this install succeeds.
         removedByUser.delete()
@@ -156,7 +166,7 @@ class UvMathRuntime internal constructor(
             is UvLookup.Found -> lookup
             is UvLookup.Unavailable -> {
                 log.event("math") { "install refused: ${lookup.reason}" }
-                _state.value = MathRuntimeState.UvUnavailable(lookup.reason)
+                settle(MathRuntimeState.UvUnavailable(lookup.reason))
                 return
             }
         }
@@ -180,7 +190,7 @@ class UvMathRuntime internal constructor(
                 SympyMathEngine(launch = { launchServer(requireReady = false) }, log).use { it.versions() }
             writeMarker(pythonVersion, sympyVersion)
             cache.deleteRecursively()
-            _state.value = MathRuntimeState.Ready(pythonVersion, sympyVersion)
+            settle(MathRuntimeState.Ready(pythonVersion, sympyVersion))
             log.event("math") { "installed: Python $pythonVersion, SymPy $sympyVersion" }
         } catch (cancelled: CancellationException) {
             _state.value = currentState()
@@ -188,9 +198,9 @@ class UvMathRuntime internal constructor(
             throw cancelled
         } catch (failure: Exception) {
             log.failure("math", "install", failure)
-            _state.value = MathRuntimeState.Failed(
+            settle(MathRuntimeState.Failed(
                 failure.message?.takeIf(String::isNotBlank) ?: Strings.the_math_engine_could_not_be_installed,
-            )
+            ))
         }
     }
 
