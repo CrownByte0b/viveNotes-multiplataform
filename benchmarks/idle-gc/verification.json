@@ -1,0 +1,72 @@
+{
+  "schema": "vive-diagnostic-verification/1",
+  "date": "2026-10-24",
+  "status": "component_investigation_complete_no_production_policy_adopted",
+  "sourceCommit": "5d3571e2fa0b12a2a9ae3acfd66f4c85fec21889",
+  "commonJvmDesktopSourceFilesMatchingCompiledCheckout": 333,
+  "previouslyTrackedFilesUnchanged": true,
+  "productionGcPolicyChanged": false,
+  "originalPythonRuntimeContractsPassed": 41,
+  "scannerContractsPassed": 14,
+  "scannerFixtureGitConfig": "isolated per process; user hook unchanged",
+  "fullJvm": {
+    "shared": {
+      "tests": 2093,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 7,
+      "passed": 2086
+    },
+    "desktop": {
+      "tests": 162,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 7,
+      "passed": 155
+    }
+  },
+  "lint": "passed",
+  "desktopAssembly": "passed",
+  "secretScan": "no findings",
+  "evidenceIndex": "/home/mahalo/.local/state/vive-runtime-benchmarks/2026-10-24-native-wayland-idle-gc/retention.json",
+  "files": [
+    {
+      "path": "benchmarks/idle-gc/IdleGcProbe.kt",
+      "sha256": "07b4c2b8094e03cf373a2eb2fd3890a1826b7ced832910ad63041de29f5cb10b"
+    },
+    {
+      "path": "benchmarks/idle-gc/RESULTS.md",
+      "sha256": "25d50cc831745b3486dda693b90bf4ec6fd7ad0a72207b4e21383f1f9f1fe416"
+    },
+    {
+      "path": "benchmarks/idle-gc/USAGE.md",
+      "sha256": "7873c055f31bed7156512f9fb895f485ada0aecf4f0ede8258b257f5004e9d6a"
+    },
+    {
+      "path": "benchmarks/idle-gc/idle_gc.py",
+      "sha256": "d4f788cf4c64e5f0f973744f2bcf40c6469302d759ac4f883125513016a32beb"
+    },
+    {
+      "path": "benchmarks/idle-gc/results.json",
+      "sha256": "2c7d89b8e2303bf06c664e0c04ff6af1189a9ceeda5c2b8276b0cd4b268236e7"
+    },
+    {
+      "path": "benchmarks/idle-gc/test_idle_gc.py",
+      "sha256": "ed5438d8a39be01499b4fa190325243dc09ceba431f27550a0ca3de97cd7481e"
+    }
+  ],
+  "freshProcesses": 24,
+  "ocrWorkloads": 48,
+  "inferences": 192,
+  "pythonContracts": 7,
+  "allRawHashesVerified": true,
+  "outputParityAcrossAllWorkloads": true,
+  "rawArchive": "idle-gc.tar.gz",
+  "remainingBeforePolicyAdoption": [
+    "UI/ribbon wake-up latency",
+    "retained recognition engine",
+    "import/PDF workloads",
+    "Windows runtime measurements",
+    "activity/cooldown and Compose/platform tests"
+  ]
+}

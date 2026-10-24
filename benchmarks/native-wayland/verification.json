@@ -1,0 +1,83 @@
+{
+  "schema": "vive-diagnostic-verification/1",
+  "date": "2026-10-24",
+  "status": "native_startup_resize_verified_full_input_workload_blocked",
+  "sourceCommit": "5d3571e2fa0b12a2a9ae3acfd66f4c85fec21889",
+  "commonJvmDesktopSourceFilesMatchingCompiledCheckout": 333,
+  "previouslyTrackedFilesUnchanged": true,
+  "productionGcPolicyChanged": false,
+  "originalPythonRuntimeContractsPassed": 41,
+  "scannerContractsPassed": 14,
+  "scannerFixtureGitConfig": "isolated per process; user hook unchanged",
+  "fullJvm": {
+    "shared": {
+      "tests": 2093,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 7,
+      "passed": 2086
+    },
+    "desktop": {
+      "tests": 162,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 7,
+      "passed": 155
+    }
+  },
+  "lint": "passed",
+  "desktopAssembly": "passed",
+  "secretScan": "no findings",
+  "evidenceIndex": "/home/mahalo/.local/state/vive-runtime-benchmarks/2026-10-24-native-wayland-idle-gc/retention.json",
+  "files": [
+    {
+      "path": "benchmarks/native-wayland/NativeTimingSmoke.kt",
+      "sha256": "1620442ad7cf02f0b1e47b7de99a0c0c5d0b5147e0374348290121f32145c6dc"
+    },
+    {
+      "path": "benchmarks/native-wayland/RESULTS.md",
+      "sha256": "b2657c2fec5186df46787c29846af969e58e3f14435bfb9408afe43ddbdd1845"
+    },
+    {
+      "path": "benchmarks/native-wayland/RuntimeRenderProbe.kt",
+      "sha256": "37845400b0914793a09761a9db4bddfea6e49a361f3aee1ab6f0d62439f12181"
+    },
+    {
+      "path": "benchmarks/native-wayland/USAGE.md",
+      "sha256": "0ef5c1681ef08c88c66a5de71da06d2e10ae6758998d77c5a1f35bedd30de7d0"
+    },
+    {
+      "path": "benchmarks/native-wayland/analyze.py",
+      "sha256": "a6430c31a96fb5dad144ab5bcaaf58c2942a33c4e291f142a0dd80f85828590e"
+    },
+    {
+      "path": "benchmarks/native-wayland/desktop_runtime.py",
+      "sha256": "3cd23563daada5b13769fbbd65e2b3f313b3f03aea350b9dcc362a0f8b1857df"
+    },
+    {
+      "path": "benchmarks/native-wayland/owned_display.py",
+      "sha256": "abb2e45b8ddd792a35acb4ca55e2fab6f4d80f2e2532ec1824f6e427086bafed"
+    },
+    {
+      "path": "benchmarks/native-wayland/test_analyze.py",
+      "sha256": "69219ad5ab4bf4a476553d344c24dd7f1ae4afe4a8055cc8ac6816de92c3f6a0"
+    }
+  ],
+  "nestedMethodTriples": 310,
+  "methodCounts": [
+    310,
+    310,
+    310
+  ],
+  "methodContractCounts": {
+    "normal": 20,
+    "caught": 20,
+    "escaping": 20
+  },
+  "originalTextCases": 6,
+  "originalPollingCases": 2,
+  "sqliteSeedAndVerifyPassed": true,
+  "pythonContracts": 10,
+  "fullInputBlocker": "isolated Weston has no usable Remote Desktop portal",
+  "rawArchive": "native-wayland.tar.gz"
+}
