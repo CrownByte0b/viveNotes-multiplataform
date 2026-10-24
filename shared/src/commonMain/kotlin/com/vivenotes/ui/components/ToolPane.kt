@@ -50,6 +50,7 @@ import kotlin.math.roundToInt
 object ToolPaneTags {
     const val Pane = "tool-pane"
     const val Close = "tool-pane-close"
+    const val Footer = "tool-pane-footer"
     const val Size = "Size"
     const val Orientation = "Orientation"
     const val Width = "Width"
@@ -75,12 +76,16 @@ private const val DisabledAlpha = 0.42f
  * A settings pane docked to the right of the canvas — Android's `ToolPanel`. Some controls do not
  * belong in a drop-down: Paper Size is six fields in two groups, and a docked pane stays open while
  * the page changes shape beside it, which is the point of a control that alters the page.
+ *
+ * [footer] is pinned to the bottom edge below a separator, the way a GNOME action bar is, while
+ * [content] scrolls above it; a pane whose action acts on a long list keeps that action in reach.
  */
 @Composable
 internal fun ToolPane(
     title: String,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    footer: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
@@ -88,7 +93,7 @@ internal fun ToolPane(
         // Android's tool panel leaves to the right under a finger, the way it came in.
         modifier = modifier.width(ToolPaneWidth).fillMaxHeight().testTag(ToolPaneTags.Pane).swipeRight(onClose),
     ) {
-        Column {
+        Column(Modifier.fillMaxHeight()) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -102,10 +107,17 @@ internal fun ToolPane(
                 }
             }
             Column(
-                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
                     .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
                 content = content,
             )
+            if (footer != null) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp).testTag(ToolPaneTags.Footer),
+                    content = footer,
+                )
+            }
         }
     }
 }

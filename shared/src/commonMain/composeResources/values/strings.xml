@@ -399,10 +399,6 @@
     <string name="saved_version">Saved version</string>
     <!-- %1$s = revision.byteCount -->
     <string name="value_bytes">%1$s bytes</string>
-    <string name="loading_preview">Loading preview…</string>
-    <string name="no_text_in_this_version">No text in this version.</string>
-    <!-- %1$s = doc.outlines.count { it !is Outline.Text } -->
-    <string name="value_placed_objects">%1$s placed objects</string>
     <string name="restore_this_version">Restore this version</string>
     <string name="deleted_notebooks_sections_and_pages_can_be_restored_for_7_days">Deleted notebooks, sections and pages can be restored for 7 days.</string>
     <string name="loading_deleted_items">Loading deleted items…</string>

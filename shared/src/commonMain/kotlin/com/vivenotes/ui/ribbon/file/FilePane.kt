@@ -3,9 +3,8 @@ package com.vivenotes.ui.ribbon.file
 import com.vivenotes.localization.Strings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -17,8 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.vivenotes.data.DeletedItemKind
-import com.vivenotes.model.Outline
-import com.vivenotes.model.plainText
 import com.vivenotes.ui.components.DesktopDialogFrame
 import com.vivenotes.ui.components.ToolPane
 import com.vivenotes.ui.icons.NavigationSymbols
@@ -31,7 +28,6 @@ object FilePaneTags {
     const val Pane = "file-pane"
     const val Empty = "file-pane-empty"
     const val Status = "file-pane-status"
-    const val Preview = "file-revision-preview"
     const val RestoreRevision = "file-revision-restore"
     const val ConfirmRestore = "file-revision-confirm"
     const val ConfirmNotebook = "file-notebook-confirm"
@@ -43,12 +39,22 @@ object FilePaneTags {
 @Composable
 internal fun FilePaneContent(state: FilePaneState, actions: FileActions, onRestoreRevision: () -> Unit) {
     val pane = state.pane ?: return
+    // Pinned below the scrolling history, so a long list never pushes Restore out of sight.
+    val restoreBar: (@Composable ColumnScope.() -> Unit)? =
+        if (pane == FilePane.VersionHistory && state.selectedRevisionId != null) {
+            {
+                Button(onClick = onRestoreRevision, enabled = state.preview != null && !state.busy,
+                    modifier = Modifier.fillMaxWidth().testTag(FilePaneTags.RestoreRevision)) {
+                    Text(Strings.restore_this_version)
+                }
+            }
+        } else null
     ToolPane(title = when (pane) {
         FilePane.VersionHistory -> Strings.version_history
         FilePane.DeletedItems -> Strings.deleted_items
         // Covers the window instead, as Android's screen does: see ClosedNotebooksDestination.
         FilePane.ClosedNotebooks -> return
-    }, onClose = actions::closePane, modifier = Modifier.testTag(FilePaneTags.Pane)) {
+    }, onClose = actions::closePane, modifier = Modifier.testTag(FilePaneTags.Pane), footer = restoreBar) {
         when (pane) {
             FilePane.VersionHistory -> {
                 Description(Strings.earlier_saved_versions_of_this_page_newest_first_restoring_a_version)
@@ -59,22 +65,6 @@ internal fun FilePaneContent(state: FilePaneState, actions: FileActions, onResto
                         val selected = revision.id == state.selectedRevisionId
                         Entry(state.dateLabels[revision.createdAt] ?: Strings.saved_version, Strings.value_bytes(revision.byteCount),
                             selected, !state.busy, FilePaneTags.revision(revision.id)) { actions.selectRevision(revision.id) }
-                    }
-                }
-                if (state.selectedRevisionId != null) {
-                    Spacer(Modifier.height(12.dp))
-                    when {
-                        state.loading -> Status(Strings.loading_preview)
-                        state.preview != null -> {
-                            val doc = state.preview
-                            val text = doc.plainText().trim().ifBlank { Strings.no_text_in_this_version }
-                            Entry(text.take(600), Strings.value_placed_objects(doc.outlines.count { it !is Outline.Text }),
-                                false, false, FilePaneTags.Preview) { }
-                        }
-                    }
-                    Button(onClick = onRestoreRevision, enabled = state.preview != null && !state.busy,
-                        modifier = Modifier.fillMaxWidth().testTag(FilePaneTags.RestoreRevision)) {
-                        Text(Strings.restore_this_version)
                     }
                 }
             }

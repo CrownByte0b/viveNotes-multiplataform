@@ -6,18 +6,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import androidx.compose.ui.unit.dp
+import com.vivenotes.ui.components.ToolPaneTags
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.FileActions
@@ -26,6 +32,8 @@ import com.vivenotes.workspace.FilePaneState
 import com.vivenotes.data.DeletedItemKey
 import com.vivenotes.data.DeletedItemKind
 import com.vivenotes.data.db.PageRevisionSummary
+import com.vivenotes.model.Block
+import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
 import com.vivenotes.data.DeletedItem
 import com.vivenotes.workspace.NotebookTransferState
@@ -161,18 +169,56 @@ class FileTabTest {
     }
 
     @Test
-    fun revisionPreviewNeedsConfirmation() = runDesktopComposeUiTest(width = 2000, height = 900) {
+    fun restoringAVersionNeedsConfirmation() = runDesktopComposeUiTest(width = 2000, height = 900) {
         val revision = PageRevisionSummary("rev", "lecture-notes", 42, 120)
+        val old = PageDoc(outlines = listOf(Outline.Text(id = "text", blocks = listOf(Block.of("Old draft of the lecture")))))
         setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
             filePane = FilePaneState(pane = FilePane.VersionHistory, revisionPageId = "lecture-notes",
-                revisions = listOf(revision), selectedRevisionId = "rev", preview = PageDoc.empty())))
-        onNodeWithTag(FilePaneTags.Preview).fetchSemanticsNode()
-        onNodeWithTag(FilePaneTags.RestoreRevision).performClick()
+                revisions = listOf(revision), selectedRevisionId = "rev", preview = old)))
+        // The selected version's text is not previewed in the pane; only the list and Restore are.
+        onNodeWithText("Old draft of the lecture", substring = true).assertDoesNotExist()
+        onNodeWithTag(FilePaneTags.RestoreRevision).assertIsEnabled().performClick()
         onNodeWithText("Cancel").performClick()
         runOnIdle { assertTrue("restore-revision" !in calls) }
         onNodeWithTag(FilePaneTags.RestoreRevision).performClick()
         onNodeWithTag(FilePaneTags.ConfirmRestore).performClick()
         runOnIdle { assertTrue("restore-revision" in calls) }
+    }
+
+    @Test
+    fun restoreStaysAtThePaneBottomWhileALongHistoryScrolls() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        val revisions = (1..30).map { PageRevisionSummary("rev$it", "lecture-notes", it.toLong(), 120) }
+        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
+            filePane = FilePaneState(pane = FilePane.VersionHistory, revisionPageId = "lecture-notes",
+                revisions = revisions, selectedRevisionId = "rev1", preview = PageDoc.empty())))
+        val pane = onNodeWithTag(FilePaneTags.Pane).getBoundsInRoot()
+        onNodeWithTag(FilePaneTags.revision("rev30")).assertIsNotDisplayed()
+        val restore = onNodeWithTag(FilePaneTags.RestoreRevision).assertIsDisplayed().getBoundsInRoot()
+        assertTrue(pane.bottom - restore.bottom < 24.dp, "Restore sits at the pane's bottom edge")
+
+        onNodeWithTag(FilePaneTags.revision("rev30")).performScrollTo().assertIsDisplayed()
+        onNodeWithTag(FilePaneTags.revision("rev1")).assertIsNotDisplayed()
+        assertEquals(restore, onNodeWithTag(FilePaneTags.RestoreRevision).assertIsDisplayed().getBoundsInRoot())
+    }
+
+    @Test
+    fun restoreWaitsUntilTheSelectedVersionHasBeenRead() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
+            filePane = FilePaneState(pane = FilePane.VersionHistory, revisionPageId = "lecture-notes",
+                revisions = listOf(PageRevisionSummary("rev", "lecture-notes", 42, 120)),
+                selectedRevisionId = "rev", loading = true)))
+        onNodeWithTag(FilePaneTags.RestoreRevision).assertIsNotEnabled()
+        onNodeWithText("Loading preview", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun withoutAVersionSelectedThereIsNoRestoreBar() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
+            filePane = FilePaneState(pane = FilePane.VersionHistory, revisionPageId = "lecture-notes",
+                revisions = listOf(PageRevisionSummary("rev", "lecture-notes", 42, 120)))))
+        onNodeWithTag(FilePaneTags.revision("rev")).assertIsDisplayed()
+        onNodeWithTag(ToolPaneTags.Footer).assertDoesNotExist()
+        onNodeWithTag(FilePaneTags.RestoreRevision).assertDoesNotExist()
     }
 
     @Test
