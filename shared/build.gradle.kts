@@ -203,7 +203,7 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(compose.desktop.currentOs)
-            implementation("org.apache.pdfbox:pdfbox:3.0.7")
+            implementation("org.apache.pdfbox:pdfbox:3.0.8")
         }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
