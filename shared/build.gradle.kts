@@ -193,9 +193,9 @@ kotlin {
             // The sync account record, in the same Preferences file format Android keeps it in.
             implementation(libs.androidx.datastore.preferences.core)
             implementation(libs.onnxruntime)
-            runtimeOnly("io.github.darriousliu:ratex-native-linux-x86-64:0.1.14")
-            runtimeOnly("io.github.darriousliu:ratex-native-linux-aarch64:0.1.14")
-            runtimeOnly("io.github.darriousliu:ratex-native-windows-x86-64:0.1.14")
+            runtimeOnly("io.github.darriousliu:ratex-native-linux-x86-64:0.1.15")
+            runtimeOnly("io.github.darriousliu:ratex-native-linux-aarch64:0.1.15")
+            runtimeOnly("io.github.darriousliu:ratex-native-windows-x86-64:0.1.15")
         }
         jvmMain {
             resources.srcDir(files(layout.buildDirectory.dir("generated/mathEngineResources"))
