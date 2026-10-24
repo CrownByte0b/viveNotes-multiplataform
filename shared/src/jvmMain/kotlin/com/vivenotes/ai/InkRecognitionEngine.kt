@@ -86,7 +86,11 @@ class OnnxInkRecognitionEngine(
     private val log: DebugLog = DebugLog(),
     private val inferenceThreads: Int = INFERENCE_THREADS,
 ) : InkRecognitionEngine, Closeable {
-    private val environment = OrtEnvironment.getEnvironment()
+    private val environment by lazy {
+        OrtEnvironment.getEnvironment().also {
+            log.event("ai") { "native recognition runtime prepared" }
+        }
+    }
 
     override val parallelism: Int = lanes.coerceAtLeast(1)
 
@@ -97,12 +101,15 @@ class OnnxInkRecognitionEngine(
     private val sessions = mutableMapOf<ModelKind, OrtSession>()
     private var closed = false
     private var activeSessionUses = 0
-    private val textDecoder = NativeCtcDecoder(environment, NativeCtcReduction.DEFAULT_THREADS, log) {
-        synchronized(sessions) {
-            check(!closed) { "Recognition engine is closed" }
-            NativeCtcReduction.create(environment)
+    private val textDecoderDelegate = lazy {
+        NativeCtcDecoder(environment, NativeCtcReduction.DEFAULT_THREADS, log) {
+            synchronized(sessions) {
+                check(!closed) { "Recognition engine is closed" }
+                NativeCtcReduction.create(environment)
+            }
         }
     }
+    private val textDecoder get() = textDecoderDelegate.value
 
     /** Callers inside [keepFormulaModelLoaded]. Guarded by [sessions], under which [session] reads it. */
     private var formulaHolds = 0
@@ -344,12 +351,16 @@ class OnnxInkRecognitionEngine(
                 if (failure == null) failure = error else failure!!.addSuppressed(error)
             }
         }
-        release { textDecoder.close() }
+        release { closeTextDecoder() }
         resident.forEach { (kind, session) -> release {
             session.close()
             log.event("ai") { "closed ${kind.name} session" }
         } }
         failure?.let { throw it }
+    }
+
+    private fun closeTextDecoder() {
+        if (textDecoderDelegate.isInitialized()) textDecoderDelegate.value.close()
     }
 
     private inline fun <T> usingSessions(block: () -> T): T {
@@ -430,7 +441,7 @@ class OnnxInkRecognitionEngine(
     private fun session(kind: ModelKind): OrtSession = synchronized(sessions) {
         check(!closed) { "Recognition engine is closed" }
         sessions.keys.filter { closes(kind, it) }.forEach { resident ->
-            if (resident == ModelKind.Text) textDecoder.close()
+            if (resident == ModelKind.Text) closeTextDecoder()
             sessions.remove(resident)?.close()
             log.event("ai") { "closed ${resident.name} session" }
         }
@@ -445,6 +456,8 @@ class OnnxInkRecognitionEngine(
     }
 
     private fun open(kind: ModelKind): OrtSession {
+        // Only reached on the inference worker, under session admission and the sessions lock.
+        val environment = environment
         val opened = OrtSession.SessionOptions().use { options ->
             options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             options.setIntraOpNumThreads(inferenceThreads.coerceAtLeast(1))

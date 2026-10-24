@@ -1,0 +1,722 @@
+{
+  "schema": "vive-startup-verification/1",
+  "status": "ready_for_user_commit",
+  "milestoneComplete": true,
+  "baselineCommit": "9e7fa39079dd02ae07099458a9ba9a8cdcf7a5ad",
+  "candidate": "Baseline plus the exact two source/test files below",
+  "sourceFiles": [
+    {
+      "path": "shared/src/jvmMain/kotlin/com/vivenotes/ai/InkRecognitionEngine.kt",
+      "sha256": "63514ad178cd7a87d719f3c2584b570d576b08d7721aa7d948265428163c2360"
+    },
+    {
+      "path": "shared/src/jvmTest/kotlin/com/vivenotes/ai/RecognitionStartupTest.kt",
+      "sha256": "c4b7da044f63edb224f7295ec6b04e1d72b1396e25809d5c7acbcadcedf36f43"
+    }
+  ],
+  "tools": [
+    {
+      "path": "benchmarks/startup/StartupRecognitionProbe.kt",
+      "sha256": "5f4ea4912cd66107c64c93006467344bf1ec848f7548d4e82eaf3f9821b729e1",
+      "bytes": 5854
+    },
+    {
+      "path": "benchmarks/startup/recognition.py",
+      "sha256": "7184269bb331086e5ea1f8eb0c65fc782d1d9b11836de86a5cd60737820912ef",
+      "bytes": 10230
+    },
+    {
+      "path": "benchmarks/startup/runtime_matrix.py",
+      "sha256": "5d2a285e1ead6e6a67c341ad50b6482578050de9609210ad52cf0f24597e6413",
+      "bytes": 4723
+    },
+    {
+      "path": "benchmarks/startup/test_recognition.py",
+      "sha256": "74ceda94c726c99f7276e40a922528e69fa9f01de56347d463f07796722a01d6",
+      "bytes": 4185
+    },
+    {
+      "path": "benchmarks/startup/USAGE.md",
+      "sha256": "c73fee984bdb13726e4a9221852a6ad9796e9ffe8559c185b91e9dafc96fb423",
+      "bytes": 4698
+    }
+  ],
+  "report": {
+    "path": "benchmarks/startup/RESULTS.md",
+    "sha256": "c1a3e61530fea857e02b3b8a645ddcd7f294bcaecedb254813ceb6476521364e",
+    "bytes": 11384
+  },
+  "resultFiles": [
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/native-wayland-smoke.json",
+      "sha256": "14eca9b8d22c093e76ac93e3868c1fcda2cd5e200b874e173eabee04a31ba9ed",
+      "bytes": 477
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/recognition/linux-jbr25.json",
+      "sha256": "87a3f48df32dce74588754accd09b9e4c107bf68fdb56a93efcbf845b19d06fd",
+      "bytes": 407061
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/recognition/linux-zulu27.json",
+      "sha256": "1e36ba17e0689bf43dbc5ed4d582ef4d986ed0aa0618c78c3e60e3f152ef9dbd",
+      "bytes": 406792
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/recognition/windows-zulu27.json",
+      "sha256": "d832d1dee21f33385894f6725dbd7d3e0c209217e9cc6511eadaad1f7426ae68",
+      "bytes": 407869
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork1/analysis.json",
+      "sha256": "6a87813da0744dfc5620961738483cca91970a8b822eff79d1c4f20e22b8c0b4",
+      "bytes": 785881
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork1/provenance.json",
+      "sha256": "5cdb2914ee4dcb150d2eb380bc57a09925e61ee3c8ab9fe3c131fcb5e4bb3c4c",
+      "bytes": 169710
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork1/resources.json",
+      "sha256": "03bc9f8e68963ddbf067dbbe79b2c63b9d981669cfbd91c7ec54e3955d43bcde",
+      "bytes": 10464
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork1/summary.json",
+      "sha256": "21ad58009aa0f09990ecd110bcbd2836f1c2cbd32016c65e1ee4ad938f9d68dd",
+      "bytes": 11861
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork2/analysis.json",
+      "sha256": "bc93f19f59449f3a2caa7de5c00c1e9714ffbd68904bd2467b972f7f0d2bc5e8",
+      "bytes": 811004
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork2/provenance.json",
+      "sha256": "5d1d50e7591a506f9b98821333a34ea05617a2eaadd41ea7f86cbb0e445aeb48",
+      "bytes": 169710
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork2/resources.json",
+      "sha256": "f803db61f582e6fc43ac562fe0218f9bc2b7271660149fdc87f213272b3c235b",
+      "bytes": 10459
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork2/summary.json",
+      "sha256": "deb1e515e2b56ae59e55b915521e998b04a7f7cbc955e12e2261e114738f5477",
+      "bytes": 11862
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork3/analysis.json",
+      "sha256": "2b6568eb8aec3026ecfc21b0cb674373344a748bc8a24d501971e51c098838b3",
+      "bytes": 780589
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork3/provenance.json",
+      "sha256": "3d5bfd902248ef963a573aaa669dd53728d24989af77086502d9e53ca36ca2c8",
+      "bytes": 169710
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork3/resources.json",
+      "sha256": "1b685b0ac63f995e8f0dee0af735cc67a6ef2035f82787c2882d5c1c307083e4",
+      "bytes": 10466
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/after-fork3/summary.json",
+      "sha256": "e34ad495b1a49391ca100e5178300e5fb46e1d4fff03ef4e4617a623f474d9e1",
+      "bytes": 11858
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/aggregate.json",
+      "sha256": "bd506e6848190f84bfb657b4de07520213874c2e687054105ad49f1b692d20ee",
+      "bytes": 6423
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork1/analysis.json",
+      "sha256": "0789a761e7341dfa57a6d354890625abb6631751ec8a7e7beb87f3fd5f7a9b0b",
+      "bytes": 728664
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork1/provenance.json",
+      "sha256": "d2e6e7aad922c1cf746c9f528632bfadbf04fb13874fe38b74765ef89feaae49",
+      "bytes": 169529
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork1/resources.json",
+      "sha256": "d834beee01ceb23f4780ecb7695644ea66d1a6e8c3ebe48ed24af3fdb7b95194",
+      "bytes": 10466
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork1/summary.json",
+      "sha256": "29bcff7b609eaefa6b8bd2597e04329b152cf191136fd3e24129b9f1bb84abf1",
+      "bytes": 11862
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork2/analysis.json",
+      "sha256": "72a7f39df8c1ebe364eb330553b7e196ce870a846d9f56ee65e39f4d583b39c5",
+      "bytes": 870656
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork2/provenance.json",
+      "sha256": "ad5a38fe7b884408f965b724f13cf6a2e812285072cf1264c7bdfe50d5fc7668",
+      "bytes": 169529
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork2/resources.json",
+      "sha256": "ce4b35eafe37c91c71e2daafcd9b5fc39a2ee14b4644c046decb772f222d11e2",
+      "bytes": 10466
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork2/summary.json",
+      "sha256": "4d02bf814fc41d70fe798e8a682bdd9c854c053807951e36da7510c386521133",
+      "bytes": 11860
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork3/analysis.json",
+      "sha256": "c39ff301f33f6373f9dff704f0b1b17850558592d4a466dedab6c3759aed4213",
+      "bytes": 814567
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork3/provenance.json",
+      "sha256": "83bfba103d5ebcdadc42bb4cbce425652b7181cd4c6c36820884fd7ad6d1bcfc",
+      "bytes": 169529
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork3/resources.json",
+      "sha256": "3d054a8db0c20b628b2b6a2a054710bef82b57338f09d7857b61725ac03f82a4",
+      "bytes": 10472
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/before-fork3/summary.json",
+      "sha256": "200ff598f70d72e5b125c5544f09aaf55617b5081e0f1b7c42e10470439d8f9c",
+      "bytes": 11856
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/comparison-fork1.json",
+      "sha256": "8b1b100b7c8fa6add0d0128137eb603df2c05f822c70f35d811f6daa98757712",
+      "bytes": 27076
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/comparison-fork2.json",
+      "sha256": "77de393d65c06fb0d3fed8114a2f20a96e2f671e30999e764623695ddca54028",
+      "bytes": 27075
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/comparison-fork3.json",
+      "sha256": "0568cfa4c3c273f545d6f1bd5382afb5f9eb0a43b5307adf06953017a6aed8aa",
+      "bytes": 27067
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/windows/native-library-control.json",
+      "sha256": "e3aee05aa52e0faf20fac4ecf43da2cc1e3eab1d2a8b879fadc6b8fb98297822",
+      "bytes": 1079
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork1/analysis.json",
+      "sha256": "7f4c0adfb33a091920cef90363d4f2ebc1d2f46298c99625921d742a3217b43b",
+      "bytes": 883407
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork1/provenance.json",
+      "sha256": "a38a1cc35c135ce95de3dad4239a86f1f777913e9d10fff27ff69bf813f771b5",
+      "bytes": 169288
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork1/resources.json",
+      "sha256": "b6510d16a4bf494bf84f018d56a4b10cce1a5a0e2b873f220f9266b5242d868e",
+      "bytes": 10482
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork1/summary.json",
+      "sha256": "f6e0747148c140e58132ae18e1f364ad65c5ae4e848337a7343d32fd640d62af",
+      "bytes": 11820
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork2/analysis.json",
+      "sha256": "a8526ce099629801ebc3a7ee6f61e6e187c3c5ffb5017159a94c443851bc228a",
+      "bytes": 651173
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork2/provenance.json",
+      "sha256": "fd440be00984f07b824b43a26c02ec499e21b624310d63786f94a5049b0f8e6b",
+      "bytes": 169288
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork2/resources.json",
+      "sha256": "4313ecf26298b1ce526dc7f13b1b998f005fbf1c223c4498344f64c7bf1ba482",
+      "bytes": 10482
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork2/summary.json",
+      "sha256": "a1edfd8adac9dea3b5f70a404bf23caaa26a54e534f158918b85babe7d93fca5",
+      "bytes": 11822
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork3/analysis.json",
+      "sha256": "3fde747487530946ac3e15ce8eae1676940f09b2435f2a2d22a470210e3c18bf",
+      "bytes": 695173
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork3/provenance.json",
+      "sha256": "c7344eae1077a48b70769780efe33fd595257af8855c77d95e0f61e41414544a",
+      "bytes": 169288
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork3/resources.json",
+      "sha256": "8e56cb2e23c04bdc660d75fbdd5d13b1c242302aae39c8d1f576c2eb6adb9a76",
+      "bytes": 10484
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/after-fork3/summary.json",
+      "sha256": "0d861745ef4cdcedaf435beed7ee9093fbd99855fd2a68c7acd5150350075943",
+      "bytes": 11822
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/aggregate.json",
+      "sha256": "d2ab763a14bc1315a154fb3245cee5c1707fc74653ea69280b88ac2c76fdef4c",
+      "bytes": 6451
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork1/analysis.json",
+      "sha256": "f8794a62e50b56aa1c169cd32b14c81c69eaf19d8a218fd65760014c01fb8779",
+      "bytes": 752584
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork1/provenance.json",
+      "sha256": "b68bb518696442444361804561d85cbed185624ef3a9a5c8d883dbd9d3bd47e8",
+      "bytes": 169107
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork1/resources.json",
+      "sha256": "300f0b0fce3b8fd908d2fd12157eed5fca373d01d149f1f71e591af3fdc83e0a",
+      "bytes": 10484
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork1/summary.json",
+      "sha256": "0dc8116c16b0b2df2404c4d141acd5536ea9bc81f2f470fa0f62534ca437fa01",
+      "bytes": 11820
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork2/analysis.json",
+      "sha256": "9f11285143538be6676b0f06c9dd330b11637d0a6747c6383411aa951770c7f7",
+      "bytes": 678763
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork2/provenance.json",
+      "sha256": "8a242c18d4df9a90d3e68bfba8d20752ec4a567fd606a6630154b1fa847d21ee",
+      "bytes": 169107
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork2/resources.json",
+      "sha256": "2116505ae14e7e7a695e9b75fcdd0c3cf962d02da2ddf0214abb93ddebd01c17",
+      "bytes": 10484
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork2/summary.json",
+      "sha256": "60712a95e89f6047a632ff3d4066312f61e37a687889295f684d503f6e7978bb",
+      "bytes": 11823
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork3/analysis.json",
+      "sha256": "449b35bb68210e3a7e1585c73cbb4093247688a557c9a0afac93a78dc60844a2",
+      "bytes": 763001
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork3/provenance.json",
+      "sha256": "2262736dcf9ee0fe1ccecf9cc3498d63d7583dbb91541604b97a7d7e07a6e96b",
+      "bytes": 169107
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork3/resources.json",
+      "sha256": "03b5f140eb56abd8949c3ae8e04ca8b4747656166ad2225dff4160e11e999601",
+      "bytes": 10482
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/before-fork3/summary.json",
+      "sha256": "d8498fa93d1cb75b2f4cb70deb824f367547469a50ad02fe5baeb1d921662afc",
+      "bytes": 11821
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/comparison-fork1.json",
+      "sha256": "852b74df4a579488d7c10f1ecf569c6ffd4d28dd209e82ecdcf2bb08643ac94f",
+      "bytes": 26993
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/comparison-fork2.json",
+      "sha256": "0e0e285900796d7891586356817d1635fc3765c14a50122ae9b1710905ca0717",
+      "bytes": 26998
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/comparison-fork3.json",
+      "sha256": "706e2e02ce3f81481c64e7ac1b503974e7408a650fdec464fd700ffd9c0b91ec",
+      "bytes": 26996
+    },
+    {
+      "path": "benchmarks/results/2026-10-23-desktop-startup/x11/native-library-control.json",
+      "sha256": "391c01548b69e8caf1a5dcd6e815ca6fec0242775b3f4adb226e35f9b5184a88",
+      "bytes": 1236
+    }
+  ],
+  "tests": {
+    "focused": {
+      "tests": 30,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2,
+      "passed": 28
+    },
+    "full-shared": {
+      "tests": 2093,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 7,
+      "passed": 2086
+    },
+    "full-desktop": {
+      "tests": 162,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 7,
+      "passed": 155
+    },
+    "pythonRuntime": {
+      "passed": 41,
+      "skipped": 0
+    },
+    "pythonStartup": {
+      "passed": 8,
+      "skipped": 0
+    },
+    "scannerContracts": {
+      "passed": 14,
+      "skipped": 0
+    },
+    "lint": "passed",
+    "desktopAssembly": "passed",
+    "windowsFocused": {
+      "runCount": 30,
+      "failures": 0,
+      "ignored": 0,
+      "assumptions": 5,
+      "passed": 25,
+      "assumptionTests": [
+        "com.vivenotes.ai.OnnxRecognitionSmokeTest#uniMerNetReadsAPrintedFormula",
+        "com.vivenotes.ai.OnnxRecognitionSmokeTest#formulaNetReadsAPrintedFormula",
+        "com.vivenotes.ai.OnnxRecognitionSmokeTest#heldFormulaModelOutlivesTextRecognitionUntilReleased",
+        "com.vivenotes.ai.OnnxRecognitionSmokeTest#switchingBetweenTinyAndSmallReloadsTheCorrectGraphsWhileHeld",
+        "com.vivenotes.ai.OnnxRecognitionSmokeTest#uniMerNetSmallReadsAPrintedFormula"
+      ],
+      "runTimeMillis": 4134
+    },
+    "windowsPythonRuntime": {
+      "passed": 40,
+      "skipped": 1
+    },
+    "windowsPythonStartup": {
+      "passed": 8,
+      "skipped": 0
+    },
+    "windowsScope": "Exact Linux-built target-25 classes on Windows Zulu27; focused suite only, not full native Gradle suite"
+  },
+  "validation": {
+    "unchangedTrackedFiles": 1629,
+    "indexEmpty": true,
+    "recognitionRuntimes": [
+      "Linux Zulu27",
+      "Linux JBR25",
+      "Windows Zulu27"
+    ],
+    "freshMeasuredRecognitionProcesses": 60,
+    "x11FreshAppPairs": 3,
+    "x11NativeLibraryControl": "ONNX libraries present in every baseline; absent in every candidate",
+    "nativeWayland": {
+      "passed": true,
+      "toolkit": "sun.awt.wl.WLToolkit",
+      "normalClose": true,
+      "onnxInitialized": false,
+      "timingClaim": false
+    },
+    "recognitionPairsPerModePerRuntime": 5,
+    "windowsFreshAppPairs": 3,
+    "totalFreshAppCaptures": 12,
+    "windowsNativeLibraryControl": "ONNX libraries present in every baseline; absent in every candidate",
+    "windowsIndependentJfrAnalyses": 6,
+    "windowsIndependentExports": 6,
+    "windowsIndependentComparisons": 3,
+    "windowsPayloadFilesUnchanged": 1967,
+    "windowsReusedDependenciesUnchanged": 114
+  },
+  "evidence": [
+    {
+      "path": "build/startup-verification-20261023/initial-state.json",
+      "sha256": "c86cb2833934bcf0943c14686a65fae9f77759f32c7406e8fc13689d5fe920d6",
+      "bytes": 301218
+    },
+    {
+      "path": "build/startup-verification-20261023/local-audit.json",
+      "sha256": "02f6a37ac95fbc6e13837c2fd66b0a9233b506ecfbe36c27285c23c07dcf82d1",
+      "bytes": 2486
+    },
+    {
+      "path": "build/startup-verification-20261023/full-jvm-counts.json",
+      "sha256": "6cf3352dd2de35be1ccf8849ac7f4d09c628b8988034517d6b8998847b4acf63",
+      "bytes": 227
+    },
+    {
+      "path": "build/startup-verification-20261023/recognition-startup-before.xml",
+      "sha256": "aa3582d8d52a4073420b050890741f5e663163de017127a9bb3d9df23b1e641e",
+      "bytes": 17114
+    },
+    {
+      "path": "build/startup-verification-20261023/full-jvm.log",
+      "sha256": "cec349e758504af67a45cd6316f5f3359a1979bda3307b98ae33f8e88d0b3ef6",
+      "bytes": 4891
+    },
+    {
+      "path": "build/startup-verification-20261023/focused-before.log",
+      "sha256": "8be88d6d95a7bf6da732c95bcce1a8629e0c9f6471dd568e4619d8e1d09bb04c",
+      "bytes": 3877
+    },
+    {
+      "path": "build/startup-verification-20261023/focused-after.log",
+      "sha256": "1ce2254784f652a3d4a131e4ca598ed80f9786df9350674cbd5f3296ef49e385",
+      "bytes": 3315
+    },
+    {
+      "path": "build/startup-verification-20261023/python-runtime.log",
+      "sha256": "ac8ab983ce47674391df529b86355bf695f08ab172dac7d23e4fbd1d634d0e19",
+      "bytes": 7889
+    },
+    {
+      "path": "build/startup-verification-20261023/python-startup.log",
+      "sha256": "3335714a0a46690a5fd8a78305c4adec73aebe717023a54f3647ed58f6947a7c",
+      "bytes": 1376
+    },
+    {
+      "path": "build/startup-verification-20261023/scanner-tests-isolated.log",
+      "sha256": "25c2cdd7dc4a2cbb8f8db07b3fc78d10e1e26fde40ef1e7f563751c2721308ec",
+      "bytes": 2277
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-public-inputs-sha256.json",
+      "sha256": "006aba5eddf94481c7318e430a787d6918f7c81d91b29c3fe6f787686f46de2f",
+      "bytes": 151
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-transfer-manifest.json",
+      "sha256": "548bca6639e6a3234fb4ab32b1d1cb45c098fd3f69c2974b077d1e2557fde6d2",
+      "bytes": 464060
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-scan-before.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-scan-after.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-cleanup.log",
+      "sha256": "bab5ecc10352f1032c149dfa32cf7333dd40797ed32f1647a8ce4476eb3bafa4",
+      "bytes": 234
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-final-users.log",
+      "sha256": "80c5461f881ac2ae94a31bc40fcf8d259e17de81f41b08871feb008787433c18",
+      "bytes": 22
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-setup.log",
+      "sha256": "b6f9e230751c30946b77f6f00c33d6fcb5a3380ab44e805e06cbc2f486533d49",
+      "bytes": 84
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-raw-metadata.json",
+      "sha256": "6facbe4d4cff8886579f5517516376377bf2b4cbb8063076628d4f1810bc303d",
+      "bytes": 975
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-download-audit.json",
+      "sha256": "321cdadd3cae7721c6d4e59cf37f04b9dd6fd2258cb276da8d547cdfddb8094f",
+      "bytes": 153
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-audit.json",
+      "sha256": "09062cd06965f6725856e2ae74772055773e0fe65450d0f61827f5a754a7a425",
+      "bytes": 3070
+    },
+    {
+      "path": "build/startup-verification-20261023/audit-windows.py",
+      "sha256": "d1a656c4afcd9c5e4184f982a2799bac4fa0b71b6e36a3e801c2287e52bb8855",
+      "bytes": 9186
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-summary.json",
+      "sha256": "791440ed2ee3d999b63be412b11d85b645993031588e367baeb8265583f13b1b",
+      "bytes": 2313
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-finish.log",
+      "sha256": "712f89f4976302078a5046faca78c00b32aaf1aa6c5f6455945d776ff60eafb5",
+      "bytes": 31
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-finish-v2.log",
+      "sha256": "f7ab2635f0f9a2f429d2fed011edad61b772c81a2ed070a645e9b6ae4584671c",
+      "bytes": 908
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-finish-v3.log",
+      "sha256": "6facbe4d4cff8886579f5517516376377bf2b4cbb8063076628d4f1810bc303d",
+      "bytes": 975
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-final-cleanup.log",
+      "sha256": "c9c39d3a550bb754c5b93fa36ecdc237b4a2c23e0ef73f5ab411b32ae8b1a2a5",
+      "bytes": 1422
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-final-cleanup-v2.log",
+      "sha256": "60dc8681fa7ec2b93e6d7fd315ef70886c5545752c1fc22393c83bc24d6697b9",
+      "bytes": 241
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-final-users-complete.log",
+      "sha256": "80c5461f881ac2ae94a31bc40fcf8d259e17de81f41b08871feb008787433c18",
+      "bytes": 22
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-final-ssh-close.log",
+      "sha256": "f221bc2585c4efebca01f34f20087bcddc8e9389f57abc26d57eab159b7d1b2b",
+      "bytes": 20
+    },
+    {
+      "path": "build/startup-verification-20261023/windows-final-vm-state.txt",
+      "sha256": "2675c309ff87f8658358da1b8451c80f7e43fd2a97db648acc10513f5f21ac72",
+      "bytes": 9
+    },
+    {
+      "path": "build/startup-verification-20261023/complete-retention.json",
+      "sha256": "e60aeaecaa5cd172a57b544ef032cc156dadfd194cad86e74647e9d38ea966b1",
+      "bytes": 2355
+    }
+  ],
+  "rawRetention": {
+    "index": "/home/mahalo/.local/state/vive-runtime-benchmarks/2026-10-23-startup/retention-complete.json",
+    "sha256": "e60aeaecaa5cd172a57b544ef032cc156dadfd194cad86e74647e9d38ea966b1",
+    "schema": "vive-startup-retention/1",
+    "scope": "Completed Linux and Windows startup raw evidence, failed setup attempts and prepared inputs",
+    "historicalLinuxIndex": {
+      "path": "retention.json",
+      "sha256": "51fd4c32cb51639806bcb2677f87bac1c299b256a4ddce141ac751f1b2c5b8ff"
+    },
+    "archives": [
+      {
+        "file": "linux-runtime-raw.tar.gz",
+        "bytes": 103626266,
+        "sha256": "3ffd2915fa7e39eb421555840726fe91a2aa9de33fef0535bca8be981a3efd19",
+        "sourceRoots": [
+          "/tmp/vive-startup-runtime-x11-20261023"
+        ]
+      },
+      {
+        "file": "recognition-raw.tar.gz",
+        "bytes": 19549024,
+        "sha256": "ab90d8fcd5e67faafd42dc4eb4e84aaf35837a6527c9dfa3376063b93e34c186",
+        "sourceRoots": [
+          "/tmp/vive-startup-recognition-zulu27-20261023",
+          "/tmp/vive-startup-recognition-jbr25-20261023"
+        ]
+      },
+      {
+        "file": "preflights-and-native-smoke.tar.gz",
+        "bytes": 51849893,
+        "sha256": "0721ceb2d6cb62d023accafa72634c74012bf3c74d8cbc50c063def2f1622ef8",
+        "sourceRoots": [
+          "/tmp/vive-startup-baseline-preflight-v2-20261023",
+          "/tmp/vive-startup-recognition-baseline-20261023",
+          "/tmp/vive-startup-recognition-baseline-v2-20261023",
+          "/tmp/vive-startup-recognition-baseline-v3-20261023",
+          "/tmp/vive-startup-recognition-baseline-v4-20261023",
+          "/tmp/vive-startup-wayland-smoke-20261023",
+          "/tmp/vive-startup-wayland-smoke-v2-20261023"
+        ]
+      },
+      {
+        "file": "prepared-windows-inputs.tar.gz",
+        "bytes": 215985015,
+        "sha256": "1b3b32b8b891a370d96a0449eda9f4cd7fda3ab72569130d2aa404c70861b39e",
+        "sourceRoots": [
+          "/home/mahalo/repos/viveHub/multiplataform-vive/build/startup-verification-20261023/windows-public-inputs.zip",
+          "/home/mahalo/repos/viveHub/multiplataform-vive/build/startup-verification-20261023/windows-transfer-manifest.json",
+          "/home/mahalo/repos/viveHub/multiplataform-vive/build/startup-verification-20261023/windows-public-inputs-sha256.json"
+        ]
+      },
+      {
+        "file": "windows-startup-raw.zip",
+        "bytes": 99816810,
+        "sha256": "ecc078cc601aacd47b0ff7f4320867aa3220e58fb887b21f281da55287b493cb",
+        "sourceRoots": [
+          "/tmp/vive-startup-windows-raw-20261023.zip"
+        ],
+        "verifiedFiles": 477
+      }
+    ],
+    "totalBytes": 490827008
+  },
+  "windows": {
+    "status": "Complete; user explicitly approved the exact package and destination with ok go",
+    "package": {
+      "path": "build/startup-verification-20261023/windows-public-inputs.zip",
+      "sha256": "6020388cd1e41243dd024932e23098b6a23570288ae5372864d8550ac1eb8072",
+      "bytes": 216190419
+    },
+    "destination": "z0@192.168.122.173:C:/Users/z0/byteink-verification/vivenotes-startup-20261023/",
+    "transferred": true,
+    "testsStarted": true,
+    "vmEntryState": "running",
+    "vmFinalState": "running",
+    "ownedConsole": "Resumed session 2 logged off; no users remain",
+    "ownedSsh": "closed",
+    "testsCompleted": true,
+    "rawArchive": {
+      "sha256": "ecc078cc601aacd47b0ff7f4320867aa3220e58fb887b21f281da55287b493cb",
+      "bytes": 99816810,
+      "files": 477,
+      "audit": {
+        "payloadFilesUnchanged": 1967,
+        "reusedDependenciesUnchanged": 114,
+        "focused": {
+          "runCount": 30,
+          "failures": 0,
+          "ignored": 0,
+          "assumptions": 5,
+          "passed": 25,
+          "assumptionTests": [
+            "com.vivenotes.ai.OnnxRecognitionSmokeTest#uniMerNetReadsAPrintedFormula",
+            "com.vivenotes.ai.OnnxRecognitionSmokeTest#formulaNetReadsAPrintedFormula",
+            "com.vivenotes.ai.OnnxRecognitionSmokeTest#heldFormulaModelOutlivesTextRecognitionUntilReleased",
+            "com.vivenotes.ai.OnnxRecognitionSmokeTest#switchingBetweenTinyAndSmallReloadsTheCorrectGraphsWhileHeld",
+            "com.vivenotes.ai.OnnxRecognitionSmokeTest#uniMerNetSmallReadsAPrintedFormula"
+          ],
+          "runTimeMillis": 4134
+        },
+        "runtimeMatrixComplete": true,
+        "recognitionComplete": true
+      }
+    }
+  },
+  "limitations": [
+    "Preparation is deferred: first OCR is 85\u201394 ms slower on Linux and 220 ms slower on Windows in these controls.",
+    "Windows construction plus first OCR is 9.82% slower; lasso is 2.54% slower and final used Java heap is 2.53% higher.",
+    "No attribution of the older historical startup regression.",
+    "No native Wayland frame/presentation timing, GPU, FPS or physical-input latency claim.",
+    "Natural GC states and sampled RSS do not prove a leak fix or bound; three app pairs do not establish statistical significance.",
+    "Windows validation uses target-25 compiled classes and focused tests, not a native installer build or full Gradle suite.",
+    "No idle-GC policy implemented; next milestone requires the user resume after commit."
+  ],
+  "finalHandoffIndex": "/home/mahalo/.local/state/vive-runtime-benchmarks/2026-10-23-startup/final-handoff-retention.json"
+}

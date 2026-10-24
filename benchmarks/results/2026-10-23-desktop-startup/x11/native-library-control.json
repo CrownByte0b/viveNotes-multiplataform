@@ -1,0 +1,51 @@
+{
+  "schema": "vive-startup-runtime-matrix/1",
+  "complete": true,
+  "rows": [
+    {
+      "side": "before",
+      "fork": 1,
+      "capture": "/tmp/vive-startup-runtime-x11-20261023/before-fork1",
+      "onnxNativeLibraries": [
+        "libonnxruntime.so",
+        "libonnxruntime4j_jni.so"
+      ]
+    },
+    {
+      "side": "after",
+      "fork": 1,
+      "capture": "/tmp/vive-startup-runtime-x11-20261023/after-fork1",
+      "onnxNativeLibraries": []
+    },
+    {
+      "side": "after",
+      "fork": 2,
+      "capture": "/tmp/vive-startup-runtime-x11-20261023/after-fork2",
+      "onnxNativeLibraries": []
+    },
+    {
+      "side": "before",
+      "fork": 2,
+      "capture": "/tmp/vive-startup-runtime-x11-20261023/before-fork2",
+      "onnxNativeLibraries": [
+        "libonnxruntime.so",
+        "libonnxruntime4j_jni.so"
+      ]
+    },
+    {
+      "side": "before",
+      "fork": 3,
+      "capture": "/tmp/vive-startup-runtime-x11-20261023/before-fork3",
+      "onnxNativeLibraries": [
+        "libonnxruntime.so",
+        "libonnxruntime4j_jni.so"
+      ]
+    },
+    {
+      "side": "after",
+      "fork": 3,
+      "capture": "/tmp/vive-startup-runtime-x11-20261023/after-fork3",
+      "onnxNativeLibraries": []
+    }
+  ]
+}

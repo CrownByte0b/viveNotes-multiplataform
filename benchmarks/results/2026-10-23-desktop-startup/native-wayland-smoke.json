@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "toolkit": "sun.awt.wl.WLToolkit",
+  "normalClose": true,
+  "onnxInitialized": false,
+  "timingClaim": false,
+  "sourceSha256": "522acb411ccfa1f10cdc5ad13f3a0f584cb57993a145de050f1dad8bf16bcb49",
+  "runnerSha256": "16f7bc09e9043d583939ea8ab61d4ea281acd0c0b0244b35cced9d7344b6651a",
+  "appLogSha256": "4ed0a5c43530d18cf2aa63a0d27f09d843bfa6cd9580d6289a949df0c53eb5d7",
+  "windowSha256": "971c44e52af3761939afa7fe2004474fd6301dc75cd8ecd471b6df7f01a31f33"
+}

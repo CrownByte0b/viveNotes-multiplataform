@@ -1,0 +1,297 @@
+{
+  "schema": "vive-startup-runtime-aggregate/1",
+  "scope": "Three alternating fresh pairs; medians and every raw observation retained; no significance or input-photon claim",
+  "samples": {
+    "before": {
+      "jvmMainToWorkspaceNanos": [
+        2887878117,
+        2946109984,
+        2924850628
+      ],
+      "launchToWorkspaceEpochMillis": [
+        3101,
+        3150,
+        3136
+      ],
+      "sampledPeakRssBytes": [
+        1992380416,
+        1982935040,
+        1993560064
+      ],
+      "shutdownHookProcessCpuNanos": [
+        26650000000,
+        25750000000,
+        26440000000
+      ],
+      "closeRequestToShutdownHookNanos": [
+        15633473,
+        17140788,
+        16791294
+      ],
+      "phase.idle_initial": [
+        2000154436,
+        2000154066,
+        2000153003
+      ],
+      "phase.robot_ink": [
+        3054890837,
+        3080782007,
+        3029267717
+      ],
+      "phase.autosave_settle": [
+        4440780,
+        4535110,
+        4402287
+      ],
+      "phase.robot_viewport": [
+        2532817837,
+        2359155297,
+        2243366254
+      ],
+      "phase.robot_lasso": [
+        848411172,
+        868406264,
+        892437860
+      ],
+      "phase.robot_text_page": [
+        3279506209,
+        3128211193,
+        3186805439
+      ],
+      "phase.text_autosave_settle": [
+        405313253,
+        406167787,
+        405129865
+      ],
+      "phase.robot_return_ink": [
+        615941611,
+        614776076,
+        541524792
+      ],
+      "phase.idle_final": [
+        2000102288,
+        2000104111,
+        2000128126
+      ],
+      "callbackNanos": [
+        2457998929,
+        2496995853,
+        2485785237
+      ],
+      "callbackCount": [
+        310,
+        308,
+        307
+      ],
+      "finalHeapUsed": [
+        427294720,
+        423100416,
+        425721856
+      ],
+      "finalHeapCommitted": [
+        1174405120,
+        1163919360,
+        1180696576
+      ],
+      "finalNmtCommitted": [
+        1557770240,
+        1515512832,
+        1569394688
+      ]
+    },
+    "after": {
+      "jvmMainToWorkspaceNanos": [
+        2838456795,
+        2817771279,
+        2815471217
+      ],
+      "launchToWorkspaceEpochMillis": [
+        3050,
+        3021,
+        3019
+      ],
+      "sampledPeakRssBytes": [
+        1962553344,
+        1979760640,
+        1974718464
+      ],
+      "shutdownHookProcessCpuNanos": [
+        25930000000,
+        26270000000,
+        26610000000
+      ],
+      "closeRequestToShutdownHookNanos": [
+        15457269,
+        16361577,
+        16212794
+      ],
+      "phase.idle_initial": [
+        2000160789,
+        2000145560,
+        2000162853
+      ],
+      "phase.robot_ink": [
+        3054360239,
+        3064671998,
+        3068638656
+      ],
+      "phase.autosave_settle": [
+        4425672,
+        4463433,
+        4890816
+      ],
+      "phase.robot_viewport": [
+        2257928291,
+        2256862155,
+        2393559837
+      ],
+      "phase.robot_lasso": [
+        860320968,
+        886183934,
+        878463570
+      ],
+      "phase.robot_text_page": [
+        3212225122,
+        3138415938,
+        3100940380
+      ],
+      "phase.text_autosave_settle": [
+        405490280,
+        405547047,
+        405104026
+      ],
+      "phase.robot_return_ink": [
+        616700914,
+        608734242,
+        607800407
+      ],
+      "phase.idle_final": [
+        2000121544,
+        2000114621,
+        2000148796
+      ],
+      "callbackNanos": [
+        2441310392,
+        2426505344,
+        2485933942
+      ],
+      "callbackCount": [
+        300,
+        299,
+        299
+      ],
+      "finalHeapUsed": [
+        424673280,
+        420478976,
+        424673280
+      ],
+      "finalHeapCommitted": [
+        1180696576,
+        1132462080,
+        1156579328
+      ],
+      "finalNmtCommitted": [
+        1565180928,
+        1519333376,
+        1551842304
+      ]
+    }
+  },
+  "medians": {
+    "jvmMainToWorkspaceNanos": {
+      "before": 2924850628,
+      "after": 2817771279,
+      "changePercent": -3.6610194030052168
+    },
+    "launchToWorkspaceEpochMillis": {
+      "before": 3136,
+      "after": 3021,
+      "changePercent": -3.6670918367346927
+    },
+    "sampledPeakRssBytes": {
+      "before": 1992380416,
+      "after": 1974718464,
+      "changePercent": -0.8864748849247928
+    },
+    "shutdownHookProcessCpuNanos": {
+      "before": 26440000000,
+      "after": 26270000000,
+      "changePercent": -0.6429652042360012
+    },
+    "closeRequestToShutdownHookNanos": {
+      "before": 16791294,
+      "after": 16212794,
+      "changePercent": -3.4452377523733424
+    },
+    "phase.idle_initial": {
+      "before": 2000154066,
+      "after": 2000160789,
+      "changePercent": 0.00033612410734740195
+    },
+    "phase.robot_ink": {
+      "before": 3054890837,
+      "after": 3064671998,
+      "changePercent": 0.3201803770378042
+    },
+    "phase.autosave_settle": {
+      "before": 4440780,
+      "after": 4463433,
+      "changePercent": 0.5101130882412486
+    },
+    "phase.robot_viewport": {
+      "before": 2359155297,
+      "after": 2257928291,
+      "changePercent": -4.2908157054656115
+    },
+    "phase.robot_lasso": {
+      "before": 868406264,
+      "after": 878463570,
+      "changePercent": 1.1581337464880326
+    },
+    "phase.robot_text_page": {
+      "before": 3186805439,
+      "after": 3138415938,
+      "changePercent": -1.5184328609400222
+    },
+    "phase.text_autosave_settle": {
+      "before": 405313253,
+      "after": 405490280,
+      "changePercent": 0.043676588093211066
+    },
+    "phase.robot_return_ink": {
+      "before": 614776076,
+      "after": 608734242,
+      "changePercent": -0.982769863022448
+    },
+    "phase.idle_final": {
+      "before": 2000104111,
+      "after": 2000121544,
+      "changePercent": 0.0008716046281831424
+    },
+    "callbackNanos": {
+      "before": 2485785237,
+      "after": 2441310392,
+      "changePercent": -1.7891668329994226
+    },
+    "callbackCount": {
+      "before": 308,
+      "after": 299,
+      "changePercent": -2.922077922077926
+    },
+    "finalHeapUsed": {
+      "before": 425721856,
+      "after": 424673280,
+      "changePercent": -0.24630541871921707
+    },
+    "finalHeapCommitted": {
+      "before": 1174405120,
+      "after": 1156579328,
+      "changePercent": -1.5178571428571375
+    },
+    "finalNmtCommitted": {
+      "before": 1557770240,
+      "after": 1551842304,
+      "changePercent": -0.380539815679104
+    }
+  }
+}
