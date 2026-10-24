@@ -169,6 +169,48 @@ class RichTextBufferTest {
     }
 
     @Test
+    fun lineSpacingChangesEverySelectedParagraphAndNoOther() {
+        val three = editor(Block(id = "a", runs = listOf(Run("one"))), Block(id = "b", runs = listOf(Run("two"))),
+            Block(id = "c", runs = listOf(Run("three"))))
+
+        val spaced = three.select(TextSelection(1, 5)).setLineSpacing(2f)
+        assertEquals(listOf(2f, 2f, 1f), spaced.blocks.map { it.lineSpacing })
+        assertEquals(listOf("a", "b", "c"), spaced.blocks.map { it.id })
+        assertEquals(three.text, spaced.text)
+        assertEquals(TextSelection(1, 5), spaced.selection)
+        assertEquals(listOf(2f, 2f, 1.15f), spaced.select(TextSelection(9)).setLineSpacing(1.15f).blocks.map { it.lineSpacing },
+            "a caret changes only its own paragraph")
+
+        assertEquals(Block.MAX_LINE_SPACING, three.setLineSpacing(9f).blocks.first().lineSpacing)
+        assertEquals(Block.MIN_LINE_SPACING, three.setLineSpacing(0.2f).blocks.first().lineSpacing)
+        assertEquals(three, three.setLineSpacing(Float.NaN))
+    }
+
+    @Test
+    fun aParagraphSplitOffKeepsItsLineSpacingAndClearFormattingResetsIt() {
+        val spaced = editor(Block(id = "s", type = BlockType.Bullet, lineSpacing = 1.5f, runs = listOf(Run("item"))))
+
+        val entered = spaced.select(TextSelection(4)).replace("\nnext")
+        assertEquals(listOf(1.5f, 1.5f), entered.blocks.map { it.lineSpacing }, "Enter carries it on, as alignment")
+        assertEquals(listOf(1.5f, 1.5f), spaced.select(TextSelection(4)).insertPlainParagraph().blocks.map { it.lineSpacing })
+
+        assertEquals(listOf(1f, 1f), entered.select(TextSelection(0, 9)).clearFormatting().blocks.map { it.lineSpacing })
+        assertEquals(1f, spaced.select(TextSelection(2)).clearFormatting().blocks.single().lineSpacing)
+    }
+
+    @Test
+    fun pastedWholeParagraphsBringTheirLineSpacing() {
+        val copied = editor(Block(id = "d", lineSpacing = 2f, runs = listOf(Run("double"))),
+            Block(id = "o", lineSpacing = 3f, runs = listOf(Run("triple")))).select(TextSelection(0, 13)).selectedFragment()
+
+        assertEquals(listOf(2f, 3f), editor(Block(id = "e")).insertFragment(copied).blocks.map { it.lineSpacing })
+        val intoText = editor(Block(id = "t", runs = listOf(Run("before after")))).select(TextSelection(7))
+            .insertFragment(copied)
+        assertEquals(listOf(1f, 1f), intoText.blocks.map { it.lineSpacing },
+            "a piece sharing a line takes the spacing of the paragraph it lands in")
+    }
+
+    @Test
     fun clearFormattingReturnsTheParagraphToPlainText() {
         val listed = Block(id = "b", type = BlockType.Todo, indent = 2, align = Align.Center, checked = true,
             runs = listOf(Run("task", setOf(Mark.Bold))))

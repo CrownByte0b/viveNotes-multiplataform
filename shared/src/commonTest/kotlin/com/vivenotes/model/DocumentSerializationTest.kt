@@ -157,6 +157,29 @@ class DocumentSerializationTest {
     }
 
     @Test
+    fun `line spacing is written only when a block has its own, after Android's fields`() {
+        // Android shares these bytes and has no line spacing: an ordinary block must not change.
+        val plain = PageDoc(outlines = listOf(Outline.Text(id = "o", blocks = listOf(
+            Block(id = "b", type = BlockType.Todo, checked = false, runs = listOf(Run("x")))))))
+        assertTrue("lineSpacing" !in plain.encode(), plain.encode())
+
+        val spaced = plain.copy(outlines = listOf(Outline.Text(id = "o", blocks = listOf(
+            Block(id = "b", type = BlockType.Todo, checked = false, runs = listOf(Run("x")), lineSpacing = 1.5f)))))
+        assertTrue(spaced.encode().contains(""""checked":false,"lineSpacing":1.5}"""), spaced.encode())
+        assertEquals(spaced, decodePageDoc(spaced.encode()))
+        assertEquals(spaced, CborDocumentCodec.decode(CborDocumentCodec.encode(spaced)))
+    }
+
+    @Test
+    fun `a stored line spacing outside the menu's range is drawn within it`() {
+        assertEquals(1f, Block(id = "b").shownLineSpacing)
+        assertEquals(2.5f, Block(id = "b", lineSpacing = 2.5f).shownLineSpacing)
+        assertEquals(Block.MAX_LINE_SPACING, Block(id = "b", lineSpacing = 40f).shownLineSpacing)
+        assertEquals(Block.MIN_LINE_SPACING, Block(id = "b", lineSpacing = -1f).shownLineSpacing)
+        assertEquals(1f, Block(id = "b", lineSpacing = Float.NaN).shownLineSpacing)
+    }
+
+    @Test
     fun `tolerates fields written by a newer schema`() {
         // Forward compatibility matters once a sync server can hand this client a document
         // written by a newer build.

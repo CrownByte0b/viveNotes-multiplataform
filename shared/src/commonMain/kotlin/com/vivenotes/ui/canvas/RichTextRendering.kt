@@ -17,6 +17,8 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
@@ -24,6 +26,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextIndent
@@ -35,6 +38,7 @@ import com.vivenotes.model.Align
 import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Mark
+import com.vivenotes.model.Run
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.RichTextBuffer.LinkSpan
 import multiplataform_vive.shared.generated.resources.Res
@@ -86,14 +90,92 @@ internal fun Block.leadingSp(): Float = INDENT_STEP_SP * indent + when {
     else -> 0f
 }
 
+/**
+ * How tall a paragraph's tallest single-spaced line is, for its text in the given fonts and sizes.
+ *
+ * Measured, not read from the fonts: a line is as tall as the tallest font on it, and Skia never
+ * makes it shorter than a line of the text box's own font, so Inter at 15 sp is spaced like the
+ * system font rather than by Inter's own shorter line. The probe is two lines of those fonts under
+ * [BODY_TEXT_SP] text, ten times enlarged so whole-pixel rounding does not skew it.
+ */
+private class SingleLines(private val measurer: TextMeasurer) {
+    private val known = mutableMapOf<Set<Pair<FontFamily?, Float>>, Float>()
+
+    /** The line's height in sp, for text in each family and size in sp of [fonts]. */
+    fun heightSp(fonts: Set<Pair<FontFamily?, Float>>): Float = known.getOrPut(fonts) {
+        val probe = buildAnnotatedString {
+            repeat(2) { line ->
+                if (line > 0) append('\n')
+                // A line's height comes from its fonts, not its glyphs: any letter they all have serves.
+                fonts.forEach { (family, size) ->
+                    withStyle(SpanStyle(fontFamily = family, fontSize = (size * PROBE_SCALE).sp)) { append("H") }
+                }
+            }
+        }
+        val layout = measurer.measure(probe, TextStyle(fontSize = (BODY_TEXT_SP * PROBE_SCALE).sp))
+        (layout.getLineBaseline(1) - layout.getLineBaseline(0)) / with(layout.layoutInput.density) { PROBE_SCALE.sp.toPx() }
+    }
+
+    private companion object {
+        const val PROBE_SCALE = 10f
+    }
+}
+
+/** The size [this] run is drawn at, in sp: its own or the body's, times a heading's [scale], smaller as a script. */
+private fun Run.sizeSp(scale: Float): Float {
+    val chosen = marks.filterIsInstance<Mark.FontSize>().firstOrNull()?.sp ?: BODY_TEXT_SP.toInt()
+    val script = Mark.Subscript in marks || Mark.Superscript in marks
+    return chosen * scale * if (script) 0.8f else 1f
+}
+
+/**
+ * Extra line height goes above and below the text in the proportion of its ascent and descent, as
+ * PDF export spaces lines: Skia's even split makes the lines of text larger than the box's own taller
+ * than asked. Every line has its share, the first and last too, so lines keep one rhythm across
+ * paragraphs.
+ */
+private val SpacedLines = LineHeightStyle(LineHeightStyle.Alignment.Proportional, LineHeightStyle.Trim.None)
+
+/**
+ * Where a bullet's centre goes, on a line from [top] to [bottom] with its [baseline], in a paragraph
+ * spaced [spacing] lines apart: the line's middle at single spacing. A spaced line has more room
+ * above the text than below it, so its middle is no longer the text's; the bullet keeps the place
+ * single spacing gave it beside the text.
+ */
+internal fun bulletCentreY(top: Float, bottom: Float, baseline: Float, spacing: Float): Float =
+    baseline + ((top + bottom) / 2f - baseline) / spacing
+
 @Composable
 internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): AnnotatedString {
     val inter = FontFamily(Font(Res.font.inter))
     val lora = FontFamily(Font(Res.font.lora))
     val jetbrainsMono = FontFamily(Font(Res.font.jetbrains_mono))
-    return remember(blocks, colors, inter, lora, jetbrainsMono) { buildAnnotatedString {
+    val measurer = rememberTextMeasurer()
+    val singleLines = remember(measurer) { SingleLines(measurer) }
+    return remember(blocks, colors, inter, lora, jetbrainsMono, singleLines) { buildAnnotatedString {
+        fun familyOf(mark: Mark.FontFamily): FontFamily = when (mark.name.lowercase()) {
+            "serif" -> FontFamily.Serif
+            "monospace" -> FontFamily.Monospace
+            "inter" -> inter
+            "lora" -> lora
+            "jetbrains_mono" -> jetbrainsMono
+            "cursive" -> FontFamily.Cursive
+            else -> FontFamily.SansSerif
+        }
         blocks.forEachIndexed { blockIndex, block ->
             val leading = block.leadingSp().sp
+            val heading = block.type.headingScale
+            val scale = heading ?: 1f
+            val spacing = block.shownLineSpacing
+            // One height for every line of the paragraph, as Compose gives a paragraph: even an em
+            // height is resolved once, against the text box's size rather than each run's.
+            val lineHeightSp = if (spacing == 1f) null else {
+                val plain = if (block.type == BlockType.Code) FontFamily.Monospace else null
+                val fonts = block.runs.map { run ->
+                    (run.marks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.let(::familyOf) ?: plain) to run.sizeSp(scale)
+                }.ifEmpty { listOf(plain to BODY_TEXT_SP * scale) }.toSet()
+                spacing * singleLines.heightSp(fonts)
+            }
             pushStyle(ParagraphStyle(
                 textAlign = when (block.align) {
                     Align.Start -> TextAlign.Start
@@ -101,8 +183,9 @@ internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): Annotated
                     Align.End -> TextAlign.End
                 },
                 textIndent = if (block.leadingSp() > 0f) TextIndent(leading, leading) else null,
+                lineHeight = lineHeightSp?.sp ?: TextUnit.Unspecified,
+                lineHeightStyle = SpacedLines.takeIf { lineHeightSp != null },
             ))
-            val heading = block.type.headingScale
             pushStyle(SpanStyle(
                 fontWeight = if (heading != null) FontWeight.Bold else null,
                 fontSize = heading?.let { (BODY_TEXT_SP * it).sp } ?: TextUnit.Unspecified,
@@ -110,7 +193,6 @@ internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): Annotated
                 fontFamily = if (block.type == BlockType.Code) FontFamily.Monospace else null,
                 background = if (block.type == BlockType.Code) colors.codeBackground else Color.Unspecified,
             ))
-            val scale = heading ?: 1f
             block.runs.forEach { run ->
                 val marks = run.marks
                 val selectedSize = marks.filterIsInstance<Mark.FontSize>().firstOrNull()?.sp
@@ -123,22 +205,8 @@ internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): Annotated
                 pushStyle(SpanStyle(
                     fontWeight = if (Mark.Bold in marks) FontWeight.Bold else null,
                     fontStyle = if (Mark.Italic in marks) FontStyle.Italic else null,
-                    fontFamily = marks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.let {
-                        when (it.name.lowercase()) {
-                            "serif" -> FontFamily.Serif
-                            "monospace" -> FontFamily.Monospace
-                            "inter" -> inter
-                            "lora" -> lora
-                            "jetbrains_mono" -> jetbrainsMono
-                            "cursive" -> FontFamily.Cursive
-                            else -> FontFamily.SansSerif
-                        }
-                    },
-                    fontSize = when {
-                        script -> ((selectedSize ?: BODY_TEXT_SP.toInt()) * 0.8f * scale).sp
-                        selectedSize != null -> (selectedSize * scale).sp
-                        else -> TextUnit.Unspecified
-                    },
+                    fontFamily = marks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.let(::familyOf),
+                    fontSize = if (script || selectedSize != null) run.sizeSp(scale).sp else TextUnit.Unspecified,
                     baselineShift = when {
                         Mark.Subscript in marks -> BaselineShift.Subscript
                         Mark.Superscript in marks -> BaselineShift.Superscript
@@ -291,7 +359,7 @@ internal fun DrawScope.drawBlockDecorations(
         val fontPx = block.markerSp().sp.toPx()
         when (block.type) {
             BlockType.Bullet -> drawCircle(colors.accent, radius = 3.dp.toPx(),
-                center = Offset(left + gap * 0.4f, (top + bottom) / 2f))
+                center = Offset(left + gap * 0.4f, bulletCentreY(top, bottom, baseline, block.shownLineSpacing)))
             BlockType.Numbered -> {
                 val label = measurer.measure("$ordinal.", TextStyle(color = ink, fontSize = block.markerSp().sp))
                 drawText(label, topLeft = Offset(left + gap - label.size.width - gap / 6f,

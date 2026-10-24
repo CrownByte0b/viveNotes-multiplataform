@@ -27,6 +27,7 @@ import com.vivenotes.ui.ribbon.RibbonDivider
 import com.vivenotes.ui.ribbon.RibbonIcon
 import com.vivenotes.ui.ribbon.RibbonStyle
 import com.vivenotes.workspace.EditorDefaults
+import kotlin.math.roundToInt
 
 /** Android Document tab controls, in the same order and with the same icon artwork. */
 internal object DocumentRibbonTags {
@@ -42,6 +43,7 @@ internal object DocumentRibbonTags {
     const val ClearFormatting = "workspace-clear-formatting"
     const val DecreaseIndent = "document-decrease-indent"
     const val IncreaseIndent = "document-increase-indent"
+    const val LineSpacing = "document-line-spacing"
     const val Styles = "workspace-document-styles"
     const val Equation = "document-equation"
     const val Link = "document-link"
@@ -57,6 +59,7 @@ internal object DocumentRibbonTags {
 
     fun blockType(type: BlockType): String = "workspace-document-block-${type.name}"
     fun alignment(align: Align): String = "workspace-document-align-${align.name}"
+    fun lineSpacing(spacing: Float): String = "$LineSpacing-${(spacing * 100).roundToInt()}"
     fun mark(mark: Mark): String = "workspace-document-${mark::class.simpleName}"
 }
 
@@ -176,6 +179,7 @@ internal fun DocumentRibbon(
         AlignButton(DocumentSymbols.FormatAlignLeft, Strings.align_left, Align.Start, block?.align, editable) { commands.align(Align.Start, takeSelection()) }
         AlignButton(DocumentSymbols.FormatAlignCenter, Strings.align_centre, Align.Center, block?.align, editable) { commands.align(Align.Center, takeSelection()) }
         AlignButton(DocumentSymbols.FormatAlignRight, Strings.align_right, Align.End, block?.align, editable) { commands.align(Align.End, takeSelection()) }
+        LineSpacingButton(block?.shownLineSpacing, editable, richText?.selection, commands.setLineSpacing)
         RibbonDivider()
         StylesPicker(block?.type ?: BlockType.Paragraph, idle.styles, editable, richText?.selection, commands.setBlockType)
         RibbonDivider()

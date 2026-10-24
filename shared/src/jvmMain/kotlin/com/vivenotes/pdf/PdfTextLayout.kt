@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.*
 import com.vivenotes.model.*
 import com.vivenotes.richtext.findAutoEquationCandidates
 import com.vivenotes.ui.canvas.HeadingColor
+import com.vivenotes.ui.canvas.bulletCentreY
 import io.ratex.DisplayList
 import io.ratex.RaTeXEngine
 import io.ratex.compose.drawDisplayList
@@ -122,7 +123,8 @@ class PdfTextLayout internal constructor(
                 val baseline = top + layout.firstBaseline
                 when (block.type) {
                     BlockType.Bullet -> canvas.drawCircle(indent + gap * .4f,
-                        top + layout.getLineBottom(0) / 2f, PageMeasurer.BULLET_RADIUS_DP, paint)
+                        top + bulletCentreY(0f, layout.getLineBottom(0), layout.firstBaseline, block.shownLineSpacing),
+                        PageMeasurer.BULLET_RADIUS_DP, paint)
                     BlockType.Numbered -> {
                         val label = measurer.measure("$ordinal.", TextStyle(fontSize = 15.sp,
                             color = Color(colors.textArgb)))
@@ -259,7 +261,7 @@ internal class PdfTextMeasurer {
             val width = (widthDp - leading).toInt().coerceAtLeast(1)
             val lineFontSize = projected.spanStyles.maxOfOrNull { it.item.fontSize.value } ?: (15f * heading)
             val layout = measurer.measure(projected, TextStyle(color = Color(colors.textArgb), fontSize = (15f * heading).sp,
-                lineHeight = (lineFontSize * PageMeasurer.LINE_SPACING_MULTIPLIER).sp,
+                lineHeight = (lineFontSize * PageMeasurer.LINE_SPACING_MULTIPLIER * block.shownLineSpacing).sp,
                 lineHeightStyle = LineHeightStyle.Default.copy(trim = LineHeightStyle.Trim.None,
                     mode = LineHeightStyle.Mode.Minimum),
                 textAlign = when (block.align) { Align.Start -> TextAlign.Start; Align.Center -> TextAlign.Center; Align.End -> TextAlign.End }),

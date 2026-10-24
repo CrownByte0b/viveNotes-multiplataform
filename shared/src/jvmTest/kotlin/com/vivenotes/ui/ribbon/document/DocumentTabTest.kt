@@ -20,6 +20,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
@@ -154,6 +156,41 @@ class DocumentTabTest {
             assertEquals(0, observed.richText!!.currentBlock.indent)
             assertFalse('\t' in observed.richText!!.text, "Tab indents rather than typing a tab")
         }
+    }
+
+    @Test
+    fun lineSpacingMenuSpacesTheSelectedParagraphsAndTicksTheirSpacing() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        val paragraphs = document.selectText(TextSelection(document.richText!!.text.length))
+            .replaceSelectedText("\nSecond paragraph\nThird paragraph\nFourth paragraph")
+        var observed = paragraphs
+        setWorkspace(paragraphs) { observed = it }
+        fun editorHeight(): Int {
+            waitForIdle()
+            return onNodeWithTag(WorkspaceTestTags.BodyEditor).fetchSemanticsNode().size.height
+        }
+        val single = editorHeight()
+        val blocks = paragraphs.richText!!.blocks
+        val second = blocks.indexOfFirst { it.text == "Second paragraph" }
+        val intoSecond = TextRange(0, paragraphs.richText!!.text.indexOf("Second") + 3)
+        onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextInputSelection(intoSecond)
+
+        onNodeWithTag(DocumentRibbonTags.LineSpacing).performScrollTo().assertIsEnabled().performClick()
+        onNodeWithTag(DocumentRibbonTags.lineSpacing(1f)).assertIsSelected()
+        onNodeWithTag(DocumentRibbonTags.lineSpacing(2f)).assertIsNotSelected().performClick()
+        runOnIdle {
+            assertEquals(blocks.indices.map { if (it <= second) 2f else 1f }, observed.richText!!.blocks.map { it.lineSpacing },
+                "the paragraphs the selection touches, through Second")
+            assertEquals(TextSelection(intoSecond.start, intoSecond.end), observed.editorSelection)
+        }
+        onNodeWithTag(WorkspaceTestTags.BodyEditor).assertIsFocused()
+        val doubled = editorHeight()
+        assertTrue(doubled > single * 1.3f, "${second + 1} of ${blocks.size} paragraphs at double spacing: $single -> $doubled")
+
+        onNodeWithTag(DocumentRibbonTags.LineSpacing).performClick()
+        onNodeWithTag(DocumentRibbonTags.lineSpacing(2f)).assertIsSelected()
+        onNodeWithTag(DocumentRibbonTags.lineSpacing(1f)).assertIsNotSelected().performClick()
+        runOnIdle { assertEquals(blocks.map { 1f }, observed.richText!!.blocks.map { it.lineSpacing }) }
+        assertEquals(single, editorHeight(), "single spacing draws the paragraphs as before")
     }
 
     @Test

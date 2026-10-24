@@ -220,6 +220,13 @@
     <string name="align_left">Align left</string>
     <string name="align_centre">Align centre</string>
     <string name="align_right">Align right</string>
+    <string name="line_spacing">Line spacing</string>
+    <string name="line_spacing_1_0">1.0</string>
+    <string name="line_spacing_1_15">1.15</string>
+    <string name="line_spacing_1_5">1.5</string>
+    <string name="line_spacing_2_0">2.0</string>
+    <string name="line_spacing_2_5">2.5</string>
+    <string name="line_spacing_3_0">3.0</string>
     <string name="equation">Equation</string>
     <string name="link">Link</string>
     <string name="edit_link">Edit link</string>

@@ -751,7 +751,17 @@ data class Block(
     val runs: List<Run> = emptyList(),
     /** Only meaningful for [BlockType.Todo]. */
     val checked: Boolean? = null,
+    /**
+     * How far apart the block's lines are, as a multiple of single spacing: 2 is double spacing.
+     * A desktop addition, last so a block at the default writes Android's bytes; Android reads such
+     * a block with ordinary spacing, and drops the value if it saves the page.
+     */
+    val lineSpacing: Float = 1f,
 ) {
+    /** [lineSpacing] as drawn: a stored value outside what the editor offers is brought within it. */
+    val shownLineSpacing: Float
+        get() = if (lineSpacing.isNaN()) 1f else lineSpacing.coerceIn(MIN_LINE_SPACING, MAX_LINE_SPACING)
+
     /** The block's text with formatting discarded — used for previews. */
     val text: String get() = runs.joinToString("") { it.plainText }
 
@@ -768,6 +778,9 @@ data class Block(
     val editorText: String get() = runs.joinToString("") { it.editorText }
 
     companion object {
+        const val MIN_LINE_SPACING = 1f
+        const val MAX_LINE_SPACING = 3f
+
         fun empty(): Block = Block(id = newId())
 
         fun of(text: String, type: BlockType = BlockType.Paragraph, indent: Int = 0): Block =

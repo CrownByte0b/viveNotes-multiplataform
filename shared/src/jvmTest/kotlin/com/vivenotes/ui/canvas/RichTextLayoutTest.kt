@@ -1,11 +1,16 @@
 package com.vivenotes.ui.canvas
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import androidx.compose.ui.text.ParagraphStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.vivenotes.model.Block
@@ -15,6 +20,7 @@ import com.vivenotes.model.Run
 import com.vivenotes.richtext.RichTextBuffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** How the editor string lays out, measured with the text engine the canvas uses. */
 @OptIn(ExperimentalTestApi::class)
@@ -152,5 +158,77 @@ class RichTextLayoutTest {
             assertEquals(text.length, caretOnLine(layout, text, text.length, x, 1))
         }
         waitForIdle()
+    }
+
+    /**
+     * Double spacing is twice the line single spacing shows, whatever the font and size. Fonts' own
+     * lines differ — 1.2 to 1.4 of their size — below about 17 sp the text box's own font sets the
+     * line rather than the text's, and Compose resolves an em line height against the box's size.
+     */
+    @Test
+    fun lineSpacingMultipliesTheLineSingleSpacingShows() = runDesktopComposeUiTest {
+        val colors = RichTextColors(Color.Green, Color.Blue, Color.Gray)
+        val words = "Spaced lines leave room between every wrapped line of a paragraph. ".repeat(6)
+        val families = listOf("sans-serif", "serif", "monospace", "inter", "lora", "jetbrains_mono")
+        val spacings = listOf(1f, 1.15f, 1.5f, 2f, 3f)
+        fun buffer(family: String, size: Int, spacing: Float) = RichTextBuffer(listOf(Block(id = "b", lineSpacing = spacing,
+            runs = listOf(Run(words, setOf(Mark.FontFamily(family), Mark.FontSize(size)))))))
+        val gaps = mutableMapOf<Triple<String, Int, Float>, List<Float>>()
+        var plainStyles = emptyList<ParagraphStyle>()
+        // A dense screen, so Skia's rounding of each line to whole pixels is small beside the line.
+        setContent { CompositionLocalProvider(LocalDensity provides Density(4f)) {
+            val measurer = rememberTextMeasurer()
+            for (family in families) for (size in listOf(15, 30)) for (spacing in spacings) {
+                val annotated = buffer(family, size, spacing).asAnnotatedString(colors)
+                if (spacing == 1f) plainStyles += annotated.paragraphStyles.map { it.item }
+                // As the text box lays it out: under its own 15 sp text.
+                val layout = measurer.measure(BlockSeparators.filter(annotated).text, TextStyle(fontSize = 15.sp),
+                    constraints = Constraints.fixedWidth(1600))
+                gaps[Triple(family, size, spacing)] = (1 until layout.lineCount).map { layout.getLineBaseline(it) - layout.getLineBaseline(it - 1) }
+            }
+        } }
+        waitForIdle()
+        assertTrue(plainStyles.all { it.lineHeight == TextUnit.Unspecified && it.lineHeightStyle == null },
+            "an ordinarily spaced paragraph lays out as it always has")
+        for (family in families) for (size in listOf(15, 30)) {
+            val single = gaps.getValue(Triple(family, size, 1f))
+            assertTrue(single.size >= 3, "$family at $size sp wraps onto several lines")
+            for (spacing in spacings.drop(1)) gaps.getValue(Triple(family, size, spacing)).forEach { gap ->
+                // Skia rounds lines to whole pixels and sets a spaced line 2-3% over the height asked.
+                val expected = single.first() * spacing
+                assertEquals(expected, gap, 2f + expected * 0.03f, "$family at $size sp, spacing $spacing")
+            }
+        }
+    }
+
+    /**
+     * Every line has its share of the extra height, so the gap between two spaced paragraphs is a
+     * line's; and a bullet stays as high beside its text as single spacing puts it.
+     */
+    @Test
+    fun spacedParagraphsKeepOneRhythmAndTheirBulletBesideTheText() = runDesktopComposeUiTest {
+        val colors = RichTextColors(Color.Green, Color.Blue, Color.Gray)
+        val words = "Two paragraphs, each long enough to wrap, spaced two lines apart. ".repeat(3)
+        fun buffer(spacing: Float) = RichTextBuffer(listOf(Block(id = "a", type = BlockType.Bullet, lineSpacing = spacing,
+            runs = listOf(Run(words))), Block(id = "b", lineSpacing = spacing, runs = listOf(Run(words)))))
+        var gaps = emptyList<Float>()
+        val bulletAboveBaseline = mutableMapOf<Float, Float>()
+        setContent {
+            val measurer = rememberTextMeasurer()
+            for (spacing in listOf(1f, 2f, 3f)) {
+                val layout = measurer.measure(BlockSeparators.filter(buffer(spacing).asAnnotatedString(colors)).text,
+                    TextStyle(fontSize = 15.sp), constraints = Constraints.fixedWidth(300))
+                if (spacing == 2f) gaps = (1 until layout.lineCount).map { layout.getLineBaseline(it) - layout.getLineBaseline(it - 1) }
+                val baseline = layout.getLineBaseline(0)
+                bulletAboveBaseline[spacing] = baseline -
+                    bulletCentreY(layout.getLineTop(0), layout.getLineBottom(0), baseline, spacing)
+            }
+        }
+        waitForIdle()
+        assertTrue(gaps.size >= 5, "both paragraphs wrap: $gaps")
+        gaps.forEach { assertEquals(gaps.first(), it, 1f, "gaps $gaps") }
+        val single = bulletAboveBaseline.getValue(1f)
+        assertTrue(single > 3f, "a bullet sits at the middle of the text, above its baseline: $single")
+        listOf(2f, 3f).forEach { assertEquals(single, bulletAboveBaseline.getValue(it), 1f, "bullet at $it") }
     }
 }

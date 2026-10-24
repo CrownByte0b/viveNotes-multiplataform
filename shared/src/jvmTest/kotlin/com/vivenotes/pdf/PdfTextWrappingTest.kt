@@ -52,6 +52,24 @@ class PdfTextWrappingTest {
     }
 
     @Test
+    fun aParagraphsLineSpacingMultipliesTheGapBetweenItsLines() = runBlocking {
+        val text = "Spaced lines need room between every wrapped line of the paragraph. ".repeat(8)
+        suspend fun gaps(spacing: Float): List<Float> {
+            val paragraph = PdfTextMeasurer().layout(listOf(Block("spaced", lineSpacing = spacing,
+                runs = listOf(Run(text, setOf(Mark.FontSize(18)))))), 400f, PdfCanvasColors.forPage(PageStyle()))
+                .paragraphs.single().layout
+            assertTrue(paragraph.lineCount > 2)
+            return (1 until paragraph.lineCount).map { paragraph.getLineBaseline(it) - paragraph.getLineBaseline(it - 1) }
+        }
+        val line = 18f * PageMeasurer.LINE_SPACING_MULTIPLIER
+        for (spacing in listOf(1f, 1.5f, 2f, 3f)) {
+            // Skia rounds the parts of each line to whole pixels.
+            gaps(spacing).forEach { assertEquals(line * spacing, it, 1f + line * spacing * 0.02f, "spacing $spacing") }
+        }
+        assertEquals(gaps(3f), gaps(12f), "a stored spacing past the menu's last is drawn as that")
+    }
+
+    @Test
     fun oversizedTextWrapsToThePrintableWidthAtItsOriginalFontSize() = runBlocking {
         val doc = oversizedPdfTextDoc(bodyRepeats = 30)
         val outline = doc.outlines.filterIsInstance<Outline.Text>().single()

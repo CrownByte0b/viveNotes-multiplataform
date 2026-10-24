@@ -1015,6 +1015,9 @@ data class WorkspaceState(
     fun alignSelectedText(align: Align): WorkspaceState =
         richText?.setAlign(align)?.let(::withRichText) ?: this
 
+    fun setSelectedLineSpacing(spacing: Float): WorkspaceState =
+        richText?.setLineSpacing(spacing)?.let(::withRichText) ?: this
+
     fun indentSelectedText(delta: Int): WorkspaceState =
         richText?.indent(delta)?.let(::withRichText) ?: this
 

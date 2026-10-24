@@ -84,11 +84,14 @@ data class RichTextBuffer(
         return changeMarks(range.min, range.max) { it.withMark(mark, false) }
     }
 
-    /** Android's Clear formatting: inline marks go, and so do the paragraphs' list, indent and alignment. */
+    /**
+     * Android's Clear formatting: inline marks go, and so do the paragraphs' list, indent and
+     * alignment — and their line spacing, which Android does not have.
+     */
     fun clearFormatting(): RichTextBuffer {
         val range = selection.clamped(textLength)
         val plainBlocks = changeBlocks {
-            it.copy(type = BlockType.Paragraph, indent = 0, align = Align.Start, checked = null)
+            it.copy(type = BlockType.Paragraph, indent = 0, align = Align.Start, checked = null, lineSpacing = 1f)
         }
         if (range.collapsed) return plainBlocks.copy(typingMarks = emptySet())
         return plainBlocks.changeMarks(range.min, range.max) { marks ->
@@ -169,6 +172,13 @@ data class RichTextBuffer(
     }
 
     fun setAlign(align: Align): RichTextBuffer = changeBlocks { it.copy(align = align) }
+
+    /** Spaces the selected paragraphs' lines [spacing] apart, within what [Block] allows. */
+    fun setLineSpacing(spacing: Float): RichTextBuffer {
+        if (spacing.isNaN()) return this
+        val next = spacing.coerceIn(Block.MIN_LINE_SPACING, Block.MAX_LINE_SPACING)
+        return changeBlocks { it.copy(lineSpacing = next) }
+    }
 
     fun indent(delta: Int): RichTextBuffer = changeBlocks {
         it.copy(indent = (it.indent + delta).coerceIn(0, 8))
@@ -460,7 +470,8 @@ private fun Set<Mark>.withMark(mark: Mark, add: Boolean): Set<Mark> {
 
 /** This block, with [source]'s paragraph style. */
 private fun Block.styledAs(source: Block): Block =
-    copy(type = source.type, indent = source.indent, align = source.align, checked = source.checked)
+    copy(type = source.type, indent = source.indent, align = source.align, checked = source.checked,
+        lineSpacing = source.lineSpacing)
 
 private data class RunSplit(val first: List<Run>, val second: List<Run>)
 

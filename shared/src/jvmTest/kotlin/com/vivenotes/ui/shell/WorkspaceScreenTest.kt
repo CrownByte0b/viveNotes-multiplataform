@@ -512,7 +512,7 @@ class WorkspaceScreenTest {
                 DocumentRibbonTags.Cut, DocumentRibbonTags.Copy,
                 DocumentRibbonTags.FontFamily, DocumentRibbonTags.FontSize,
                 DocumentRibbonTags.FontColor, DocumentRibbonTags.Highlight,
-                DocumentRibbonTags.ClearFormatting, DocumentRibbonTags.Styles,
+                DocumentRibbonTags.ClearFormatting, DocumentRibbonTags.LineSpacing, DocumentRibbonTags.Styles,
                 DocumentRibbonTags.Equation, DocumentRibbonTags.Link, DocumentRibbonTags.Picture,
             ).forEach { onNodeWithTag(it).assertExists() }
             onNodeWithTag(DocumentRibbonTags.Text).assertIsEnabled()
@@ -534,6 +534,7 @@ class WorkspaceScreenTest {
                 DocumentRibbonTags.mark(Mark.Bold), DocumentRibbonTags.blockType(BlockType.Bullet),
                 DocumentRibbonTags.IncreaseIndent, DocumentRibbonTags.ClearFormatting,
                 DocumentRibbonTags.Paste, DocumentRibbonTags.FontColor, DocumentRibbonTags.Link,
+                DocumentRibbonTags.LineSpacing,
             )
 
             textCommands.forEach { onNodeWithTag(it).assertIsNotEnabled() }

@@ -38,6 +38,7 @@ internal class DocumentCommands(
     val clearFormatting: (TextSelection?) -> Unit,
     val setBlockType: (BlockType, TextSelection?) -> Unit,
     val align: (Align, TextSelection?) -> Unit,
+    val setLineSpacing: (Float, TextSelection?) -> Unit,
     val indent: (Int, TextSelection?) -> Unit,
     val copy: (TextSelection?) -> Unit,
     val cut: (TextSelection?) -> Unit,
@@ -158,6 +159,7 @@ internal fun DocumentTab(
             clearFormatting = { selection -> edit(selection) { clearSelectedFormatting() } },
             setBlockType = { type, selection -> edit(selection) { setSelectedBlockType(type) } },
             align = { align, selection -> edit(selection) { alignSelectedText(align) } },
+            setLineSpacing = { spacing, selection -> edit(selection) { setSelectedLineSpacing(spacing) } },
             indent = { delta, selection -> edit(selection) { indentSelectedText(delta) } },
             // The clipboard takes the text the user can see selected, from this frame's state.
             copy = { selection -> clipboard.copy(state, selection) },
