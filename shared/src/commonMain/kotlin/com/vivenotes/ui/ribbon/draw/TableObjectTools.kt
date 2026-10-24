@@ -2,11 +2,8 @@ package com.vivenotes.ui.ribbon.draw
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -49,7 +46,8 @@ import com.vivenotes.workspace.TableToolSettings
  */
 @Composable
 internal fun TableObjectTools(table: Outline.Table, held: TableAxis?, onEdit: (TableEdit) -> Unit, onRelease: () -> Unit) {
-    TableBorderWidthAction(table.borderWidth.toInt(), LocalContentColor.current) { onEdit(TableEdit.BorderWidth(table.id, it)) }
+    BorderWidthAction(table.borderWidth.toInt(), TableToolSettings.MIN_BORDER_WIDTH..TableToolSettings.MAX_BORDER_WIDTH,
+        TableTags.BorderWidth, LocalContentColor.current) { onEdit(TableEdit.BorderWidth(table.id, it)) }
     SelectionColorPicker(onColor = { onEdit(TableEdit.Fill(table.id, it)) }, onNoFill = { onEdit(TableEdit.Fill(table.id, null)) },
         selectedColor = table.fillArgb) { open ->
         TooltipIconButton(Strings.change_fill_color, onClick = open, tooltipPosition = TooltipAnchorPosition.Above,
@@ -99,25 +97,6 @@ internal fun TableObjectTools(table: Outline.Table, held: TableAxis?, onEdit: (T
             ), GridMenuEntry(Strings.header_column, TableTags.HeaderColumn, checked = table.headerColumn) {
                 onEdit(TableEdit.HeaderColumn(table.id, !table.headerColumn))
             })
-        }
-    }
-}
-
-/** The rules' width: the button draws a bar at the current width, the menu is the Table kit's slider. */
-@Composable
-private fun TableBorderWidthAction(width: Int, color: Color, onChange: (Int) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        TooltipIconButton(Strings.change_border_width, onClick = { open = true }, tooltipPosition = TooltipAnchorPosition.Above,
-            modifier = Modifier.size(32.dp).testTag(TableTags.BorderWidth)) {
-            Box(Modifier.width(18.dp).height(width.dp.coerceIn(1.dp, 10.dp)).clip(RoundedCornerShape(50)).background(color))
-        }
-        ScaledDropdownMenu(open, { open = false }) {
-            Column(Modifier.width(240.dp).padding(horizontal = 12.dp, vertical = 4.dp)) {
-                ToolkitSlider(Strings.border_width, width.toFloat(),
-                    TableToolSettings.MIN_BORDER_WIDTH.toFloat()..TableToolSettings.MAX_BORDER_WIDTH.toFloat(), 1f,
-                    "${TableTags.BorderWidth}-slider", color) { onChange(it.toInt()) }
-            }
         }
     }
 }

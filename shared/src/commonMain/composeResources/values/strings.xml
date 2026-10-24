@@ -281,6 +281,7 @@
     <string name="delete_column">Delete column</string>
     <string name="change_border_width">Change border width</string>
     <string name="change_fill_color">Change fill color</string>
+    <string name="change_line_style">Change line style</string>
     <string name="move_table">Move table</string>
     <!-- %1$s = row number, from 1 -->
     <string name="table_row_value">Row %1$s</string>
@@ -348,7 +349,6 @@
     <string name="border_width">Border width</string>
     <string name="border_color">Border color</string>
     <!-- %1$s = shape.borderWidth.toInt() -->
-    <string name="value_pt">%1$s pt</string>
     <string name="fill">Fill</string>
     <string name="no_fill">No fill</string>
     <string name="change_background_color">Change background color</string>

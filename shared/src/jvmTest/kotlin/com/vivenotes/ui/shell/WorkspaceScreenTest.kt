@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
@@ -52,6 +53,7 @@ import com.vivenotes.ui.account.AccountHost
 import com.vivenotes.ui.account.AccountDestinationFrame
 import com.vivenotes.ui.account.AccountTags
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -120,9 +122,10 @@ class WorkspaceScreenTest {
             onNodeWithTag(ShapeObjectTags.Width).assertIsDisplayed()
             onNodeWithTag(ShapeObjectTags.Fill).assertIsDisplayed()
             onNodeWithTag(ShapeObjectTags.LineType).performClick()
-            onNodeWithText("Dotted").performClick()
+            onNodeWithTag(ShapeObjectTags.lineType(LineType.Dotted)).performClick()
             onNodeWithTag(ShapeObjectTags.Width).performClick()
-            onNodeWithText("9 pt").performClick()
+            onNodeWithTag("${ShapeObjectTags.Width}-slider").performSemanticsAction(SemanticsActions.SetProgress) { it(9f) }
+            onNodeWithTag("${ShapeObjectTags.Width}-slider").performKeyInput { pressKey(Key.Escape) }
             onNodeWithTag(ShapeObjectTags.Fill).performClick()
             onNodeWithText("No fill").performClick()
             onNodeWithTag(WorkspaceTestTags.ObjectColor).performClick()

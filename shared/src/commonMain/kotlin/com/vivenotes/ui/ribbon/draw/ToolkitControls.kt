@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.vivenotes.model.ink.LineType
 import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.components.ScaledDropdownMenu
+import com.vivenotes.ui.components.TooltipIconButton
 import com.vivenotes.workspace.normalizedPenPalette
 import kotlin.math.roundToInt
 
@@ -183,6 +184,24 @@ internal fun ColumnScope.ToolkitSlider(label: String, value: Float, range: Close
         }
         ToolkitStepButton(DrawToolkitSymbols.Add, Strings.increase_value(label), value < range.endInclusive, "$tag-plus") {
             onChange((value + step).coerceAtMost(range.endInclusive))
+        }
+    }
+}
+
+/** An object's border width: the button draws a bar at the current width, the menu is the toolkit slider. */
+@Composable
+internal fun BorderWidthAction(width: Int, range: IntRange, tag: String, color: Color, onChange: (Int) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TooltipIconButton(Strings.change_border_width, onClick = { open = true }, tooltipPosition = TooltipAnchorPosition.Above,
+            modifier = Modifier.size(32.dp).testTag(tag)) {
+            Box(Modifier.width(18.dp).height(width.dp.coerceIn(1.dp, 10.dp)).clip(RoundedCornerShape(50)).background(color))
+        }
+        ScaledDropdownMenu(open, { open = false }) {
+            Column(Modifier.width(240.dp).padding(horizontal = 12.dp, vertical = 4.dp)) {
+                ToolkitSlider(Strings.border_width, width.toFloat(), range.first.toFloat()..range.last.toFloat(), 1f,
+                    "$tag-slider", color) { onChange(it.toInt()) }
+            }
         }
     }
 }

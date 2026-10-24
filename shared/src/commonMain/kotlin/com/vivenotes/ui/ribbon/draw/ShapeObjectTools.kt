@@ -1,15 +1,13 @@
 package com.vivenotes.ui.ribbon.draw
 
 import com.vivenotes.localization.Strings
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,51 +20,49 @@ import androidx.compose.ui.unit.dp
 import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.LineType
 import com.vivenotes.model.ink.canFill
-import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.canvas.SelectionColorPicker
+import com.vivenotes.ui.components.ScaledDropdownMenu
+import com.vivenotes.ui.components.TooltipIconButton
+import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.workspace.ShapeToolSettings
 
 internal object ShapeObjectTags {
     const val LineType = "object-shape-line-type"
     const val Width = "object-shape-width"
     const val Fill = "object-shape-fill"
+    fun lineType(type: LineType) = "$LineType-${type.name}"
 }
 
-/** Shape-specific extension of the Prime Object toolkit. */
+/**
+ * Shape-specific extension of the Prime Object toolkit: the line style, the border width slider and,
+ * for closed shapes, the fill, whose bucket sits on a bar of the current fill.
+ */
 @Composable
 internal fun ShapeObjectTools(shape: Outline.Shape, onLineType: (LineType) -> Unit,
                               onWidth: (Int) -> Unit, onFill: (Int?) -> Unit) {
     var lineMenu by remember(shape.id) { mutableStateOf(false) }
-    var widthMenu by remember(shape.id) { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { lineMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp),
-            modifier = Modifier.height(32.dp).testTag(ShapeObjectTags.LineType)) {
-            Text(shape.lineType.label)
+        TooltipIconButton(Strings.change_line_style, onClick = { lineMenu = true }, tooltipPosition = TooltipAnchorPosition.Above,
+            modifier = Modifier.size(32.dp).testTag(ShapeObjectTags.LineType)) {
+            Icon(ObjectSymbols.LineStyle, contentDescription = null, modifier = Modifier.size(18.dp))
         }
         ScaledDropdownMenu(lineMenu, { lineMenu = false }) {
-            LineType.entries.forEach { type ->
-                DropdownMenuItem(text = { Text(type.label) }, onClick = { lineMenu = false; onLineType(type) })
+            Box(Modifier.width(220.dp).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                ToolkitLineTypes(shape.lineType, ShapeObjectTags::lineType) { lineMenu = false; onLineType(it) }
             }
         }
     }
-    Box {
-        TextButton(onClick = { widthMenu = true }, contentPadding = PaddingValues(horizontal = 8.dp),
-            modifier = Modifier.height(32.dp).testTag(ShapeObjectTags.Width)) {
-            Text(Strings.value_pt(shape.borderWidth.toInt()))
-        }
-        ScaledDropdownMenu(widthMenu, { widthMenu = false }) {
-            (ShapeToolSettings.MIN_BORDER_WIDTH..ShapeToolSettings.MAX_BORDER_WIDTH).forEach { width ->
-                DropdownMenuItem(text = { Text(Strings.value_pt(width)) }, onClick = { widthMenu = false; onWidth(width) })
-            }
-        }
-    }
+    BorderWidthAction(shape.borderWidth.toInt(), ShapeToolSettings.MIN_BORDER_WIDTH..ShapeToolSettings.MAX_BORDER_WIDTH,
+        ShapeObjectTags.Width, LocalContentColor.current, onWidth)
     if (shape.canFill) {
         SelectionColorPicker(onColor = onFill, onNoFill = { onFill(null) }, selectedColor = shape.fillArgb) { open ->
-            TextButton(onClick = open, contentPadding = PaddingValues(horizontal = 8.dp),
-                modifier = Modifier.height(32.dp).testTag(ShapeObjectTags.Fill)) {
-                Text(Strings.fill)
-                Box(Modifier.padding(start = 4.dp).size(14.dp).background(shape.fillArgb?.let(::Color)
-                    ?: Color.Transparent))
+            TooltipIconButton(Strings.change_fill_color, onClick = open, tooltipPosition = TooltipAnchorPosition.Above,
+                modifier = Modifier.size(32.dp).testTag(ShapeObjectTags.Fill)) {
+                Box {
+                    Icon(ObjectSymbols.FormatColorFillBucket, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(ObjectSymbols.FormatColorFillBar, contentDescription = null, modifier = Modifier.size(18.dp),
+                        tint = shape.fillArgb?.let(::Color) ?: LocalContentColor.current.copy(alpha = .38f))
+                }
             }
         }
     }
