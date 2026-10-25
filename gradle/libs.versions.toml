@@ -4,7 +4,7 @@
 jvmTarget = "25"
 androidx-lifecycle = "2.11.0"
 # The Android app's DataStore line: its sync account record is this library's Preferences file.
-datastore = "1.1.1"
+datastore = "1.3.0"
 composeMultiplatform = "1.13.0-alpha02"
 junit = "4.13.2"
 kotlin = "2.4.21"
