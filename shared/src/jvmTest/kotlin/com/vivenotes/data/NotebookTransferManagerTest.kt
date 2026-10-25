@@ -789,7 +789,7 @@ class NotebookTransferManagerTest {
         assertEquals(0, destinationDb.notebookDao().count())
     }
 
-    /** Ink the desktop cannot draw yet still has to be ink Android would accept, byte for byte. */
+    /** Ink in an archive has to be ink Android would accept, byte for byte. */
     @Test
     fun inkThatAndroidWouldRefuseIsRefused() = runBlocking<Unit> {
         val notebookId = repository.createNotebook("Scribbles")

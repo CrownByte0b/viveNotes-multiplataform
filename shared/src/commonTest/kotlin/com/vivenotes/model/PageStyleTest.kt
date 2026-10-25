@@ -30,8 +30,8 @@ class PageStyleTest {
 
     @Test
     fun `a document written before the View tab existed keeps its appearance`() {
-        // Every stored page predates PageStyle, so the defaults are not cosmetic — they are what
-        // those pages will look like after this change.
+        // A page stored before PageStyle has none, so the defaults are not cosmetic — they are what
+        // that page looks like.
         val json = """{"schema":1,"outlines":[{"t":"text","id":"o","blocks":[{"id":"b","runs":[{"text":"hi"}]}]}]}"""
 
         assertEquals(PageStyle(), decodePageDoc(json).style)

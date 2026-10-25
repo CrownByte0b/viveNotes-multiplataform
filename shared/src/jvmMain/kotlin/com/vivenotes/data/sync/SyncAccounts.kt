@@ -1,7 +1,7 @@
-// Ported from the Android app's `data/sync/SyncAccounts.kt`. Every operation is Android's word for
-// word; what differs is only what Android reads from its platform: the account store, the managed
-// server address (`BuildConfig.CLOUD_BASE_URL`), and this installation's name and details (`Build`,
-// `BuildConfig`) arrive through the constructor, and Sign in with Google needs no Activity.
+// Ported from the Android app's `data/sync/SyncAccounts.kt`, including its Stripe calls. What
+// Android reads from its platform arrives through the constructor here: the account store, the
+// managed server address (`BuildConfig.CLOUD_BASE_URL`) and this installation's name and details
+// (`Build`, `BuildConfig`). Sign in with Google runs in the system browser and needs no Activity.
 package com.vivenotes.data.sync
 
 import com.vivenotes.data.db.NotesDatabase
@@ -103,9 +103,9 @@ sealed interface DisconnectResult {
 /**
  * How synchronisation is going, for any screen that wants to say so.
  *
- * Every run reports here — event-driven foreground work, WorkManager catch-up and the Sync now
- * button alike — because the runs nobody asked for are the ones that need somewhere to be seen.
- * Before this existed, a failed automatic run looked identical to one with nothing to do.
+ * Every run reports here — event-driven foreground work, catch-up runs and the Sync now button
+ * alike — because the runs nobody asked for are the ones that need somewhere to be seen. Without
+ * it, a failed automatic run would look identical to one with nothing to do.
  *
  * Deliberately in memory and not persisted: the first stream connection runs a catch-up
  * immediately, and every later event refreshes this without turning status into database churn.
@@ -127,7 +127,7 @@ data class SyncStatus(
      * Narrower than "sync is failing", deliberately. The badge this drives says the server is not
      * there, and only the two transport failures mean that: nothing answered
      * ([ConnectFailure.Unreachable]) and something answered that was not viveCServer
-     * ([ConnectFailure.NotAViveServer]). Both leave this tablet holding writes it cannot deliver.
+     * ([ConnectFailure.NotAViveServer]). Both leave this device holding writes it cannot deliver.
      *
      * Everything else is excluded because a cloud with a line through it would misdescribe it. A
      * 5xx, a revoked token or a change this build cannot store all mean the server is reachable and
@@ -225,7 +225,7 @@ class SyncAccounts(
      * Pages the server has written ink into, by generation.
      *
      * Held here because this is the one object both coordinators run through: the foreground event
-     * scheduler and WorkManager catch-up both call [synchronize] on this instance, in this process,
+     * scheduler and catch-up runs both call [synchronize] on this instance, in this process,
      * so an open canvas hears about a pulled stroke whichever of them pulled it.
      */
     val remoteInk: StateFlow<Map<String, Long>> = remoteInkSignal.pages
@@ -236,7 +236,7 @@ class SyncAccounts(
     /** Whether Room currently holds a local mutation that the active account has not accepted. */
     val pendingChanges: Flow<Boolean> = hierarchy?.pendingChanges ?: flowOf(false)
 
-    /** A fresh database read for the foreground-to-WorkManager lifecycle handoff. */
+    /** A fresh database read for the scheduler's hand-off when it stops. */
     suspend fun hasPendingChanges(): Boolean = hierarchy?.hasPendingChanges() == true
 
     /** True only after the live stream's initial authoritative delta is committed locally. */
@@ -966,8 +966,8 @@ class SyncAccounts(
      * Forgets the registration without the server's agreement, for when it cannot give one.
      *
      * The stored registration is what the account screen shows instead of the connect form, so a
-     * server that stayed down — decommissioned, moved, or reachable only from a network this tablet
-     * has left — used to hold this installation to itself with no way to reach another one.
+     * server that stayed down — decommissioned, moved, or reachable only from a network this device
+     * has left — would hold this installation to itself with no way to reach another one.
      *
      * The cost is real and the screen states it before offering this: the device row stays in the
      * server's list and its token stays valid there until somebody removes it. Nothing holds that
@@ -1058,7 +1058,7 @@ class SyncAccounts(
                     failure = null,
                 )
                 // The last success stands: "this failed" and "it last worked ten minutes ago" are
-                // both worth knowing, and the second is what says how stale the tablet is.
+                // both worth knowing, and the second is what says how stale this device is.
                 else -> current.copy(failure = result)
             }
         }

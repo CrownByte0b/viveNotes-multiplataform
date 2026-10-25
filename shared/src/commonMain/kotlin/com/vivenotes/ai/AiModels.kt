@@ -120,7 +120,7 @@ object AiModelCatalog {
     /**
      * PP-FormulaNet-S.
      *
-     * `PP-FormulaNet_plus-S` was tried on Android on 2026-08-10 and reverted the same day, because
+     * `PP-FormulaNet_plus-S` was tried on Android and reverted the same day, because
      * handwriting recognition was markedly worse with it. Do not swap it in on the strength of its
      * published numbers; they do not measure this app's input. Printed BLEU does not predict this
      * app's accuracy; only a real eval set will.

@@ -1,4 +1,4 @@
-// Ported from viveNotes Android data/OnlineImages.kt (commit 35e7147); previews are decoded by Skia
+// Ported from viveNotes Android data/OnlineImages.kt; previews are decoded by Skia
 // into Compose bitmaps, and the cache is a small byte-bounded LRU in place of android.util.LruCache.
 package com.vivenotes.data
 

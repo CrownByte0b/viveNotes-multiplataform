@@ -24,7 +24,6 @@ import multiplataform_vive.shared.generated.resources.Res
 import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.PaintMode
-import org.jetbrains.skia.Rect
 
 /** Desktop replacement for Android's hydrated equation renderer, using the app's RaTeX engine. */
 class PdfEquation private constructor(val latex: String, val display: DisplayList, private val size: Float) {

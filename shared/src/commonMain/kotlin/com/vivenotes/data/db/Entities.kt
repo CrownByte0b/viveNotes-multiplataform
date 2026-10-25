@@ -89,8 +89,7 @@ data class SyncOutboxEntity(
  * These entities are plain data and double as the domain model — there is no separate mapping
  * layer while the app is single-module.
  *
- * Three properties exist for a sync server that does not exist yet, because they are the
- * expensive ones to retrofit:
+ * Three properties exist for sync, and are the expensive ones to retrofit:
  *  - ids are client-generated (see `model.newId`), so offline creation never awaits a server;
  *  - `deletedAt` soft-deletes, because tombstones cannot be reconstructed after a hard delete;
  *  - `updatedAt` orders concurrent edits.
@@ -334,7 +333,7 @@ data class InkStrokeEntity(
      * A logical clock, not a count. `nextSeq` allocates `MAX(seq) + 1` over every row of the page,
      * tombstones and pulled strokes included, which is `max(local, incoming) + 1` — so a stroke
      * drawn here is above everything this device has seen without trusting anybody's wall clock.
-     * Ordering by [createdAt] would let a tablet running ten minutes fast paint over strokes drawn
+     * Ordering by [createdAt] would let a device running ten minutes fast paint over strokes drawn
      * after it.
      *
      * Two devices drawing offline both allocate the same value, which is correct: neither saw the
@@ -540,7 +539,7 @@ data class InkMoveWithTargets(
 /**
  * What is known about an imported picture. The pixels are not here.
  *
- * The bytes are a file, not a column — `filesDir/attachments/<sha256>`, with this row pointing at
+ * The bytes are a file, not a column — `<data>/attachments/<sha256>`, with this row pointing at
  * it. Ink argues for a blob column because a stroke is a few hundred bytes; a photograph is a few
  * million:
  *
@@ -616,9 +615,8 @@ enum class ImageTextStatus {
  * document's business.
  *
  * A child of `attachments` with `ON DELETE CASCADE`, so it goes when `AttachmentStore.release`
- * removes the attachment and its file. A derived cache outliving its subject is the bug this table
- * is most likely to grow, so the invariant is checked as well as declared — see
- * `ImageTextDao.deleteOrphans`.
+ * removes the attachment and its file: a derived cache outliving its subject is the bug this table
+ * is most likely to grow.
  *
  * Derived and regenerable: [engine] records which model and preprocessing wrote [text], so changing
  * the pipeline is a rolling re-read rather than a migration. That is also why the export in

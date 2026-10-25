@@ -7,7 +7,6 @@
 package com.vivenotes.data
 
 import com.vivenotes.localization.Strings
-import androidx.room.useWriterConnection
 import androidx.room.useReaderConnection
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteStatement
@@ -1257,7 +1256,6 @@ class NotebookTransferManager(
 
     companion object {
         const val MIME_TYPE = "application/vnd.vivenotes.notebook+zip"
-        const val EXTENSION = VIVE_EXTENSION
         const val FORMAT = "com.vivenotes.notebook"
         const val FORMAT_VERSION = 1
         const val APP_SCHEMA_VERSION = 13

@@ -7,8 +7,8 @@ import kotlinx.coroutines.flow.update
 import java.io.File
 
 /**
- * [AttachmentBytes] over a scratch directory, so a sync suite never writes into the `filesDir` of
- * the tablet it is running on.
+ * [AttachmentBytes] over a scratch directory, so a sync suite never writes into the attachment
+ * directory of the machine it is running on.
  *
  * The behaviour it has to reproduce faithfully is [publish]: bytes are proved before they are named,
  * and a file already sitting there is already those bytes.

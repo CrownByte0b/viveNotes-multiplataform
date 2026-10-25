@@ -23,7 +23,7 @@ class CanvasViewportTest {
         assertEquals(start, start.autoScrollBy(100f, 10f, Float.NaN, 200f, 140f))
     }
 
-    /** The user asked for auto-scroll 15% faster than its first 6 px/s per pixel and 1800 px/s cap. */
+    /** Auto-scroll runs at 6.9 px/s per pixel past the dead zone, capped at 2070 px/s. */
     @Test
     fun middleAutoscrollIsFifteenPercentFasterThanTheOriginalSpeed() {
         val wide = 100_000f

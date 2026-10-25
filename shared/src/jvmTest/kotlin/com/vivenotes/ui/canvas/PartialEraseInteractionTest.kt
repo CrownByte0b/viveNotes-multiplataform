@@ -26,7 +26,6 @@ import com.vivenotes.data.InkEdit
 import com.vivenotes.data.db.InkEraseWithTargets
 import com.vivenotes.data.db.InkEraseTargetEntity
 import com.vivenotes.ink.*
-import com.vivenotes.model.ink.InkPage
 import com.vivenotes.ui.ribbon.draw.DrawRibbon
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
 import com.vivenotes.workspace.InkSettings

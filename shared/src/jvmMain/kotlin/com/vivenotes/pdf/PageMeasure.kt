@@ -19,8 +19,8 @@ import kotlin.coroutines.coroutineContext
  *
  * Always the light canvas, whatever Switch Background is set to: that setting is a preference about
  * the screen somebody is writing on, not a property of the document. A page carrying a background
- * colour of its own keeps it — that is in the document — and [com.vivenotes.ui.theme.paintedWith]
- * re-derives legible ink for it.
+ * colour of its own keeps it — that is in the document — and its ink is re-derived to stay legible
+ * on it.
  *
  * So ink, shape borders, table rules and equations drawn with the automatic colour all re-resolve
  * against [textArgb] through the `automaticColorOr` path they already use, and a page written in
@@ -438,7 +438,7 @@ class PageMeasurer(
      * On a tiled export it is anchored to the content, not to the page's own corner, and that is the
      * whole of the left-hand normalisation. The grid starts at the leftmost thing on the page, so a
      * page whose writing begins two inches in has those two inches collapsed — but only if the title
-     * stops holding the left edge open at x = 40. It used to, and every page exported with its own
+     * stops holding the left edge open at x = 40. Held open, every page would export with its own
      * dead margin baked in and content pushed off the right edge.
      *
      * So the header sits directly above the content block and shares its left edge, the way a

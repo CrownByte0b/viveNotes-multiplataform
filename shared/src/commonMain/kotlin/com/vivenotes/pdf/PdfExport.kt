@@ -63,7 +63,7 @@ data class PdfSheetRef(val pageIndex: Int, val tileIndex: Int)
  *
  * **Deliberately holds no page content.** A section's documents and — far more to the point — its
  * ink meshes are native-backed and there can be a great many of them; keeping fifty pages of them
- * alive to render one preview is how an export runs a tablet out of memory. What is kept is the
+ * alive to render one preview is how an export runs out of memory. What is kept is the
  * tiling, which is a handful of rectangles per page, and the exporter loads a page again when it is
  * actually asked to draw it. [PdfExporter] caches the last page it measured, so walking the sheets
  * in order — which is what both the preview and the write do — measures each page once.

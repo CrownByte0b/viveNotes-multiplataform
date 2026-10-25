@@ -26,8 +26,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -37,10 +35,10 @@ import kotlinx.coroutines.launch
 /**
  * A [WorkspaceState] kept in step with a [NotesStore].
  *
- * The Android `NotesViewModel` arrangement, for the parts the desktop has so far. The notebook tree
- * and the open section's pages come from the store's flows. The open page's body is read when it is
- * opened, edited in memory, and written back [AUTOSAVE_DELAY_MILLIS] after the last change, before
- * another page opens, and on [flush]. Only the open page holds a body: a page is read afresh every
+ * The Android `NotesViewModel` arrangement. The notebook tree and the open section's pages come
+ * from the store's flows. The open page's body is read when it is opened, edited in memory, and
+ * written back [AUTOSAVE_DELAY_MILLIS] after the last change, before another page opens, and on
+ * [flush]. Only the open page holds a body: a page is read afresh every
  * time it is opened, so a body stored by anything else is the one the next opening shows.
  *
  * Confined to the thread of [scope] — the UI thread in the app — so the UI's changes and the store's

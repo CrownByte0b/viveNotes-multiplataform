@@ -1,6 +1,5 @@
 package com.vivenotes.ui.navigation
 
-import com.vivenotes.localization.Strings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.clickable

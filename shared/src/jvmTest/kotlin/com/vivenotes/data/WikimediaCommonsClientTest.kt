@@ -1,4 +1,4 @@
-// Ported verbatim from viveNotes Android app/src/test/java/com/vivenotes/data/WikimediaCommonsClientTest.kt (commit 35e7147).
+// Ported verbatim from viveNotes Android app/src/test/java/com/vivenotes/data/WikimediaCommonsClientTest.kt.
 package com.vivenotes.data
 
 import org.junit.Assert.assertEquals

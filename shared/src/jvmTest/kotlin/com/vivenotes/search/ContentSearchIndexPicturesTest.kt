@@ -14,13 +14,12 @@ import com.vivenotes.model.search.ContentKind
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
 
 /**
- * The feature the user asked for, end to end minus the model: a word inside a picture is findable,
+ * Picture search end to end, minus the model: a word inside a picture is findable,
  * and it is findable **once per place it actually is**.
  *
  * `ContentSearchTest` covers the same rules over the pure model. This covers them over the real

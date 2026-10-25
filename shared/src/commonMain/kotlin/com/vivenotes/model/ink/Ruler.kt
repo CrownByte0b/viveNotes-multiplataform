@@ -124,8 +124,6 @@ data class Ruler(
     }
 }
 
-data class RulerPlacement(val centerX: Float, val centerY: Float, val angleRadians: Float)
-
 enum class RulerSide { Negative, Positive }
 
 data class RulerPoint(val x: Float, val y: Float)

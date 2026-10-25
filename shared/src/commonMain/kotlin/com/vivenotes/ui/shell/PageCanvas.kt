@@ -103,7 +103,6 @@ import com.vivenotes.ui.canvas.detectRulerGestures
 import com.vivenotes.ui.canvas.documentExtent
 import com.vivenotes.ui.canvas.followPointer
 import com.vivenotes.ui.canvas.pendingInsert
-import com.vivenotes.ui.canvas.rememberPictureAssets
 import com.vivenotes.ui.canvas.selectedCanvasBounds
 import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.drop.FileDropHandler

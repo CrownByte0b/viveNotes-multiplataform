@@ -51,18 +51,6 @@ fun Outline.Shape.ends(): List<ShapeEnd> {
 }
 
 /**
- * The end within [reach] of ([x], [y]), nearest first — or null when the point is near neither.
- *
- * [reach] is passed in rather than known here because how far a finger may miss by is a fact about
- * fingers, not about geometry: `SelectionChrome.HANDLE_REACH` owns it, and both the layer that draws
- * a tapped line's handles and the lasso that draws a lassoed one's read it from there. Page units,
- * which dp already are.
- */
-fun Outline.Shape.endNear(x: Float, y: Float, reach: Float): ShapeEnd? = ends()
-    .minByOrNull { hypot(x - it.x, y - it.y) }
-    ?.takeIf { hypot(x - it.x, y - it.y) <= reach }
-
-/**
  * Moves one end of a line-like shape to ([x], [y]), leaving the other where it is.
  *
  * The shape is re-traced from its two endpoints rather than edited in place. For a plain line the
@@ -209,12 +197,11 @@ private val SNAP_REACH = END_SNAP_TOLERANCE * PI.toFloat() / 180f
  * of each 45° arc, leaving 39° free. Against roughly a degree of steadiness in a hand drawing a
  * 200dp line, that is about three times the wobble it has to absorb.
  *
- * It was 7° for a day, which caught more than it should: a third of every direction on the page
- * became unreachable, and a deliberate shallow lean kept coming back flat.
+ * 7° catches more than it should: a third of every direction on the page becomes unreachable, and
+ * a deliberate shallow lean keeps coming back flat.
  *
- * Whether the snap should be escapable is an open UI question — there is no modifier key on a
- * tablet, so it would have to be a hold, a second finger, or a setting. Until then, angles within
- * this of an eighth-turn are unreachable.
+ * The snap cannot be escaped — a touch screen has no modifier key, so that would take a hold, a
+ * second finger, or a setting — so angles within this of an eighth-turn are unreachable.
  */
 const val END_SNAP_TOLERANCE = 3f
 

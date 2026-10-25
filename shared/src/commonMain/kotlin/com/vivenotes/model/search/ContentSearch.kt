@@ -122,10 +122,10 @@ fun titleUnit(pageId: String, sectionId: String, title: String): ContentUnit? =
 /**
  * One unit per non-blank block, each stamped with where it begins in the box's editor text.
  *
- * The offsets follow `SpannableCodec.render` exactly: blocks are concatenated in order with a single
- * newline between them, and an equation run contributes one character. Blank blocks are skipped
- * as results but still counted in the running offset — they are the empty lines of the note, and
- * dropping their length would push every later match off by one per blank line.
+ * The offsets follow the editor's text (`RichTextBuffer.text`) exactly: blocks are concatenated in
+ * order with a single newline between them, and an equation run contributes one character. Blank
+ * blocks are skipped as results but still counted in the running offset — they are the empty lines
+ * of the note, and dropping their length would push every later match off by one per blank line.
  */
 fun blockUnits(
     pageId: String,

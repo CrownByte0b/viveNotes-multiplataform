@@ -1,4 +1,4 @@
-// Ported from viveNotes Android pdf/PageTiling.kt; only the portable bounds import differs.
+// Android's pdf/PageTiling.kt over portable bounds, with indexed overlap checks giving the same tiles.
 package com.vivenotes.pdf
 
 import com.vivenotes.pdf.PdfBounds as InkBounds
@@ -56,10 +56,9 @@ data class PdfPagePlan(
 }
 
 /**
- * Cutting an infinite canvas into sheets, and
- * `memory/screenshots/canvastopdf.jpg`, which is what both are read off.
+ * Cutting an infinite canvas into sheets.
  *
- * Kept Android-free on purpose. The grid and the fit are the two parts of this feature that can be
+ * Kept platform-free on purpose. The grid and the fit are the two parts of this feature that can be
  * wrong in ways no screenshot shows — a column emitted before the row below it, a box nudged half
  * off the sheet it was meant to be pulled onto — and they are the parts a JVM test can pin.
  */

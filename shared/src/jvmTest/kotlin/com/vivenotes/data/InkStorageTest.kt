@@ -24,9 +24,9 @@ import kotlin.test.assertTrue
 /**
  * Ink storage: rows are kept exactly and removed only by tombstone, whatever the desktop can draw.
  *
- * The desktop has no ink tools yet, but pages arrive with ink from Android, and every revision,
+ * Pages arrive with ink from Android as well as from the desktop's own tools, and every revision,
  * blank test and purge reads these tables. The collection cases are the repository half of the
- * Android `ErasedInkCollectionTest`; its other half replays stroke geometry, which comes with ink.
+ * Android `ErasedInkCollectionTest`.
  */
 class InkStorageTest {
 

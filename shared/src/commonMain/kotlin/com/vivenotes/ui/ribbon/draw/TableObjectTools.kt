@@ -42,7 +42,7 @@ import com.vivenotes.workspace.TableToolSettings
  * With a row or a column [held] there is one thing the verbs are about, so they are the two buttons
  * that draw them; with nothing held they are the Rows and Columns menus, acting at the far edge.
  * Inserting goes below or right only, and Delete is absent at the last row or column. The menus
- * also carry the desktop's header toggles, which had lived in the old Table menu.
+ * also carry the desktop's header toggles.
  */
 @Composable
 internal fun TableObjectTools(table: Outline.Table, held: TableAxis?, onEdit: (TableEdit) -> Unit, onRelease: () -> Unit) {

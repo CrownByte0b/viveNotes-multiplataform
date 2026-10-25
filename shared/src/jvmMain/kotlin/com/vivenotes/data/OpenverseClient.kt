@@ -1,4 +1,4 @@
-// Ported from viveNotes Android data/OpenverseClient.kt (commit 35e7147).
+// Ported from viveNotes Android data/OpenverseClient.kt.
 package com.vivenotes.data
 
 import kotlinx.serialization.SerialName

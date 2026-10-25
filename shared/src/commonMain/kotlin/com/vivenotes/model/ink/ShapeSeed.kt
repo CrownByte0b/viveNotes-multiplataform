@@ -105,9 +105,8 @@ fun seedSegments(
 
         // Silhouette plus the equator, which is what makes it read as a sphere rather than a circle.
         // The near half bows *towards* the viewer — downwards, since the viewer is above — and is
-        // solid; the far half bows up behind the body and is dotted. Those two were the wrong way
-        // round until 2026-08-05, so every sphere was drawn as if seen from below while its shading
-        // said otherwise.
+        // solid; the far half bows up behind the body and is dotted. The other way round, a sphere
+        // reads as seen from below while its shading says otherwise.
         ShapeKind.Sphere -> {
             val centreY = (top + bottom) / 2f
             val equatorDepth = (bottom - top) / 2f * EQUATOR_FLATTEN
@@ -188,7 +187,7 @@ private fun edgeSegments(
 /**
  * The ellipse inscribed in the box, as a ring of arcs.
  *
- * Not four quarter circles. That is what this was, and it is only an ellipse when the box is square:
+ * Not four quarter circles: those make an ellipse only when the box is square:
  * a quarter circle's bulge stretched across a wider quadrant stands well outside the curve it is
  * meant to trace — 29% out on a 3:1 box — and since each quadrant leans a different way, the four
  * meet at visible corners.
@@ -197,8 +196,8 @@ private fun edgeSegments(
  * bulge that carries it over the ellipse's own crown. A circular arc still cannot be an elliptical
  * one, but over a short enough span the difference stops being visible.
  *
- * Starting at the top and going clockwise, as the four used to, so a fill traverses the ring the
- * same way.
+ * Starting at the top and going clockwise, as stored quarter-circle rings do, so a fill traverses
+ * both the same way.
  */
 private fun ellipseRing(
     left: Float,

@@ -10,11 +10,11 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /**
- * The canonical note document. This — not [android.text.Spannable] — is the source of truth.
+ * The canonical note document, and the source of truth for every editor.
  *
- * Keeping the document as portable data is what lets export, search indexing and (later) sync
- * and the MCP server operate on formatted content without depending on Android. The editor
- * converts to and from spans at its own boundary; see `richtext/SpannableCodec.kt`.
+ * Keeping the document as portable data is what lets export, search indexing and sync operate on
+ * formatted content without depending on a platform. The editor converts to and from its own text
+ * model at its boundary; see `richtext/RichTextBuffer.kt`.
  */
 @Serializable
 data class PageDoc(
@@ -462,7 +462,7 @@ sealed interface Outline {
     /**
      * A formula placed on the canvas — the Draw tab's ƒ.
      *
-     * An object, not a mark. The Home tab's equation is a [Mark.Equation] on a run: a character in a
+     * An object, not a mark. An inline equation is a [Mark.Equation] on a run: a character in a
      * sentence with no position of its own. This one is lassoed, dragged, resized by its corners,
      * copied, deleted and undone like everything else placed on a page. Two types rather than one
      * with a flag, because a span of text and a rectangle on a page share nothing but their LaTeX.
@@ -603,7 +603,7 @@ sealed interface Outline {
         fun cellIds(): List<String> = rows.flatMap { row -> row.cells.map(TableCell::id) }
 
         /**
-         * The cells that hold text — what the ViewModel keys its block map by, and empty for an
+         * The cells that hold text — what the workspace keys its block map by, and empty for an
          * [inkOnly] table.
          *
          * One accessor rather than an `if (inkOnly)` at each of the eight places that seed, remove,
@@ -669,8 +669,8 @@ sealed interface Outline {
             /**
              * Caps on the grid.
              *
-             * One `EditText` per cell is what buys the whole Home ribbon inside a table; it is also
-             * what would make an uncapped table a way to put a thousand Android Views on one page.
+             * One text editor per cell is what puts the whole Document ribbon inside a table; it is
+             * also what would make an uncapped table a way to put a thousand editors on one page.
              * They live here rather than in the picker because paste, undo and a document written by
              * hand all reach the same lists.
              */
@@ -693,8 +693,8 @@ sealed interface Outline {
     }
 
     /**
-     * Reserved. Stylus input is deferred, but declaring the variant now means adding ink later is
-     * additive rather than a migration.
+     * Reserved. Ink lives in its own tables rather than in the document; declaring the variant keeps
+     * an ink outline additive rather than a migration.
      */
     @Serializable
     @SerialName("ink")
@@ -725,8 +725,8 @@ data class TableRow(
  * One cell: an id, and the blocks it holds.
  *
  * Content-shaped like a text container and geometry-shaped like nothing. The blocks are the same
- * type a container's are, held in the ViewModel under the same map and rendered by the same
- * `OutlineEditText`, which is what puts the entire Home ribbon inside a table for free. What a cell
+ * type a container's are, held in the workspace under the same map and rendered by the same
+ * text editor, which is what puts the entire Document ribbon inside a table for free. What a cell
  * does not have is an x, a y or a width: where it sits is decided by its row and its column.
  */
 @Serializable
@@ -772,8 +772,8 @@ data class Block(
      * equation run's LaTeX source, while the editor writes one [OBJECT_REPLACEMENT_CHARACTER] for
      * it. Search over this projection and a match offset is an offset the editor can select.
      *
-     * Paired with `SpannableCodec.render`, which builds the editor's text. The two must agree
-     * character for character; `SpannableCodecTest` asserts it, being the one place that runs both.
+     * The editor's own text is built from it (`RichTextBuffer.text`), so the two agree character for
+     * character.
      */
     val editorText: String get() = runs.joinToString("") { it.editorText }
 

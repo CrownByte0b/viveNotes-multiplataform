@@ -58,11 +58,9 @@ data class DeletionPurgeResult(
 /**
  * Notebooks, pages, their bodies, history and ink, over [NotesDatabase].
  *
- * The Android repository with three differences. Transactions use Room's multiplatform form, see
- * [withTransaction]. There is no starter ink page: Android's first launch no longer seeds one
- * either, and the fixture is an Android asset. And the content-search corpus and the recognized
- * picture and handwriting caches are not here yet — they arrive with the search and recognition
- * features that read them; their tables and DAOs are already part of the schema.
+ * The Android repository, with these differences. Transactions use Room's multiplatform form, see
+ * [withTransaction]. There is no starter ink page. Decoding and checkpoint preparation run on [cpu],
+ * outside the writer, and loaded ink is reused through [loadedInk] once it is proved unchanged.
  */
 class NotesRepository(
     private val db: NotesDatabase,
@@ -1138,7 +1136,7 @@ class NotesRepository(
      *
      * That cannot resurrect ink the *user* deleted: the canvas history is one linear ring, so a
      * delete made after this erase has to be undone before this erase can be, and a revision restore
-     * drops the ring outright (`NotesViewModel.restoreRevision`).
+     * drops the ring outright (`WorkspaceSession`'s revision restore).
      */
     suspend fun setPartialEraseActive(id: String, active: Boolean) {
         val now = clock()
@@ -1189,10 +1187,9 @@ class NotesRepository(
      * Seeds a starter notebook so the first launch is not an empty void. Only ever runs when the
      * database has no notebooks at all, so it cannot resurrect content the user deleted.
      *
-     * The Welcome page is deliberately empty — [createPage] already writes `PageDoc.empty()`. It
-     * used to open with a text outline explaining the ribbon, which put a container under the pen
-     * before the owner had drawn anything and made the first gesture on a stylus-first app a text
-     * selection.
+     * The Welcome page is deliberately empty — [createPage] already writes `PageDoc.empty()`. A text
+     * outline explaining the ribbon would put a container under the pen before the owner had drawn
+     * anything and make the first gesture with a stylus a text selection.
      */
     override suspend fun seedIfEmpty() {
         if (notebooks.count() > 0) return

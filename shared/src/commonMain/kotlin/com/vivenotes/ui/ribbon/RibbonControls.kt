@@ -1,6 +1,5 @@
 package com.vivenotes.ui.ribbon
 
-import com.vivenotes.localization.Strings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -179,26 +178,3 @@ internal fun RibbonDivider() {
         .background(RibbonStyle.divider))
 }
 
-@Composable
-internal fun RibbonToggle(
-    label: String,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    icon: @Composable (() -> Unit)? = null,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
-    RibbonCommand(label = label, onClick = onClick, modifier = modifier, active = selected, icon = icon, enabled = enabled)
-}
-
-/** A command whose port has not landed yet: readable, but not clickable. */
-@Composable
-internal fun PendingRibbonAction(label: String, icon: @Composable (() -> Unit)? = null) {
-    RibbonCommand(label = label, onClick = {}, enabled = false, icon = icon)
-}
-
-@Composable
-internal fun PendingRibbonNote() {
-    Text(Strings.tools_unlock_as_each_port_phase_lands, style = TextStyle(fontSize = 12.sp),
-        color = RibbonStyle.disabledText, modifier = Modifier.padding(horizontal = 8.dp))
-}

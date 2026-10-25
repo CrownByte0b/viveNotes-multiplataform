@@ -1,4 +1,4 @@
-// Ported from viveNotes Android ui/editor/Ribbon.kt's PictureButton (commits 35e7147 and 2c16403).
+// Ported from viveNotes Android ui/editor/Ribbon.kt's PictureButton.
 package com.vivenotes.ui.ribbon.document
 
 import androidx.compose.foundation.layout.Box

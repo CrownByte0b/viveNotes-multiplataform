@@ -1,5 +1,5 @@
-// Ported from the Android app's `data/db/Daos.kt`. The queries are the Android ones word for word;
-// keep them that way, because the two builds share the schema and its behaviour.
+// The Android app's `data/db/Daos.kt` shares this schema and its behaviour: keep every query the two
+// apps have in common identical to Android's.
 package com.vivenotes.data.db
 
 import androidx.room.Dao
@@ -493,8 +493,6 @@ interface NotebookDao {
     )
     fun observeTree(): Flow<List<NotebookWithSections>>
 
-    @Query("SELECT * FROM notebooks WHERE deletedAt IS NULL ORDER BY sortIndex")
-    fun observeAll(): Flow<List<NotebookEntity>>
 
     /**
      * The shelf, newest first, with what each notebook holds counted in SQL.
@@ -789,17 +787,6 @@ interface PageContentDao {
      */
     @Query("SELECT * FROM page_content WHERE docJson LIKE '%attachmentId%'")
     suspend fun picturePlacingBodies(): List<PageContentEntity>
-
-    /**
-     * Every stored body that could carry a shape or table border, on [picturePlacingBodies]' terms.
-     * `AutomaticInkRepair` is the only caller, and the guard keeps its one pass proportional to the
-     * pages that have a border on them.
-     *
-     * A border written before the flag existed has no such key, which is correct: those already
-     * decode to null and are what the repair is putting the others back to.
-     */
-    @Query("SELECT * FROM page_content WHERE docJson LIKE '%borderFollowsTheme%'")
-    suspend fun borderCarryingBodies(): List<PageContentEntity>
 }
 
 @Dao
@@ -989,18 +976,6 @@ interface InkStrokeDao {
     @Query("UPDATE ink_strokes SET groupId = :groupId WHERE id = :id")
     suspend fun setGroup(id: String, groupId: String?)
 
-    /**
-     * Forgets the intent behind a stroke recorded as deliberately pure white or black, so that it
-     * follows the canvas again — `AutomaticInkRepair` is the only caller.
-     *
-     * The two colours are bound rather than written into the SQL so they are the same two constants
-     * [com.vivenotes.data.automaticColorOr] infers from.
-     */
-    @Query(
-        "UPDATE ink_strokes SET colorFollowsTheme = NULL " +
-            "WHERE colorFollowsTheme = 0 AND colorArgb IN (:light, :dark)",
-    )
-    suspend fun clearChosenAutomaticInk(light: Int, dark: Int): Int
 
     /**
      * The next draw-order value for a page — the allocator for [InkStrokeEntity.seq].
@@ -1036,8 +1011,6 @@ interface AttachmentDao {
     @Query("UPDATE attachments SET refCount = MAX(refCount + :delta, 0) WHERE id = :id")
     suspend fun adjustReferences(id: String, delta: Int)
 
-    @Query("SELECT * FROM attachments WHERE refCount <= 0")
-    suspend fun unreferenced(): List<AttachmentEntity>
 
     @Query("SELECT * FROM attachments")
     suspend fun all(): List<AttachmentEntity>
@@ -1093,33 +1066,12 @@ interface ImageTextDao {
     @Upsert
     suspend fun upsert(row: AttachmentTextEntity)
 
-    @Query("SELECT COUNT(*) FROM attachment_text WHERE engine = :engine")
-    suspend fun countForEngine(engine: String): Int
 
     /** Clears the cache. Nothing a user made is in here, so this needs no confirmation beyond the UI's. */
     @Query("DELETE FROM attachment_text")
     suspend fun clear()
 
-    /**
-     * Deletes rows whose attachment is gone, and returns how many that was.
-     *
-     * This must always return zero. The foreign key cascades, so an orphan can only exist if
-     * something wrote this table outside Room or deleted an attachment with foreign keys off. One
-     * cheap statement per indexing pass, and the difference between believing the cascade fires and
-     * knowing it.
-     */
-    @Query("DELETE FROM attachment_text WHERE attachmentId NOT IN (SELECT id FROM attachments)")
-    suspend fun deleteOrphans(): Int
 }
-
-/** Narrow change projection: observing it never drags the regions JSON through every search. */
-data class InkTextStamp(
-    val pageId: String,
-    val layoutHash: String,
-    val engine: String,
-    val status: InkTextStatus,
-    val updatedAt: Long,
-)
 
 /** The per-page derived handwriting cache. */
 @Dao
@@ -1140,8 +1092,6 @@ interface InkTextDao {
     )
     suspend fun bumpGeneration(pageId: String)
 
-    @Query("SELECT COUNT(*) FROM ink_text WHERE engine = :engine")
-    suspend fun countForEngine(engine: String): Int
 
     @Query("DELETE FROM ink_text WHERE pageId = :pageId")
     suspend fun deleteForPage(pageId: String)
@@ -1151,11 +1101,6 @@ interface InkTextDao {
 
     @Query("DELETE FROM ink_text")
     suspend fun clear()
-
-    @Query(
-        "SELECT pageId, layoutHash, engine, status, updatedAt FROM ink_text ORDER BY pageId",
-    )
-    fun observeStamps(): Flow<List<InkTextStamp>>
 }
 
 @Dao

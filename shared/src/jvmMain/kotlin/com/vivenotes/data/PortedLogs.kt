@@ -50,7 +50,6 @@ internal object Log {
  */
 internal object DebugLog {
     const val DB = "NotesDb"
-    const val TRANSFER = "NotebookTransfer"
 
     inline fun d(tag: String, message: () -> String) {
         if (PortedLogs.enabled) PortedLogs.write(tag, message())

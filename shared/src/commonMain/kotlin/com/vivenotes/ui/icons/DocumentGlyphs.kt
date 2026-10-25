@@ -5,8 +5,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.addPathNodes
-import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
@@ -20,12 +18,11 @@ import androidx.compose.runtime.remember
  * express that: each is a single path, and [androidx.compose.material3.Icon] flattens whatever it is
  * given to one `tint`.
  *
- * Built in Kotlin rather than as XML vector drawables because XML pays runtime inflation on every
- * load while these are plain object allocation. It is also the only form that can take a colour as a
- * parameter, which the font and highlight glyphs need: their bar shows the currently selected colour.
+ * Built in Kotlin so a glyph can take a colour as a parameter, which the font and highlight glyphs
+ * need: their bar shows the currently selected colour.
  *
  * Colours are supplied by the caller, so the neutral can follow the theme and the active-button
- * state. See [AppIcons] for where they get built and cached.
+ * state.
  */
 
 /** Row centres shared by the bulleted and numbered list glyphs, so the two line up in the ribbon. */
@@ -39,51 +36,6 @@ private inline fun glyph(name: String, block: ImageVector.Builder.() -> Unit): I
         viewportWidth = 24f,
         viewportHeight = 24f,
     ).apply(block).build()
-
-/**
- * [glyph], for artwork taken from Microsoft's Fluent UI System Icons.
- *
- * A third box, because Fluent authors in a 20x20 viewport with the origin at the top left and y
- * measured downwards. So there is no translating group here: pasting a Fluent export's path data in
- * verbatim already lands it where it belongs, the same reason [materialGlyph] keeps Google's
- * inverted box rather than rescaling it.
- *
- * The 24.dp default matches every other glyph in this file, so a 20-unit drawing fills the same
- * square a 960-unit one does.
- */
-private inline fun fluentGlyph(
-    name: String,
-    block: ImageVector.Builder.() -> Unit,
-): ImageVector =
-    ImageVector.Builder(
-        name = name,
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 20f,
-        viewportHeight = 20f,
-    ).apply(block).build()
-
-/**
- * [glyph], for artwork traced from a Material Symbol rather than drawn from scratch here.
- *
- * Google's exports are authored in a 960×960 box whose origin sits at the *bottom* left
- * (`viewBox="0 -960 960 960"`), so every y is negative. Keeping that space rather than rescaling to
- * the 24 the hand-drawn glyphs use means an export's path data can be pasted in verbatim: nothing
- * is re-derived by hand, so nothing can be re-derived wrongly, and a redrawn `.svg` drops straight
- * in. The translating group is exactly the correction `res/drawable/ms_rounded_*.xml` already
- * applies for the same reason.
- */
-private inline fun materialGlyph(
-    name: String,
-    block: ImageVector.Builder.() -> Unit,
-): ImageVector =
-    ImageVector.Builder(
-        name = name,
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 960f,
-        viewportHeight = 960f,
-    ).group(translationY = 960f, block = block).build()
 
 /** The three "text" rules that both list glyphs share. */
 private fun ImageVector.Builder.listRules(neutral: Color) {

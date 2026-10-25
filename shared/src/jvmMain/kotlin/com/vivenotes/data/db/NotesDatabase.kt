@@ -24,9 +24,9 @@ import java.io.File
  * build cannot be upgraded and has to be cleared.
  *
  * From here the ordinary rule applies: every schema change needs an explicit `Migration` registered
- * in [create], the exported schema JSON committed under `app/schemas/`, and a case in
- * `MigrationTest` proving what happens to rows that already exist. The migration's KDoc explains
- * why each column is backfilled or left null — the one-line `ALTER TABLE` never shows that.
+ * in [create], the exported schema JSON committed under `shared/schemas/`, and a case in
+ * `SchemaCompatibilityTest` proving what happens to rows that already exist. The migration's KDoc
+ * explains why each column is backfilled or left null — the one-line `ALTER TABLE` never shows that.
  * [MIGRATION_1_2] is the first.
  */
 @Database(

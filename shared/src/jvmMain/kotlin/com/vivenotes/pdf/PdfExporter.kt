@@ -6,8 +6,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import com.vivenotes.data.*
 import com.vivenotes.data.db.PageEntity
-import com.vivenotes.byteink.kit.PageStroke
-import com.vivenotes.ink.desktopGeometry
 import com.vivenotes.model.*
 import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.*
@@ -149,8 +147,8 @@ class PdfExporter(
     /**
      * Writes the whole export to [destination], reporting each sheet as it is finished.
      *
-     * The stream is the user's chosen document — a Storage Access Framework grant for exactly that
-     * file, which is the same door Export Notebook goes through and needs no storage permission.
+     * The destination is the file chosen in the save dialog. The PDF is written to a staging file
+     * beside it and moved over it only once complete, so a failed export leaves an existing file whole.
      */
     override suspend fun write(
         plan: PdfExportPlan,

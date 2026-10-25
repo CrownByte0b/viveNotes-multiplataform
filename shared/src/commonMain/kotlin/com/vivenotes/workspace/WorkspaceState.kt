@@ -1,7 +1,6 @@
 package com.vivenotes.workspace
 
 import com.vivenotes.localization.Strings
-import com.vivenotes.model.SpaceCut
 import com.vivenotes.model.newTable
 import com.vivenotes.model.withRowInserted
 import com.vivenotes.model.withRowRemoved

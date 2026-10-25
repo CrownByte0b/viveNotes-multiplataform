@@ -356,7 +356,7 @@ class SyncServerClientTest {
     }
 
     /**
-     * The distinction the whole check exists for. A tablet carried out of wifi range must come back
+     * The distinction the whole check exists for. A device carried out of network range must come back
      * still connected, so nothing short of the server itself saying no may look like revocation.
      */
     @Test

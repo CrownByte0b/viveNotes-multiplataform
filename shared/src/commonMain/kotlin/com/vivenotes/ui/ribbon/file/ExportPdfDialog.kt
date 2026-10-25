@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -48,10 +47,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -104,12 +101,10 @@ internal object ExportPdfTags {
  * takes the screen, and on anything wide enough the options sit beside the sheet they are changing —
  * every one of them changes what the preview shows.
  *
- * The options themselves are the pane's own widgets ([PanelSection], [PanelRow], [PanelChoice],
- * [PanelToggle]), so a drop-down here is the same drop-down as the one in Paper Size.
+ * The options themselves are the tool panes' own widgets ([PaneGroup], [PaneRow], [PaneChoice]), so
+ * a drop-down here is the same drop-down as the one in Paper Size.
  *
- * Nothing is written until the file picker comes back: the export is a Storage Access Framework
- * document the user chooses, and it needs no storage permission because choosing the file is the
- * grant.
+ * Nothing is written until the native save dialog comes back with a file.
  *
  * The opt-in is for [LoadingIndicator] — the same one `AccountScreen` takes.
  */
@@ -547,8 +542,6 @@ private val EXPORT_PAPER_SIZES = PaperSize.entries.filter {
         PaperSize.Billfold,
     )
 }
-
-private const val PDF_MIME = "application/pdf"
 
 /** Wide enough for a portrait sheet and a pane of controls to sit side by side. */
 private val SIDE_BY_SIDE_BREAKPOINT = 720.dp

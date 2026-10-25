@@ -48,8 +48,7 @@ const val GROUP_GAP_X_DP: Float = 40f
 const val GROUP_GAP_Y_DP: Float = 40f
 
 /**
- * Everything on the page, gathered into the entities the fit is allowed to move — the corrected
- * which is what the exporter now does.
+ * Everything on the page, gathered into the entities the fit is allowed to move.
  *
  * A whitespace cut, on both axes, over **objects and ink together**. That last part is the point:
  * a diagram is a shape with handwriting on it, a working is a paragraph with a sum beside it, and

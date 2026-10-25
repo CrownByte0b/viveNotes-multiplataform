@@ -1,4 +1,5 @@
-// Copied from the Android app's `data/sync/AttachmentBlobSync.kt`; only Android-only imports differ.
+// Based on the Android app's `data/sync/AttachmentBlobSync.kt`; the desktop runs transfers in bounded
+// workers with crash-safe download stages.
 package com.vivenotes.data.sync
 
 import com.vivenotes.data.Log
@@ -27,7 +28,7 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * An interface rather than a direct dependency on `AttachmentStore` for the reason [SyncTransport]
  * is one: this is the seam a test hands a temporary directory, so a suite that proves a picture
- * crosses between devices does not write into the real `filesDir` of whatever tablet it runs on.
+ * crosses between devices does not write into the real attachment directory of the machine it runs on.
  * `AttachmentStore` is the only production implementation and owns every decision about *what* gets
  * stored; this is only about where the bytes are and when they arrive.
  */
@@ -306,7 +307,7 @@ class AttachmentBlobSync(
      * process dies mid-transfer.
      *
      * The first transport failure ends the pass rather than trying the rest — they are all going to
-     * the same server, so a tablet that has lost its wifi with two hundred pictures outstanding
+     * the same server, so a device that has lost its network with two hundred pictures outstanding
      * would otherwise spend two hundred connect timeouts on one wakeup. A 404 or a mismatched digest
      * is about that picture and only defers it.
      */

@@ -88,8 +88,8 @@ class ForegroundSyncScheduler(
      *
      * The point-in-time query runs after the collectors are cancelled so an invalidation racing the
      * lifecycle transition cannot be missed. An empty outbox means no final cursor request and no
-     * WorkManager job. With work, the direct flush handles the ordinary case and WorkManager is the
-     * process-death backstop.
+     * background catch-up. With work, the direct flush handles the ordinary case, and the outbox
+     * keeps whatever it could not send for the next run.
      */
     fun stop() {
         collector?.cancel()

@@ -79,9 +79,9 @@ data class ShapeSegment(
      * An ellipse's quadrants then bow past where the outline should be, cross their neighbours, and
      * the shape comes apart into arcs that read as a figure of eight.
      *
-     * [scaledCrown] is where the replacement height comes from. Mirroring falls out of it too, and
-     * used to be a sign flip applied when the two scales disagreed: a negative scale carries the
-     * crown across its chord, and the signed height comes back negative on its own.
+     * [scaledCrown] is where the replacement height comes from. Mirroring falls out of it too, with
+     * no sign flip for scales that disagree: a negative scale carries the crown across its chord,
+     * and the signed height comes back negative on its own.
      */
     fun scaledAbout(anchorX: Float, anchorY: Float, scaleX: Float, scaleY: Float): ShapeSegment {
         val sx1 = anchorX + (x1 - anchorX) * scaleX

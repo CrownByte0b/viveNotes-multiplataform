@@ -106,8 +106,8 @@ internal fun CanvasPaper(
                             drawRect(palette.secondaryInk, style = Stroke(width = 2f,
                                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 9f))))
                         }
-                        // Nothing prints yet, so the guides are what makes a margin observable.
-                        // They are drawn only while the Paper Size pane that edits them is open.
+                        // The guides make the print margins visible, only while the Paper Size pane
+                        // that edits them is open.
                         if (showMargins) drawMarginGuides(style.margins, palette.secondaryInk)
                     },
             )

@@ -1,4 +1,4 @@
-// Ported from viveNotes Android data/PictureHttp.kt (commit 35e7147); the identity names the desktop
+// Ported from viveNotes Android data/PictureHttp.kt; the identity names the desktop
 // build, and the readable types are what Skia decodes.
 package com.vivenotes.data
 

@@ -113,7 +113,7 @@ class ToolkitPopupKeyboardContractTest {
             click(panel, "draw-ink-wheel-button")
             click(panel, "draw-ink-custom-color")
             awaitKeyboardIn(panel, "draw-ink-custom-color")
-            // The workspace fallback used to steal focus on the frame after a component popup opened.
+            // Past the frame on which the workspace's focus fallback could take the keyboard back.
             Thread.sleep(200)
             for (char in "#123456") key(KeyEvent.getExtendedKeyCodeForChar(char.uppercaseChar().code), char)
             waitFor("native keyboard characters reaching the color field") {

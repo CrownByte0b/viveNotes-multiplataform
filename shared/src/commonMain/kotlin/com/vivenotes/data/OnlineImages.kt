@@ -1,5 +1,4 @@
-// Ported from viveNotes Android data/OnlineImages.kt (commit 35e7147); the search itself is jvmMain's
-// OnlineImageSearch, and a preview is a Compose ImageBitmap rather than an Android Bitmap.
+// The search itself is jvmMain's OnlineImageSearch; a preview is a Compose ImageBitmap.
 package com.vivenotes.data
 
 import androidx.compose.ui.graphics.ImageBitmap

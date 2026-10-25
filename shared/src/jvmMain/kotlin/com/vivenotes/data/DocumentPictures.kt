@@ -1,4 +1,4 @@
-// Ported unchanged from the Android app's `data/DocumentPictures.kt`.
+// Ported from the Android app's `data/DocumentPictures.kt`, with a small cache of recent bodies.
 package com.vivenotes.data
 
 import com.vivenotes.data.db.PageRevisionEntity

@@ -11,7 +11,7 @@ import kotlin.test.assertNull
 
 /**
  * The Video4Linux2 interface as the binding speaks it. The expected numbers were printed by a C
- * program compiled against `/usr/include/linux/videodev2.h` on x86-64 (2026-10-18): the kernel's
+ * program compiled against `/usr/include/linux/videodev2.h` on x86-64: the kernel's
  * own ioctl numbers, which carry each struct's size, so a layout off by a field is refused.
  */
 class V4l2Test {

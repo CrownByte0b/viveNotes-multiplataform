@@ -26,8 +26,7 @@ import kotlin.test.assertTrue
  * The camera against a real one: skipped unless `VIVE_CAMERA_DEVICE` names its node, as in
  * `VIVE_CAMERA_DEVICE=/dev/video0 ./gradlew :desktopApp:test --tests '*RealCameraTest*'`.
  *
- * Run on 2026-10-18 against the kernel's virtual `vivid` camera in a throwaway VM, since the
- * development machine has no camera; see the repository's `memory/document-tab.md`.
+ * On a machine without one, the kernel's virtual `vivid` camera (`modprobe vivid`) will do.
  */
 class RealCameraTest {
 

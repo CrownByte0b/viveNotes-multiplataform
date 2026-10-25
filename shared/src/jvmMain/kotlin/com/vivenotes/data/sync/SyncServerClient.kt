@@ -1,4 +1,5 @@
-// Copied from the Android app's `data/sync/SyncServerClient.kt`; only Android-only imports differ.
+// Based on the Android app's `data/sync/SyncServerClient.kt` (including its Stripe calls); the
+// requests and responses are the managed server's contract.
 package com.vivenotes.data.sync
 
 import kotlinx.coroutines.Dispatchers
@@ -109,7 +110,7 @@ enum class ConnectFailure {
      * `400 invalid_challenge` — the single-use nonce was expired, already spent, or never issued.
      *
      * Almost always time: `VIVE_GOOGLE_CHALLENGE_TTL` defaults to five minutes, and a sheet left
-     * open on a locked tablet outlives it. Nothing is wrong with the account or the address, so the
+     * open on a locked screen outlives it. Nothing is wrong with the account or the address, so the
      * message says to try again rather than to change something.
      */
     InvalidChallenge,
@@ -190,7 +191,7 @@ sealed interface TokenCheck {
     /**
      * Nothing was learned: offline, DNS failure, the server down or answering 5xx.
      *
-     * Deliberately not folded into [Revoked]. A tablet carried out of wifi range would otherwise
+     * Deliberately not folded into [Revoked]. A device carried out of network range would otherwise
      * delete a working, non-reissuable credential because it could not reach the server to ask.
      */
     data class Unknown(val reason: ConnectFailure) : TokenCheck
@@ -278,7 +279,7 @@ sealed interface ServerResult<out T> {
 
     /**
      * [retryable] distinguishes an outage/5xx from a request the same client would send identically
-     * forever. WorkManager retries only the first group.
+     * forever. Automatic runs retry only the first group.
      */
     data class Failed(
         val reason: ConnectFailure,
@@ -505,7 +506,7 @@ interface SyncTransport {
     /**
      * Whether this account already holds [digest] — `HEAD /v1/blobs/{sha256}`.
      *
-     * The cheap half of deduplication: the same photograph imported on two tablets costs one round
+     * The cheap half of deduplication: the same photograph imported on two devices costs one round
      * trip on the second rather than a second upload of the megabytes.
      */
     suspend fun hasBlob(
@@ -583,7 +584,7 @@ fun normaliseServerAddress(typed: String): String? {
  * operation.
  *
  * `HttpURLConnection` rather than a new HTTP dependency, following
- * [com.vivenotes.ai.VerifiedArtifactDownloader]: this API is low-frequency WorkManager traffic and
+ * [com.vivenotes.ai.VerifiedArtifactDownloader]: this API is low-frequency background traffic and
  * does not need an interceptor stack or an application-owned connection pool. [openConnection] is
  * injectable for the same reason it is there.
  *
@@ -1517,7 +1518,7 @@ class SyncServerClient(
      * `PUT /v1/blobs/{sha256}` — the bytes themselves, streamed from disk.
      *
      * Streamed rather than read into a `ByteArray` first: an attachment may be 32 MiB, and this runs
-     * on a tablet that is also holding a page of ink. `setFixedLengthStreamingMode` is what keeps
+     * in a process that is also holding a page of ink. `setFixedLengthStreamingMode` is what keeps
      * `HttpURLConnection` from buffering the whole body to compute a `Content-Length` itself.
      *
      * The size is checked here as well as by the server, so a file that could only ever be refused
@@ -2375,9 +2376,9 @@ private data class ErrorResponse(val error: String, val message: String? = null)
  * understands — the contract marks its request schemas `additionalProperties: true` with the same
  * intent in the other direction.
  *
- * Not `coerceInputValues`: unlike the settings blobs in [com.vivenotes.data.PenSettingsStore], every
- * field here is required and a missing one means the answer did not come from viveCServer. Quietly
- * defaulting an absent `token` to an empty string would store a credential that cannot work.
+ * Not `coerceInputValues`: unlike a settings file, every field here is required and a missing one
+ * means the answer did not come from viveCServer. Quietly defaulting an absent `token` to an empty
+ * string would store a credential that cannot work.
  */
 private val syncJson: Json = Json { ignoreUnknownKeys = true }
 

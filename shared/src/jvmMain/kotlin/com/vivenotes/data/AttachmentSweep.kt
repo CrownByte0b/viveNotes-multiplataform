@@ -1,4 +1,4 @@
-// Ported from the Android app's `data/AttachmentSweep.kt`; only the logging and Room imports differ.
+// Ported from the Android app's `data/AttachmentSweep.kt`; the desktop reads sync state in batches.
 package com.vivenotes.data
 
 import com.vivenotes.data.withTransaction

@@ -16,8 +16,7 @@ import kotlin.test.assertTrue
 
 /**
  * The camera as the Picture menu and window ask for it, on nodes that are not cameras. Real capture
- * needs a camera — the native half was checked against the kernel's virtual `vivid` camera; see the
- * repository's `memory/document-tab.md`.
+ * needs a camera; [RealCameraTest] covers it.
  */
 class LinuxCameraTest {
 

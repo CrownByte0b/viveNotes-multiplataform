@@ -1,4 +1,4 @@
-// Ported from viveNotes Android data/WikimediaCommonsClient.kt (commit 35e7147).
+// Ported from viveNotes Android data/WikimediaCommonsClient.kt.
 package com.vivenotes.data
 
 import kotlinx.serialization.Serializable

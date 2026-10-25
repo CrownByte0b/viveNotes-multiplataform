@@ -8,8 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * How an infinite canvas becomes sheets, read off
- * `memory/screenshots/canvastopdf.jpg`.
+ * How an infinite canvas becomes sheets.
  *
  * These are the parts of the export that no screenshot catches. A column emitted before the row
  * below it looks like a correct PDF with its pages shuffled; a box nudged the wrong way looks like a
@@ -119,9 +118,9 @@ class PageTilingTest {
     }
 
     /**
-     * The correction of 2026-09-13, off the Computer architecture notebook: on a written page the
-     * room above is not empty, and pulling a paragraph back into it printed it on top of the two
-     * lines already there. So a box that cannot be pulled back **starts on the next sheet** instead.
+     * On a written page the room above is not empty, and pulling a paragraph back into it would print
+     * it on top of the lines already there. So a box that cannot be pulled back **starts on the next
+     * sheet** instead.
      */
     @Test
     fun anItemThatCannotBePulledBackStartsOnTheNextSheet() {

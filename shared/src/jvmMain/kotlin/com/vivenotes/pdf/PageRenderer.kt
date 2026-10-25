@@ -17,10 +17,10 @@ import kotlin.math.floor
 /**
  * Draws one sheet of an export.
  *
- * One renderer serves both callers: a `PdfDocument` page and a preview bitmap differ only in the
- * scale they are handed. Everything below works in page dp, the unit outlines, shapes, tables,
- * equations and ink all share, and the paint order is `EditorPane`'s composition order, which is
- * what makes the output match the screen.
+ * One renderer serves both callers: a PDF sheet and a preview bitmap differ only in the scale they
+ * are handed. Everything below works in page dp, the unit outlines, shapes, tables, equations and
+ * ink all share, and the paint order is the canvas's composition order, which is what makes the
+ * output match the screen.
  *
  * Text is the one exception and has to be: a font size mark measures itself against the device's
  * display metrics, so the layouts [PageMeasurer] built are in device pixels and are drawn through a
@@ -173,16 +173,8 @@ class PageRenderer : AutoCloseable {
     // --- ink ---------------------------------------------------------------------------------
 
     /**
-     * A stroke as a filled outline, not as a mesh.
-     *
-     * Not a preference. `PdfDocument` records into a picture replayed onto a PDF device:
-     * `Canvas.drawMesh` needs hardware acceleration, which a recording canvas has not got, and
-     * Skia's PDF backend does not implement `drawVertices` — so `CanvasStrokeRenderer`, which picks
-     * the mesh path on any modern device, silently draws nothing here.
-     * [androidx.ink.geometry.outlinesToPath] gives the stroke's own outline as public API.
-     *
-     * Overlapping outlines inside one stroke are filled once by the winding rule, which is also what
-     * stops a translucent highlighter doubling its alpha where it crosses itself.
+     * A stroke as ByteInk's renderer draws it, at the page's transform plus the fit's [shift], in its
+     * automatic or stored colour. The page is recorded as vector paths, so ink stays vector in the PDF.
      */
     private fun drawStroke(
         canvas: Canvas,

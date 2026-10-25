@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.DpSize
 import androidx.ink.brush.InputToolType
 import androidx.ink.geometry.ImmutableAffineTransform
 import com.vivenotes.byteink.compose.*
-import com.vivenotes.byteink.kit.InkPoint
 import com.vivenotes.data.automaticColorOr
 import com.vivenotes.data.InkEdit
 import com.vivenotes.data.EraserMode
@@ -48,7 +47,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collectLatest
 
 internal val LocalInkPreparationDispatcher = staticCompositionLocalOf<CoroutineDispatcher> { Dispatchers.Default }

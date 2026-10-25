@@ -1,4 +1,4 @@
-// Ported unchanged from the Android app's `data/DocumentRevisions.kt`: revision rows are one format on both.
+// Ported from the Android app's `data/DocumentRevisions.kt`: revision rows are one format on both.
 package com.vivenotes.data
 
 import com.vivenotes.data.db.PageContentEntity

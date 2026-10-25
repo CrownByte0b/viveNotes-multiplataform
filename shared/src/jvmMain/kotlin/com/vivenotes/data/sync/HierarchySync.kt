@@ -1,4 +1,6 @@
-// Copied from the Android app's `data/sync/HierarchySync.kt`; only Android-only imports differ.
+// Based on the Android app's `data/sync/HierarchySync.kt`: the wire protocol and reconciliation rules
+// are shared with it. The desktop adds freshness guards so a lagging change stream cannot replay
+// stale state, and moves picture bytes outside the metadata lock ([SyncMetadataGate]).
 package com.vivenotes.data.sync
 
 import com.vivenotes.data.Log
@@ -705,8 +707,8 @@ class HierarchySync(
             // `parseRemoteChange` returns null for an unrecognised kind, and dropping those rows
             // while committing the cursor is silent, permanent data loss: the cursor promises that
             // everything below it has been applied, so the next pull starts above the skipped rows
-            // and never asks for them again. Seen for real — a tablet on a pre-ink build pulled a
-            // delta carrying 67 strokes, advanced past them, and reported itself caught up.
+            // and never asks for them again: a build that predates a kind would pull a delta of it,
+            // advance past it, and report itself caught up.
             //
             // Refusing to advance turns that into a device that stops syncing until it is upgraded,
             // which is recoverable where losing the rows is not.
@@ -1169,7 +1171,7 @@ class HierarchySync(
                 ServerResult.Unauthorized -> return PhaseResult.Stop(SyncRunResult.Revoked)
                 is ServerResult.Failed -> {
                     // A retryable transport result keeps the serialized batch and its batchId on
-                    // disk. WorkManager's next run sends byte-for-byte the same logical request.
+                    // disk. The next run sends byte-for-byte the same logical request.
                     if (!result.retryable) metadata.delete(PENDING_BATCH_KEY)
                     return PhaseResult.Stop(result.asSyncResult())
                 }
@@ -2226,7 +2228,7 @@ class HierarchySync(
                 targetIds = raw.requiredStringArray("targetIds")
             }
             SyncKind.Attachment -> {
-                // The id is a content address and, on this side, a file name: `filesDir/attachments`
+                // The id is a content address and, on this side, a file name: `<data>/attachments`
                 // is where these bytes land. So it is checked here rather than trusted because the
                 // contract declares a pattern — a server that sent `../` for an id would otherwise
                 // have this build write outside its own attachment directory.
@@ -2614,7 +2616,7 @@ class HierarchySync(
      * same file name. The evicted notebook's own revisions are read, since they are being deleted in
      * the same breath.
      *
-     * The surviving-side scan is one pass, guarded by the substring test in [pictureIdsIn], and runs
+     * The surviving-side scan is one pass, guarded by [DocumentPictures]' substring test, and runs
      * only for a press somebody made.
      */
     private suspend fun picturesReachedOnlyBy(pageIds: List<String>): List<String> {

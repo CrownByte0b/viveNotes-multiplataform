@@ -29,14 +29,12 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import com.vivenotes.data.EraserMode
 import com.vivenotes.model.ink.LineType
-import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.workspace.*
 import kotlin.math.roundToInt
 
 internal object InkControlsTags {
     const val Brush = "draw-ink-brush"
     const val Width = "draw-ink-width"
-    const val CustomWidth = "draw-ink-custom-width"
     const val Color = "draw-ink-color"
     const val Automatic = "draw-ink-color-auto"
     const val CustomColor = "draw-ink-custom-color"
@@ -203,26 +201,6 @@ internal fun Choice(label: String, chosen: Boolean, tag: String, onClick: () -> 
 }
 
 @Composable
-internal fun KitToggle(label: String, value: Boolean, tag: String, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Switch(value, onChange, Modifier.testTag(tag))
-    }
-}
-
-@Composable
-internal fun KitStepper(label: String, value: Int, tag: String, onChange: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton({ onChange(value - 1) }, enabled = value > 0, modifier = Modifier.testTag("$tag-minus")) { Text("−") }
-            Text(if (value == 0) Strings.off else "$value", Modifier.testTag(tag))
-            TextButton({ onChange(value + 1) }, enabled = value < 5, modifier = Modifier.testTag("$tag-plus")) { Text("+") }
-        }
-    }
-}
-
-@Composable
 internal fun KitSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, step: Float, tag: String, onChange: (Float) -> Unit) {
     var draft by remember(value) { mutableFloatStateOf(value) }
     Text(Strings.value_value_dp(label, draft.toString().removeSuffix(".0")), style = MaterialTheme.typography.bodyMedium)
@@ -251,17 +229,3 @@ internal fun ColorSwatches(colors: List<Int>, selectedArgb: Int, onPick: (Int) -
     }
 }
 
-private fun Color.toArgbCompat(): Int = this.toArgb()
-
-@Composable
-private fun CustomInkColorField(tag: String, onChange: (Int) -> Unit) {
-    var hex by remember { mutableStateOf("") }
-    val parsed = parseInkColor(hex)
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(hex, { if (it.length <= 7) hex = it }, label = { Text(Strings.color_hex) },
-            singleLine = true, isError = hex.isNotEmpty() && parsed == null,
-            modifier = Modifier.size(140.dp, 58.dp).testTag(tag))
-        TextButton({ parsed?.let(onChange) }, enabled = parsed != null,
-            modifier = Modifier.testTag("$tag-apply")) { Text(Strings.apply) }
-    }
-}

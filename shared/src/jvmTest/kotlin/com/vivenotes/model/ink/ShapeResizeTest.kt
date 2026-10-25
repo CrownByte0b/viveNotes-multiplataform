@@ -56,7 +56,7 @@ class ShapeResizeTest {
 
     @Test
     fun aUniformScaleLeavesTheBulgeAlone() {
-        // The property the old code assumed held in general: it does hold here, and has to keep
+        // The property a naive scale assumes holds in general: it does hold here, and has to keep
         // holding, because a bulge is a fraction of the chord and both grew by the same factor.
         val quarter = ShapeSegment("q", x1 = 0f, y1 = -1f, x2 = 1f, y2 = 0f, bulge = ShapeSegment.QUARTER_ARC)
 
@@ -193,8 +193,8 @@ class ShapeResizeTest {
 
     @Test
     fun aMirroredArcBowsTheOtherWay() {
-        // Used to be a special case keyed on the sign of scaleX * scaleY. Scaling the apex gets it
-        // for nothing, and gets the case that rule had backwards — a 180° turn — right as well.
+        // No special case keyed on the sign of scaleX * scaleY: scaling the apex gets it for
+        // nothing, and gets the case such a rule has backwards — a 180° turn — right as well.
         val quarter = ShapeSegment("q", x1 = 0f, y1 = -1f, x2 = 1f, y2 = 0f, bulge = ShapeSegment.QUARTER_ARC)
 
         val mirrored = quarter.scaledAbout(0f, 0f, scaleX = -1f, scaleY = 1f)

@@ -1,6 +1,7 @@
 // Ported from the Android app's `data/sync/SyncAccountStore.kt`. The record, its JSON, the store and
-// the installation id are Android's. Two things differ: DataStore is opened on a file instead of
-// through a `Context`, and the platform identifier Android reads from `ANDROID_ID` is [deviceSeed].
+// the installation id are Android's. DataStore is opened on a file instead of through a `Context`,
+// the platform identifier Android reads from `ANDROID_ID` is [deviceSeed], and writes retry the
+// file replacement Windows refuses while a reader has the file open.
 package com.vivenotes.data.sync
 
 import androidx.datastore.core.DataStore

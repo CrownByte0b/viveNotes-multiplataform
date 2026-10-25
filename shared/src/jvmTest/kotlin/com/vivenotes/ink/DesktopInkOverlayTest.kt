@@ -7,7 +7,6 @@ import com.vivenotes.byteink.core.InkMeshes
 import com.vivenotes.byteink.kit.*
 import com.vivenotes.byteink.kit.InkPoint
 import com.vivenotes.data.InkEdit
-import com.vivenotes.model.ink.InkPageOperation
 import kotlin.test.*
 
 class DesktopInkOverlayTest {

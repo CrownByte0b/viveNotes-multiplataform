@@ -160,8 +160,6 @@ internal object Libc {
     const val EINTR = 4
     const val EAGAIN = 11
     const val EBUSY = 16
-    const val ENODEV = 19
-    const val EINVAL = 22
 
     /** Where a call's errno lands; one per thread of calls, allocated from that caller's arena. */
     fun errnoState(arena: Arena): MemorySegment = arena.allocate(stateLayout)

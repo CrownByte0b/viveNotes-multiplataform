@@ -1,4 +1,4 @@
-// Ported from viveNotes Android ui/editor/OnlineImageDialog.kt (commit 35e7147); shown in the window
+// Ported from viveNotes Android ui/editor/OnlineImageDialog.kt; shown in the window
 // like the desktop's other dialogs rather than as a platform dialog.
 package com.vivenotes.ui.ribbon.document
 

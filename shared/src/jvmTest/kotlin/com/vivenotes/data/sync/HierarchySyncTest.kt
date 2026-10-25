@@ -49,7 +49,6 @@ import com.vivenotes.model.JsonDocumentCodec
 import java.io.File
 import java.security.MessageDigest
 import java.util.Base64
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 class HierarchySyncTest {
@@ -1291,8 +1290,7 @@ class HierarchySyncTest {
         val result = hierarchy.run(account())
 
         // Skipping the row and committing the cursor is silent, permanent loss: the cursor promises
-        // everything below it has been applied, so the next pull starts above what was dropped. A
-        // tablet on the build before ink did exactly that with 67 strokes on 2026-08-17.
+        // everything below it has been applied, so the next pull starts above what was dropped.
         assertEquals(SyncRunResult.Failed(PermanentSyncFailure.UnsupportedKind), result)
         assertEquals(0L, db.syncDao().state()!!.cursor)
     }
@@ -1315,7 +1313,7 @@ class HierarchySyncTest {
 
         // The operator presses Permanently delete after this run has pulled and before it pushes —
         // the one window where a device meets the news as a rejection rather than as a `purges`
-        // entry, and the shape the tablet that found this was stuck in.
+        // entry.
         server.beforeFirstPush = { server.purgeNotebook(notebookId) }
 
         val result = hierarchy.run(account())
@@ -1361,8 +1359,8 @@ class HierarchySyncTest {
     @Test
     fun aPushRefusedAsPurgedMovesAnImportedNotebookToANewIdInsteadOfErasingIt() = runBlocking {
         // A `.vive` archive carries the notebook's stable id, so importing one the account erased
-        // re-creates precisely the retired id. Demo.vive did this on 2026-08-31: it imported, showed
-        // on the panel, and vanished when the push behind it was refused 512 times over.
+        // re-creates precisely the retired id. Without a new id it imports, shows in the panel, and
+        // vanishes when the push behind it is refused.
         val notebookId = repository.createNotebook("Demo")
         val sectionId = repository.createSection(notebookId, "Section")
         val pageId = repository.createPage(sectionId, "Page")

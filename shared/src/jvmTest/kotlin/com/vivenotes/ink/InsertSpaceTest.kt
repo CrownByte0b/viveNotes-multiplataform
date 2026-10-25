@@ -1,7 +1,6 @@
 package com.vivenotes.ink
 
 import com.vivenotes.model.*
-import com.vivenotes.model.ink.InkPage
 import com.vivenotes.ui.ribbon.draw.prepareSpaceInsertion
 import com.vivenotes.workspace.*
 import kotlin.test.*

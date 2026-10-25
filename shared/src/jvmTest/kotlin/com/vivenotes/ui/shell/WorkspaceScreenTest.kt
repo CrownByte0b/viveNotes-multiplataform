@@ -518,7 +518,7 @@ class WorkspaceScreenTest {
             onNodeWithTag(DocumentRibbonTags.Text).assertIsEnabled()
             onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
             onNodeWithTag(DocumentRibbonTags.Link).assertIsEnabled()
-            // No LaTeX renderer on desktop yet, and this screen was given no picture storage.
+            // The Document tab does not insert equations, and this screen was given no picture storage.
             onNodeWithTag(DocumentRibbonTags.Equation).assertIsNotEnabled()
             onNodeWithTag(DocumentRibbonTags.Picture).assertIsNotEnabled()
         }
