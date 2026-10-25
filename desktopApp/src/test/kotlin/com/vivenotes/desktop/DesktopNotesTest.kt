@@ -206,10 +206,12 @@ class DesktopNotesTest {
                 checkNotNull(state.selectedPage!!.ink))
         }
         var closes = 0
-        notes.close { closes++ }
+        var keptOpen = 0
+        notes.close({ closes++ }) { keptOpen++ }
         withTimeout(10_000) { deferredClose.await() }
 
         assertEquals(0, closes, "a failed stroke save must retain the window")
+        assertEquals(1, keptOpen, "the caller learns the notes stayed open, as an update waiting to install must")
         assertEquals(row, (notes.session.state.value!!.pendingInkEdits.single().edit as InkEdit.AddStroke).row)
         assertNotNull(notes.session.state.value!!.storageError)
         assertTrue(library.repository.inkFor(row.pageId).none { it.id == row.id }, "failed ink must remain pending")

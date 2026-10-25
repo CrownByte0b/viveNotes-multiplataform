@@ -34,6 +34,8 @@ import com.vivenotes.ui.account.AccountHost
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ReportDarkTheme
 import com.vivenotes.ui.theme.ViveNotesTheme
+import com.vivenotes.ui.update.AppUpdates
+import com.vivenotes.ui.update.UpdateDialog
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.ViewSettings
@@ -86,6 +88,8 @@ fun App(
     clipboardHtml: ClipboardHtml? = null,
     /** Told whether the app shows its dark look, as it changes, for the window frame around it. */
     onDarkThemeChange: (Boolean) -> Unit = {},
+    /** The platform's updater; its dialog opens over the workspace once the notebooks are open. */
+    updates: AppUpdates? = null,
 ) {
     val state by session.state.collectAsState()
     val fileActions = remember(session, notebookFiles, pdfExporter) {
@@ -106,19 +110,23 @@ fun App(
                 )
             }
         } else CompositionLocalProvider(LocalClipboardHtml provides clipboardHtml) {
-            WorkspaceScreen(state = workspace, onStateChange = session::update, navigation = session, pictures = pictures,
-                thumbnails = thumbnails,
-                interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange,
-                systemDarkTheme = systemDarkTheme,
-                viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
-                onEditorDefaultsChange = onEditorDefaultsChange,
-                onShapeSettingsChange = onShapeSettingsChange,
-                onInkSettingsChange = onInkSettingsChange,
-                keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange,
-                inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange, fileActions = fileActions,
-                accountHost = accountHost, aiModels = aiModels, drawMath = drawMath,
-                appVersion = appVersion, search = search, onOpenSearchPage = session::openSearchPage,
-                debugLog = debugLog, developmentBuild = developmentBuild, onDarkThemeChange = onDarkThemeChange)
+            Box(Modifier.fillMaxSize()) {
+                WorkspaceScreen(state = workspace, onStateChange = session::update, navigation = session,
+                    pictures = pictures, thumbnails = thumbnails,
+                    interfaceSettings = interfaceSettings, onInterfaceSettingsChange = onInterfaceSettingsChange,
+                    systemDarkTheme = systemDarkTheme,
+                    viewSettings = viewSettings, onViewSettingsChange = onViewSettingsChange,
+                    onEditorDefaultsChange = onEditorDefaultsChange,
+                    onShapeSettingsChange = onShapeSettingsChange,
+                    onInkSettingsChange = onInkSettingsChange,
+                    keyBindings = keyBindings, onKeyBindingsChange = onKeyBindingsChange,
+                    inputSettings = inputSettings, onInputSettingsChange = onInputSettingsChange,
+                    fileActions = fileActions,
+                    accountHost = accountHost, aiModels = aiModels, drawMath = drawMath,
+                    appVersion = appVersion, search = search, onOpenSearchPage = session::openSearchPage,
+                    debugLog = debugLog, developmentBuild = developmentBuild, onDarkThemeChange = onDarkThemeChange)
+                updates?.let { UpdateDialog(it) }
+            }
         }
     }
 }

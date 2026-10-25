@@ -11,6 +11,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.vivenotes.App
 import com.vivenotes.desktop.titlebar.TitleBar
 import com.vivenotes.desktop.touch.DesktopTouch
+import com.vivenotes.desktop.update.DesktopUpdates
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.localization.Localization
 import kotlinx.coroutines.runBlocking
@@ -80,6 +81,13 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
     val monitor = primaryMonitorArea()
     val initialSize = initialWindowSize(monitor)
     application {
+        // Only the installed Windows app updates itself; the dialog offers a newer release once it opens.
+        val updates = remember {
+            DesktopUpdates.forInstalledApp(profile, log, closeApp = { onClosed, onKeptOpen ->
+                notes.close(done = { onClosed(); exitApplication() }, keptOpen = onKeptOpen)
+            })
+        }
+        LaunchedEffect(updates) { updates?.start() }
         Window(
             // The window stays until the notes are written and closed; then the application ends.
             onCloseRequest = { notes.close(::exitApplication) },
@@ -105,7 +113,7 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
                 accountHost = notes.sync?.accountHost,
                 aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
                 appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild,
-                clipboardHtml = notes.clipboardHtml, onDarkThemeChange = { titleBar.dark = it })
+                clipboardHtml = notes.clipboardHtml, onDarkThemeChange = { titleBar.dark = it }, updates = updates)
         }
     }
 }

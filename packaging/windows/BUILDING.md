@@ -46,8 +46,29 @@ silently installs it into build-directory storage, launches the actual installed
 with isolated test data, checks its window/SQLite/clean close, then uninstalls it and checks
 that notes remain. Only the isolated smoke profile suppresses first-run downloads.
 Download the `ViveNotes-Windows-x64` Actions artifact for the MSI, checksum and smoke logs.
-It does not publish a GitHub Release. MSI generation requires Windows; Linux Compose tasks
-skip it rather than cross-compile.
+For a `v*` tag, a following `release` job (the only one with `contents: write`) checks that
+artifact's checksum and publishes the MSI and `.msi.sha256` as that tag's GitHub Release.
+MSI generation requires Windows; Linux Compose tasks skip it rather than cross-compile.
 
-The MSI and launcher are currently unsigned. Authenticode signing and a real Windows
-upgrade/manual UI check remain release work; there is no automatic update service.
+## Updates
+
+The installed app checks GitHub's latest release of the public repository a few seconds
+after it opens (anonymously, once per launch; drafts and pre-releases are never offered).
+When its tag is a newer `MAJOR.MINOR.BUILD`, a dialog offers it with the release notes:
+**Install and restart**, **Later** (asks again next launch) or **Skip this version**
+(remembered in `%APPDATA%/ViveNotes/updates.properties` until a newer release appears).
+Installing downloads `ViveNotes-<version>-x64.msi` to `%LOCALAPPDATA%/ViveNotes/Cache/updates`,
+keeps it only if its size and SHA-256 match the release's `.msi.sha256`, saves and closes
+the notes, then a small PowerShell script waits for both launcher processes to exit, runs
+`msiexec /i … /passive` with `INSTALLDIR` set to the current install folder and reopens the
+app. Its output and the verbose MSI log stay in that folder as `install-update.log` and
+`install-msi.log`. Only the installed launcher (`jpackage.app-path`) with the production
+profile updates itself; Gradle runs and other platforms never check.
+
+To test an update end to end without publishing, serve a release object shaped like GitHub's
+API from this computer and point the installed app at it with the `VIVENOTES_UPDATE_FEED`
+environment variable (HTTPS anywhere, plain HTTP only to `localhost`/`127.x`/`[::1]`).
+
+The MSI and launcher are currently unsigned, so the update is verified only against the
+checksum published beside it over HTTPS. Authenticode signing and a real two-version
+Windows upgrade check remain release work.

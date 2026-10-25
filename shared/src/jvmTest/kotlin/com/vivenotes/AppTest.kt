@@ -36,6 +36,10 @@ import com.vivenotes.ui.ribbon.file.ClosedNotebooksTags
 import com.vivenotes.ui.ribbon.file.FileRibbonTags
 import com.vivenotes.ui.ribbon.file.FilePaneTags
 import com.vivenotes.ui.shell.WorkspaceTestTags
+import com.vivenotes.ui.update.AppUpdates
+import com.vivenotes.ui.update.AvailableUpdate
+import com.vivenotes.ui.update.UpdateDialogTags
+import com.vivenotes.ui.update.UpdateState
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.FakeNotesStore
 import com.vivenotes.workspace.NEW_SECTION_NAME
@@ -43,6 +47,7 @@ import com.vivenotes.workspace.WorkspaceSession
 import com.vivenotes.workspace.formatCreated
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -90,6 +95,32 @@ class AppTest {
 
                 onNodeWithTag(WorkspaceTestTags.TitleEditor).assertTextContains("Groceries")
                 onNodeWithTag(WorkspaceTestTags.BodyEditor).assertTextContains("Milk and eggs")
+            }
+        }
+    }
+
+    /** The platform's update offer waits for the notebooks, then opens over the workspace and goes with Later. */
+    @Test
+    fun anOfferedUpdateOpensOverTheWorkspaceOnceTheNotebooksAreOpen() {
+        val offer = MutableStateFlow<UpdateState>(UpdateState.Available(AvailableUpdate("0.2.0", "0.1.0")))
+        val updates = object : AppUpdates {
+            override val state = offer
+            override fun install() = Unit
+            override fun cancel() = Unit
+            override fun later() { offer.value = UpdateState.Idle }
+            override fun skip() = Unit
+        }
+        NotesLibrary.open(directory).use { library ->
+            runDesktopComposeUiTest(width = 1400, height = 900) {
+                showApp(library.repository, updates = updates)
+                awaitOpenPage()
+
+                onNodeWithTag(UpdateDialogTags.Dialog).assertIsDisplayed()
+                onNodeWithTag(WorkspaceTestTags.BodyEditor).assertExists()
+                onNodeWithTag(UpdateDialogTags.Later).performClick()
+                onNodeWithTag(UpdateDialogTags.Dialog).assertDoesNotExist()
+                onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextReplacement("Still here")
+                onNodeWithTag(WorkspaceTestTags.BodyEditor).assertTextContains("Still here")
             }
         }
     }
@@ -457,14 +488,18 @@ class AppTest {
     }
 
     /** The app as a window shows it, with the session confined to the composition's thread. */
-    private fun ComposeUiTest.showApp(store: NotesStore, notebookFiles: NotebookFiles? = null): ShownApp {
+    private fun ComposeUiTest.showApp(
+        store: NotesStore,
+        notebookFiles: NotebookFiles? = null,
+        updates: AppUpdates? = null,
+    ): ShownApp {
         lateinit var shown: ShownApp
         setContent {
             val scope = rememberCoroutineScope()
             val session = remember { WorkspaceSession(store, scope, ::formatCreated) }
             shown = remember { ShownApp(this, scope, session) }
             LaunchedEffect(session) { session.start() }
-            App(session, notebookFiles = notebookFiles)
+            App(session, notebookFiles = notebookFiles, updates = updates)
         }
         waitForIdle()
         return shown

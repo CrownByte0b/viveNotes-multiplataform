@@ -1267,4 +1267,28 @@
     <string name="camera_photo_failed">The photo couldn’t be taken. Try again.</string>
     <!-- Desktop only: shown over the page while files are dragged onto it from a file manager. -->
     <string name="drop_to_add_to_page">Drop to add to the page</string>
+    <!-- Desktop only: the installed Windows app offers a newer release when it opens. -->
+    <string name="update_available">Update available</string>
+    <!-- %1$s = the new version; %2$s = the version that is running -->
+    <string name="update_available_message">Vive Notes %1$s is ready to download. You have version %2$s.</string>
+    <string name="update_whats_new">What’s new</string>
+    <string name="update_restart_note">Vive Notes saves your notes, closes to install the update and opens again when it is done.</string>
+    <string name="update_skip_version">Skip this version</string>
+    <string name="update_later">Later</string>
+    <string name="update_install">Install and restart</string>
+    <string name="update_downloading">Downloading update</string>
+    <!-- %1$s = the version being downloaded -->
+    <string name="update_downloading_message">Downloading Vive Notes %1$s…</string>
+    <!-- %1$s = bytes downloaded so far, e.g. 12.3 MB; %2$s = the whole download -->
+    <string name="update_download_progress">%1$s of %2$s</string>
+    <string name="update_installing">Installing update</string>
+    <string name="update_installing_message">Saving your notes and closing Vive Notes. The installer starts once it has closed.</string>
+    <string name="update_failed">Update failed</string>
+    <!-- %1$s = the version that was not installed -->
+    <string name="update_failed_message">Vive Notes %1$s was not installed. You can keep using this version and try again.</string>
+    <string name="update_unsaved_changes">Some changes could not be saved, so Vive Notes stayed open. Resolve the error on the page, then try again.</string>
+    <string name="update_installer_missing">Windows Installer could not be started on this computer.</string>
+    <string name="update_unreachable">The download server could not be reached. Check the connection and try again.</string>
+    <!-- %1$s = the file name the release lists, e.g. ViveNotes-0.2.0-x64.msi -->
+    <string name="update_checksum_unreadable">The checksum for %1$s could not be read.</string>
 </resources>

@@ -217,7 +217,10 @@ internal class DesktopNotes(
      * Writes what is still pending, stops observing and the upkeep, closes the database, and then
      * runs [done] — the window's own close. A second request while that is under way adds nothing.
      */
-    fun close(done: () -> Unit) {
+    fun close(done: () -> Unit) = close(done) {}
+
+    /** [close], and [keptOpen] instead of [done] when ink changes could not be saved and the notes stay open. */
+    fun close(done: () -> Unit, keptOpen: () -> Unit) {
         if (closing != null) return
         log.event("app") { "closing" }
         closing = scope.launch {
@@ -235,6 +238,7 @@ internal class DesktopNotes(
                     // Keep the visible error and pending rows available for another edit or close
                     // request to retry. The database and its observer scope must remain alive.
                     closing = null
+                    keptOpen()
                 } else {
                     sessionJob.cancel()
                     // After the flush, so its writes are in the outbox the final push sends.
