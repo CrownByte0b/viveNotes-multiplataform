@@ -14,8 +14,8 @@ data class CanvasViewport(val zoom: Float = 1f, val scrollX: Float = 0f, val scr
                      maxScrollX: Float, maxScrollY: Float): CanvasViewport {
         if (!dx.isFinite() || !dy.isFinite() || !elapsedSeconds.isFinite() || elapsedSeconds <= 0f) return this
         fun step(distance: Float): Float {
-            val beyondDeadZone = (abs(distance) - 16f).coerceAtLeast(0f)
-            return distance.sign * (beyondDeadZone * 6f).coerceAtMost(1800f) * elapsedSeconds
+            val beyondDeadZone = (abs(distance) - AUTO_SCROLL_DEAD_ZONE).coerceAtLeast(0f)
+            return distance.sign * (beyondDeadZone * AUTO_SCROLL_GAIN).coerceAtMost(AUTO_SCROLL_MAX_SPEED) * elapsedSeconds
         }
         return copy(
             scrollX = (scrollX + step(dx)).coerceIn(0f, maxScrollX.coerceAtLeast(0f)),
@@ -60,5 +60,17 @@ data class CanvasViewport(val zoom: Float = 1f, val scrollX: Float = 0f, val scr
     fun panBy(dx: Float, dy: Float): CanvasViewport {
         if (!dx.isFinite() || !dy.isFinite()) return this
         return copy(scrollX = (scrollX - dx).coerceAtLeast(0f), scrollY = (scrollY - dy).coerceAtLeast(0f))
+    }
+
+    companion object {
+        /** View pixels around the middle-click anchor where auto-scroll rests. */
+        const val AUTO_SCROLL_DEAD_ZONE = 16f
+        /** Pixels per second for each pixel past the dead zone; with the cap, 15% above the first 6 and 1800. */
+        const val AUTO_SCROLL_GAIN = 6.9f
+        const val AUTO_SCROLL_MAX_SPEED = 2070f
+
+        /** Whether the pointer at ([dx], [dy]) from the anchor leaves both axes at rest. */
+        fun autoScrollResting(dx: Float, dy: Float): Boolean =
+            abs(dx) <= AUTO_SCROLL_DEAD_ZONE && abs(dy) <= AUTO_SCROLL_DEAD_ZONE
     }
 }

@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
@@ -43,6 +44,7 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.areAnyPressed
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isTertiaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -76,6 +78,8 @@ import com.vivenotes.model.search.ContentHit
 import com.vivenotes.model.search.ContentKind
 import com.vivenotes.richtext.LinkTarget
 import com.vivenotes.richtext.TextSelection
+import com.vivenotes.ui.canvas.ApplyCanvasCursorWhilePressed
+import com.vivenotes.ui.canvas.CanvasCursor
 import com.vivenotes.ui.canvas.CanvasPointer
 import com.vivenotes.ui.canvas.CanvasTouchActions
 import com.vivenotes.ui.canvas.FingerRole
@@ -84,12 +88,15 @@ import com.vivenotes.ui.canvas.InkSelectionFrame
 import com.vivenotes.ui.canvas.InkSelectionToolkit
 import com.vivenotes.ui.canvas.InsertCursorBadge
 import com.vivenotes.ui.canvas.LocalClipboardHtml
+import com.vivenotes.ui.canvas.LocalObjectGrab
+import com.vivenotes.ui.canvas.ObjectGrab
 import com.vivenotes.ui.canvas.PageExtent
 import com.vivenotes.ui.canvas.PreviewLayout
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.RulerLayer
 import com.vivenotes.ui.canvas.TextCaretKeys
 import com.vivenotes.ui.canvas.TextClipboardActions
+import com.vivenotes.ui.canvas.canvasPointerIcon
 import com.vivenotes.ui.canvas.canvasTouchGestures
 import com.vivenotes.ui.canvas.contentEdge
 import com.vivenotes.ui.canvas.detectRulerGestures
@@ -239,9 +246,13 @@ internal fun PageCanvas(
     }
     val currentSpaceInsertion by rememberUpdatedState(onSpaceInsertion)
     val currentDrawObject by rememberUpdatedState(onDrawObject)
-    val panOffset = interaction.panPointer - interaction.panAnchor
-    val panCursorDirection = panDirection(panOffset.x, panOffset.y)
-    ApplyPanCursorWhilePressed(interaction.panActive, panCursorDirection)
+    val objectGrab = remember(page?.id) { ObjectGrab() }
+    val heldCursor = when {
+        interaction.panActive -> CanvasCursor.AllScroll
+        objectGrab.held -> CanvasCursor.Grabbing
+        else -> null
+    }
+    ApplyCanvasCursorWhilePressed(heldCursor)
     val canvasPointer = remember { CanvasPointer() }
     val currentCreate by rememberUpdatedState(onCreateTextBox)
     val currentCreateShape by rememberUpdatedState(onCreateShape)
@@ -368,9 +379,9 @@ internal fun PageCanvas(
         if (!interaction.panActive) return@LaunchedEffect
         var previousFrame = withFrameNanos { it }
         while (interaction.panActive) {
-            if (panDirection(interaction.panPointer.x - interaction.panAnchor.x, interaction.panPointer.y - interaction.panAnchor.y) == PanDirection.Center) {
+            if (CanvasViewport.autoScrollResting(interaction.panPointer.x - interaction.panAnchor.x, interaction.panPointer.y - interaction.panAnchor.y)) {
                 snapshotFlow { interaction.panPointer }.first {
-                    panDirection(it.x - interaction.panAnchor.x, it.y - interaction.panAnchor.y) != PanDirection.Center
+                    !CanvasViewport.autoScrollResting(it.x - interaction.panAnchor.x, it.y - interaction.panAnchor.y)
                 }
                 previousFrame = withFrameNanos { it }
             }
@@ -534,8 +545,8 @@ internal fun PageCanvas(
                     }
                 }
             }
-            .pointerHoverIcon(if (interaction.panActive) panPointerIcon(panCursorDirection) else PointerIcon.Default,
-                overrideDescendants = interaction.panActive)
+            .pointerHoverIcon(heldCursor?.let { canvasPointerIcon(it) } ?: PointerIcon.Default,
+                overrideDescendants = heldCursor != null)
             // Where the mouse is, for the badge beside it that shows what a click will insert.
             .followPointer(canvasPointer)
             // Ahead of the page's own handlers: on the initial pass, the first modifier is asked first.
@@ -568,6 +579,8 @@ internal fun PageCanvas(
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull() ?: continue
+                        // However a drag ended, an object is no longer held once every button is up.
+                        if (event.type == PointerEventType.Release && !event.buttons.areAnyPressed) objectGrab.releaseAll()
                         if (interaction.panActive) {
                             if (event.type == PointerEventType.Move) interaction.panPointer = change.position
                             if (event.type == PointerEventType.Release && !event.buttons.isTertiaryPressed) {
@@ -590,6 +603,7 @@ internal fun PageCanvas(
                     fingerState = currentDrawWithFingerState,
                     extentState = currentExtentState,
                     inkMoveBusyState = interaction.inkMoveBusyState,
+                    objectGrab = objectGrab,
                     drafts = CanvasGestureDrafts(interaction.spaceDraftState, interaction.shapeDraftState, interaction.lassoPath, interaction.lassoState, interaction.inkDragOffsetState, interaction.pastePointState),
                     density = density,
                     zoom = zoom,
@@ -619,6 +633,8 @@ internal fun PageCanvas(
         }
         // A body still being read: for that instant there is nothing to draw and nothing to edit.
         if (page.content == PageContent.Unloaded) return@Box
+        // Drags of what is on the page report here, for the grabbing cursor.
+        CompositionLocalProvider(LocalObjectGrab provides objectGrab) {
         Box(Modifier.fillMaxSize().horizontalScroll(horizontalScroll)
             .verticalScroll(verticalScroll)) {
             val pageExtent = extent ?: return@Box
@@ -795,6 +811,7 @@ internal fun PageCanvas(
                 }
             }
         }
+        }
         state.selectedInk?.let { selection ->
             val bounds = selectedCanvasBounds(page.document.outlines, state.selectedObjectIds + state.selectedTextOutlineIds,
                 measuredTextHeights, selection) ?: return@let
@@ -863,8 +880,8 @@ internal fun PageCanvas(
                 }
             }
         }
-        // Last, so it is drawn over everything on the page; the pan cursor stands alone.
-        InsertCursorBadge(if (interaction.panActive) null else state.pendingInsert(), canvasPointer, Modifier.matchParentSize())
+        // Last, so it is drawn over everything on the page; a held cursor stands alone.
+        InsertCursorBadge(if (heldCursor != null) null else state.pendingInsert(), canvasPointer, Modifier.matchParentSize())
     }
 }
 

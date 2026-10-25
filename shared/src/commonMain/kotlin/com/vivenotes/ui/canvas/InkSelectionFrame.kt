@@ -1,7 +1,6 @@
 package com.vivenotes.ui.canvas
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -24,15 +23,17 @@ internal fun InkSelectionFrame(
     onFocus: () -> Unit, onOffset: (Offset) -> Unit, onMove: (InkSelection, Offset) -> Unit,
 ) {
     val density = LocalDensity.current.density
+    val grab = LocalObjectGrab.current
     Box(Modifier.offset((bounds.left + offset.x - 6f).dp, (bounds.top + offset.y - 6f).dp)
         .size((bounds.width + 12f).dp, (bounds.height + 12f).dp)
         .border(1.5.dp, MaterialTheme.colorScheme.primary)
         .testTag(INK_SELECTION_FRAME_TAG)
         .pointerInput(selection, enabled, zoom, density) {
             var total = Offset.Zero
-            detectDragGestures(onDragStart = { total = Offset.Zero; onFocus() },
+            detectObjectDrag(grab, onDragStart = { total = Offset.Zero; onFocus() },
                 onDragCancel = { onOffset(Offset.Zero) },
                 onDragEnd = { if (enabled && total != Offset.Zero) onMove(selection, total) else onOffset(Offset.Zero) },
+                moves = { enabled },
                 onDrag = { change, drag ->
                     change.consume()
                     if (enabled) {

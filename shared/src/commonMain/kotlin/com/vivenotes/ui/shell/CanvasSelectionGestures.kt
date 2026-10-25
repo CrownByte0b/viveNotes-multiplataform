@@ -25,6 +25,7 @@ import com.vivenotes.model.ink.InkSample
 import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.model.ink.Ruler
 import com.vivenotes.model.ink.RulerPoint
+import com.vivenotes.ui.canvas.ObjectGrab
 import com.vivenotes.ui.canvas.PageExtent
 import com.vivenotes.ui.canvas.selectedCanvasBounds
 import com.vivenotes.ui.ribbon.draw.*
@@ -51,6 +52,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
     fingerState: State<Boolean>,
     extentState: State<PageExtent?>,
     inkMoveBusyState: State<Boolean>,
+    objectGrab: ObjectGrab,
     drafts: CanvasGestureDrafts,
     density: Density,
     zoom: Float,
@@ -165,6 +167,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
         var last = down
         // Taken by a pinch: a second finger made this gesture the page's, not a tap or a drag.
         var pinched = false
+        val inkGrab = Any()
         try {
         do {
             val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -173,6 +176,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
             last = change
             if (inkHit != null && canMoveInk && (change.position - down.position).getDistance() >= 12.dp.toPx()) {
                 change.consume()
+                objectGrab.hold(inkGrab, change)
                 val delta = toPage(change.position) - start
                 inkDragOffset = Offset(delta.x.coerceAtLeast(-inkHit.bounds.left), delta.y.coerceAtLeast(-inkHit.bounds.top))
             }
@@ -191,6 +195,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
         } while (last.pressed)
         } finally {
             if (last.pressed) lassoPath.clear()
+            objectGrab.release(inkGrab)
         }
         val distance = if (freehand) lassoPath.distanceFromStart() * density.density * zoom
             else (last.position - down.position).getDistance()

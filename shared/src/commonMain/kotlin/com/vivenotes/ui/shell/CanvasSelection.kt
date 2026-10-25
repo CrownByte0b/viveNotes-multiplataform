@@ -48,7 +48,9 @@ import androidx.compose.ui.zIndex
 import com.vivenotes.localization.Strings
 import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.LineType
+import com.vivenotes.ui.canvas.LocalObjectGrab
 import com.vivenotes.ui.canvas.SelectionColorButton
+import com.vivenotes.ui.canvas.detectObjectDrag
 import com.vivenotes.ui.canvas.primeResizePointer
 import com.vivenotes.ui.canvas.selectedCanvasBounds
 import com.vivenotes.ui.components.TooltipIconButton
@@ -77,6 +79,7 @@ internal fun CanvasGroupSelection(
     val focusManager = LocalFocusManager.current
     val currentMoveSelection by rememberUpdatedState(onMoveSelection)
     val currentResizeObjects by rememberUpdatedState(onResizeObjects)
+    val grab = LocalObjectGrab.current
     if (groupBounds != null && state.selectedInk == null) {
         val padding = 6.dp
         val left = groupBounds.left.dp - padding
@@ -95,12 +98,13 @@ internal fun CanvasGroupSelection(
             .pointerInput(state.selectedPage?.id, state.selectedObjectIds, state.selectedTextOutlineIds,
                 state.selectedObjectsLocked) {
                 var firstChange = true
-                detectDragGestures(
+                detectObjectDrag(grab,
                     onDragStart = {
                         firstChange = true
                         focusManager.clearFocus()
                         canvasFocusRequester.requestFocus()
                     },
+                    moves = { !currentState.selectedObjectsLocked },
                     onDrag = { change, drag ->
                         change.consume()
                         if (!currentState.selectedObjectsLocked) {

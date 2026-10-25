@@ -9,9 +9,11 @@ class CanvasViewportTest {
     fun middleAutoscrollContinuesAtDistanceBasedSpeedAndStopsAtBounds() {
         val start = CanvasViewport(scrollX = 120f, scrollY = 80f)
         val afterFrame = start.autoScrollBy(36f, 26f, 0.1f, 200f, 140f)
-        assertEquals(CanvasViewport(scrollX = 132f, scrollY = 86f), afterFrame)
-        assertEquals(CanvasViewport(scrollX = 144f, scrollY = 92f),
-            afterFrame.autoScrollBy(36f, 26f, 0.1f, 200f, 140f))
+        assertEquals(133.8f, afterFrame.scrollX, 0.001f)
+        assertEquals(86.9f, afterFrame.scrollY, 0.001f)
+        val secondFrame = afterFrame.autoScrollBy(36f, 26f, 0.1f, 200f, 140f)
+        assertEquals(147.6f, secondFrame.scrollX, 0.001f)
+        assertEquals(93.8f, secondFrame.scrollY, 0.001f)
         assertEquals(start, start.autoScrollBy(16f, -15f, 1f, 200f, 140f))
         assertEquals(CanvasViewport(scrollX = 0f, scrollY = 0f),
             start.autoScrollBy(-300f, -300f, 1f, 200f, 140f))
@@ -19,6 +21,25 @@ class CanvasViewportTest {
             start.autoScrollBy(300f, 300f, 1f, 200f, 140f))
         assertEquals(start, start.autoScrollBy(Float.NaN, 10f, 1f, 200f, 140f))
         assertEquals(start, start.autoScrollBy(100f, 10f, Float.NaN, 200f, 140f))
+    }
+
+    /** The user asked for auto-scroll 15% faster than its first 6 px/s per pixel and 1800 px/s cap. */
+    @Test
+    fun middleAutoscrollIsFifteenPercentFasterThanTheOriginalSpeed() {
+        val wide = 100_000f
+        fun speed(distance: Float) = CanvasViewport().autoScrollBy(distance, 0f, 1f, wide, wide).scrollX
+        assertEquals(100f * 6f * 1.15f, speed(116f), 0.01f)
+        assertEquals(10f * 6f * 1.15f, speed(26f), 0.01f)
+        assertEquals(1800f * 1.15f, speed(5_000f), 0.01f)
+        assertEquals(0f, speed(16f))
+    }
+
+    @Test
+    fun autoscrollRestsOnlyInsideTheDeadZoneOnBothAxes() {
+        assertTrue(CanvasViewport.autoScrollResting(0f, 0f))
+        assertTrue(CanvasViewport.autoScrollResting(16f, -16f))
+        assertTrue(!CanvasViewport.autoScrollResting(16.5f, 0f))
+        assertTrue(!CanvasViewport.autoScrollResting(0f, -17f))
     }
 
     @Test

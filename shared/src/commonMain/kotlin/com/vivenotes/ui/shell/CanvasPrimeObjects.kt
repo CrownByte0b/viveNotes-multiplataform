@@ -47,9 +47,11 @@ import com.vivenotes.model.ink.ShapeArm
 import com.vivenotes.model.ink.ShapeAxis
 import com.vivenotes.model.ink.arms
 import com.vivenotes.model.ink.ends
+import com.vivenotes.ui.canvas.LocalObjectGrab
 import com.vivenotes.ui.canvas.PictureAsset
 import com.vivenotes.ui.canvas.PictureContent
 import com.vivenotes.ui.canvas.RichTextColors
+import com.vivenotes.ui.canvas.detectObjectDrag
 import com.vivenotes.ui.canvas.drawDocumentShape
 import com.vivenotes.ui.canvas.primeResizePointer
 import com.vivenotes.ui.ribbon.draw.*
@@ -90,6 +92,7 @@ internal fun CanvasPrimeObjects(
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
     val currentMoveObject by rememberUpdatedState(onMoveObject)
+    val grab = LocalObjectGrab.current
     val currentSelectObject by rememberUpdatedState(onSelectObject)
     val currentResizeObjects by rememberUpdatedState(onResizeObjects)
     val measurementKeys = remember(measuredTextHeights) { mutableStateMapOf<String, TableMeasurementKey>() }
@@ -157,12 +160,13 @@ internal fun CanvasPrimeObjects(
                     MaterialTheme.shapes.small))
                 .pointerInput(outline.id) {
                     var firstChange = true
-                    detectDragGestures(
+                    detectObjectDrag(grab,
                         onDragStart = {
                             firstChange = true
                             if (outline.id !in workspaceState.value.selectedObjectIds)
                                 currentSelectObject(outline.id)
                         },
+                        moves = { !workspaceState.value.selectedObjectsLocked },
                         onDrag = { change, drag ->
                             change.consume()
                             currentMoveObject(outline.id,

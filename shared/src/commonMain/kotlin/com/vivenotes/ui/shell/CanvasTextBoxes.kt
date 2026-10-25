@@ -49,8 +49,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.pointerInput
@@ -82,6 +84,8 @@ import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.LinkTarget
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.canvas.BlockSeparators
+import com.vivenotes.ui.canvas.CtrlState
+import com.vivenotes.ui.canvas.LocalObjectGrab
 import com.vivenotes.ui.canvas.PreviewLayout
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.TextBoxPreviews
@@ -90,8 +94,10 @@ import com.vivenotes.ui.canvas.TextContextMenu
 import com.vivenotes.ui.canvas.TextMenuRequest
 import com.vivenotes.ui.canvas.asAnnotatedString
 import com.vivenotes.ui.canvas.caretAt
+import com.vivenotes.ui.canvas.detectObjectDrag
 import com.vivenotes.ui.canvas.drawBlockDecorations
 import com.vivenotes.ui.canvas.linkAtPoint
+import com.vivenotes.ui.canvas.linkPointer
 import com.vivenotes.ui.canvas.scrollOnlyForTyping
 import com.vivenotes.ui.canvas.storedEquationPreviews
 import com.vivenotes.ui.canvas.textMenuAt
@@ -356,6 +362,9 @@ private fun CanvasTextBox(
     val currentToggleTodo by rememberUpdatedState(onToggleTodo)
     val currentTextShortcut by rememberUpdatedState(onTextShortcut)
     val richText = remember(outline.blocks, selection, typingMarks) { RichTextBuffer(outline.blocks, selection, typingMarks) }
+    val currentRichText by rememberUpdatedState(richText)
+    val hasLinks = remember(richText) { richText?.linkSpans()?.isNotEmpty() == true }
+    val linkCtrl = remember { CtrlState() }
     val asynchronousPreview = remember(richText.text, thumbnails, focused) {
         !focused && thumbnails != null && findVideoLinks(richText.text).isNotEmpty()
     }
@@ -387,6 +396,7 @@ private fun CanvasTextBox(
     val showChrome = focused && outline.blocks.any { it.runs.any { run -> run.plainText.isNotEmpty() } }
     val currentMove by rememberUpdatedState(onMoveTextBox)
     val currentResize by rememberUpdatedState(onResizeTextBox)
+    val grab = LocalObjectGrab.current
     if (showSelectionToolkit) {
         Surface(
             color = MaterialTheme.colorScheme.primaryContainer,
@@ -417,7 +427,7 @@ private fun CanvasTextBox(
                 .semantics { contentDescription = Strings.move_text_box }
                 .pointerInput(outline.id, lassoSelected) {
                     var firstChange = true
-                    detectDragGestures(
+                    detectObjectDrag(grab,
                         onDragStart = { firstChange = true },
                         onDrag = { change, drag ->
                             change.consume()
@@ -511,6 +521,9 @@ private fun CanvasTextBox(
                             drawBlockDecorations(layout, outline.blocks, richColors, palette.ink, textMeasurer)
                         }
                     }
+                    .linkPointer(PointerIcon.Text, linkCtrl) { point ->
+                        hasLinks && textLayouts[outline.id]?.let { currentRichText?.linkAtPoint(it, point) } != null
+                    }
                     .pointerInput(outline.id) {
                         // A to-do's box ticks it; Ctrl+click opens a link, as desktop
                         // editors do, leaving a plain click to place the caret.
@@ -560,7 +573,10 @@ private fun CanvasTextBox(
                 // Ahead of the field's own keys: Tab indents, as on Android, copy and
                 // paste keep the formatting the field's own would drop, and Up, Down
                 // and End stay on the lines they aim for.
-                .onPreviewKeyEvent { event -> onMoveCaret(outline.id, event) || currentTextShortcut(event) }
+                .onPreviewKeyEvent { event ->
+                    linkCtrl.held = event.isCtrlPressed
+                    onMoveCaret(outline.id, event) || currentTextShortcut(event)
+                }
                 .then(if (focused) Modifier.focusRequester(editorFocusRequester) else Modifier)
                 .onFocusChanged {
                     if (it.isFocused) {

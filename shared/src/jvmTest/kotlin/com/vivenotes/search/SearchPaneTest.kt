@@ -5,6 +5,8 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import androidx.compose.ui.unit.dp
+import com.vivenotes.localization.Strings
 import com.vivenotes.model.*
 import com.vivenotes.model.search.*
 import com.vivenotes.richtext.TextSelection
@@ -66,6 +68,24 @@ class SearchPaneTest {
             onNodeWithTag(SearchTags.Close).performClick()
             onNodeWithTag(SearchTags.Pane).assertDoesNotExist()
         }
+
+    /** Reported: the pane's close control read "Close" instead of showing an X. */
+    @Test fun closeIsAnXIconButtonNamedForThePane() = runDesktopComposeUiTest(width = 800, height = 800) {
+        var closes = 0
+        val service = object : ContentSearchService {
+            override fun search(request: SearchRequest) = emptyFlow<SearchResults>()
+        }
+        setContent {
+            ViveNotesTheme { SearchPane(service, SearchRequest("n", "", null, "s", "", null), "", {}, {}, { closes++ }) }
+        }
+        onNodeWithTag(SearchTags.Close)
+            .assertContentDescriptionEquals(Strings.close_value(Strings.search))
+            .assertWidthIsEqualTo(32.dp)
+            .assertHeightIsEqualTo(32.dp)
+        onAllNodesWithText(Strings.close).assertCountEquals(0)
+        onNodeWithTag(SearchTags.Close).performClick()
+        runOnIdle { assertEquals(1, closes) }
+    }
 
     @Test fun titleHitSelectsItsWordAndConsecutiveTitleEditsKeepTheCaret() =
         runDesktopComposeUiTest(width = 1400, height = 900) {

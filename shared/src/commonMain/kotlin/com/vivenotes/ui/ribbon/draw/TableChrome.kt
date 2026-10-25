@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.vivenotes.localization.Strings
 import com.vivenotes.model.Outline
+import com.vivenotes.ui.canvas.LocalObjectGrab
+import com.vivenotes.ui.canvas.detectObjectDrag
 import com.vivenotes.ui.canvas.primeResizePointer
 import com.vivenotes.ui.icons.NavigationSymbols
 import com.vivenotes.ui.shell.WorkspaceTestTags
@@ -98,6 +100,7 @@ internal fun TableChrome(
     val currentHeld by rememberUpdatedState(held)
     val currentMove by rememberUpdatedState(onMove)
     val currentScale by rememberUpdatedState(onScale)
+    val grab = LocalObjectGrab.current
     val gutter = TABLE_GUTTER.dp
     val gridHeight = rows.sum()
 
@@ -112,7 +115,7 @@ internal fun TableChrome(
             .semantics { contentDescription = Strings.move_table }
             .pointerInput(table.id) {
                 var first = true
-                detectDragGestures(onDragStart = { first = true }) { change, drag ->
+                detectObjectDrag(grab, onDragStart = { first = true }) { change, drag ->
                     change.consume()
                     currentMove(with(density) { drag.x.toDp().value }, with(density) { drag.y.toDp().value }, first)
                     first = false

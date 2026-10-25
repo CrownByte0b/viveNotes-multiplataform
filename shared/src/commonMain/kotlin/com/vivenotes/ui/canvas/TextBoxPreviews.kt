@@ -28,7 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -166,6 +168,7 @@ internal fun TextBoxPreviews(
         entries += PreviewEntry(link.end, link.end,
             InlineTextContent(Placeholder(18.sp, 16.sp, PlaceholderVerticalAlign.TextCenter)) {
                 Box(Modifier.fillMaxSize().clickable { onOpenLink(link.href) }
+                    .pointerHoverIcon(PointerIcon.Hand)
                     .testTag("link-icon-${link.start}"), contentAlignment = Alignment.Center) {
                     Icon(DocumentSymbols.Link, contentDescription = Strings.open_link,
                         tint = linkColor, modifier = Modifier.size(14.dp))
@@ -193,6 +196,7 @@ internal fun TextBoxPreviews(
             .drawBehind {
                 layout?.let { drawBlockDecorations(it.layout, blocks, colors, ink, measurer, offsets::toDisplay) }
             }
+            .linkPointer(PointerIcon.Default) { point -> layout?.linkAt(point, currentLinks) != null }
             .pointerInput(ranges) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)

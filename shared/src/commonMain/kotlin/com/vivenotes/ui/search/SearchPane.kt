@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -19,6 +20,8 @@ import com.vivenotes.model.search.ContentHit
 import com.vivenotes.model.search.ContentKind
 import com.vivenotes.model.search.snippetOf
 import com.vivenotes.search.*
+import com.vivenotes.ui.components.TooltipIconButton
+import com.vivenotes.ui.icons.ViewSymbols
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -64,9 +67,13 @@ fun SearchPane(
     Surface(Modifier.width(340.dp).fillMaxHeight().testTag(SearchTags.Pane),
         color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(Strings.search, style = MaterialTheme.typography.titleMedium)
-                TextButton(onClose, Modifier.testTag(SearchTags.Close)) { Text(Strings.close) }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(Strings.search, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                TooltipIconButton(Strings.close_value(Strings.search), onClick = onClose,
+                    modifier = Modifier.size(32.dp).testTag(SearchTags.Close)) {
+                    Icon(ViewSymbols.Close, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                }
             }
             Text(Strings.in_this_notebook_text_and_pictures, style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(query, onQueryChange, singleLine = true,
