@@ -20,6 +20,7 @@ import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.model.search.ContentHit
 import com.vivenotes.richtext.TextSelection
+import com.vivenotes.ui.drop.rememberFileDropHandlers
 import com.vivenotes.ui.ribbon.document.LinkEditorRequest
 import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.ViewSettings
@@ -63,11 +64,13 @@ internal fun WorkspacePage(
         state.activePenIndex, view.zoom, input.drawWithFinger, density.density, density.fontScale)
     SideEffect { selectionWorker.updateContext(selectionContext) }
     DisposableEffect(selectionWorker) { onDispose { selectionWorker.close() } }
+    val fileDrops = rememberFileDropHandlers(pictures, onStateChange, debugLog)
     CompositionLocalProvider(LocalInkGeometryPublisher provides { source, prepared ->
         latestOnStateChange { it.applyPreparedInkGeometry(source, prepared) }
     }) {
     PageCanvas(
         debugLog = debugLog,
+        fileDrops = fileDrops,
         state = state,
         searchHit = searchHit,
         searchRevealTick = searchRevealTick,

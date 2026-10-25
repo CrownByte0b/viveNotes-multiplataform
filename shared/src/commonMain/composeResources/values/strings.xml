@@ -1265,4 +1265,6 @@
     <string name="camera_failed">The camera couldn’t be opened.</string>
     <string name="camera_stopped">The camera stopped sending pictures. Check that it is still connected.</string>
     <string name="camera_photo_failed">The photo couldn’t be taken. Try again.</string>
+    <!-- Desktop only: shown over the page while files are dragged onto it from a file manager. -->
+    <string name="drop_to_add_to_page">Drop to add to the page</string>
 </resources>

@@ -5,6 +5,7 @@ import com.vivenotes.data.AttachmentStore
 import com.vivenotes.data.ImportedPicture
 import com.vivenotes.data.OnlineImages
 import com.vivenotes.data.PictureCamera
+import com.vivenotes.data.PictureFileExtensions
 import com.vivenotes.data.PictureLibrary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,21 +42,18 @@ internal class DesktopPictures(
     override suspend fun bytes(attachmentId: String): ByteArray? = store.bytes(attachmentId)
 }
 
-/** Extensions Skia decodes, offered in the Insert picture dialog. */
-internal val PictureExtensions = listOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "ico", "wbmp")
-
 /**
  * Asks for one picture with the system dialog: GTK on Linux, under X11 and under JBR's native
  * Wayland toolkit alike, and the native dialog on Windows. Null when the user cancels.
  */
 internal fun choosePictureFile(owner: Frame?): File? {
-    if (FlatpakFileDialogs.enabled) return FlatpakFileDialogs.choose(Strings.insert_picture, PictureExtensions)
+    if (FlatpakFileDialogs.enabled) return FlatpakFileDialogs.choose(Strings.insert_picture, PictureFileExtensions)
     val dialog = FileDialog(owner, Strings.insert_picture, FileDialog.LOAD)
     dialog.isMultipleMode = false
-    dialog.setFilenameFilter { _, name -> name.substringAfterLast('.', "").lowercase() in PictureExtensions }
+    dialog.setFilenameFilter { _, name -> name.substringAfterLast('.', "").lowercase() in PictureFileExtensions }
     // Windows ignores filename filters but reads a pattern list from the file name field.
     if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
-        dialog.file = PictureExtensions.joinToString(";") { "*.$it" }
+        dialog.file = PictureFileExtensions.joinToString(";") { "*.$it" }
     }
     try {
         dialog.isVisible = true

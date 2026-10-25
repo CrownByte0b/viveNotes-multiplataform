@@ -1050,20 +1050,35 @@ data class WorkspaceState(
      * the next click reaches the picture. [pageId] is the page the picture was chosen for: the
      * choice takes a while, and a picture must not land on a page opened meanwhile.
      */
-    fun insertPicture(pageId: String, picture: ImportedPicture, viewLeft: Float, viewTop: Float): WorkspaceState {
+    fun insertPicture(pageId: String, picture: ImportedPicture, viewLeft: Float, viewTop: Float): WorkspaceState =
+        placePictures(pageId, listOf(picture), viewLeft + PICTURE_INSERT_MARGIN, viewTop + PICTURE_INSERT_MARGIN)
+
+    /**
+     * Pictures dropped on page [pageId]: the first with its top left corner at ([x], [y]), each
+     * other one [PICTURE_INSERT_MARGIN] below the one before, in the order given. One undo step, and
+     * otherwise as [insertPicture]: none lands on the page header, nothing is selected, and a page
+     * that changed while the files were stored is left alone.
+     */
+    fun dropPictures(pageId: String, pictures: List<ImportedPicture>, x: Float, y: Float): WorkspaceState =
+        placePictures(pageId, pictures, x, y)
+
+    private fun placePictures(pageId: String, pictures: List<ImportedPicture>, x: Float, y: Float): WorkspaceState {
         val page = editablePage?.takeIf { it.id == pageId } ?: return this
-        val aspect = if (picture.pixelWidth > 0) picture.pixelHeight.toFloat() / picture.pixelWidth else 1f
+        if (pictures.isEmpty()) return this
         val width = Outline.Image.DEFAULT_WIDTH
-        val titleFloor = page.document.style.titleFloor
-        val image = Outline.Image(
-            id = newId(),
-            x = (viewLeft + PICTURE_INSERT_MARGIN).coerceAtLeast(0f),
-            y = maxOf(viewTop + PICTURE_INSERT_MARGIN, titleFloor).coerceAtLeast(0f),
-            width = width,
-            height = (width * aspect).coerceAtLeast(Outline.Image.MIN_SIZE),
-            attachmentId = picture.attachmentId,
-        )
-        return editOutlines { it + image }.copy(textToolArmed = false, objectLassoArmed = false)
+        var top = maxOf(y, page.document.style.titleFloor).coerceAtLeast(0f)
+        val images = pictures.map { picture ->
+            val aspect = if (picture.pixelWidth > 0) picture.pixelHeight.toFloat() / picture.pixelWidth else 1f
+            Outline.Image(
+                id = newId(),
+                x = x.coerceAtLeast(0f),
+                y = top,
+                width = width,
+                height = (width * aspect).coerceAtLeast(Outline.Image.MIN_SIZE),
+                attachmentId = picture.attachmentId,
+            ).also { top += it.height + PICTURE_INSERT_MARGIN }
+        }
+        return editOutlines { it + images }.copy(textToolArmed = false, objectLassoArmed = false)
     }
 
     /** Android `CanvasSelection.isImageOnly`: the selected pictures, when nothing else is selected. */

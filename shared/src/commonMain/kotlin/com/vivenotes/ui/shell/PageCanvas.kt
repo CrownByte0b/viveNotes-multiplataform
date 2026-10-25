@@ -106,6 +106,9 @@ import com.vivenotes.ui.canvas.pendingInsert
 import com.vivenotes.ui.canvas.rememberPictureAssets
 import com.vivenotes.ui.canvas.selectedCanvasBounds
 import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.drop.FileDropHandler
+import com.vivenotes.ui.drop.FileDropHighlight
+import com.vivenotes.ui.drop.rememberPageFileDrop
 import com.vivenotes.ui.ribbon.draw.*
 import com.vivenotes.workspace.CanvasViewport
 import com.vivenotes.workspace.InkPenSettings
@@ -191,6 +194,8 @@ internal fun PageCanvas(
     /** Edit a text box with this range selected, and give it the keyboard. */
     onEditTextAt: (String, TextSelection) -> Unit,
     onBodyChange: (String, TextFieldValue) -> Unit,
+    /** What the page takes when files are dropped on it from outside the app; none, no drops. */
+    fileDrops: List<FileDropHandler> = emptyList(),
     debugLog: DebugLog = DebugLog(),
     modifier: Modifier = Modifier,
 ) {
@@ -405,6 +410,12 @@ internal fun PageCanvas(
         )
     }
     SideEffect { canvasOrigin.read = { toPage(Offset.Zero) } }
+    val fileDrop = rememberPageFileDrop(debugLog)
+    SideEffect {
+        fileDrop.pageId = page?.takeIf { it.editable }?.id
+        fileDrop.handlers = fileDrops
+        fileDrop.toPage = ::toPage
+    }
 
     // A held row or column lasts while its table alone stays selected and still has it.
     val heldTable = interaction.heldTableAxis.heldIn(state)
@@ -520,6 +531,7 @@ internal fun PageCanvas(
     Box(
         modifier
             .testTag(WorkspaceTestTags.PageCanvas)
+            .then(fileDrop.modifier)
             .onSizeChanged { interaction.viewportPx = it }
             .background(MaterialTheme.colorScheme.background)
             .drawWithContent {
@@ -882,6 +894,7 @@ internal fun PageCanvas(
         }
         // Last, so it is drawn over everything on the page; a held cursor stands alone.
         InsertCursorBadge(if (heldCursor != null) null else state.pendingInsert(), canvasPointer, Modifier.matchParentSize())
+        FileDropHighlight(fileDrop.hovering, Modifier.matchParentSize())
     }
 }
 

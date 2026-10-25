@@ -2,6 +2,7 @@ package com.vivenotes.desktop
 
 import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.ImportedPicture
+import com.vivenotes.data.PictureFileExtensions
 import com.vivenotes.desktop.camera.V4l2
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -90,7 +91,7 @@ class DesktopPicturesTest {
 
     @Test
     fun theDialogOffersOnlyPicturesSkiaCanRead() {
-        listOf("png", "jpg", "jpeg", "webp", "gif", "bmp").forEach { assertTrue(it in PictureExtensions, it) }
+        listOf("png", "jpg", "jpeg", "webp", "gif", "bmp").forEach { assertTrue(it in PictureFileExtensions, it) }
     }
 
     /** Android's `AttachmentStore.import(bytes)`: a downloaded picture is stored as a chosen one is. */

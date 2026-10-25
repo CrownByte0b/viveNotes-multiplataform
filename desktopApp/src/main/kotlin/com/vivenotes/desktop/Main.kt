@@ -92,6 +92,7 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
                 window.minimumSize = Dimension(720.coerceAtMost(monitor.workArea.width),
                     540.coerceAtMost(monitor.workArea.height))
                 DesktopTouch.attachX11(window, log)
+                CopyOnlyDrops.install(window, log)
             }
             App(notes.session, remember(window) { notes.pictures(window) }, notes.interfaceSettings,
                 notes::updateInterfaceSettings, notes.viewSettings, notes::updateViewSettings,

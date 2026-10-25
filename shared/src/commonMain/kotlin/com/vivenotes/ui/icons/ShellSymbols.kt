@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.group
 import androidx.compose.ui.unit.dp
 
-/** Material Symbols Rounded from the Android app for the desktop header bar. */
+/** Material Symbols Rounded from the Android app for the desktop header bar, and the canvas's drop pill. */
 object ShellSymbols {
     val Search: ImageVector by lazy {
         ImageVector.Builder("Search", 24.dp, 24.dp, 960f, 960f).group(translationY = 960f) {
@@ -29,6 +29,13 @@ object ShellSymbols {
     val MenuOpen: ImageVector by lazy {
         ImageVector.Builder("MenuOpen", 24.dp, 24.dp, 960f, 960f).group(translationY = 960f) {
             addPath(addPathNodes("M160-240q-17 0-28.5-11.5T120-280q0-17 11.5-28.5T160-320h440q17 0 28.5 11.5T640-280q0 17-11.5 28.5T600-240H160Zm596-68L612-452q-12-12-12-28t12-28l144-144q11-11 28-11t28 11q11 11 11 28t-11 28L696-480l116 116q11 11 11 28t-11 28q-11 11-28 11t-28-11ZM160-440q-17 0-28.5-11.5T120-480q0-17 11.5-28.5T160-520h320q17 0 28.5 11.5T520-480q0 17-11.5 28.5T480-440H160Zm0-200q-17 0-28.5-11.5T120-680q0-17 11.5-28.5T160-720h440q17 0 28.5 11.5T640-680q0 17-11.5 28.5T600-640H160Z"), fill = SolidColor(Color.Black))
+        }.build()
+    }
+
+    /** Google's Material Symbols Rounded `download`: what the canvas shows while files are dragged over it. */
+    val Download: ImageVector by lazy {
+        ImageVector.Builder("Download", 24.dp, 24.dp, 960f, 960f).group(translationY = 960f) {
+            addPath(addPathNodes("M480-337q-8 0-15-2.5t-13-8.5L308-492q-12-12-11.5-28t11.5-28q12-12 28.5-12.5T365-549l75 75v-286q0-17 11.5-28.5T480-800q17 0 28.5 11.5T520-760v286l75-75q12-12 28.5-11.5T652-548q11 12 11.5 28T652-492L508-348q-6 6-13 8.5t-15 2.5ZM240-160q-33 0-56.5-23.5T160-240v-80q0-17 11.5-28.5T200-360q17 0 28.5 11.5T240-320v80h480v-80q0-17 11.5-28.5T760-360q17 0 28.5 11.5T800-320v80q0 33-23.5 56.5T720-160H240Z"), fill = SolidColor(Color.Black))
         }.build()
     }
 

@@ -483,6 +483,48 @@ class WorkspaceStateTest {
     }
 
     @Test
+    fun droppedPicturesStartAtTheDropPointOneBelowAnotherInOneUndoStep() {
+        val initial = WorkspaceState.demo().toggleTextTool()
+        val wide = ImportedPicture("c".repeat(64), pixelWidth = 800, pixelHeight = 400)
+        val square = ImportedPicture("d".repeat(64), pixelWidth = 50, pixelHeight = 50)
+
+        val dropped = initial.dropPictures(initial.selectedPageId, listOf(wide, square), x = 410f, y = 520f)
+        val images = dropped.selectedPage!!.document.outlines.filterIsInstance<Outline.Image>()
+        assertEquals(listOf(wide.attachmentId, square.attachmentId), images.map { it.attachmentId }, "in the order dropped")
+        assertEquals(listOf(410f, 410f), images.map { it.x }, "no margin: the corner is where the pointer was")
+        assertEquals(520f, images[0].y)
+        assertEquals(Outline.Image.DEFAULT_WIDTH / 2, images[0].height)
+        assertEquals(520f + images[0].height + WorkspaceState.PICTURE_INSERT_MARGIN, images[1].y)
+        assertEquals(Outline.Image.DEFAULT_WIDTH, images[1].height)
+        assertTrue(dropped.selectedObjectIds.isEmpty(), "nothing selected, as after the Picture button")
+        assertFalse(dropped.textToolArmed)
+        assertEquals(initial.structuralUndo.size + 1, dropped.structuralUndo.size, "one drop, one undo step")
+        assertEquals(initial.selectedPage!!.document, dropped.undoStructure().selectedPage!!.document)
+    }
+
+    @Test
+    fun aPictureDroppedOnThePageHeaderGoesJustBelowIt() {
+        val initial = WorkspaceState.demo()
+        val picture = ImportedPicture("e".repeat(64), 100, 100)
+
+        val dropped = initial.dropPictures(initial.selectedPageId, listOf(picture), x = -30f, y = 4f)
+        val image = dropped.selectedPage!!.document.outlines.filterIsInstance<Outline.Image>().single()
+        assertEquals(0f, image.x)
+        assertEquals(PageStyle.TITLE_BAND_DP, image.y)
+    }
+
+    @Test
+    fun aDropForAPageThatIsNoLongerOpenOrEditableChangesNothing() {
+        val initial = WorkspaceState.demo()
+        val picture = ImportedPicture("f".repeat(64), 10, 10)
+        val moved = initial.selectPage("lecture-notes")
+        assertEquals(moved, moved.dropPictures("homework-1", listOf(picture), 100f, 200f))
+        val unreadable = initial.updatePage(initial.selectedPageId) { it.copy(content = PageContent.Unreadable) }
+        assertEquals(unreadable, unreadable.dropPictures(initial.selectedPageId, listOf(picture), 100f, 200f))
+        assertEquals(initial, initial.dropPictures(initial.selectedPageId, emptyList(), 100f, 200f))
+    }
+
+    @Test
     fun todoTicksInATextBoxThatIsNotFocused() {
         val initial = WorkspaceState.demo()
         val outline = initial.bodyTextOutline!!
