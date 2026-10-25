@@ -22,32 +22,32 @@ import androidx.compose.ui.unit.sp
 
 // For a normal hex color (#RRGGBB), replace # with 0xFF and wrap it in Color(...)
 
+/** The Android app's dark scheme, slot for slot; what it leaves to Material is left here too. */
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF3584E4),
+    primary = Color(0xFF007FFF),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFF3C4654),
-    onPrimaryContainer = Color(0xFFE8F2FF),
-    secondary = Color(0xFFC5C5CB),
-    onSecondary = Color(0xFF222226),
-    secondaryContainer = Color(0xFF3B3B40),
-    onSecondaryContainer = Color.White,
-    tertiary = Color(0xFF81D0FF),
-    onTertiary = Color(0xFF1D1D20),
-    background = Color(0xFF222226),
-    onBackground = Color.White,
-    surface = Color(0xFF1D1D20),
-    onSurface = Color.White,
-    surfaceVariant = Color(0xFF343438),
-    onSurfaceVariant = Color(0xFFC2C2C8),
-    surfaceContainer = Color(0xFF2E2E32),
-    surfaceContainerHigh = Color(0xFF38383D),
-    surfaceContainerHighest = Color(0xFF45454A),
-    outline = Color(0xFF77777E),
-    outlineVariant = Color(0xFF47474D),
-    error = Color(0xFFFF938C),
-    onError = Color(0xFF222226),
-    errorContainer = Color(0xFF7D2028),
-    onErrorContainer = Color.White,
+    primaryContainer = Color(0xFF00478E),
+    onPrimaryContainer = Color(0xFFB3D9FF),
+    secondary = Color(0xFF0063C6),
+    // Android leaves these two to Material's violet and repaints each tonal button neutral. Its
+    // surfaceVariant grey does that here, and stays visible on a boxed group (surfaceContainerHighest).
+    secondaryContainer = Color(0xFF333333),
+    onSecondaryContainer = Color(0xFFE6E6E6),
+    tertiary = Color(0xFFFF8000),
+    onTertiary = Color(0xFF1F1F1F),
+    tertiaryContainer = Color(0xFF7A3D00),
+    onTertiaryContainer = Color(0xFFFFD9B3),
+    background = Color(0xFF1F1F1F),
+    onBackground = Color(0xFFE6E6E6),
+    surface = Color(0xFF1E2024),
+    onSurface = Color(0xFFE6E6E6),
+    surfaceVariant = Color(0xFF333333),
+    onSurfaceVariant = Color(0xFFB8B8B8),
+    surfaceContainer = Color(0xFF18191C),
+    surfaceContainerHigh = Color(0xFF1E2024),
+    surfaceContainerHighest = Color(0xFF222930),
+    outline = Color(0xFF4A4A4A),
+    outlineVariant = Color(0xFF3A3A3A),
 )
 
 internal data class DesktopColors(
@@ -61,14 +61,15 @@ internal data class DesktopColors(
     val success: Color,
 )
 
+/** Each desktop surface takes the Android scheme slot that paints the same surface there. */
 private val DarkDesktopColors = DesktopColors(
-    headerBar = Color(0xFF2E2E32),
-    sidebar = Color(0xFF2E2E32),
-    toolbar = Color(0xFF38383D),
-    dialog = Color(0xFF2E2E32),
-    selection = Color(0xFF45454A),
+    headerBar = DarkColors.surface, // the ribbon's tab strip
+    sidebar = DarkColors.surfaceContainer, // the notebook rail
+    toolbar = DarkColors.surface, // the ribbon
+    dialog = DarkColors.surfaceContainerHigh, // AlertDialog's default container
+    selection = DarkColors.surfaceContainerHighest, // the open notebook, section or page row
     destructive = Color(0xFFC01C28),
-    success = Color(0xFF78E9AB),
+    success = Color(0xFF73DD83), // IconAccents.green, the account's connected dot
 )
 
 private val LightDesktopColors = DesktopColors(

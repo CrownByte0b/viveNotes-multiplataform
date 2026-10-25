@@ -38,7 +38,7 @@ class TitleBarTest {
     @Test
     fun windowsCaptionColoursAreBlueGreenRed() {
         assertEquals(0x00563412, colorRef(Color(0xFF123456)))
-        assertEquals(0x00322E2E, colorRef(headerBarColor(darkTheme = true)))
+        assertEquals(0x0024201E, colorRef(headerBarColor(darkTheme = true)))
         assertEquals(0x00FFFFFF, colorRef(headerBarColor(darkTheme = false)))
     }
 

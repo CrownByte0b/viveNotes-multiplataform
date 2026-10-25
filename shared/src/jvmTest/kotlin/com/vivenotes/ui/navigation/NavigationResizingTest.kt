@@ -225,7 +225,8 @@ class NavigationResizingTest {
         val pixels = onNodeWithTag(WorkspaceTestTags.NavigationIcon, useUnmergedTree = true).captureToImage().toPixelMap()
         return (0 until pixels.height).flatMap { y -> (0 until pixels.width).map { x ->
             val color = pixels[x, y]
-            color.red > .999f && color.green > .999f && color.blue > .999f
+            // The glyph's onSurface ink, well clear of the dark header bar behind it.
+            color.red > .6f && color.green > .6f && color.blue > .6f
         } }
     }
 

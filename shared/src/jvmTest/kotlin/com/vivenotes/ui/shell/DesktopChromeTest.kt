@@ -31,9 +31,9 @@ class DesktopChromeTest {
     @Test
     fun darkDesktopChromeHasCompactBarsAndNeutralSidebar() = assertChrome(
         dark = true,
-        header = Color(0xFF2E2E32),
+        header = Color(0xFF1E2024),
         toolbar = Color(0xFF292A2F),
-        sidebar = Color(0xFF2E2E32),
+        sidebar = Color(0xFF18191C),
     )
 
     @Test

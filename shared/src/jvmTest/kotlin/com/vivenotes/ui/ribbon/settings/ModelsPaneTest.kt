@@ -195,10 +195,10 @@ class ModelsPaneTest {
         onNodeWithTag(ModelsTags.use(FormulaEngine.FormulaNetS)).assertIsNotSelected().assertTextContains("Use")
         // The choice made is in the accent colour, and the other is a button you can see. Material's
         // outlined button drew a hairline and a grey label here, which read as disabled.
-        assertPaints(ModelsTags.use(FormulaEngine.UniMerNetTiny), Color(0xFF3584E4))
+        assertPaints(ModelsTags.use(FormulaEngine.UniMerNetTiny), Color(0xFF007FFF))
         // Tight, because the group's own background is only a shade lighter than the button's fill.
-        assertPaints(ModelsTags.use(FormulaEngine.FormulaNetS), Color(0xFF3B3B40), tolerance = 0.015f)
-        assertPaints(ModelsTags.use(FormulaEngine.FormulaNetS), Color.White)
+        assertPaints(ModelsTags.use(FormulaEngine.FormulaNetS), Color(0xFF333333), tolerance = 0.015f)
+        assertPaints(ModelsTags.use(FormulaEngine.FormulaNetS), Color(0xFFE6E6E6))
         onNodeWithTag(ModelsTags.use(FormulaEngine.FormulaNetS))
             .performClick()
         assertEquals(listOf(FormulaEngine.FormulaNetS), models.selections)
