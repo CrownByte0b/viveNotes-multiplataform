@@ -7,6 +7,7 @@ import androidx.compose.runtime.tooling.ComposeToolingApi
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerIconService
@@ -189,6 +190,38 @@ class PrimeResizePointerTest {
         host.bounds(tag)
         host.render.mouse(MouseEvent.MOUSE_MOVED, host.point(host.bounds(tag)))
         host.awaitCursor(PrimeResizeDiagonal.NorthEastSouthWest.cursor)
+    }
+
+    /**
+     * Regression: a handle never took its press, so clicking one past the selection's own edge
+     * reached the page as a tap on empty paper and dropped the selection it was there to resize.
+     */
+    @Test
+    fun clickingAResizeHandleKeepsTheSelection() = withWorkspace { host ->
+        val first = Outline.Image("first", 100f, 220f, 140f, attachmentId = "fixture", height = 100f)
+        val second = first.copy(id = "second", x = 300f)
+        val table = newTable(2, 2, 100f, 220f).copy(id = "table")
+        val cases = listOf(
+            workspace(listOf(first, second)).selectObjectsInRect(80f, 200f, 460f, 340f) to
+                (0..3).map { WorkspaceTestTags.groupCorner(it) to it },
+            workspace(listOf(first)).selectObject(first.id) to (0..3).map { WorkspaceTestTags.objectCorner(first.id, it) to it },
+            workspace(listOf(table)).selectObject(table.id) to listOf(WorkspaceTestTags.objectCorner(table.id, 3) to 3),
+        )
+        for ((selected, handles) in cases) for ((tag, corner) in handles) {
+            host.update(selected)
+            val handle = host.bounds(tag)
+            // Toward the handle's outer corner, outside the selection yet still on the round handle.
+            val outer = host.point(Rect(Offset(handle.center.x + if (corner % 2 == 0) -4f else 4f,
+                handle.center.y + if (corner < 2) -4f else 4f), 0f))
+            host.render.mouse(MouseEvent.MOUSE_MOVED, outer)
+            host.render.mouse(MouseEvent.MOUSE_PRESSED, outer)
+            host.render.mouse(MouseEvent.MOUSE_RELEASED, outer)
+            SwingUtilities.invokeAndWait {
+                assertEquals(selected.selectedObjectIds, host.state.value.selectedObjectIds, "a click on $tag")
+                assertEquals(selected.selectedPage!!.document.outlines, host.state.value.selectedPage!!.document.outlines,
+                    "a click without a drag resizes nothing")
+            }
+        }
     }
 
     private fun workspace(outlines: List<Outline>): WorkspaceState {

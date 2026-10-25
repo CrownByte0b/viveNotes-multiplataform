@@ -217,6 +217,20 @@ tasks.withType<Test>().configureEach {
     jvmArgs(launchJvmArgs)
 }
 
+// Compose reads `compose.layers.type` once, for the first window or panel the JVM makes, so the
+// Wayland host's popups, on layers of their own, are tested in a JVM that starts with them as the
+// host does. `test` runs it after itself, whatever its own outcome.
+val waylandPopupTests = "com.vivenotes.desktop.ToolkitPopupKeyboardContractTest"
+val waylandPopupTest = tasks.register<Test>("waylandPopupTest") {
+    group = "verification"
+    description = "Runs the Wayland host's popup keyboard contract with its component popup layers."
+    val regular = tasks.test.get()
+    testClassesDirs = regular.testClassesDirs
+    classpath = regular.classpath
+    filter.includeTestsMatching(waylandPopupTests)
+    systemProperty("compose.layers.type", "COMPONENT")
+}
+
 tasks.test {
     val settingsFile = rootProject.file("settings.gradle.kts")
     inputs.file(settingsFile)
@@ -234,6 +248,8 @@ tasks.test {
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
     systemProperty("vivenotes.test.gradleHome", gradle.gradleHomeDir!!.absolutePath)
     systemProperty("vivenotes.test.gradleUserHome", gradle.gradleUserHomeDir.absolutePath)
+    filter.excludeTestsMatching(waylandPopupTests)
+    finalizedBy(waylandPopupTest)
 }
 
 // Installed distributions use the production profile. Gradle's everyday run uses a stable,

@@ -35,6 +35,9 @@ internal fun Modifier.primeResizePointer(corner: Int): Modifier = composed {
         .pointerInput(cursor) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                // The press is the handle's: a click on it, or a release after the handle went
+                // away (the selection locked mid-press), is not a page tap that clears the selection.
+                down.consume()
                 if (down.type == PointerType.Mouse && currentEvent.buttons.isPrimaryPressed) cursor.press()
                 try {
                     do {

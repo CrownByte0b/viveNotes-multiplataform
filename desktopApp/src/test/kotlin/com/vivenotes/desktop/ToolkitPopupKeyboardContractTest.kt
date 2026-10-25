@@ -36,7 +36,7 @@ class ToolkitPopupKeyboardContractTest {
                 })
             })
         }).selectObject(shape.id))
-        val previousLayerType = System.setProperty("compose.layers.type", "COMPONENT")
+        requireWaylandPopupLayers()
         lateinit var frame: JFrame
         lateinit var panel: ComposePanel
         SwingUtilities.invokeAndWait {
@@ -82,8 +82,6 @@ class ToolkitPopupKeyboardContractTest {
             onEdt { panel.setContent { } }
             waitFor("the selection composition to close") { node(panel, "workspace-object-color") == null }
             SwingUtilities.invokeAndWait { frame.dispose() }
-            if (previousLayerType == null) System.clearProperty("compose.layers.type")
-            else System.setProperty("compose.layers.type", previousLayerType)
         }
     }
 
@@ -92,7 +90,7 @@ class ToolkitPopupKeyboardContractTest {
         if (GraphicsEnvironment.isHeadless()) return
         val state = mutableStateOf(WorkspaceState.demo().copy(activeTab = RibbonTab.Draw))
         val original = state.value.selectedPage!!.document
-        val previousLayerType = System.setProperty("compose.layers.type", "COMPONENT")
+        requireWaylandPopupLayers()
         lateinit var frame: JFrame
         lateinit var panel: ComposePanel
         SwingUtilities.invokeAndWait {
@@ -137,10 +135,16 @@ class ToolkitPopupKeyboardContractTest {
             onEdt { panel.setContent { } }
             waitFor("the test composition to close before disposing its Swing host") { node(panel, DrawRibbonTags.penKit(0)) == null }
             SwingUtilities.invokeAndWait { frame.dispose() }
-            if (previousLayerType == null) System.clearProperty("compose.layers.type")
-            else System.setProperty("compose.layers.type", previousLayerType)
         }
     }
+
+    /**
+     * Compose takes its layer type from the first window or panel the JVM makes, so setting it here
+     * comes too late whenever another test made one first; `:desktopApp:waylandPopupTest` starts
+     * the JVM with it, as the Wayland host does.
+     */
+    private fun requireWaylandPopupLayers() = assertEquals("COMPONENT", System.getProperty("compose.layers.type"),
+        "the Wayland host's popup layers; run by :desktopApp:waylandPopupTest")
 
     private fun click(panel: ComposePanel, tag: String) {
         waitFor("clickable $tag") { node(panel, tag)?.config?.getOrNull(SemanticsActions.OnClick)?.action != null }

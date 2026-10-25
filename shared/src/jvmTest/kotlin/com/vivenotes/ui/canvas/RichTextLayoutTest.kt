@@ -164,6 +164,10 @@ class RichTextLayoutTest {
      * Double spacing is twice the line single spacing shows, whatever the font and size. Fonts' own
      * lines differ — 1.2 to 1.4 of their size — below about 17 sp the text box's own font sets the
      * line rather than the text's, and Compose resolves an em line height against the box's size.
+     *
+     * Regression: a font that splits the extra height above and below its baseline unlike the box's
+     * own font made each spaced line taller than asked, so JetBrains Mono at 30 sp came out 4% over
+     * on Windows, where the box's font is Segoe UI, and Inter 2% over on Linux.
      */
     @Test
     fun lineSpacingMultipliesTheLineSingleSpacingShows() = runDesktopComposeUiTest {
@@ -194,9 +198,9 @@ class RichTextLayoutTest {
             val single = gaps.getValue(Triple(family, size, 1f))
             assertTrue(single.size >= 3, "$family at $size sp wraps onto several lines")
             for (spacing in spacings.drop(1)) gaps.getValue(Triple(family, size, spacing)).forEach { gap ->
-                // Skia rounds lines to whole pixels and sets a spaced line 2-3% over the height asked.
+                // Skia rounds each line to whole pixels; beyond that a spaced line is as tall as asked.
                 val expected = single.first() * spacing
-                assertEquals(expected, gap, 2f + expected * 0.03f, "$family at $size sp, spacing $spacing")
+                assertEquals(expected, gap, 2f + expected * 0.01f, "$family at $size sp, spacing $spacing")
             }
         }
     }

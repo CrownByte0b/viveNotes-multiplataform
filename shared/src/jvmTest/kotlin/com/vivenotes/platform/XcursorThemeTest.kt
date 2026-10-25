@@ -112,15 +112,17 @@ class XcursorThemeTest {
 
     @Test
     fun environmentChoosesThemeSizeAndSearchPathLikeLibXcursor() {
+        // As paths, not strings: Windows, where the JVM tests run too, writes them with backslashes.
+        fun paths(vararg names: String) = names.map { Path.of(it) }
         val env = mapOf("XDG_DATA_HOME" to "/data/home", "XDG_DATA_DIRS" to "/flatpak/share:relative:/usr/share")
-        assertEquals(listOf("/data/home/icons", "/home/me/.icons", "/flatpak/share/icons", "/usr/share/icons",
+        assertEquals(paths("/data/home/icons", "/home/me/.icons", "/flatpak/share/icons", "/usr/share/icons",
             "/usr/share/pixmaps", "/usr/X11R6/lib/X11/icons"),
-            XcursorTheme.searchPath(env::get, "/home/me").map { it.toString() })
-        assertEquals(listOf("/home/me/.local/share/icons", "/home/me/.icons", "/usr/local/share/icons", "/usr/share/icons",
+            XcursorTheme.searchPath(env::get, "/home/me"))
+        assertEquals(paths("/home/me/.local/share/icons", "/home/me/.icons", "/usr/local/share/icons", "/usr/share/icons",
             "/usr/share/pixmaps", "/usr/X11R6/lib/X11/icons"),
-            XcursorTheme.searchPath({ null }, "/home/me").map { it.toString() })
-        assertEquals(listOf("/home/me/cursors", "/opt/icons"),
-            XcursorTheme.searchPath(mapOf("XCURSOR_PATH" to "~/cursors::/opt/icons")::get, "/home/me").map { it.toString() })
+            XcursorTheme.searchPath({ null }, "/home/me"))
+        assertEquals(paths("/home/me/cursors", "/opt/icons"),
+            XcursorTheme.searchPath(mapOf("XCURSOR_PATH" to "~/cursors::/opt/icons")::get, "/home/me"))
         assertEquals(24, XcursorTheme.size { null })
         assertEquals(32, XcursorTheme.size(mapOf("XCURSOR_SIZE" to "32")::get))
         assertEquals(24, XcursorTheme.size(mapOf("XCURSOR_SIZE" to "huge")::get))

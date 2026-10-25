@@ -100,10 +100,30 @@ internal fun Block.leadingSp(): Float = INDENT_STEP_SP * indent + when {
  */
 private class SingleLines(private val measurer: TextMeasurer) {
     private val known = mutableMapOf<Set<Pair<FontFamily?, Float>>, Float>()
+    private val spaced = mutableMapOf<Pair<Set<Pair<FontFamily?, Float>>, Float>, Float>()
 
     /** The line's height in sp, for text in each family and size in sp of [fonts]. */
-    fun heightSp(fonts: Set<Pair<FontFamily?, Float>>): Float = known.getOrPut(fonts) {
+    fun heightSp(fonts: Set<Pair<FontFamily?, Float>>): Float = known.getOrPut(fonts) { probeSp(fonts, lineHeightSp = null) }
+
+    /**
+     * The line height to ask for, in sp, so lines of [fonts] come out [spacing] single lines apart.
+     *
+     * Every font on a line, the text box's own too, takes the height asked above and below its
+     * baseline in its own proportion of ascent to descent, and the line is the tallest of each:
+     * fonts that split it differently make it taller than asked. JetBrains Mono under Windows'
+     * Segoe UI comes out 4% over. A line's height grows with the height asked, so one spaced probe
+     * tells how much less to ask.
+     */
+    fun spacedSp(fonts: Set<Pair<FontFamily?, Float>>, spacing: Float): Float = spaced.getOrPut(fonts to spacing) {
+        val wanted = spacing * heightSp(fonts)
+        wanted * wanted / probeSp(fonts, lineHeightSp = wanted)
+    }
+
+    /** How far apart two lines of [fonts] come out in sp, asked to be [lineHeightSp] apart if it is given. */
+    private fun probeSp(fonts: Set<Pair<FontFamily?, Float>>, lineHeightSp: Float?): Float {
         val probe = buildAnnotatedString {
+            if (lineHeightSp != null) pushStyle(ParagraphStyle(lineHeight = (lineHeightSp * PROBE_SCALE).sp,
+                lineHeightStyle = SpacedLines))
             repeat(2) { line ->
                 if (line > 0) append('\n')
                 // A line's height comes from its fonts, not its glyphs: any letter they all have serves.
@@ -113,7 +133,7 @@ private class SingleLines(private val measurer: TextMeasurer) {
             }
         }
         val layout = measurer.measure(probe, TextStyle(fontSize = (BODY_TEXT_SP * PROBE_SCALE).sp))
-        (layout.getLineBaseline(1) - layout.getLineBaseline(0)) / with(layout.layoutInput.density) { PROBE_SCALE.sp.toPx() }
+        return (layout.getLineBaseline(1) - layout.getLineBaseline(0)) / with(layout.layoutInput.density) { PROBE_SCALE.sp.toPx() }
     }
 
     private companion object {
@@ -174,7 +194,7 @@ internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): Annotated
                 val fonts = block.runs.map { run ->
                     (run.marks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.let(::familyOf) ?: plain) to run.sizeSp(scale)
                 }.ifEmpty { listOf(plain to BODY_TEXT_SP * scale) }.toSet()
-                spacing * singleLines.heightSp(fonts)
+                singleLines.spacedSp(fonts, spacing)
             }
             pushStyle(ParagraphStyle(
                 textAlign = when (block.align) {
