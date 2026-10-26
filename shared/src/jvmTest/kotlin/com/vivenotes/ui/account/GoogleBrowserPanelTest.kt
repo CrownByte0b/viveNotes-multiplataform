@@ -189,6 +189,7 @@ class GoogleBrowserPanelTest {
             platform = "Linux",
             google = GoogleIdentityProvider(
                 clientId = "desktop-client",
+                codeExchangeEndpoint = "http://127.0.0.1:${server.address.port}/v1/auth/google/desktop-tokens",
                 openBrowser = openBrowser,
                 authorizationEndpoint = "https://accounts.example.test/auth",
             ),

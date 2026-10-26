@@ -225,7 +225,6 @@ class DesktopSyncTest {
         openBrowser = {},
         cloudBaseUrl = server.url,
         googleClientId = "",
-        googleClientSecret = "",
         cardCheckout = cardCheckout,
         finalPushTimeout = 500.milliseconds,
     )

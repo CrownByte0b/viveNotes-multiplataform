@@ -12,9 +12,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Where the build finds the Google Desktop OAuth client that both profiles sign in with. The secret
- * is never committed: a developer's `local.properties` (or `-P`) supplies it, and the release
- * workflows hand it over as environment variables from repository secrets.
+ * Where the build finds the Google Desktop OAuth client that both profiles sign in with: a
+ * developer's `local.properties` or `-P` (the Flathub manifest), else the release workflows'
+ * environment. The app carries only the client id; the managed server holds the client secret and
+ * exchanges the sign-in code with it, so no build is given one.
  */
 class GoogleDesktopClientBuildTest {
     @get:Rule val temp = TemporaryFolder()
@@ -22,52 +23,54 @@ class GoogleDesktopClientBuildTest {
     private val root = File(System.getProperty("vivenotes.test.projectRoot"))
 
     @Test
-    fun aBuildWithNoClientLeavesGoogleSignInOff() {
+    fun aBuildWithNoClientLeavesGoogleSignInOffAndCarriesNoSecret() {
         assumeTrue(!System.getProperty("os.name").startsWith("Windows"))
         val fixture = fixture()
 
         val info = buildInfo(fixture, variables = emptyMap())
 
         assertEquals("", info.getProperty("googleDesktopClientId"))
-        assertEquals("", info.getProperty("googleDesktopClientSecret"))
+        assertEquals(setOf("version", "cloudBaseUrl", "googleDesktopClientId"), info.stringPropertyNames())
     }
 
     @Test
-    fun releaseSecretsFromTheEnvironmentFillOnlyWhatLocalPropertiesLeaveUnset() {
+    fun theReleaseEnvironmentFillsTheClientIdOnlyWhereLocalPropertiesLeaveItUnset() {
         assumeTrue(!System.getProperty("os.name").startsWith("Windows"))
-        val fixture = fixture()
-        File(fixture, "local.properties").writeText("vive.googleDesktopClientSecret=from-local-properties\n")
+        val variables = mapOf(CLIENT_ID to "from-environment.apps.googleusercontent.com")
 
-        val info = buildInfo(
-            fixture,
-            variables = mapOf(
-                "VIVE_GOOGLE_DESKTOP_CLIENT_ID" to "from-environment.apps.googleusercontent.com",
-                "VIVE_GOOGLE_DESKTOP_CLIENT_SECRET" to "from-environment",
-            ),
-        )
+        assertEquals("from-environment.apps.googleusercontent.com",
+            buildInfo(fixture(), variables).getProperty("googleDesktopClientId"))
 
-        assertEquals("from-environment.apps.googleusercontent.com", info.getProperty("googleDesktopClientId"))
-        assertEquals("from-local-properties", info.getProperty("googleDesktopClientSecret"))
+        val local = fixture("app-with-local-properties").apply {
+            File(this, "local.properties").writeText("vive.googleDesktopClientId=from-local-properties\n")
+        }
+        assertEquals("from-local-properties", buildInfo(local, variables).getProperty("googleDesktopClientId"))
     }
 
-    /** Only the steps that build what ships see the secrets; tests and lint run without them. */
+    /** Only the steps that build what ships see the client id; tests and lint run without it. */
     @Test
-    fun onlyTheReleaseBuildStepsReceiveTheClientSecrets() {
+    fun onlyTheReleaseBuildStepsReceiveTheClientId() {
         val builds = mapOf("windows-msi.yml" to "Build MSI", "flatpak.yml" to "Build Flatpak bundle")
         for ((file, buildStep) in builds) {
             val steps = steps(File(root, ".github/workflows/$file").readText())
             for ((name, body) in steps) {
-                val passes = SECRETS.all { "$it: \${{ secrets.$it }}" in body }
-                assertEquals(name == buildStep, passes, "$file step \"$name\"")
+                assertEquals(name == buildStep, "$CLIENT_ID: \${{ secrets.$CLIENT_ID }}" in body, "$file step \"$name\"")
             }
             assertTrue(buildStep in steps, "$file has no \"$buildStep\" step")
         }
         val tests = File(root, ".github/workflows/desktop-tests.yml").readText()
-        SECRETS.forEach { assertFalse(it in tests, "desktop-tests.yml must not see $it") }
+        assertFalse(CLIENT_ID in tests, "desktop-tests.yml must not see $CLIENT_ID")
     }
 
-    private fun fixture(): File {
-        val fixture = temp.newFolder("app")
+    @Test
+    fun noWorkflowHandsABuildAGoogleClientSecret() {
+        File(root, ".github/workflows").listFiles()!!.filter { it.extension == "yml" }.forEach { workflow ->
+            assertFalse("GOOGLE_DESKTOP_CLIENT_SECRET" in workflow.readText(), "${workflow.name} passes a client secret")
+        }
+    }
+
+    private fun fixture(name: String = "app"): File {
+        val fixture = temp.newFolder(name)
         for (path in listOf(
             "settings.gradle.kts", "build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
             "shared/build.gradle.kts", "webApp/build.gradle.kts", "desktopApp/build.gradle.kts",
@@ -87,7 +90,7 @@ class GoogleDesktopClientBuildTest {
         val process = ProcessBuilder(command).directory(fixture).redirectErrorStream(true).redirectOutput(log)
             .apply {
                 environment()["JAVA_HOME"] = System.getProperty("java.home")
-                SECRETS.forEach { environment().remove(it) }
+                environment().remove(CLIENT_ID)
                 environment().putAll(variables)
             }.start()
         if (!process.waitFor(120, TimeUnit.SECONDS)) {
@@ -106,6 +109,6 @@ class GoogleDesktopClientBuildTest {
         }
 
     private companion object {
-        val SECRETS = listOf("VIVE_GOOGLE_DESKTOP_CLIENT_ID", "VIVE_GOOGLE_DESKTOP_CLIENT_SECRET")
+        const val CLIENT_ID = "VIVE_GOOGLE_DESKTOP_CLIENT_ID"
     }
 }

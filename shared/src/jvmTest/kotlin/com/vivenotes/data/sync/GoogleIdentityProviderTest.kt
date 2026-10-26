@@ -6,6 +6,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.InetAddress
@@ -29,23 +32,24 @@ import kotlin.test.assertTrue
 
 /**
  * The desktop half of Sign in with Google: the system browser, a loopback redirect and a PKCE code
- * exchange, ending in what Android's Credential Manager hands back — an ID token and its email
- * claim, or a dismissal, or a refusal the screen can explain.
+ * exchange through the managed server, ending in what Android's Credential Manager hands back — an
+ * ID token and its email claim, or a dismissal, or a refusal the screen can explain.
  *
- * Google is a loopback `HttpServer` here, and the browser is a thread that follows the redirect the
- * way a browser would, so the whole exchange runs over real sockets.
+ * The server's code exchange is a loopback `HttpServer` here, and the browser is a thread that
+ * follows the redirect the way a browser would, so the whole exchange runs over real sockets.
  */
 class GoogleIdentityProviderTest {
 
     private val tokenRequests = CopyOnWriteArrayList<Map<String, String>>()
     private var tokenStatus = 200
-    private var tokenBody = """{"id_token":"${idToken("owner@example.com")}","access_token":"unused"}"""
+    private var tokenBody = """{"idToken":"${idToken("owner@example.com")}"}"""
 
-    /** Runs as Google's token endpoint receives a code, before it answers. */
+    /** Runs as the server's code exchange receives a code, before it answers. */
     @Volatile private var onTokenRequest: () -> Unit = {}
-    private val google: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0).apply {
-        createContext("/token") { exchange ->
-            tokenRequests += form(exchange.requestBody.readBytes().decodeToString())
+    private val server: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0).apply {
+        createContext("/v1/auth/google/desktop-tokens") { exchange ->
+            val request = Json.parseToJsonElement(exchange.requestBody.readBytes().decodeToString()) as JsonObject
+            tokenRequests += request.mapValues { (_, value) -> (value as JsonPrimitive).content }
             onTokenRequest()
             val body = tokenBody.toByteArray()
             exchange.responseHeaders.add("Content-Type", "application/json")
@@ -54,7 +58,7 @@ class GoogleIdentityProviderTest {
         }
         start()
     }
-    private val tokenEndpoint = "http://127.0.0.1:${google.address.port}/token"
+    private val codeExchangeEndpoint = "http://127.0.0.1:${server.address.port}/v1/auth/google/desktop-tokens"
 
     /** What the browser was asked to open, and what it was shown on returning to the app. */
     private val opened = CopyOnWriteArrayList<URI>()
@@ -66,7 +70,7 @@ class GoogleIdentityProviderTest {
 
     @AfterTest
     fun tearDown() {
-        google.stop(0)
+        server.stop(0)
     }
 
     @Test
@@ -77,13 +81,24 @@ class GoogleIdentityProviderTest {
         assertTrue(opened.isEmpty())
     }
 
+    /** Without the server's code exchange there is no way to finish, so nothing is started. */
+    @Test
+    fun aBuildWithoutTheCodeExchangeRefusesWithoutOpeningABrowser() = runBlocking {
+        val provider = GoogleIdentityProvider(clientId = "desktop-client", openBrowser = { opened += it })
+
+        assertFalse(provider.configured)
+        assertEquals(GoogleIdToken.Rejected(ConnectFailure.GoogleNotConfigured), provider.requestIdToken("nonce"))
+        assertTrue(opened.isEmpty())
+    }
+
     /**
      * The whole sign-in: the server's nonce goes to Google, the code comes back to this process only,
-     * and the exchange proves with the verifier that it is the same process that asked.
+     * and the server's exchange proves with the verifier that it is the same process that asked. The
+     * app sends no client secret; the server adds it.
      */
     @Test
     fun aCompletedSignInReturnsTheIdTokenAndItsEmailClaim() = runBlocking {
-        val provider = provider(browser = { uri -> followRedirect(uri, code = "auth-code") }, secret = "installed-secret")
+        val provider = provider(browser = { uri -> followRedirect(uri, code = "auth-code") })
 
         val result = provider.requestIdToken("server-nonce")
 
@@ -97,12 +112,10 @@ class GoogleIdentityProviderTest {
         assertTrue(asked.getValue("redirect_uri").startsWith("http://127.0.0.1:"))
 
         val exchange = tokenRequests.single()
+        assertEquals(setOf("code", "codeVerifier", "redirectUri"), exchange.keys)
         assertEquals("auth-code", exchange["code"])
-        assertEquals("desktop-client", exchange["client_id"])
-        assertEquals("installed-secret", exchange["client_secret"])
-        assertEquals("authorization_code", exchange["grant_type"])
-        assertEquals(asked["redirect_uri"], exchange["redirect_uri"])
-        assertEquals(asked["code_challenge"], challengeOf(exchange.getValue("code_verifier")))
+        assertEquals(asked["redirect_uri"], exchange["redirectUri"])
+        assertEquals(asked["code_challenge"], challengeOf(exchange.getValue("codeVerifier")))
 
         browserDone()
         assertEquals(200 to "signed in", shown.single())
@@ -135,14 +148,27 @@ class GoogleIdentityProviderTest {
         assertEquals(listOf(404, 200), shown.map { it.first })
     }
 
-    /** `invalid_client` is a client id or secret Google does not know: the build is not set up. */
+    /**
+     * A server without the desktop client, or a code Google refused: neither is something the
+     * person can fix, so both read as sign-in not being available.
+     */
     @Test
-    fun aClientGoogleDoesNotRecogniseIsReportedAsNotConfigured() = runBlocking {
-        tokenStatus = 401
-        tokenBody = """{"error":"invalid_client"}"""
+    fun aRefusedExchangeIsReportedAsNotConfigured() = runBlocking {
+        for ((status, error) in listOf(503 to "google_auth_unavailable", 400 to "invalid_google_code")) {
+            tokenStatus = status
+            tokenBody = """{"error":"$error","message":"refused"}"""
+            val provider = provider(browser = { uri -> followRedirect(uri, code = "auth-code") })
+
+            assertEquals(GoogleIdToken.Rejected(ConnectFailure.GoogleNotConfigured), provider.requestIdToken("nonce"), error)
+        }
+    }
+
+    @Test
+    fun anUnreachableServerIsReportedAsUnreachable() = runBlocking {
+        server.stop(0)
         val provider = provider(browser = { uri -> followRedirect(uri, code = "auth-code") })
 
-        assertEquals(GoogleIdToken.Rejected(ConnectFailure.GoogleNotConfigured), provider.requestIdToken("nonce"))
+        assertEquals(GoogleIdToken.Rejected(ConnectFailure.Unreachable), provider.requestIdToken("nonce"))
     }
 
     /** A browser tab left open outlives the server's challenge; the sign-in ends quietly instead. */
@@ -158,8 +184,8 @@ class GoogleIdentityProviderTest {
     fun noBrowserIsReportedAsNotConfigured() = runBlocking {
         val provider = GoogleIdentityProvider(
             clientId = "desktop-client",
+            codeExchangeEndpoint = codeExchangeEndpoint,
             openBrowser = { throw UnsupportedOperationException("no browser") },
-            tokenEndpoint = tokenEndpoint,
         )
 
         assertEquals(GoogleIdToken.Rejected(ConnectFailure.GoogleNotConfigured), provider.requestIdToken("nonce"))
@@ -226,11 +252,10 @@ class GoogleIdentityProviderTest {
 
     private fun provider(
         browser: (URI) -> Unit,
-        secret: String = "",
         timeoutMillis: Long = 10_000,
     ) = GoogleIdentityProvider(
         clientId = "desktop-client",
-        clientSecret = secret,
+        codeExchangeEndpoint = codeExchangeEndpoint,
         openBrowser = { uri ->
             opened += uri
             // Off the caller's thread, as a real browser is: the provider is not listening until
@@ -238,7 +263,6 @@ class GoogleIdentityProviderTest {
             browsers += thread(isDaemon = true) { browser(uri) }
         },
         authorizationEndpoint = "https://accounts.example.test/auth",
-        tokenEndpoint = tokenEndpoint,
         timeoutMillis = timeoutMillis,
         returnPage = { signedIn -> if (signedIn) "signed in" else "not signed in" },
     )

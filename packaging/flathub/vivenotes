@@ -1,0 +1,13 @@
+#!/bin/sh
+# The Flathub build's launcher: the JBR, libink.so and the math engine's Python are all built into
+# /app, so nothing is extracted or downloaded to run them.
+set -eu
+exec /app/jbr/bin/java \
+    --enable-native-access=ALL-UNNAMED \
+    --add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED \
+    --add-exports=java.desktop/sun.awt=ALL-UNNAMED \
+    --add-opens=java.desktop/sun.awt.wl=ALL-UNNAMED \
+    -Dvivenotes.profile=production \
+    -Dvivenotes.mathPython=/app/lib/vivenotes/math-python/bin/python \
+    -Dbyteink.ink.library=/app/lib/libink.so \
+    -cp '/app/lib/*' com.vivenotes.desktop.MainKt "$@"

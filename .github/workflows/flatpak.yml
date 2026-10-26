@@ -41,7 +41,6 @@ jobs:
       - name: Build Flatpak bundle
         env:
           VIVE_GOOGLE_DESKTOP_CLIENT_ID: ${{ secrets.VIVE_GOOGLE_DESKTOP_CLIENT_ID }}
-          VIVE_GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.VIVE_GOOGLE_DESKTOP_CLIENT_SECRET }}
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             python3 -B packaging/flatpak/build.py --version "${GITHUB_REF_NAME#v}"

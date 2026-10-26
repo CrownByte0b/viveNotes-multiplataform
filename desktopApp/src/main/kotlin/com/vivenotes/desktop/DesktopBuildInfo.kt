@@ -44,10 +44,6 @@ internal object DesktopBuildInfo {
     /** Empty when the build has no Google Desktop OAuth client, which leaves Google sign-in off. */
     val googleDesktopClientId: String by lazy { properties.getProperty("googleDesktopClientId").orEmpty().trim() }
 
-    val googleDesktopClientSecret: String by lazy {
-        properties.getProperty("googleDesktopClientSecret").orEmpty().trim()
-    }
-
     private fun required(key: String): String =
         properties.getProperty(key)?.takeIf(String::isNotBlank) ?: error("Missing desktop build value $key")
 }

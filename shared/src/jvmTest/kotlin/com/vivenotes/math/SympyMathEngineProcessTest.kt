@@ -1,5 +1,6 @@
 package com.vivenotes.math
 
+import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -93,7 +94,7 @@ class SympyMathEngineProcessTest {
 
     @Test
     fun aClosedEngineRefusesEveryCall() = runBlocking {
-        val engine = runtime.newEngine()
+        val engine = runtime.newEngine(DebugLog())
         assertNull(engine.analyze("x").error)
         engine.close()
 
@@ -120,7 +121,9 @@ class SympyMathEngineProcessTest {
 
             val versions = Json.parseToJsonElement(
                 exchange("""{"id":1,"call":"versions","args":[]}""", "result")!!).jsonObject
-            assertEquals("3.13.15", versions["python"]?.jsonPrimitive?.content)
+            // uv installs the pinned interpreter; a packaged one reports its own, as the launch check read it.
+            val python = if (MathRuntimeFixture.packaged) (runtime.state.value as MathRuntimeState.Ready).python else "3.13.15"
+            assertEquals(python, versions["python"]?.jsonPrimitive?.content)
             assertEquals("1.14.0", versions["sympy"]?.jsonPrimitive?.content)
             assertEquals("Unknown call.", exchange("""{"id":2,"call":"__import__","args":["os"]}""", "error"))
             assertEquals("Unknown call.", exchange("""{"id":3,"call":"_execute","args":["x","simplify"]}""", "error"))

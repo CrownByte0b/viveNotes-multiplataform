@@ -54,7 +54,7 @@ class UvMathRuntime internal constructor(
     private val windows: Boolean,
     /** Whether a launch that finds the engine missing installs it unasked — see the class. */
     autoInstall: Boolean,
-) : MathRuntime, AutoCloseable {
+) : MathEngineRuntime {
     constructor(root: File, log: DebugLog = DebugLog()) : this(
         root, log, MathEngineProject(), { UvLookup.find() }, Dispatchers.IO,
         System.getProperty("os.name").startsWith("Windows", ignoreCase = true),
@@ -81,15 +81,14 @@ class UvMathRuntime internal constructor(
     private val sympy = SympyMathEngine(launch = { launchServer(requireReady = true) }, log)
 
     /** The math engine, answering once [state] is [MathRuntimeState.Ready]. */
-    val engine: MathEngine get() = sympy
+    override val engine: MathEngine get() = sympy
 
-    /** Another engine over this runtime, with a process of its own: for tests that watch one. */
-    internal fun newEngine(log: DebugLog = this.log): SympyMathEngine =
+    override fun newEngine(log: DebugLog): SympyMathEngine =
         SympyMathEngine(launch = { launchServer(requireReady = true) }, log)
 
     /** The installed interpreter and the directory `math_server.py` runs in. */
-    internal val pythonExecutable: File get() = python
-    internal val serverDirectory: File get() = projectDirectory
+    override val pythonExecutable: File get() = python
+    override val serverDirectory: File get() = projectDirectory
 
     init {
         // Counted as an install from the start, so an Install press meanwhile is not a second one

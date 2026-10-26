@@ -350,6 +350,7 @@ class UvMathRuntimeTest {
     /** The real install, by the fixture: the record names this app's environment and its versions. */
     @Test
     fun aRealInstallRecordsItsEnvironmentAndAnswers() = runBlocking {
+        assumeFalse("the tests run on a packaged Python, not uv's install", MathRuntimeFixture.packaged)
         val runtime = MathRuntimeFixture.runtime()
 
         assertEquals(MathRuntimeState.Ready("3.13.15", "1.14.0"), runtime.state.value)

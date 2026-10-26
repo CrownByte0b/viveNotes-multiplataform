@@ -226,6 +226,11 @@ tasks.named<Test>("jvmTest") {
     // 33 MB download.
     systemProperty("vivenotes.test.mathRuntime",
         rootProject.layout.buildDirectory.dir("math-engine-test").get().asFile.absolutePath)
+    // Or a packaged interpreter with the locked packages (the Flatpak runtime's Python), so the same
+    // tests check the engine on the Python a package ships.
+    providers.environmentVariable("VIVE_TEST_MATH_PYTHON").orNull?.let {
+        systemProperty("vivenotes.test.mathPython", it)
+    }
     // The development profile's installed formula models. Tests that need a real formula graph read
     // it from there and skip when it has not been downloaded.
     systemProperty("vivenotes.test.formulaModels", rootProject.file("devdb/ai_models").absolutePath)

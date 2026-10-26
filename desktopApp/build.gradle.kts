@@ -147,20 +147,17 @@ val cloudBaseUrlOverride = localSetting("vive.cloudBaseUrl", "")
 
 /**
  * A Google OAuth client of the Desktop app type, in the project that holds the Android app's Web
- * client, and the not-confidential secret Google issues installed apps with it. One client serves
- * both profiles; the local Docker server and the managed deployment must each list its id in
- * `GOOGLE_CLIENT_IDS`. Never committed: `local.properties` locally, and the release workflows'
- * `VIVE_GOOGLE_DESKTOP_CLIENT_ID`/`_SECRET` repository secrets, which only fill in what `-P` and
- * `local.properties` leave unset. Empty leaves Sign in with Google disabled and explained, as an
- * Android build without `vive.googleWebClientId` does.
+ * client. One client serves both profiles; the local Docker server and the managed deployment must
+ * each list its id in `GOOGLE_CLIENT_IDS`. The id is not secret (it is in every sign-in URL), and the
+ * app carries no client secret: the managed server exchanges the code with it. Set locally in
+ * `local.properties`, by `-P` (the Flathub manifest), or the release workflows'
+ * `VIVE_GOOGLE_DESKTOP_CLIENT_ID`, which only fills in what `-P` and `local.properties` leave unset.
+ * Empty leaves Sign in with Google disabled and explained, as an Android build without
+ * `vive.googleWebClientId` does.
  */
 val googleDesktopClientId = localSetting(
     "vive.googleDesktopClientId",
     providers.environmentVariable("VIVE_GOOGLE_DESKTOP_CLIENT_ID").orNull.orEmpty(),
-)
-val googleDesktopClientSecret = localSetting(
-    "vive.googleDesktopClientSecret",
-    providers.environmentVariable("VIVE_GOOGLE_DESKTOP_CLIENT_SECRET").orNull.orEmpty(),
 )
 
 compose.desktop {
@@ -206,7 +203,6 @@ tasks.processResources {
         "appVersion" to appVersion,
         "cloudBaseUrl" to cloudBaseUrlOverride,
         "googleDesktopClientId" to googleDesktopClientId,
-        "googleDesktopClientSecret" to googleDesktopClientSecret,
     )
     inputs.properties(values)
     // Only the properties are templates; the window icons are binary.

@@ -36,9 +36,11 @@ class DesktopBuildInfoTest {
         val text = checkNotNull(javaClass.getResourceAsStream("/build-info.properties")).use { it.readBytes().decodeToString() }
 
         assertTrue("\${" !in text, text)
-        listOf("version=", "cloudBaseUrl=", "googleDesktopClientId=", "googleDesktopClientSecret=").forEach { key ->
+        listOf("version=", "cloudBaseUrl=", "googleDesktopClientId=").forEach { key ->
             assertTrue(text.lineSequence().any { it.startsWith(key) }, "missing $key")
         }
+        // The managed server exchanges the sign-in code; no build carries a Google client secret.
+        assertTrue("Secret" !in text, text)
         DesktopBuildInfo.cloudBaseUrl(DesktopProfile.DEVELOPMENT)
         DesktopBuildInfo.cloudBaseUrl(DesktopProfile.PRODUCTION)
     }

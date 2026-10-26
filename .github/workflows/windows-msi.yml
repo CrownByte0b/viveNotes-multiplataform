@@ -59,7 +59,6 @@ jobs:
       - name: Build MSI
         env:
           VIVE_GOOGLE_DESKTOP_CLIENT_ID: ${{ secrets.VIVE_GOOGLE_DESKTOP_CLIENT_ID }}
-          VIVE_GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.VIVE_GOOGLE_DESKTOP_CLIENT_SECRET }}
         run: |
           if ($env:GITHUB_REF -like 'refs/tags/v*') {
             ./packaging/windows/build.ps1 -Version $env:GITHUB_REF_NAME.Substring(1)

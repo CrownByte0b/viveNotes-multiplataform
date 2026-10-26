@@ -65,19 +65,20 @@ sealed interface GoogleIdToken {
  * Google's signature and every claim.
  *
  * [clientId] is a Google OAuth client of the **Desktop app** type, in the same Google Cloud project
- * as the Web client the Android app uses. Google issues such clients a "secret" that it documents as
- * not confidential for installed apps, and its token endpoint asks for it, so [clientSecret] is sent
- * when configured. The server accepts the token only if this client id is one of its
- * `GOOGLE_CLIENT_IDS`. An empty [clientId] is a supported state, as on Android: [configured] is
- * false and the screen says sign-in is not available rather than failing in the browser.
+ * as the Web client the Android app uses. Google's token endpoint wants that client's secret for the
+ * code, and the app is built from public sources, so the managed server holds the secret: the code,
+ * verifier and redirect go to [codeExchangeEndpoint], which answers with Google's ID token. The
+ * server accepts the token only if this client id is one of its `GOOGLE_CLIENT_IDS`. An empty
+ * [clientId] is a supported state, as on Android: [configured] is false and the screen says sign-in
+ * is not available rather than failing in the browser.
  */
 class GoogleIdentityProvider(
     private val clientId: String,
-    private val clientSecret: String = "",
+    /** The managed server's `POST /v1/auth/google/desktop-tokens`. */
+    private val codeExchangeEndpoint: String = "",
     /** Opens [URI] in the person's browser; the desktop passes AWT's `Desktop.browse`. */
     private val openBrowser: (URI) -> Unit = {},
     private val authorizationEndpoint: String = "https://accounts.google.com/o/oauth2/v2/auth",
-    private val tokenEndpoint: String = "https://oauth2.googleapis.com/token",
     /** How long the browser may take. The server's challenge lives five minutes, so no longer. */
     private val timeoutMillis: Long = 5 * 60 * 1000L,
     /** The page the browser shows once it has handed the answer back. */
@@ -86,7 +87,7 @@ class GoogleIdentityProvider(
 ) {
 
     /** False when this build has no Google client id, which is a state the screen shows rather than hides. */
-    val configured: Boolean get() = clientId.isNotBlank()
+    val configured: Boolean get() = clientId.isNotBlank() && codeExchangeEndpoint.isNotBlank()
 
     private val page = MutableStateFlow<URI?>(null)
 
@@ -232,27 +233,27 @@ class GoogleIdentityProvider(
         return result
     }
 
-    /** Trades the authorization code for the ID token, proving with [verifier] that this is who asked. */
+    /**
+     * Has the server trade the authorization code for the ID token. [verifier] proves to Google that
+     * this is the process that asked; the server adds the client secret and passes back the token.
+     */
     private fun exchange(code: String, verifier: String, redirectUri: String): GoogleIdToken {
-        val body = form(
-            *listOfNotNull(
-                "code" to code,
-                "client_id" to clientId,
-                clientSecret.takeIf { it.isNotBlank() }?.let { "client_secret" to it },
-                "redirect_uri" to redirectUri,
-                "grant_type" to "authorization_code",
-                "code_verifier" to verifier,
-            ).toTypedArray(),
+        val body = Json.encodeToString(
+            JsonObject(mapOf(
+                "code" to JsonPrimitive(code),
+                "codeVerifier" to JsonPrimitive(verifier),
+                "redirectUri" to JsonPrimitive(redirectUri),
+            )),
         ).toByteArray(StandardCharsets.UTF_8)
 
         val connection = try {
-            openConnection(URI(tokenEndpoint).toURL()).apply {
+            openConnection(URI(codeExchangeEndpoint).toURL()).apply {
                 requestMethod = "POST"
                 doOutput = true
                 connectTimeout = TOKEN_TIMEOUT_MILLIS
                 readTimeout = TOKEN_TIMEOUT_MILLIS
                 instanceFollowRedirects = false
-                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                setRequestProperty("Content-Type", "application/json")
                 setRequestProperty("Accept", "application/json")
             }
         } catch (failure: IOException) {
@@ -265,18 +266,19 @@ class GoogleIdentityProvider(
                 ?.use { it.readBytes().decodeToString() }
                 .orEmpty()
             if (status !in 200..299) {
-                // `invalid_client` is a client id or secret Google does not recognise: configuration.
-                Log.w(TAG, "Google's token endpoint answered $status: ${errorCode(text)}")
+                // `google_auth_unavailable` is a server without the desktop client; `invalid_google_code`
+                // a code Google refused. Neither is something the person can fix from here.
+                Log.w(TAG, "The code exchange answered $status: ${errorCode(text)}")
                 return GoogleIdToken.Rejected(ConnectFailure.GoogleNotConfigured)
             }
             val idToken = (runCatching { Json.parseToJsonElement(text) }.getOrNull() as? JsonObject)
-                ?.get("id_token")
+                ?.get("idToken")
                 ?.let { (it as? JsonPrimitive)?.content }
                 ?.takeIf { it.isNotBlank() }
                 ?: return GoogleIdToken.Rejected(ConnectFailure.GoogleNotConfigured)
             GoogleIdToken.Received(idToken = idToken, email = unverifiedEmail(idToken))
         } catch (failure: IOException) {
-            Log.w(TAG, "Google's token endpoint could not be reached", failure)
+            Log.w(TAG, "The code exchange could not be reached", failure)
             GoogleIdToken.Rejected(ConnectFailure.Unreachable)
         } finally {
             connection.disconnect()

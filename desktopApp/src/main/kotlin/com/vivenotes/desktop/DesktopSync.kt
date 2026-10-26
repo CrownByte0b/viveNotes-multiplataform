@@ -43,7 +43,6 @@ internal class DesktopSync(
     openBrowser: (URI) -> Unit = ::openInBrowser,
     cloudBaseUrl: String = DesktopBuildInfo.cloudBaseUrl(profile),
     googleClientId: String = DesktopBuildInfo.googleDesktopClientId,
-    googleClientSecret: String = DesktopBuildInfo.googleDesktopClientSecret,
     cardCheckout: Boolean = DesktopBuildInfo.CARD_CHECKOUT,
     private val finalPushTimeout: Duration = 10.seconds,
 ) {
@@ -64,7 +63,7 @@ internal class DesktopSync(
         installation = identity.details,
         google = GoogleIdentityProvider(
             clientId = googleClientId,
-            clientSecret = googleClientSecret,
+            codeExchangeEndpoint = cloudBaseUrl.trimEnd('/') + "/v1/auth/google/desktop-tokens",
             openBrowser = openBrowser,
             returnPage = ::googleReturnPage,
         ),

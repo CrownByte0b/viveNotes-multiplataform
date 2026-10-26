@@ -2,6 +2,8 @@ package com.vivenotes.desktop
 
 import com.vivenotes.ai.AiModelStore
 import com.vivenotes.data.NotebookFiles
+import com.vivenotes.math.BundledMathRuntime
+import com.vivenotes.math.MathEngineRuntime
 import com.vivenotes.math.UvMathRuntime
 import com.vivenotes.data.InkSource
 import com.vivenotes.data.NotesLibrary
@@ -64,8 +66,8 @@ internal class DesktopNotes(
     private val inkSource: InkSource = library.repository,
     /** The recognition models in the data directory, managed from Settings → Models. */
     val aiModels: AiModelStore? = null,
-    /** The math engine's Python and SymPy, automatically installed by uv at launch. */
-    val mathRuntime: UvMathRuntime? = null,
+    /** The math engine's Python and SymPy: the package's own, or installed by uv at launch. */
+    val mathRuntime: MathEngineRuntime? = null,
     private val inkStore: InkSettingsFile? = null,
 ) {
     private val drawMathDelegate = lazy {
@@ -277,7 +279,7 @@ internal class DesktopNotes(
                 sync = DesktopSync(library, profile, DesktopSyncIdentity.current(profile, DesktopBuildInfo.version), log),
                 aiModels = AiModelStore(File(directories.data, AiModelStore.DIRECTORY),
                     AiSettingsFile(File(directories.config, "ai.properties")), log = log, autoDownload = true),
-                mathRuntime = UvMathRuntime(File(directories.data, UvMathRuntime.DIRECTORY), log))
+                mathRuntime = BundledMathRuntime.forThisApp(File(directories.data, UvMathRuntime.DIRECTORY), log))
         }
     }
 }
