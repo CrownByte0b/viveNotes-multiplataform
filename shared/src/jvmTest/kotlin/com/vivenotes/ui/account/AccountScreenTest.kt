@@ -16,6 +16,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onChild
 import androidx.compose.ui.test.onNodeWithTag
@@ -1130,7 +1131,11 @@ class AccountScreenTest {
         managedSubscription = ManagedSubscriptionState(visible = true)
         setScreen()
 
-        onNodeWithTag(AccountTags.SUBSCRIBE_ON_ANDROID).performScrollTo().assertIsDisplayed()
+        onNodeWithTag(AccountTags.SUBSCRIBE_ON_ANDROID)
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertTextEquals(Strings.account_subscription_android_only)
+        assertEquals("You can subscribe through the Android app.", Strings.account_subscription_android_only)
         onNodeWithTag(AccountTags.SUBSCRIBE).assertDoesNotExist()
         onNodeWithTag(AccountTags.COUPON_TOGGLE).performScrollTo().assertIsDisplayed()
     }

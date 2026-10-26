@@ -179,6 +179,12 @@ class ManagedSubscriptionController internal constructor(
     constructor(
         accounts: SyncAccounts,
         scope: CoroutineScope,
+        /**
+         * Android's `!installedByGooglePlay(context)`. Google Play never installs the desktop app, so
+         * this is the build's choice: true offers card checkout whenever the managed server sells by
+         * card; false leaves Stripe untouched and the plan card points to the Android app.
+         */
+        cardCheckoutAllowed: Boolean,
         /** Android's `BuildConfig.CLOUD_STORAGE_SUBSCRIPTION_ID`. */
         productId: String = CLOUD_STORAGE_SUBSCRIPTION_ID,
     ) : this(
@@ -186,9 +192,7 @@ class ManagedSubscriptionController internal constructor(
         play = NoPlayBillingStore,
         productId = productId,
         scope = scope,
-        // Android's `!installedByGooglePlay(context)`. Google Play never installs the desktop app,
-        // so card checkout is offered whenever the managed server sells by card.
-        cardCheckoutAllowed = true,
+        cardCheckoutAllowed = cardCheckoutAllowed,
     )
 
     private val mutableState = MutableStateFlow(ManagedSubscriptionState())

@@ -193,7 +193,8 @@ class GoogleBrowserPanelTest {
                 authorizationEndpoint = "https://accounts.example.test/auth",
             ),
         )
-        return SyncAccountHost(accounts, ManagedSubscriptionController(accounts, scope), scope, openBrowser = {})
+        val subscription = ManagedSubscriptionController(accounts, scope, cardCheckoutAllowed = false)
+        return SyncAccountHost(accounts, subscription, scope, openBrowser = {})
     }
 
     /** What a browser does once Google is done: load the loopback address with Google's answer. */

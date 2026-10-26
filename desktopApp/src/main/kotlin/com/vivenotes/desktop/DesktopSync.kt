@@ -44,6 +44,7 @@ internal class DesktopSync(
     cloudBaseUrl: String = DesktopBuildInfo.cloudBaseUrl(profile),
     googleClientId: String = DesktopBuildInfo.googleDesktopClientId,
     googleClientSecret: String = DesktopBuildInfo.googleDesktopClientSecret,
+    cardCheckout: Boolean = DesktopBuildInfo.CARD_CHECKOUT,
     private val finalPushTimeout: Duration = 10.seconds,
 ) {
     /** For flows the window reads and the subscription's lifecycle; ends at [stop]. */
@@ -69,7 +70,7 @@ internal class DesktopSync(
         ),
     )
 
-    val subscription = ManagedSubscriptionController(accounts, scope)
+    val subscription = ManagedSubscriptionController(accounts, scope, cardCheckoutAllowed = cardCheckout)
 
     /** The top bar's account button and the Account destination. */
     val accountHost = SyncAccountHost(accounts, subscription, scope, openBrowser)

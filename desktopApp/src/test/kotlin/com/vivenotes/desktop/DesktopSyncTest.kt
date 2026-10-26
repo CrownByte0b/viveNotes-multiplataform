@@ -37,6 +37,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -133,9 +134,33 @@ class DesktopSyncTest {
     }
 
     /**
-     * Card checkout over the desktop's own wiring: no copy of the desktop came from Google Play, so a
-     * managed server that sells by card is offered, Subscribe opens its Checkout page, and coming back
-     * to the app has the server read the outcome from Stripe.
+     * This build ships with card checkout off: even a managed server that sells by card is not
+     * offered, the desktop never asks it for the card plan, and the plan card points to Android.
+     */
+    @Test
+    fun theReleaseBuildOffersNoCardCheckoutEvenWhereTheServerSellsByCard() = runBlocking {
+        server.sellsByCard = true
+        val library = NotesLibrary.open(File(root, "notes"))
+        try {
+            register(library)
+            val sync = desktopSync(library, cardCheckout = DesktopBuildInfo.CARD_CHECKOUT)
+            val state = withTimeout(10_000) { sync.subscription.state.first { it.visible && !it.loading } }
+
+            assertEquals(CheckoutProvider.GooglePlay, state.checkout)
+            assertEquals(null, state.cardPrice)
+            assertFalse(state.cardManagementAvailable)
+            assertEquals(null, state.failure)
+            assertTrue(server.billingCalls.none { "/v1/billing/stripe/" in it }, "Stripe calls: ${server.billingCalls}")
+            sync.stop()
+        } finally {
+            library.close()
+        }
+    }
+
+    /**
+     * Card checkout over the desktop's own wiring, with it switched on: no copy of the desktop came
+     * from Google Play, so a managed server that sells by card is offered, Subscribe opens its
+     * Checkout page, and coming back to the app has the server read the outcome from Stripe.
      */
     @Test
     fun aManagedServerThatSellsByCardIsSubscribedToFromTheDesktop() = runBlocking {
@@ -143,7 +168,7 @@ class DesktopSyncTest {
         val library = NotesLibrary.open(File(root, "notes"))
         try {
             register(library)
-            val sync = desktopSync(library)
+            val sync = desktopSync(library, cardCheckout = true)
             val subscription = sync.subscription
             withTimeout(10_000) { subscription.state.first { it.visible && !it.loading } }
             assertEquals(CheckoutProvider.Stripe, subscription.state.value.checkout)
@@ -171,13 +196,16 @@ class DesktopSyncTest {
         }
     }
 
-    /** A server without a Stripe account leaves the desktop where it was: plans are bought on Android. */
+    /**
+     * With card checkout switched on, a server without a Stripe account leaves the desktop where it
+     * was: plans are bought on Android.
+     */
     @Test
     fun aManagedServerWithoutCardBillingOffersNoCheckout() = runBlocking {
         val library = NotesLibrary.open(File(root, "notes"))
         try {
             register(library)
-            val sync = desktopSync(library)
+            val sync = desktopSync(library, cardCheckout = true)
             val state = withTimeout(10_000) { sync.subscription.state.first { it.visible && !it.loading } }
 
             assertEquals(CheckoutProvider.GooglePlay, state.checkout)
@@ -190,7 +218,7 @@ class DesktopSyncTest {
         }
     }
 
-    private fun desktopSync(library: NotesLibrary) = DesktopSync(
+    private fun desktopSync(library: NotesLibrary, cardCheckout: Boolean = false) = DesktopSync(
         library = library,
         profile = DesktopProfile.DEVELOPMENT,
         identity = DesktopSyncIdentity("test (0000)", "Linux", InstallationDetails(), deviceSeed = null),
@@ -198,6 +226,7 @@ class DesktopSyncTest {
         cloudBaseUrl = server.url,
         googleClientId = "",
         googleClientSecret = "",
+        cardCheckout = cardCheckout,
         finalPushTimeout = 500.milliseconds,
     )
 

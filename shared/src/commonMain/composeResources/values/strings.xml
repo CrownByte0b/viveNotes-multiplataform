@@ -1110,7 +1110,7 @@
     <!-- Desktop only: Sign in with Google opens the browser, and there is no Play store to buy from. -->
     <string name="account_google_browser_signed_in">You are signed in. You can close this tab and return to Vive Notes.</string>
     <string name="account_google_browser_failed">Sign-in did not finish. Return to Vive Notes and try again.</string>
-    <string name="account_subscription_android_only">Storage plans are bought in the Vive Notes Android app. A plan bought there applies here too.</string>
+    <string name="account_subscription_android_only">You can subscribe through the Android app.</string>
     <plurals name="account_sync_minutes_ago">
         <item quantity="one">%1$d minute ago</item>
         <item quantity="other">%1$d minutes ago</item>

@@ -34,6 +34,13 @@ internal object DesktopBuildInfo {
     const val DEVELOPMENT_SERVER = "http://localhost:5444"
     const val MANAGED_SERVER = "https://sync.vivenotes.net"
 
+    /**
+     * Whether Subscribe opens Stripe Checkout when the managed server sells by card. Off until the
+     * Stripe account is ready: plans are bought in the Android app, and the desktop never asks the
+     * server for its card plan.
+     */
+    const val CARD_CHECKOUT = false
+
     /** Empty when the build has no Google Desktop OAuth client, which leaves Google sign-in off. */
     val googleDesktopClientId: String by lazy { properties.getProperty("googleDesktopClientId").orEmpty().trim() }
 
