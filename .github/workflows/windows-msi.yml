@@ -88,29 +88,3 @@ jobs:
             desktopApp/build/test-results/
             desktopApp/build/windows/smoke/
             desktopApp/build/compose/logs/
-  release:
-    # A version tag publishes the installer the job above tested as that version's GitHub release.
-    # The installed app's updater reads the latest release and installs its MSI only after checking
-    # it against the .sha256 beside it, so both are attached under the names build.ps1 gives them.
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: installer
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: ViveNotes-Windows-x64
-          path: release
-      - name: Publish GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          version="${TAG#v}"
-          msi="ViveNotes-${version}-x64.msi"
-          cd release
-          # build.ps1 writes the checksum on Windows, with a CRLF line ending.
-          tr -d '\r' < "$msi.sha256" | sha256sum --check --strict -
-          gh release create "$TAG" "$msi" "$msi.sha256" --repo "$GITHUB_REPOSITORY" \
-            --title "Vive Notes ${version}" --generate-notes --verify-tag

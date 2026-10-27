@@ -1,0 +1,24 @@
+name: Attach release artifacts
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag with successful CI builds and a saved draft release (e.g. v1.0.0)
+        required: true
+        type: string
+concurrency:
+  group: attach-release-artifacts-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Attach tested installers to your saved draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: python3 -B .github/scripts/attach_release_artifacts.py --tag "$RELEASE_TAG"

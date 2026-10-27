@@ -101,29 +101,17 @@ class WindowsPackagingTest {
             .contains("./packaging/windows/prepare-test-desktop.ps1"))
     }
 
-    /**
-     * The updater reads GitHub's latest release and needs its installer and checksum under the names
-     * build.ps1 gives them. Only a version tag publishes, only after the tested build, and only that
-     * job may write to the repository.
-     */
     @Test
-    fun versionTagsPublishTheTestedInstallerAndChecksumAsTheReleaseTheUpdaterReads() {
+    fun versionTagsStoreTheTestedInstallerAndChecksumForManualReleaseDrafts() {
         val root = File(System.getProperty("vivenotes.test.projectRoot"))
         val workflow = File(root, ".github/workflows/windows-msi.yml").readText()
-        val jobs = workflow.substringAfter("\njobs:\n")
-        val installer = jobs.substringAfter("  installer:\n").substringBefore("\n  release:\n")
-        val release = jobs.substringAfter("\n  release:\n")
-
-        assertTrue(installer.contains("    permissions:\n      contents: read\n"), "The build and test job stays read-only")
-        assertTrue(release.contains("    if: startsWith(github.ref, 'refs/tags/v')\n"))
-        assertTrue(release.contains("    needs: installer\n"))
-        assertTrue(release.contains("    permissions:\n      contents: write\n"))
-        assertTrue(release.contains("name: ViveNotes-Windows-x64"), "It publishes the artifact the smoke test installed")
-        assertTrue(release.contains("msi=\"ViveNotes-\${version}-x64.msi\""))
-        assertTrue(release.contains("sha256sum --check --strict -"), "A checksum that does not match is not published")
-        assertTrue(release.contains("gh release create \"\$TAG\" \"\$msi\" \"\$msi.sha256\""))
-        assertTrue(!release.contains("--prerelease") && !release.contains("--draft"),
-            "GitHub's latest release excludes drafts and pre-releases, so the updater would never see it")
+        assertTrue(workflow.contains("tags: ['v*']"))
+        assertTrue(workflow.contains("    permissions:\n      contents: read\n"))
+        assertFalse(workflow.contains("contents: write"), "Tag builds cannot publish releases")
+        assertFalse(workflow.contains("gh release create"))
+        assertTrue(workflow.contains("name: ViveNotes-Windows-x64"))
+        assertTrue(workflow.contains("desktopApp/build/windows/*.msi"))
+        assertTrue(workflow.contains("desktopApp/build/windows/*.sha256"))
         val build = File(root, "packaging/windows/build.ps1").readText()
         assertTrue(build.contains("\"ViveNotes-\$Version-x64.msi\""), "The updater looks for build.ps1's installer name")
         assertEquals("ViveNotes-1.2.3-x64.msi", installerName(ReleaseVersion.parse("1.2.3")!!))
