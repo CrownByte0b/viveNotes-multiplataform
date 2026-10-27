@@ -14,9 +14,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.awt.Desktop
 import java.io.File
@@ -34,6 +36,10 @@ import kotlin.time.Duration.Companion.seconds
  * window is open, so [start] runs at launch and [stop] at close, where a final push is given
  * [finalPushTimeout] before the database closes; anything still unsent stays in the outbox, which
  * the next launch's stream sends once it has caught up.
+ *
+ * Android also stops and starts the scheduler around Stripe's pages, which cover the app; that new
+ * start is what reopens a stream the server refused before the account had a plan. A desktop window
+ * stays open meanwhile, so the scheduler is restarted when the server first says storage is active.
  */
 internal class DesktopSync(
     library: NotesLibrary,
@@ -87,14 +93,42 @@ internal class DesktopSync(
         sync = { accounts.pushPending() },
     )
 
+    /** Between [start] and [stop]: only then may an activated plan restart the scheduler. */
+    private var running = false
+    private val lifecycle = Any()
+
     init {
         log.event("sync") { "managed server ${if (profile == DesktopProfile.DEVELOPMENT) "development" else "production"}" }
+        scope.launch {
+            var wasActive: Boolean? = null
+            subscription.state.map { it.status?.active }.distinctUntilChanged().collect { active ->
+                // Inactive to active only: a first answer, or another account's, opens its own stream.
+                if (wasActive == false && active == true) restartAfterActivation()
+                wasActive = active
+            }
+        }
     }
 
     /** Opens the change stream once a registration exists, and pushes local changes as they land. */
     fun start() {
         log.event("sync") { "foreground sync starting" }
-        foreground.start()
+        synchronized(lifecycle) {
+            running = true
+            foreground.start()
+        }
+    }
+
+    /**
+     * `402 membership_required` ended the stream for good, and with it the pushes, which wait for the
+     * stream's backlog. Android's stop and start: pending changes are pushed, and a new stream opens.
+     */
+    private fun restartAfterActivation() {
+        synchronized(lifecycle) {
+            if (!running) return
+            log.event("sync") { "storage active; restarting foreground sync" }
+            foreground.stop()
+            foreground.start()
+        }
     }
 
     /**
@@ -102,7 +136,10 @@ internal class DesktopSync(
      * nothing of this class can touch the database any more, so the caller may close it.
      */
     suspend fun stop() {
-        foreground.stop()
+        synchronized(lifecycle) {
+            running = false
+            foreground.stop()
+        }
         val finished = withTimeoutOrNull(finalPushTimeout) {
             schedulerScope.coroutineContext.job.children.toList().joinAll()
         } != null

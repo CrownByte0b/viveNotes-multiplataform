@@ -6,8 +6,10 @@ import com.vivenotes.data.NotesLibrary
 import com.vivenotes.data.billing.CheckoutProvider
 import com.vivenotes.data.sync.InstallationDetails
 import com.vivenotes.data.sync.PaidProvider
+import com.vivenotes.data.sync.PermanentSyncFailure
 import com.vivenotes.data.sync.SyncAccount
 import com.vivenotes.data.sync.SyncAccountStore
+import com.vivenotes.data.sync.SyncRunResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +36,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -134,16 +137,16 @@ class DesktopSyncTest {
     }
 
     /**
-     * This build ships with card checkout off: even a managed server that sells by card is not
-     * offered, the desktop never asks it for the card plan, and the plan card points to Android.
+     * With card checkout switched off, even a managed server that sells by card is not offered, the
+     * desktop never asks it for the card plan, and the plan card points to Android.
      */
     @Test
-    fun theReleaseBuildOffersNoCardCheckoutEvenWhereTheServerSellsByCard() = runBlocking {
+    fun withCardCheckoutOffAServerThatSellsByCardIsNeverAsked() = runBlocking {
         server.sellsByCard = true
         val library = NotesLibrary.open(File(root, "notes"))
         try {
             register(library)
-            val sync = desktopSync(library, cardCheckout = DesktopBuildInfo.CARD_CHECKOUT)
+            val sync = desktopSync(library, cardCheckout = false)
             val state = withTimeout(10_000) { sync.subscription.state.first { it.visible && !it.loading } }
 
             assertEquals(CheckoutProvider.GooglePlay, state.checkout)
@@ -158,17 +161,18 @@ class DesktopSyncTest {
     }
 
     /**
-     * Card checkout over the desktop's own wiring, with it switched on: no copy of the desktop came
-     * from Google Play, so a managed server that sells by card is offered, Subscribe opens its
+     * Card checkout over the desktop's own wiring, as this build ships it: no copy of the desktop
+     * came from Google Play, so a managed server that sells by card is offered, Subscribe opens its
      * Checkout page, and coming back to the app has the server read the outcome from Stripe.
      */
     @Test
     fun aManagedServerThatSellsByCardIsSubscribedToFromTheDesktop() = runBlocking {
+        assertTrue(DesktopBuildInfo.CARD_CHECKOUT, "this build offers card checkout")
         server.sellsByCard = true
         val library = NotesLibrary.open(File(root, "notes"))
         try {
             register(library)
-            val sync = desktopSync(library, cardCheckout = true)
+            val sync = desktopSync(library)
             val subscription = sync.subscription
             withTimeout(10_000) { subscription.state.first { it.visible && !it.loading } }
             assertEquals(CheckoutProvider.Stripe, subscription.state.value.checkout)
@@ -197,15 +201,95 @@ class DesktopSyncTest {
     }
 
     /**
-     * With card checkout switched on, a server without a Stripe account leaves the desktop where it
-     * was: plans are bought on Android.
+     * A plan bought while the window is open reopens the change stream the server refused without
+     * one. `402 membership_required` ends the stream for good; Android opens a new one when the app
+     * comes back from Stripe's page, and the desktop, whose window never went away, when the server
+     * first says storage is active. Until then this window would neither push its own changes nor
+     * receive other devices', and Account would keep saying "Purchase a subscription to sync."
      */
+    @Test
+    fun storageBoughtByCardReopensTheStreamTheServerRefused() = runBlocking {
+        server.sellsByCard = true
+        server.requiresPlan = true
+        val library = NotesLibrary.open(File(root, "notes"))
+        try {
+            register(library)
+            val sync = desktopSync(library)
+            val subscription = sync.subscription
+            sync.start()
+            val refused = SyncRunResult.Failed(PermanentSyncFailure.MembershipRequired)
+            withTimeout(10_000) { sync.accounts.status.first { it.failure == refused } }
+            withTimeout(10_000) { subscription.state.first { it.visible && !it.loading } }
+            val notebookId = library.repository.createNotebook("Written before paying")
+
+            val pages = CopyOnWriteArrayList<String>()
+            val opener = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+                subscription.browserPages.collect { pages += it }
+            }
+            subscription.purchase()
+            withTimeout(10_000) { while (pages.isEmpty()) delay(10) }
+            server.paidByCard = true
+            subscription.onForeground()
+
+            withTimeout(10_000) { sync.accounts.streamReady.first { it } }
+            withTimeout(10_000) { server.awaitPush() }
+            withTimeout(10_000) { sync.accounts.status.first { !it.running && it.failure == null } }
+            val pushed = server.pushedChanges.map { it["kind"]!!.jsonPrimitive.content to it["id"]!!.jsonPrimitive.content }
+            assertTrue("notebook" to notebookId in pushed, "the notebook written before paying was not pushed: $pushed")
+            assertEquals(2, server.streamsOpened.get())
+
+            // Returning from the portal finds storage already active: the open stream is left alone.
+            subscription.manageCardSubscription()
+            withTimeout(10_000) { while (pages.size < 2) delay(10) }
+            subscription.onForeground()
+            val refresh = "POST /v1/billing/stripe/subscriptions/refresh Bearer $TOKEN"
+            withTimeout(10_000) { while (server.billingCalls.count { it == refresh } < 2) delay(10) }
+            withTimeout(10_000) { subscription.state.first { !it.loading } }
+            delay(300) // Room for a stream that should not open.
+            assertEquals(2, server.streamsOpened.get())
+
+            opener.cancel()
+            sync.stop()
+        } finally {
+            library.close()
+        }
+    }
+
+    /** A coupon redeemed in the window is the other way storage becomes active here; the same restart follows. */
+    @Test
+    fun storageGrantedByCouponReopensTheStreamTheServerRefused() = runBlocking {
+        server.requiresPlan = true
+        val library = NotesLibrary.open(File(root, "notes"))
+        try {
+            register(library)
+            val sync = desktopSync(library)
+            sync.start()
+            val refused = SyncRunResult.Failed(PermanentSyncFailure.MembershipRequired)
+            withTimeout(10_000) { sync.accounts.status.first { it.failure == refused } }
+            withTimeout(10_000) { sync.subscription.state.first { it.visible && !it.loading } }
+            val notebookId = library.repository.createNotebook("Written before redeeming")
+
+            sync.subscription.redeemCoupon("WELCOME")
+
+            withTimeout(10_000) { sync.accounts.streamReady.first { it } }
+            withTimeout(10_000) { server.awaitPush() }
+            withTimeout(10_000) { sync.accounts.status.first { !it.running && it.failure == null } }
+            val pushed = server.pushedChanges.map { it["kind"]!!.jsonPrimitive.content to it["id"]!!.jsonPrimitive.content }
+            assertTrue("notebook" to notebookId in pushed, "the notebook written before redeeming was not pushed: $pushed")
+            assertEquals(2, server.streamsOpened.get())
+            sync.stop()
+        } finally {
+            library.close()
+        }
+    }
+
+    /** A server without a Stripe account leaves the desktop where it was: plans are bought on Android. */
     @Test
     fun aManagedServerWithoutCardBillingOffersNoCheckout() = runBlocking {
         val library = NotesLibrary.open(File(root, "notes"))
         try {
             register(library)
-            val sync = desktopSync(library, cardCheckout = true)
+            val sync = desktopSync(library)
             val state = withTimeout(10_000) { sync.subscription.state.first { it.visible && !it.loading } }
 
             assertEquals(CheckoutProvider.GooglePlay, state.checkout)
@@ -218,7 +302,10 @@ class DesktopSyncTest {
         }
     }
 
-    private fun desktopSync(library: NotesLibrary, cardCheckout: Boolean = false) = DesktopSync(
+    private fun desktopSync(
+        library: NotesLibrary,
+        cardCheckout: Boolean = DesktopBuildInfo.CARD_CHECKOUT,
+    ) = DesktopSync(
         library = library,
         profile = DesktopProfile.DEVELOPMENT,
         identity = DesktopSyncIdentity("test (0000)", "Linux", InstallationDetails(), deviceSeed = null),
@@ -257,6 +344,10 @@ class DesktopSyncTest {
         @Volatile var holdPushes = false
         @Volatile var sellsByCard = false
         @Volatile var paidByCard = false
+        /** The managed server's gate: the stream and pushes answer `402` until the account has a plan. */
+        @Volatile var requiresPlan = false
+        @Volatile var couponRedeemed = false
+        val streamsOpened = AtomicInteger()
         /** "<method> <path> <Authorization>" of every billing request. */
         val billingCalls = CopyOnWriteArrayList<String>()
         private val pushed = CountDownLatch(1)
@@ -270,6 +361,7 @@ class DesktopSyncTest {
             createContext("/v1/changes") { exchange -> push(exchange) }
             createContext("/v1/subscription") { exchange -> billing(exchange) }
             createContext("/v1/billing/stripe") { exchange -> billing(exchange) }
+            createContext("/v1/coupons/redeem") { exchange -> billing(exchange) }
             start()
         }
         val url = "http://127.0.0.1:${server.address.port}"
@@ -288,10 +380,12 @@ class DesktopSyncTest {
 
         private fun watch(exchange: HttpExchange) {
             authorizations += exchange.requestHeaders.getFirst("Authorization").orEmpty()
+            streamsOpened.incrementAndGet()
             if (revoked) {
                 reply(exchange, 401, """{"error":"unauthenticated","message":"revoked"}""")
                 return
             }
+            if (refusedWithoutPlan(exchange)) return
             exchange.responseHeaders.add("Content-Type", "text/event-stream")
             exchange.sendResponseHeaders(200, 0)
             val out = exchange.responseBody
@@ -315,6 +409,7 @@ class DesktopSyncTest {
 
         private fun push(exchange: HttpExchange) {
             authorizations += exchange.requestHeaders.getFirst("Authorization").orEmpty()
+            if (refusedWithoutPlan(exchange)) return
             val request = Json.parseToJsonElement(exchange.requestBody.readBytes().decodeToString()).jsonObject
             val changes = request["changes"]!!.jsonArray.map { it.jsonObject }
             pushStarted.countDown()
@@ -334,6 +429,13 @@ class DesktopSyncTest {
             pushed.countDown()
         }
 
+        private fun refusedWithoutPlan(exchange: HttpExchange): Boolean {
+            if (!requiresPlan || paidByCard || couponRedeemed) return false
+            exchange.requestBody.readBytes()
+            reply(exchange, 402, """{"error":"membership_required","message":"an active plan is required"}""")
+            return true
+        }
+
         /** The managed server's answers, as `cloudServer-viveNotes` gives them with card billing on or off. */
         private fun billing(exchange: HttpExchange) {
             val path = exchange.requestURI.path
@@ -342,14 +444,22 @@ class DesktopSyncTest {
             val unpaid = """{"state":"inactive","autoRenewing":false}"""
             val paid = """{"state":"active","validUntil":"2026-11-20T12:00:00Z","paidState":"active",""" +
                 """"paidValidUntil":"2026-11-20T12:00:00Z","paidProvider":"stripe","autoRenewing":true}"""
+            val granted = """{"state":"active","validUntil":"2026-11-20T12:00:00Z",""" +
+                """"promotionalValidUntil":"2026-11-20T12:00:00Z","autoRenewing":false}"""
             when {
-                path == "/v1/subscription" -> reply(exchange, 200, if (paidByCard) paid else unpaid)
+                path == "/v1/subscription" -> reply(exchange, 200, if (paidByCard) paid else if (couponRedeemed) granted else unpaid)
+                path == "/v1/coupons/redeem" -> {
+                    couponRedeemed = true
+                    reply(exchange, 200, """{"code":"WELCOME","monthsGranted":1,"redeemedAt":"2026-10-20T12:00:00Z","validUntil":"2026-11-20T12:00:00Z"}""")
+                }
                 !sellsByCard -> reply(exchange, 503, """{"error":"billing_unavailable","message":"card billing is not configured"}""")
                 path == "/v1/billing/stripe/plan" ->
                     reply(exchange, 200, """{"unitAmount":499,"currency":"usd","interval":"month","intervalCount":1}""")
                 path == "/v1/billing/stripe/checkout-sessions" ->
                     reply(exchange, 200, """{"url":"$checkoutUrl","expiresAt":"2026-10-20T19:00:00Z"}""")
                 path == "/v1/billing/stripe/subscriptions/refresh" -> reply(exchange, 200, if (paidByCard) paid else unpaid)
+                path == "/v1/billing/stripe/portal-sessions" ->
+                    reply(exchange, 200, """{"url":"https://billing.stripe.com/p/session/test_desktop"}""")
                 else -> reply(exchange, 404, """{"error":"not_found","message":"no such route"}""")
             }
         }
