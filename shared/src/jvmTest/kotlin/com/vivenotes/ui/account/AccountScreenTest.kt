@@ -18,6 +18,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onChild
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -31,6 +32,7 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.graphics.toPixelMap
 import com.vivenotes.data.billing.CheckoutProvider
 import com.vivenotes.data.billing.ManagedSubscriptionState
 import com.vivenotes.data.sync.ConnectFailure
@@ -650,6 +652,29 @@ class AccountScreenTest {
             .performClick()
         assertEquals(1, managedSubscriptions)
         assertEquals(0, subscriptions)
+    }
+
+    /** Renew is the card's call to action: an accent fill, not a grey outline that reads as disabled. */
+    @Test
+    fun renewingACardPlanIsAFilledAccentButton() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        connection = ServerConnection.Connected("https://sync.vivenotes.net", "Pixel Tablet")
+        managedSubscription = ManagedSubscriptionState(
+            visible = true,
+            status = cardStatus(PaidSubscriptionState.Canceled, autoRenewing = false),
+            checkout = CheckoutProvider.Stripe,
+            cardPrice = "\$4.99",
+            cardManagementAvailable = true,
+        )
+        setScreen()
+
+        val renew = onNodeWithTag(AccountTags.MANAGE_SUBSCRIPTION)
+            .performScrollTo()
+            .assertTextContains(Strings.account_subscription_renew)
+            .assertIsEnabled()
+        val pixels = renew.captureToImage().toPixelMap()
+        // Beside the pill's rounded end, clear of the centred label.
+        val fill = pixels[pixels.height, pixels.height / 2]
+        assertTrue("renew painted $fill", fill.blue > 0.85f && fill.red < 0.25f)
     }
 
     /** An install Google Play did not make sells through Stripe, and nothing on the card says Google. */

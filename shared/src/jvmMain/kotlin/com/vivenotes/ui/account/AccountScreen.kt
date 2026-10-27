@@ -1904,10 +1904,12 @@ private fun ManagedSubscriptionPanel(
                     // still running; Play's subscription centre and Stripe's portal are where
                     // auto-renewal is turned back on.
                     if (canManage) {
+                        // Filled: Material's outlined button reads as disabled on the dark card.
                         ProviderManagementButton(
                             label = Strings.account_subscription_renew,
                             onClick = onManageSubscription,
                             enabled = !state.purchasing,
+                            filled = true,
                         )
                     }
                 }
