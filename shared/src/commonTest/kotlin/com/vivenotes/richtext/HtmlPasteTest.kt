@@ -20,6 +20,27 @@ class HtmlPasteTest {
 
     private fun List<Block>.run(text: String) = flatMap { it.runs }.single { it.text == text }
 
+    @Test
+    fun duplicateAttributesKeepTheFirstValueRegardlessOfCase() {
+        val html = """<p STYLE="color:#f00" style="color:#00f">red</p>""" +
+            """<a HREF="https://example.com/?a=1&amp;b=2" href="https://other.example.com/">link</a>"""
+        val blocks = pastedHtmlBlocks(html)!!
+
+        assertEquals(setOf(Mark.TextColor(0xFFFF0000.toInt())), blocks.run("red").marks)
+        assertEquals(setOf(Mark.Link("https://example.com/?a=1&b=2")), blocks.run("link").marks)
+    }
+
+    @Test
+    fun anEmptyFirstAttributeIsNotReplacedByADuplicate() {
+        val html = """<a href="" HREF="https://example.com/">plain</a>""" +
+            """<span style="" STYLE="color:#f00"> text</span>"""
+
+        val blocks = pastedHtmlBlocks(html)!!
+
+        assertEquals("plain text", blocks.single().text)
+        assertTrue(blocks.single().runs.all { it.marks.isEmpty() })
+    }
+
     /** Chrome copying part of a Wikipedia article: computed styles on every element. */
     @Test
     fun aWebPageKeepsItsHeadingsParagraphsAndLists() {

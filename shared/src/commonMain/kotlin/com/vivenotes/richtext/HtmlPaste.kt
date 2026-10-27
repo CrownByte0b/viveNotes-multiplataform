@@ -111,7 +111,7 @@ private class HtmlPaste(private val textMarks: Set<Mark>) {
                     value = html.substring(valueStart, index)
                 }
             }
-            if (attribute.isNotEmpty()) attributes.putIfAbsent(attribute, decodeEntities(value))
+            if (attribute.isNotEmpty()) attributes.getOrPut(attribute) { decodeEntities(value) }
             if (attributeStart == index) index++
         }
         if (name in RawText) {
