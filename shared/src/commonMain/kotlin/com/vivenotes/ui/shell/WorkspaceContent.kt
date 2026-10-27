@@ -173,7 +173,7 @@ internal fun WorkspaceContent(
             fileActions?.openPane(FilePane.VersionHistory)
         }
     }
-    LaunchedEffect(searchHit, searchRevealTick, state.selectedPageId, state.selectedPage?.content) {
+    LaunchedEffect(searchHit, searchRevealTick, state.selectedPageId, state.selectedPage?.content, state.selectedPage?.inkReady) {
         val hit = searchHit ?: return@LaunchedEffect
         if (state.selectedPageId != hit.unit.pageId || state.selectedPage?.editable != true) return@LaunchedEffect
         onStateChange { it.revealSearchHit(hit) }

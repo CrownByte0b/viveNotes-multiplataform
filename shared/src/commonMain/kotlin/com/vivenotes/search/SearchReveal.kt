@@ -18,6 +18,7 @@ fun WorkspaceState.revealSearchHit(hit: ContentHit): WorkspaceState {
             if (hit.editorStart < 0 || hit.editorEnd > text.length) return this
             focusTextBox(outline.id).selectText(TextSelection(hit.editorStart, hit.editorEnd))
         }
+        ContentKind.Ink -> selectPointer()
         ContentKind.Image -> selectPointer().selectObject(hit.unit.boxId)
         ContentKind.Cell -> selectPointer().selectObject(hit.unit.tableId ?: return this)
     }

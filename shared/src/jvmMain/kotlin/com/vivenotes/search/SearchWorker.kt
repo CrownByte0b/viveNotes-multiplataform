@@ -1,6 +1,9 @@
 package com.vivenotes.search
 
 import com.vivenotes.localization.Strings
+import com.vivenotes.ai.InkPageLayout
+import com.vivenotes.ai.inkPageLayout
+import java.util.Base64
 import com.vivenotes.ai.AiModelInstallState
 import com.vivenotes.ai.AiModelStore
 import com.vivenotes.ai.OnnxInkRecognitionEngine
@@ -29,6 +32,8 @@ internal data class WorkerRequest(
     val units: List<ContentUnit> = emptyList(),
     val matchKey: String = "",
     val imagePath: String? = null,
+    val imageData: String? = null,
+    val textLine: Boolean = false,
 )
 
 @Serializable
@@ -36,6 +41,7 @@ internal data class WorkerReply(
     @kotlinx.serialization.Required val pid: Long = ProcessHandle.current().pid(),
     val units: List<ContentUnit> = emptyList(),
     val images: List<ImagePlacement> = emptyList(),
+    val inkLayout: InkPageLayout = inkPageLayout(emptyList()),
     val hits: List<ContentHit> = emptyList(),
     val text: String = "",
     val confidence: Float = 0f,
@@ -72,9 +78,16 @@ object SearchWorker {
                                     check(available.handwritingText == AiModelInstallState.Installed)
                                     engine = OnnxInkRecognitionEngine(models!!, lanes = 1, inferenceThreads = 1)
                                 }
-                                Image.makeFromEncoded(File(requireNotNull(request.imagePath)).readBytes()).use { image ->
-                                    val result = engine!!.recognizeImageText(image)
-                                    WorkerReply(text = result.text, confidence = result.meanConfidence)
+                                val bytes = request.imageData?.let { Base64.getDecoder().decode(it) }
+                                    ?: File(requireNotNull(request.imagePath)).readBytes()
+                                Image.makeFromEncoded(bytes).use { image ->
+                                    if (request.textLine) {
+                                        val result = engine!!.recognizeText(image)
+                                        WorkerReply(text = result.text, confidence = result.confidence)
+                                    } else {
+                                        val result = engine!!.recognizeImageText(image)
+                                        WorkerReply(text = result.text, confidence = result.meanConfidence)
+                                    }
                                 }
                             }
                         }
@@ -103,6 +116,7 @@ object SearchWorker {
             units = doc?.contentUnits(request.pageId, request.sectionId, request.title)
                 ?: listOfNotNull(titleUnit(request.pageId, request.sectionId, request.title)),
             images = doc?.imagePlacements(request.pageId, request.sectionId).orEmpty(),
+            inkLayout = doc?.inkPageLayout() ?: inkPageLayout(emptyList()),
             unreadable = request.body != null && doc == null,
         )
     }

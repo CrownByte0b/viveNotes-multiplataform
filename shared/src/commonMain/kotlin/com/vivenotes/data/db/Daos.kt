@@ -890,6 +890,9 @@ data class InkRevisionStrokeState(
 
 @Dao
 interface InkStrokeDao {
+    @Query("SELECT DISTINCT pageId FROM ink_strokes WHERE pageId IN (:pageIds) AND deletedAt IS NULL")
+    suspend fun pagesWithInk(pageIds: List<String>): List<String>
+
 
     @Query("SELECT id, colorArgb, colorFollowsTheme, groupId FROM ink_strokes " +
         "WHERE pageId = :pageId AND deletedAt IS NULL ORDER BY seq, id")
@@ -1076,6 +1079,9 @@ interface ImageTextDao {
 /** The per-page derived handwriting cache. */
 @Dao
 interface InkTextDao {
+    @Query("DELETE FROM ink_text WHERE status = 'Failed'")
+    suspend fun deleteFailed()
+
 
     @Query("SELECT * FROM ink_text WHERE pageId IN (:pageIds)")
     suspend fun byPageIds(pageIds: List<String>): List<InkTextEntity>

@@ -1,5 +1,8 @@
 package com.vivenotes.search
 
+import com.vivenotes.ai.InkTextRegionsCodec
+import com.vivenotes.ai.inkPageLayout
+import com.vivenotes.data.db.InkTextStatus
 import com.vivenotes.localization.Strings
 import com.vivenotes.data.AttachmentStore
 import com.vivenotes.data.NotesRepository
@@ -42,6 +45,9 @@ class DesktopContentSearch private constructor(
     private val indexing = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val imageLanes = Semaphore((pool.parallelism - 1).coerceAtLeast(2))
     private val indexingQueue = Semaphore(pool.parallelism * 2)
+    private val inkIndex = SearchInkIndex(repository, indexing, pool.parallelism) { command ->
+        imageLanes.withPermit { execute(command) }
+    }
     private data class ImageKey(val attachment: String, val engine: String = IMAGE_ENGINE)
     private val readings = LinkedHashMap<ImageKey, Deferred<AttachmentTextEntity>>(16, .75f, true)
 
@@ -70,7 +76,7 @@ class DesktopContentSearch private constructor(
                 return@parallelMap projected[page.id]?.takeIf { it.source == source }?.reply ?: run {
                     val doc = source.document.migrated()
                     WorkerReply(units = doc.contentUnits(page.id, page.sectionId, request.liveTitle),
-                        images = doc.imagePlacements(page.id, page.sectionId)).also {
+                        images = doc.imagePlacements(page.id, page.sectionId), inkLayout = doc.inkPageLayout()).also {
                         projected[page.id] = Projection(source, it)
                     }
                 }
@@ -83,15 +89,28 @@ class DesktopContentSearch private constructor(
                 projected[page.id] = Projection(command, it)
             }
         }
+        val inkPageIds = repository.pagesWithSearchInk(pages.map { it.id })
+        val inkPages = pages.zip(entries).filter { (page, _) -> page.id in inkPageIds }
+        val inkRows = repository.inkTextFor(inkPageIds)
+        val cachedInk = inkPages.mapNotNull { (page, entry) ->
+            inkRows[page.id]?.takeIf { it.engine == SearchInkIndex.ENGINE && it.layoutHash == entry.inkLayout.hash }
+        }.associateBy { it.pageId }
+        val handwriting = inkPages.flatMap { (page, _) ->
+            cachedInk[page.id]?.takeIf { it.status == InkTextStatus.Read }?.let {
+                inkUnits(page.id, page.sectionId, InkTextRegionsCodec.decode(it.regionsJson))
+            }.orEmpty()
+        }
         val placements = entries.flatMap { it.images }
         val placementsById = placements.groupBy { it.attachmentId }
         val ids = placementsById.keys
         val cached = repository.imageTextFor(ids).filterValues { it.engine == IMAGE_ENGINE }
         val cachedLines = cached.filterValues { it.status == ImageTextStatus.Read }.mapValues { it.value.text.lines() }
-        val units = entries.flatMap { it.units } + placements.flatMap { placement ->
+        val units = entries.flatMap { it.units } + handwriting + placements.flatMap { placement ->
             cachedLines[placement.attachmentId]?.let { imageUnits(placement, it) }.orEmpty()
         }
         var candidates = match(units, request.query)
+        var inkCompleted = cachedInk.size
+        var inkFailed = cachedInk.values.count { it.status == InkTextStatus.Failed }
         var completed = cached.size
         var failed = cached.values.count { it.status == ImageTextStatus.Failed }
         val unreadable = entries.count { it.unreadable }
@@ -102,25 +121,44 @@ class DesktopContentSearch private constructor(
             pages = candidates.take(MAX_HITS).groupBy { it.unit.pageId }.map { (pageId, hits) ->
                 SearchPageResults(pageId, titles[pageId].orEmpty(), sections[hits.first().unit.sectionId].orEmpty(), hits)
             },
-            searching = completed < ids.size,
+            searching = completed < ids.size || inkCompleted < inkPages.size,
+            inkDone = inkCompleted, inkTotal = inkPages.size, failedInk = inkFailed,
             imagesDone = completed, imagesTotal = ids.size, failedImages = failed,
             truncated = candidates.size > MAX_HITS, unreadablePages = unreadable,
         )
         send(result())
         if (pending.isNotEmpty()) log.event("search") { "OCR started: images=${pending.size}, processes=${pool.parallelism}" }
         val updates = Mutex()
-        parallelMap(pending.toList()) { id ->
-            val reading = imageReading(id).await()
-            val lines = reading.text.lines()
-            val newUnits = placementsById.getValue(id).flatMap { imageUnits(it, lines) }
+        val imageJobs = launch {
+            parallelMap(pending.toList()) { id ->
+                val reading = imageReading(id).await()
+                val lines = reading.text.lines()
+                val newUnits = placementsById.getValue(id).flatMap { imageUnits(it, lines) }
+                val hits = match(newUnits, request.query)
+                updates.withLock {
+                    candidates = ranked(candidates + hits)
+                    completed++
+                    if (reading.status == ImageTextStatus.Failed) failed++
+                    send(result())
+                }
+            }
+        }
+        if (inkCompleted < inkPages.size) log.event("search") { "handwriting OCR started: pages=${inkPages.size - inkCompleted}" }
+        parallelMap(inkPages.filter { (page, _) -> page.id !in cachedInk }) { (page, entry) ->
+            val reading = inkIndex.reading(page.id, entry.inkLayout).await()
+            val newUnits = reading?.takeIf { it.status == InkTextStatus.Read }?.let {
+                inkUnits(page.id, page.sectionId, InkTextRegionsCodec.decode(it.regionsJson))
+            }.orEmpty()
             val hits = match(newUnits, request.query)
             updates.withLock {
                 candidates = ranked(candidates + hits)
-                completed++
-                if (reading.status == ImageTextStatus.Failed) failed++
+                inkCompleted++
+                if (reading?.status == InkTextStatus.Failed) inkFailed++
                 send(result())
             }
         }
+        imageJobs.join()
+        log.event("search") { "handwriting complete: pages=${inkPages.size}, failed=$inkFailed" }
         log.event("search") { "query complete: hits=${candidates.size.coerceAtMost(MAX_HITS)}, images=${ids.size}, failed=$failed" }
     }
 
@@ -198,6 +236,12 @@ class DesktopContentSearch private constructor(
                 runCatching { job.getCompleted() }.getOrNull().let { it == null || it.status == ImageTextStatus.Failed } }
         }
         log.event("search") { "failed images queued for retry" }
+    }
+
+    override suspend fun retryFailedHandwriting() {
+        repository.retryFailedInkText()
+        inkIndex.retryFailures()
+        log.event("search") { "failed handwriting queued for retry" }
     }
 
     override fun close() {

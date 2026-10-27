@@ -463,9 +463,9 @@
     <string name="no_color">No Color</string>
     <string name="search_could_not_finish_try_again">Search could not finish. Try again.</string>
     <string name="search">Search</string>
-    <string name="in_this_notebook_text_and_pictures">In this notebook · text and pictures</string>
+    <string name="in_this_notebook_text_and_pictures">In this notebook · text, handwriting and pictures</string>
     <string name="search_notebook">Search notebook</string>
-    <string name="search_page_titles_text_boxes_and_text_in_pictures">Search page titles, text boxes and text in pictures.</string>
+    <string name="search_page_titles_text_boxes_and_text_in_pictures">Search page titles, text boxes, handwriting and text in pictures.</string>
     <string name="searching">Searching…</string>
     <string name="label_120_matches">120+ matches</string>
     <!-- %1$s = results.hitCount -->
@@ -1175,4 +1175,9 @@
     <string name="update_unreachable">The download server could not be reached. Check the connection and try again.</string>
     <!-- %1$s = the file name the release lists, e.g. ViveNotes-0.2.0-x64.msi -->
     <string name="update_checksum_unreadable">The checksum for %1$s could not be read.</string>
+    <string name="handwriting">Handwriting</string>
+    <string name="handwriting_pages_value_value"> · Handwriting pages %1$s/%2$s</string>
+    <string name="value_handwriting_pages_failed"> · %1$s handwriting pages could not be read</string>
+    <string name="retry_handwriting">Retry handwriting</string>
+    <string name="handwriting_could_not_be_queued_try_again">Handwriting could not be queued. Try again.</string>
 </resources>

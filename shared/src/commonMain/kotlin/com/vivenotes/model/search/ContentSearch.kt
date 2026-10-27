@@ -1,12 +1,14 @@
 package com.vivenotes.model.search
 
+import com.vivenotes.ai.InkTextRegion
+import com.vivenotes.model.ink.InkSelectionBounds
 import com.vivenotes.model.Block
 import com.vivenotes.model.OBJECT_REPLACEMENT_CHARACTER
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
 import kotlinx.serialization.Serializable
 
-/** Searchable typed fields and recognized picture lines. */
+/** Searchable typed fields, picture lines and handwritten regions. */
 @Serializable
 enum class ContentKind {
     /** The page's own title field. */
@@ -21,10 +23,10 @@ enum class ContentKind {
     /**
      * One line read inside a picture.
      *
-     * The only kind whose text nobody typed. That is why it is weighted below the others and why
-     * opening one selects the picture rather than pretending to put a caret in it.
+     * Recognized text ranks below equally matching typed text. Opening a result selects its picture.
      */
     Image,
+    Ink,
 }
 
 /**
@@ -53,6 +55,8 @@ data class ContentUnit(
     val alternatives: List<String> = emptyList(),
     /** Set only for [ContentKind.Image]: which picture's recognized text this line came from. */
     val attachmentId: String? = null,
+    val inkStrokeIds: Set<String> = emptySet(),
+    val inkBounds: InkSelectionBounds? = null,
 )
 
 /** A [ContentUnit] the query matched, with where in it the match landed. */
@@ -212,6 +216,26 @@ fun imageUnits(placement: ImagePlacement, lines: List<String>): List<ContentUnit
     }
 }
 
+fun inkUnits(pageId: String, sectionId: String, regions: List<InkTextRegion>): List<ContentUnit> =
+    regions.mapIndexedNotNull { index, region ->
+        val candidates = listOfNotNull(region.text, region.alternateText)
+            .map(String::trim)
+            .filter(String::isNotBlank)
+            .distinct()
+        val primary = candidates.firstOrNull() ?: return@mapIndexedNotNull null
+        ContentUnit(
+            pageId = pageId,
+            sectionId = sectionId,
+            kind = ContentKind.Ink,
+            boxId = region.id,
+            blockIndex = index,
+            text = primary,
+            alternatives = candidates.drop(1),
+            inkStrokeIds = region.strokeIds.toSet(),
+            inkBounds = InkSelectionBounds(region.left, region.top, region.right, region.bottom),
+        )
+    }
+
 /**
  * Ranks [units] against [query].
  *
@@ -292,8 +316,7 @@ fun snippetOf(text: String, spans: List<MatchSpan>, maxChars: Int = SNIPPET_CHAR
 /**
  * A title is a page's subject; a body line only mentions things.
  *
- * A picture's line is docked instead of promoted, and not because it matters less: it is the one
- * kind nobody typed. Typed text is what someone wrote and a reading is what a model thinks it can
+ * Picture and handwriting readings rank below typed text. Typed text is what someone wrote and a reading is what a model thinks it can
  * see, so on an equally good match the certain one goes first. Docked rather than excluded, because
  * a picture that *does* contain the word is still the answer when nothing else does.
  */
@@ -301,7 +324,7 @@ private val ContentKind.weight: Int
     get() = when (this) {
         ContentKind.Title -> 40
         ContentKind.Text, ContentKind.Cell -> 0
-        ContentKind.Image -> -8
+        ContentKind.Image, ContentKind.Ink -> -8
     }
 
 /**

@@ -297,6 +297,16 @@ internal fun PageCanvas(
         if (interaction.titleValue.text != title) interaction.titleValue = TextFieldValue(title,
             TextRange(interaction.titleValue.selection.start.coerceAtMost(title.length), interaction.titleValue.selection.end.coerceAtMost(title.length)))
     }
+    LaunchedEffect(searchHit, searchRevealTick, page?.id, page?.inkReady) {
+        interaction.searchInkBounds = null
+        val hit = searchHit
+        if (hit?.unit?.pageId == page?.id && hit?.unit?.kind == ContentKind.Ink && page?.inkReady == true &&
+            page.ink?.strokes?.any { it.id in hit.unit.inkStrokeIds } == true) {
+            interaction.searchInkBounds = hit.unit.inkBounds
+            kotlinx.coroutines.delay(1500)
+            interaction.searchInkBounds = null
+        }
+    }
     LaunchedEffect(searchHit, searchRevealTick, page?.id, page?.content) {
         val hit = searchHit ?: return@LaunchedEffect
         if (hit.unit.pageId != page?.id || page.editable != true) return@LaunchedEffect
@@ -307,8 +317,8 @@ internal fun PageCanvas(
         val lineY = if (textLayout != null && hit.unit.kind == ContentKind.Text &&
             hit.editorStart < textLayout.layoutInput.text.length)
             textLayout.getBoundingBox(hit.editorStart).top / density.density else 0f
-        horizontalScroll.scrollTo((((outline?.x ?: 0f) - 24f).coerceAtLeast(0f) * density.density * zoom).roundToInt())
-        verticalScroll.scrollTo((((outline?.y ?: 0f) + lineY - 40f).coerceAtLeast(0f) * density.density * zoom).roundToInt())
+        horizontalScroll.scrollTo((((hit.unit.inkBounds?.left ?: outline?.x ?: 0f) - 24f).coerceAtLeast(0f) * density.density * zoom).roundToInt())
+        verticalScroll.scrollTo((((hit.unit.inkBounds?.top ?: outline?.y ?: 0f) + lineY - 40f).coerceAtLeast(0f) * density.density * zoom).roundToInt())
         if (hit.unit.kind == ContentKind.Title && !page.document.style.hideTitle) {
             interaction.titleValue = TextFieldValue(page.title, TextRange(hit.editorStart.coerceIn(0, page.title.length),
                 hit.editorEnd.coerceIn(0, page.title.length)))
@@ -763,6 +773,13 @@ internal fun PageCanvas(
                         state.inkTool.takeIf { page.editable && page.inkReady &&
                             !state.notebookTransfer.running && !state.filePane.busy }, page.document.style.titleFloor, onInkEdit, zoom,
                         state.eraserMode, state.inkSettings, state.selectedInk, interaction.inkDragOffset, state.activePenIndex, ruler, onStraightenStroke)
+                    interaction.searchInkBounds?.let { bounds ->
+                        Box(Modifier.offset(bounds.left.dp, bounds.top.dp)
+                            .size((bounds.right - bounds.left).coerceAtLeast(1f).dp,
+                                (bounds.bottom - bounds.top).coerceAtLeast(1f).dp)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = .15f))
+                            .testTag(com.vivenotes.ui.search.SearchTags.InkHighlight))
+                    }
                     ruler?.let { RulerLayer(it, canvasSize, palette.ink, zoom) { value -> interaction.rulerPlacement = value } }
                     state.selectedInk?.let { selectedInk ->
                         if (groupBounds != null) InkSelectionFrame(selectedInk, groupBounds, interaction.inkDragOffset,

@@ -22,6 +22,7 @@ import com.vivenotes.workspace.WorkspaceState
 
 /** Canvas interaction values keep independent reset keys across page/tool/zoom changes. */
 internal class CanvasInteractionState(
+    val searchInkBoundsState: MutableState<com.vivenotes.model.ink.InkSelectionBounds?>,
     val viewportPxState: MutableState<IntSize>,
     val pendingViewportState: MutableState<CanvasViewport?>,
     val pastePointState: MutableState<Offset?>,
@@ -43,6 +44,7 @@ internal class CanvasInteractionState(
     val reachedXState: MutableIntState,
     val reachedYState: MutableIntState
 ) {
+    var searchInkBounds by searchInkBoundsState
     var viewportPx by viewportPxState
     var pendingViewport by pendingViewportState
     var pastePoint by pastePointState
@@ -66,6 +68,7 @@ internal class CanvasInteractionState(
 
 @Composable
 internal fun rememberCanvasInteractionState(page: PageSummary?, state: WorkspaceState, zoom: Float): CanvasInteractionState {
+    val searchInkBoundsState = remember(page?.id) { mutableStateOf<com.vivenotes.model.ink.InkSelectionBounds?>(null) }
     val viewportPxState = remember { mutableStateOf(IntSize.Zero) }
     val pendingViewportState = remember(page?.id) { mutableStateOf<CanvasViewport?>(null) }
     val pastePointState = remember(page?.id) { mutableStateOf<Offset?>(null) }
@@ -87,6 +90,7 @@ internal fun rememberCanvasInteractionState(page: PageSummary?, state: Workspace
     val reachedXState = remember(page?.id) { mutableIntStateOf(0) }
     val reachedYState = remember(page?.id) { mutableIntStateOf(0) }
     return CanvasInteractionState(
+        searchInkBoundsState,
         viewportPxState,
         pendingViewportState,
         pastePointState,

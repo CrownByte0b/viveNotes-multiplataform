@@ -226,7 +226,7 @@ class NotesRepository(
         return withContext(Dispatchers.IO) { snapshot.read(pageIds) }
     }
 
-    fun observeSearchChanges() = db.invalidationTracker.createFlow("notebooks", "sections", "pages", "page_content", "attachments")
+    fun observeSearchChanges() = db.invalidationTracker.createFlow("notebooks", "sections", "pages", "page_content", "attachments", "ink_strokes", "ink_erases", "ink_moves", "ink_text_generation")
 
     suspend fun imageTextFor(ids: Set<String>) = ids.toList().chunked(400)
         .flatMap { db.imageTextDao().byIds(it) }.associateBy { it.attachmentId }
@@ -236,6 +236,22 @@ class NotesRepository(
     }
 
     suspend fun retryFailedImageText() = db.imageTextDao().deleteFailed()
+
+    suspend fun pagesWithSearchInk(pageIds: List<String>): Set<String> = pageIds.chunked(400)
+        .flatMap { ink.pagesWithInk(it) }.toSet()
+
+    suspend fun inkTextFor(pageIds: Collection<String>) = pageIds.distinct().chunked(400)
+        .flatMap { inkText.byPageIds(it) }.associateBy { it.pageId }
+
+    suspend fun inkTextGeneration(pageId: String): Long = inkText.generation(pageId)
+
+    suspend fun saveInkText(row: com.vivenotes.data.db.InkTextEntity, expectedGeneration: Long): Boolean = db.withTransaction {
+        val page = pages.byId(row.pageId)
+        if (page == null || page.deletedAt != null || inkText.generation(row.pageId) != expectedGeneration) false
+        else { inkText.upsert(row); true }
+    }
+
+    suspend fun retryFailedInkText() = inkText.deleteFailed()
 
     // --- notebooks -------------------------------------------------------------------------
 

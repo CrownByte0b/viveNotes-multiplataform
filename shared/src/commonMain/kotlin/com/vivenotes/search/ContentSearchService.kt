@@ -29,12 +29,16 @@ data class SearchResults(
     val truncated: Boolean = false,
     val error: String? = null,
     val unreadablePages: Int = 0,
+    val inkDone: Int = 0,
+    val inkTotal: Int = 0,
+    val failedInk: Int = 0,
 ) {
     val hitCount: Int get() = pages.sumOf { it.hits.size }
 }
 
 interface ContentSearchService {
-    /** Emits typed/cached results first, then adds picture readings as workers finish. */
+    /** Emits typed/cached results first, then adds picture and handwriting readings as workers finish. */
     fun search(request: SearchRequest): Flow<SearchResults>
     suspend fun retryFailedImages() {}
+    suspend fun retryFailedHandwriting() {}
 }

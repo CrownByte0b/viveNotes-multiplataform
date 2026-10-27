@@ -32,6 +32,7 @@ object SearchTags {
     const val Query = "search-query"
     const val Close = "search-close"
     const val Status = "search-status"
+    const val InkHighlight = "search-ink-highlight"
     const val Progress = "search-progress"
     fun hit(hit: ContentHit) = "search-hit-${hit.unit.pageId}-${hit.unit.boxId}-${hit.unit.blockIndex}-${hit.unit.kind}"
 }
@@ -82,10 +83,12 @@ fun SearchPane(
             val status = when {
                 query.isBlank() -> Strings.search_page_titles_text_boxes_and_text_in_pictures
                 results.error != null -> results.error!!
-                results.searching && results.imagesTotal == 0 -> Strings.searching
+                results.searching && results.imagesTotal == 0 && results.inkTotal == 0 -> Strings.searching
                 else -> buildString {
                     append(if (results.truncated) Strings.label_120_matches else Strings.value_matches(results.hitCount))
                     if (results.imagesTotal > 0) append(Strings.pictures_value_value(results.imagesDone, results.imagesTotal))
+                    if (results.inkTotal > 0) append(Strings.handwriting_pages_value_value(results.inkDone, results.inkTotal))
+                    if (results.failedInk > 0) append(Strings.value_handwriting_pages_failed(results.failedInk))
                     if (results.failedImages > 0) append(Strings.value_could_not_be_read(results.failedImages))
                     if (results.unreadablePages > 0) append(Strings.value_unreadable_pages(results.unreadablePages))
                 }
@@ -105,6 +108,17 @@ fun SearchPane(
                     }
                 }
             }) { Text(Strings.retry_pictures) }
+            if (results.failedInk > 0) TextButton(onClick = {
+                scope.launch {
+                    try {
+                        service.retryFailedHandwriting()
+                        retry++
+                    } catch (cancelled: CancellationException) { throw cancelled
+                    } catch (_: Exception) {
+                        results = results.copy(error = Strings.handwriting_could_not_be_queued_try_again)
+                    }
+                }
+            }) { Text(Strings.retry_handwriting) }
             if (query.isNotBlank() && !results.searching && results.error == null && results.hitCount == 0) {
                 Text(Strings.no_matches, style = MaterialTheme.typography.bodyMedium)
             }
@@ -130,6 +144,7 @@ fun SearchPane(
                                 }, style = MaterialTheme.typography.bodyMedium)
                                 Text(when (hit.unit.kind) {
                                     ContentKind.Title -> Strings.page_title
+                                    ContentKind.Ink -> Strings.handwriting
                                     ContentKind.Image -> Strings.picture_text
                                     ContentKind.Cell -> Strings.table_cell
                                     ContentKind.Text -> Strings.text_box

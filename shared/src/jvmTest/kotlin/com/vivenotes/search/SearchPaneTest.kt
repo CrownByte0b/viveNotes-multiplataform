@@ -6,6 +6,9 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
+import com.vivenotes.ink.InkPageReader
+import com.vivenotes.ink.selectionLine
+import com.vivenotes.ai.InkTextRegion
 import com.vivenotes.localization.Strings
 import com.vivenotes.model.*
 import com.vivenotes.model.search.*
@@ -132,6 +135,59 @@ class SearchPaneTest {
         onNodeWithTag(SearchTags.hit(hit)).performClick()
         runOnIdle { assertEquals(setOf("picture"), observed.selectedObjectIds) }
         onNodeWithText("Picture text").assertIsDisplayed()
+    }
+
+    @Test fun openingAHandwritingResultHighlightsAndScrollsWithoutAnEditableInkSelection() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val initial = WorkspaceState.demo()
+            val ink = InkPageReader.read(initial.selectedPageId,
+                listOf(selectionLine(pageId = initial.selectedPageId, y = 1500f)), emptyList(), emptyList())
+            var observed = initial.updatePage(initial.selectedPageId) { it.copy(document = PageDoc.empty(), ink = ink) }
+            val hit = searchContent(inkUnits(observed.selectedPageId, observed.selectedSectionId,
+                listOf(InkTextRegion("line-1", "handwritten needle", .95f, left = 7f, top = 1497f,
+                    right = 113f, bottom = 1503f, strokeIds = listOf("source")))), "needle").single()
+            val service = object : ContentSearchService {
+                override fun search(request: SearchRequest) = flowOf(SearchResults(pages = listOf(
+                    SearchPageResults(observed.selectedPageId, "Page", "Section", listOf(hit))), inkDone = 1, inkTotal = 1))
+            }
+            setContent {
+                var state by remember { mutableStateOf(observed) }
+                WorkspaceScreen(state, { state = it(state); observed = state }, search = service)
+            }
+            onNodeWithTag(SearchTags.Open).performClick()
+            onNodeWithTag(SearchTags.Query).performTextInput("needle")
+            waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag(SearchTags.hit(hit)).fetchSemanticsNodes().isNotEmpty() }
+            mainClock.autoAdvance = false
+            onNodeWithTag(SearchTags.hit(hit)).performClick()
+            mainClock.advanceTimeBy(150)
+            onNodeWithTag(SearchTags.InkHighlight).assertIsDisplayed()
+            onNodeWithText("Handwriting").assertIsDisplayed()
+            runOnIdle {
+                assertNull(observed.selectedInk)
+                assertTrue(observed.selectedObjectIds.isEmpty())
+            }
+            mainClock.advanceTimeBy(1600)
+            onNodeWithTag(SearchTags.InkHighlight).assertDoesNotExist()
+            mainClock.autoAdvance = true
+        }
+
+    @Test fun handwritingProgressAndFailureHaveAWorkingRetryControl() = runDesktopComposeUiTest(width = 800, height = 800) {
+        val progress = MutableStateFlow(SearchResults(searching = true, inkDone = 1, inkTotal = 3))
+        var retries = 0
+        val service = object : ContentSearchService {
+            override fun search(request: SearchRequest) = progress
+            override suspend fun retryFailedHandwriting() { retries++ }
+        }
+        setContent { ViveNotesTheme {
+            SearchPane(service, SearchRequest("n", "needle", null, "s", "", null), "needle", {}, {}, {})
+        } }
+        onNodeWithTag(SearchTags.Status).assertTextContains("Handwriting pages 1/3", substring = true)
+        onNodeWithTag(SearchTags.Progress).assertIsIndeterminateWavyBar()
+        progress.value = SearchResults(inkDone = 3, inkTotal = 3, failedInk = 1)
+        waitForIdle()
+        onNodeWithTag(SearchTags.Status).assertTextContains("1 handwriting pages could not be read", substring = true)
+        onNodeWithText("Retry handwriting").performClick()
+        waitUntil(timeoutMillis = 5_000) { retries == 1 }
     }
 
     @Test fun newerQueriesCancelOldOnesAndShowProgressFailuresRetryAndEmptyState() =

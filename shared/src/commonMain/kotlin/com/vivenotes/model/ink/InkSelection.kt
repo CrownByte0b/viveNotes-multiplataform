@@ -2,6 +2,7 @@ package com.vivenotes.model.ink
 
 import com.vivenotes.data.InkEdit
 
+@kotlinx.serialization.Serializable
 data class InkSelectionBounds(val left: Float, val top: Float, val right: Float, val bottom: Float)
 
 /** Immutable native selection, including the individual pieces of partially erased rows. */
