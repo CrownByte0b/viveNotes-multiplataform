@@ -11,18 +11,23 @@
   </developer>
   <description>
     <p>Collect class notes, work through equations and sketch ideas in notebooks.
-    Combine typed text and handwriting on the same page, with pictures, tables and shapes.</p>
+    Keep your notebooks in local storage and process AI recognition on your device.</p>
     <ul>
-      <li>Organize notebooks into sections and pages.</li>
-      <li>Format text, draw with a mouse or stylus, and use a ruler or protractor.</li>
-      <li>Search typed notes, handwriting and text in pictures.</li>
-      <li>Recognize handwritten formulas and work with math tools.</li>
-      <li>Export pages to PDF and transfer notebooks using Vive files.</li>
+      <li>Combine rich text, handwriting, tables, pictures and shapes on a free-form infinite canvas.</li>
+      <li>Draw with configurable pens, pressure sensitivity and smoothing, with one-to-one AndroidX Ink parity through ByteInk and performant ink rendering (7 ms with over 10,000 strokes).</li>
+      <li>Write inline and free-form LaTeX equations with native rendering.</li>
+      <li>Recognize handwriting and formulas on your device, with tools for solving, evaluating and graphing math.</li>
+      <li>Find notebook content with fuzzy search across text, tables, handwriting and text in images, using on-device OCR.</li>
+      <li>Choose ruled, dotted, hexagonal or grid paper in multiple sizes.</li>
+      <li>Protect your work with automatic database snapshots and restore earlier page revisions.</li>
+      <li>Export pages to PDF and transfer notebooks using the open-source .vive export file format.</li>
+      <li>Adjust display scaling for high-DPI screens, including 1440p and 4K displays.</li>
+      <li>Work with hardware keyboard shortcuts and configurable stylus button mappings.</li>
     </ul>
     <p>Notebooks are stored locally and can be edited offline. Handwriting and picture
     text recognition are built in. The UniMERNet Small math recognition model downloads
-    automatically on first run (about 209 MB), and the math runtime also needs an initial
-    download. Other formula recognition models are optional.</p>
+    automatically on first run (about 209 MB). Other formula recognition models are optional.
+    The Flathub package includes the math runtime; other packages may download it on first run.</p>
   </description>
   <launchable type="desktop-id">net.vivenotes.ViveNotes.desktop</launchable>
   <url type="homepage">https://vivenotes.net</url>
@@ -43,7 +48,41 @@
     <control>pointing</control>
     <control>keyboard</control>
     <control>touch</control>
-  </supports>
+</supports>
+<screenshots>
+
+    <screenshot type="default">
+    <image type="source">https://raw.githubusercontent.com/CrownByte0b/viveNotes-multiplataform/refs/heads/master/repo/document.png</image>
+    <caption>Document view</caption>
+  </screenshot>
+
+  <screenshot>
+      <image type="source">https://raw.githubusercontent.com/CrownByte0b/viveNotes-multiplataform/refs/heads/master/repo/draw.png</image>
+      <caption>Draw view</caption>
+  </screenshot>
+
+  <screenshot>
+    <image type="source">https://raw.githubusercontent.com/CrownByte0b/viveNotes-multiplataform/refs/heads/master/repo/g8.jpeg</image>
+    <caption>Math 1</caption>
+  </screenshot>
+
+
+  <screenshot>
+    <image type="source">https://raw.githubusercontent.com/CrownByte0b/viveNotes-multiplataform/refs/heads/master/repo/g7.jpeg</image>
+    <caption>Math 2</caption>
+  </screenshot>
+
+  <screenshot>
+    <image type="source">https://raw.githubusercontent.com/CrownByte0b/viveNotes-multiplataform/refs/heads/master/repo/g4.jpeg</image>
+    <caption>shapes</caption>
+</screenshot>
+
+  <screenshot>
+    <image type="source">https://raw.githubusercontent.com/CrownByte0b/viveNotes-multiplataform/refs/heads/master/repo/g3.jpeg</image>
+    <caption>Ruled</caption>
+  </screenshot>
+
+</screenshots>
   <releases>
     <release version="@VERSION@" date="@DATE@">
       <description>

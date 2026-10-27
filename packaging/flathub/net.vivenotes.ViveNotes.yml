@@ -3,7 +3,7 @@ runtime: org.freedesktop.Platform
 runtime-version: '26.08'
 sdk: org.freedesktop.Sdk
 sdk-extensions:
-  # JDK 27 runs Gradle; JDK 25 is the boot JDK the JetBrains Runtime 25 build needs.
+  # Gradle uses JDK 27; building JBR requires a JDK 25 boot JDK.
   - org.freedesktop.Sdk.Extension.openjdk
   - org.freedesktop.Sdk.Extension.openjdk25
 command: vivenotes
@@ -15,8 +15,7 @@ finish-args:
   - --device=dri
 
 modules:
-  # JetBrains Runtime, for its native Wayland toolkit: the release the app is tested on, built as
-  # JetBrains' jb/project/tools/linux/scripts/mkimages_x64.sh builds its "jbr" no JCEF bundle.
+  # JBR provides the native Wayland toolkit. Match JetBrains' mkimages_x64.sh configuration.
   - name: jbr
     buildsystem: simple
     build-options:
@@ -52,7 +51,7 @@ modules:
         url: https://github.com/JetBrains/JetBrainsRuntime/archive/refs/tags/jbr-release-25.0.4.1b635.75.tar.gz
         sha256: afb004ea032fa934886a1239ebf0b13d91b86af73c4f23308c38ec7fd1575642
 
-  # The math engine Python: the runtime interpreter with the packages uv.lock pins
+  # Use the runtime's Python with the packages pinned in uv.lock.
   - name: math-python
     buildsystem: simple
     build-commands:
@@ -72,8 +71,7 @@ modules:
         url: https://files.pythonhosted.org/packages/b6/3a/4f2e9d67277cc255a17a34c1b54e02d939ca5991bc596dee3d63e587e512/antlr4_python3_runtime-4.11.1-py3-none-any.whl
         sha256: ff1954eda1ca9072c02bf500387d0c86cb549bef4dbb3b64f39468b547ec5f6b
 
-  # google/ink's JNI library, which ByteInk builds with Bazel elsewhere: here ByteInk CMake build
-  # (native/cmake) from the same pinned sources and patches. upstream/pins.properties pins these
+  # Build libink with ByteInk's CMake setup and upstream/pins.properties dependency versions.
   - name: libink
     buildsystem: simple
     build-options:
@@ -119,7 +117,6 @@ modules:
         sha256: 9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23
         dest: zlib
 
-  # The app, with ByteInk's Kotlin libraries built in the same Gradle run, offline.
   - name: vivenotes
     buildsystem: simple
     build-options:
@@ -129,10 +126,7 @@ modules:
         GRADLE_USER_HOME: /run/build/vivenotes/gradle-home
         VIVE_OFFLINE_REPOSITORY: /run/build/vivenotes/offline-repository
     build-commands:
-      # The Google client id is public every sign-in URL carries it; its secret stays on the sync
-      # server, which exchanges the sign-in code.
-      # The daemon JVM criteria ask for Azul's JDK 27 and name foojay to download it; the SDK
-      # extension's JDK 27 runs Gradle instead.
+      # Use the SDK JDK instead of resolving the daemon JDK through Foojay.
       - rm gradle/gradle-daemon-jvm.properties
       - >-
         gradle-dist/bin/gradle --offline --no-daemon --no-configuration-cache
