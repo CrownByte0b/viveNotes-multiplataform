@@ -25,7 +25,7 @@ import com.vivenotes.ui.icons.rememberDocumentRibbonIcons
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonDivider
 import com.vivenotes.ui.ribbon.RibbonIcon
-import com.vivenotes.ui.ribbon.RibbonStyle
+import com.vivenotes.ui.ribbon.ribbonStyle
 import com.vivenotes.workspace.EditorDefaults
 import kotlin.math.roundToInt
 
@@ -89,8 +89,8 @@ internal fun DocumentRibbon(
     defaults: EditorDefaults,
     onLinkRequest: (LinkEditorRequest) -> Unit,
 ) {
-    val (idle, active) = rememberDocumentRibbonIcons(RibbonStyle.normalText,
-        RibbonStyle.activeText, RibbonStyle.accent)
+    val (idle, active) = rememberDocumentRibbonIcons(ribbonStyle.normalText,
+        ribbonStyle.activeText, ribbonStyle.accent)
     val marks = richText?.activeMarks.orEmpty()
     val block = richText?.currentBlock
     val editable = richText != null

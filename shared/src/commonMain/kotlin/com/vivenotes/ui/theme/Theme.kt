@@ -19,6 +19,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vivenotes.ui.ribbon.DarkRibbonColors
+import com.vivenotes.ui.ribbon.LightRibbonColors
+import com.vivenotes.ui.ribbon.LocalRibbonColors
 
 // For a normal hex color (#RRGGBB), replace # with 0xFF and wrap it in Color(...)
 
@@ -137,7 +140,10 @@ fun ViveNotesTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    CompositionLocalProvider(LocalDesktopColors provides if (darkTheme) DarkDesktopColors else LightDesktopColors) {
+    CompositionLocalProvider(
+        LocalDesktopColors provides if (darkTheme) DarkDesktopColors else LightDesktopColors,
+        LocalRibbonColors provides if (darkTheme) DarkRibbonColors else LightRibbonColors,
+    ) {
         MaterialExpressiveTheme(
             colorScheme = if (darkTheme) DarkColors else LightColors,
             motionScheme = MotionScheme.standard(),

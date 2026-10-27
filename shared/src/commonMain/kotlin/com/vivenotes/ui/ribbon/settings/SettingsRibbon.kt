@@ -36,7 +36,7 @@ import com.vivenotes.ui.icons.aboutGlyph
 import com.vivenotes.ui.icons.hardwareGlyph
 import com.vivenotes.ui.icons.integratedGlyph
 import com.vivenotes.ui.icons.linkPreviewGlyph
-import com.vivenotes.ui.ribbon.RibbonStyle
+import com.vivenotes.ui.ribbon.ribbonStyle
 import com.vivenotes.ui.ribbon.ribbonActiveIndicator
 import com.vivenotes.ui.ribbon.ribbonBottomBorder
 import com.vivenotes.ui.shell.WorkspaceTestTags
@@ -53,7 +53,7 @@ internal fun SettingsRibbon(onInterface: () -> Unit, hardwareOpen: Boolean, onHa
     modelsAvailable: Boolean = false, modelsOpen: Boolean = false, onModels: () -> Unit = {}) {
     Box(
         modifier = Modifier.fillMaxWidth().height(46.dp)
-            .background(RibbonStyle.background)
+            .background(ribbonStyle.background)
             .ribbonBottomBorder()
             .testTag(WorkspaceTestTags.RibbonBar),
     ) {
@@ -83,16 +83,16 @@ private fun SettingsTab(label: String, icon: (Color, Color) -> ImageVector,
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val textColor = when {
-        active -> RibbonStyle.activeText
-        hovered && enabled -> RibbonStyle.hoverText
-        enabled -> RibbonStyle.normalText
-        else -> RibbonStyle.disabledText
+        active -> ribbonStyle.activeText
+        hovered && enabled -> ribbonStyle.hoverText
+        enabled -> ribbonStyle.normalText
+        else -> ribbonStyle.disabledText
     }
-    val accent = if (enabled) RibbonStyle.accent else RibbonStyle.disabledAccent
+    val accent = if (enabled) ribbonStyle.accent else ribbonStyle.disabledAccent
     val image = remember(icon, textColor, accent) { icon(textColor, accent) }
     Box(
         modifier = Modifier.height(46.dp)
-            .background(if (hovered && enabled) RibbonStyle.hover else Color.Transparent)
+            .background(if (hovered && enabled) ribbonStyle.hover else Color.Transparent)
             .ribbonActiveIndicator(active)
             .hoverable(interaction, enabled = enabled)
             .clickable(interactionSource = interaction, indication = null, enabled = enabled,

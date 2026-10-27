@@ -40,7 +40,7 @@ class DesktopChromeTest {
     fun lightDesktopChromeUsesAWhiteHeaderAndGreySidebar() = assertChrome(
         dark = false,
         header = Color.White,
-        toolbar = Color(0xFF292A2F),
+        toolbar = Color(0xFFF3F3F5),
         sidebar = Color(0xFFEBEBED),
     )
 
@@ -74,41 +74,47 @@ class DesktopChromeTest {
         }
 
     @Test
-    fun everyRibbonTabUsesTheSameCompactDarkStrip() =
+    fun everyRibbonTabFollowsThemeChangesAndKeepsItsCompactControls() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
+            val darkTheme = mutableStateOf(false)
             setContent {
                 var workspace by remember { mutableStateOf(WorkspaceState.demo()) }
-                ViveNotesTheme(darkTheme = false) {
+                ViveNotesTheme(darkTheme = darkTheme.value) {
                     WorkspaceScreen(workspace, onStateChange = { workspace = it(workspace) },
                         interfaceSettings = InterfaceSettings(displayScale = 1f))
                 }
             }
-            RibbonTab.entries.forEach { tab ->
-                onNodeWithTag(WorkspaceTestTags.ribbonTab(tab)).performClick()
-                val ribbon = onNodeWithTag(WorkspaceTestTags.RibbonBar)
-                val bounds = ribbon.getUnclippedBoundsInRoot()
-                assertTrue(abs((bounds.bottom - bounds.top).value - 46f) < 1f, "$tab strip height")
-                val pixels = ribbon.captureToImage().toPixelMap()
-                assertPaintedColor(pixels[pixels.width - 8, 8], Color(0xFF292A2F))
-                assertPaintedColor(pixels[pixels.width - 8, pixels.height - 1], Color(0xFF393B42))
+            for (dark in listOf(false, true, false)) {
+                runOnIdle { darkTheme.value = dark }
+                RibbonTab.entries.forEach { tab ->
+                    onNodeWithTag(WorkspaceTestTags.ribbonTab(tab)).performClick()
+                    val ribbon = onNodeWithTag(WorkspaceTestTags.RibbonBar)
+                    val bounds = ribbon.getUnclippedBoundsInRoot()
+                    assertTrue(abs((bounds.bottom - bounds.top).value - 46f) < 1f, "$tab strip height")
+                    val pixels = ribbon.captureToImage().toPixelMap()
+                    assertPaintedColor(pixels[pixels.width - 8, 8],
+                        if (dark) Color(0xFF292A2F) else Color(0xFFF3F3F5))
+                    assertPaintedColor(pixels[pixels.width - 8, pixels.height - 1],
+                        if (dark) Color(0xFF393B42) else Color(0xFFD4D4D8))
+                }
             }
             onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Draw)).performClick()
             onNodeWithTag(DrawRibbonTags.PenTool).performClick().assertIsSelected()
             val pen = onNodeWithTag(DrawRibbonTags.control(DrawRibbonTags.PenTool))
                 .captureToImage().toPixelMap()
-            assertPaintedColor(pen[pen.width / 2, pen.height - 2], Color(0xFF007FFF))
+            assertPaintedColor(pen[pen.width / 2, pen.height - 2], Color(0xFF3584E4))
 
             onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Document)).performClick()
             val textTool = onNodeWithTag(DocumentRibbonTags.Text).performClick().assertIsSelected()
                 .captureToImage().toPixelMap()
-            assertPaintedColor(textTool[textTool.width / 2, textTool.height - 2], Color(0xFF007FFF))
+            assertPaintedColor(textTool[textTool.width / 2, textTool.height - 2], Color(0xFF3584E4))
 
             onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.View)).performClick()
             val switch = onNodeWithTag(ViewRibbonTags.SwitchBackground)
             switch.performMouseInput { moveTo(center) }
             waitForIdle()
             val hovered = switch.captureToImage().toPixelMap()
-            assertPaintedColor(hovered[4, 4], Color(0xFF32343A))
+            assertPaintedColor(hovered[4, 4], Color(0xFFE4E4E7))
         }
 
     private fun assertPaintedColor(actual: Color, expected: Color) {

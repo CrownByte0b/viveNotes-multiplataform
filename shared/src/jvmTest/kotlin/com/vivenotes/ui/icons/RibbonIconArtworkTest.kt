@@ -20,7 +20,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
-import com.vivenotes.ui.ribbon.RibbonStyle
+import com.vivenotes.ui.ribbon.ribbonStyle
 import com.vivenotes.ui.ribbon.draw.DrawRibbon
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
 import com.vivenotes.ui.ribbon.file.FileRibbon
@@ -46,14 +46,14 @@ class RibbonIconArtworkTest {
             DrawRibbonTags.icon(DrawRibbonTags.EraserTool) to officialSvg("ic_fluent_eraser_24_regular.svg"),
         )
         setContent {
-            ViveNotesTheme {
+            ViveNotesTheme(darkTheme = true) {
                 Column {
                     SettingsRibbon(onInterface = {}, hardwareOpen = false, onHardware = {},
                         linkPreviews = false, onLinkPreviewsChange = {}, onAbout = {})
                     DrawRibbon(WorkspaceState.demo(), {})
                     references.forEach { (tag, icon) ->
-                        Icon(icon, null, tint = RibbonStyle.normalText,
-                            modifier = Modifier.size(18.dp).background(RibbonStyle.background).testTag("reference-$tag"))
+                        Icon(icon, null, tint = ribbonStyle.normalText,
+                            modifier = Modifier.size(18.dp).background(ribbonStyle.background).testTag("reference-$tag"))
                     }
                 }
             }
@@ -82,13 +82,13 @@ class RibbonIconArtworkTest {
             override fun dismissTransfer() {}
         }
         setContent {
-            ViveNotesTheme {
+            ViveNotesTheme(darkTheme = true) {
                 Column {
                     FileRibbon(notebookOpen = true, pageOpen = true, transferRunning = false,
                         actions = actions, onCloseNotebook = { calls += "close-notebook" }, onDeleteNotebook = {})
                     references.forEach { (tag, icon) ->
                         Icon(icon, null, tint = Color.Unspecified,
-                            modifier = Modifier.size(18.dp).background(RibbonStyle.background).testTag("reference-$tag"))
+                            modifier = Modifier.size(18.dp).background(ribbonStyle.background).testTag("reference-$tag"))
                     }
                 }
             }

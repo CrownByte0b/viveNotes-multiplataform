@@ -33,7 +33,7 @@ import com.vivenotes.model.ink.trace
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.DrawSymbols
 import com.vivenotes.ui.icons.insertTextGlyph
-import com.vivenotes.ui.ribbon.RibbonStyle
+import com.vivenotes.ui.ribbon.ribbonStyle
 import com.vivenotes.ui.ribbon.draw.drawToolkitTracing
 import com.vivenotes.workspace.DrawPlacementTool
 import com.vivenotes.workspace.WorkspaceState
@@ -122,24 +122,25 @@ internal fun InsertCursorBadge(insert: PendingInsert?, pointer: CanvasPointer, m
 
 @Composable
 private fun Badge(insert: PendingInsert) {
+    val style = ribbonStyle
     Box(
-        Modifier.size(BadgeSize).shadow(3.dp, BadgeShape).background(RibbonStyle.background, BadgeShape)
-            .border(1.dp, RibbonStyle.divider, BadgeShape).testTag(InsertBadgeTags.badge(insert)),
+        Modifier.size(BadgeSize).shadow(3.dp, BadgeShape).background(ribbonStyle.background, BadgeShape)
+            .border(1.dp, ribbonStyle.divider, BadgeShape).testTag(InsertBadgeTags.badge(insert)),
         contentAlignment = Alignment.Center,
     ) {
         val glyph = Modifier.size(GlyphSize)
         when (insert) {
-            PendingInsert.TextBox -> Icon(remember { insertTextGlyph(RibbonStyle.activeText, RibbonStyle.accent) },
+            PendingInsert.TextBox -> Icon(remember(style) { insertTextGlyph(style.activeText, style.accent) },
                 contentDescription = null, modifier = glyph, tint = Color.Unspecified)
             is PendingInsert.Shape -> Canvas(glyph) {
                 val stroke = 1.4.dp.toPx()
                 drawToolkitTracing(trace(insert.kind, stroke, stroke, size.width - stroke, size.height - stroke),
-                    RibbonStyle.activeText, stroke, LineType.Solid)
+                    style.activeText, stroke, LineType.Solid)
             }
             PendingInsert.Table -> Icon(DrawSymbols.Table, contentDescription = null, modifier = glyph,
-                tint = RibbonStyle.activeText)
+                tint = ribbonStyle.activeText)
             PendingInsert.Equation -> Icon(DocumentSymbols.Function, contentDescription = null, modifier = glyph,
-                tint = RibbonStyle.activeText)
+                tint = ribbonStyle.activeText)
         }
     }
 }

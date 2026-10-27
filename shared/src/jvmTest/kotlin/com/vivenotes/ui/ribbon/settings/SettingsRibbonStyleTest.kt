@@ -26,12 +26,41 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class SettingsRibbonStyleTest {
     @Test
+    fun lightCommandsUseReadableIconsHoverAndSelectionAfterThemeChanges() =
+        runDesktopComposeUiTest(width = 900, height = 300) {
+            val darkTheme = mutableStateOf(true)
+            setContent {
+                var hardwareOpen by remember { mutableStateOf(false) }
+                ViveNotesTheme(darkTheme = darkTheme.value) {
+                    SettingsRibbon(onInterface = {}, hardwareOpen = hardwareOpen,
+                        onHardware = { hardwareOpen = !hardwareOpen }, linkPreviews = false,
+                        onLinkPreviewsChange = {}, onAbout = {})
+                }
+            }
+
+            for (dark in listOf(false, true, false)) {
+                runOnIdle { darkTheme.value = dark }
+                assertIconContains("interface", if (dark) Color(0xFFE5E7ED) else Color(0xFF242428))
+                assertIconContains("hardware", if (dark) Color(0xFF5DAFFF) else Color(0xFF3584E4))
+                assertIconContains("models", if (dark) Color(0xFFA8ABB4) else Color(0xFF777780))
+            }
+            onNodeWithTag("settings-models").assertIsNotEnabled()
+            val tab = onNodeWithTag(InterfaceTags.Open)
+            tab.performMouseInput { moveTo(center) }
+            assertColor(tab.captureToImage().toPixelMap()[4, 4], Color(0xFFE4E4E7))
+            val hardware = onNodeWithTag(HardwareTags.Open).performClick().assertIsSelected()
+            val pixels = hardware.captureToImage().toPixelMap()
+            assertColor(pixels[pixels.width / 2, pixels.height - 2], Color(0xFF3584E4))
+            assertIconContains("hardware", Color(0xFF242428))
+        }
+
+    @Test
     fun settingsCommandsUseCompactStripAndUnderlineActiveControls() =
         runDesktopComposeUiTest(width = 900, height = 300) {
             setContent {
                 var hardwareOpen by remember { mutableStateOf(false) }
                 var linkPreviews by remember { mutableStateOf(false) }
-                ViveNotesTheme {
+                ViveNotesTheme(darkTheme = true) {
                     SettingsRibbon(onInterface = {}, hardwareOpen = hardwareOpen,
                         onHardware = { hardwareOpen = !hardwareOpen }, linkPreviews = linkPreviews,
                         onLinkPreviewsChange = { linkPreviews = it }, onAbout = {})
@@ -66,7 +95,7 @@ class SettingsRibbonStyleTest {
     fun hoveringASettingsCommandPaintsItsTabBackground() =
         runDesktopComposeUiTest(width = 900, height = 300) {
             setContent {
-                ViveNotesTheme {
+                ViveNotesTheme(darkTheme = true) {
                     SettingsRibbon(onInterface = {}, hardwareOpen = false, onHardware = {},
                         linkPreviews = false, onLinkPreviewsChange = {}, onAbout = {})
                 }

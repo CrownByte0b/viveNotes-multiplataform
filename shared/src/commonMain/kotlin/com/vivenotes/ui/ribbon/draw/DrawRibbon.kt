@@ -135,14 +135,14 @@ private fun SplitTool(label: String, icon: ImageVector, selected: Boolean, enabl
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val tint = when {
-        !enabled -> RibbonStyle.disabledText
-        selected -> RibbonStyle.activeText
-        hovered -> RibbonStyle.hoverText
-        else -> RibbonStyle.normalText
+        !enabled -> ribbonStyle.disabledText
+        selected -> ribbonStyle.activeText
+        hovered -> ribbonStyle.hoverText
+        else -> ribbonStyle.normalText
     }
     Box {
         Row(Modifier.height(46.dp)
-            .background(if (hovered && enabled) RibbonStyle.hover else Color.Transparent)
+            .background(if (hovered && enabled) ribbonStyle.hover else Color.Transparent)
             .ribbonActiveIndicator(selected)
             .hoverable(interaction, enabled = enabled)
             .testTag(DrawRibbonTags.control(tag)), verticalAlignment = Alignment.CenterVertically) {

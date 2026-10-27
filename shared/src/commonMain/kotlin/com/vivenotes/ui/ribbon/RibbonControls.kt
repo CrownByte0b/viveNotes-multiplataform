@@ -53,7 +53,7 @@ internal fun RibbonBar(
     content: @Composable RowScope.() -> Unit,
 ) {
     Box(Modifier.fillMaxWidth().height(46.dp)
-        .background(RibbonStyle.background).ribbonBottomBorder()
+        .background(ribbonStyle.background).ribbonBottomBorder()
         .testTag(WorkspaceTestTags.RibbonBar)) {
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()).then(modifier)
@@ -86,15 +86,15 @@ internal fun RibbonIcon(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val tint = when {
-        !enabled -> RibbonStyle.disabledText
-        selected -> RibbonStyle.activeText
-        hovered -> RibbonStyle.hoverText
-        else -> RibbonStyle.normalText
+        !enabled -> ribbonStyle.disabledText
+        selected -> ribbonStyle.activeText
+        hovered -> ribbonStyle.hoverText
+        else -> ribbonStyle.normalText
     }
     HoverTooltip(label) {
         Box(
             Modifier.then(if (dropdown) Modifier.height(46.dp) else Modifier.size(width = 40.dp, height = 46.dp))
-                .background(if (hovered && enabled) RibbonStyle.hover else Color.Transparent)
+                .background(if (hovered && enabled) ribbonStyle.hover else Color.Transparent)
                 .ribbonActiveIndicator(selected)
                 .hoverable(interaction, enabled = enabled)
                 .clickable(interactionSource = interaction, indication = null, enabled = enabled,
@@ -141,14 +141,14 @@ internal fun RibbonCommand(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val textColor = when {
-        !enabled -> RibbonStyle.disabledText
-        active -> RibbonStyle.activeText
-        hovered -> RibbonStyle.hoverText
-        else -> RibbonStyle.normalText
+        !enabled -> ribbonStyle.disabledText
+        active -> ribbonStyle.activeText
+        hovered -> ribbonStyle.hoverText
+        else -> ribbonStyle.normalText
     }
     Row(
         modifier = modifier.height(46.dp)
-            .background(if (hovered && enabled) RibbonStyle.hover else Color.Transparent)
+            .background(if (hovered && enabled) ribbonStyle.hover else Color.Transparent)
             .ribbonActiveIndicator(active)
             .hoverable(interaction, enabled = enabled)
             .clickable(interactionSource = interaction, indication = null, enabled = enabled,
@@ -175,6 +175,6 @@ internal fun RibbonCommand(
 @Composable
 internal fun RibbonDivider() {
     Spacer(Modifier.padding(horizontal = 3.dp).width(1.dp).height(22.dp)
-        .background(RibbonStyle.divider))
+        .background(ribbonStyle.divider))
 }
 

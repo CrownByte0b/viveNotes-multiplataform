@@ -22,7 +22,7 @@ import com.vivenotes.ui.icons.exportPdfGlyph
 import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonCommand
 import com.vivenotes.ui.ribbon.RibbonDivider
-import com.vivenotes.ui.ribbon.RibbonStyle
+import com.vivenotes.ui.ribbon.ribbonStyle
 import com.vivenotes.workspace.FileActions
 import com.vivenotes.workspace.FilePane
 
@@ -57,8 +57,8 @@ internal fun FileRibbon(
     onDeleteNotebook: () -> Unit,
     onExportPdf: () -> Unit = {},
 ) {
-    val accent = RibbonStyle.accent
-    val neutral = RibbonStyle.normalText
+    val accent = ribbonStyle.accent
+    val neutral = ribbonStyle.normalText
     val exportIcon = remember(neutral, accent) { exportNotebookGlyph(neutral, accent) }
     val importIcon = remember(neutral, accent) { importNotebookGlyph(neutral, accent) }
     val historyIcon = remember(neutral, accent) { versionHistoryGlyph(neutral, accent) }

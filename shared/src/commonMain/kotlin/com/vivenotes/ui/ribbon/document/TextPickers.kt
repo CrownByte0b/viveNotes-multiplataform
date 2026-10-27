@@ -41,7 +41,7 @@ import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.ribbon.RibbonCommand
-import com.vivenotes.ui.ribbon.RibbonStyle
+import com.vivenotes.ui.ribbon.ribbonStyle
 
 /** The Document tab's drop-down controls: font family and size, the two colours, and Styles. */
 
@@ -151,7 +151,7 @@ internal fun ColorPicker(
     var expanded by remember { mutableStateOf(false) }
     var selectionAtPress by remember { mutableStateOf<TextSelection?>(null) }
     val appliedColor = chosenColor ?: defaultColor
-    val neutral = RibbonStyle.normalText
+    val neutral = ribbonStyle.normalText
     val swatch = Color(appliedColor).copy(alpha = 1f)
     val image = remember(neutral, swatch) { icon(neutral, swatch) }
     val mainInteraction = remember { MutableInteractionSource() }
@@ -166,7 +166,7 @@ internal fun ColorPicker(
             HoverTooltip(label) {
                 Box(
                     modifier = Modifier.size(width = 40.dp, height = 46.dp)
-                        .background(if (mainHovered && enabled) RibbonStyle.hover else Color.Transparent)
+                        .background(if (mainHovered && enabled) ribbonStyle.hover else Color.Transparent)
                         .hoverable(mainInteraction, enabled = enabled)
                         .clickable(interactionSource = mainInteraction, indication = null,
                             enabled = enabled, role = Role.Button) {
@@ -186,7 +186,7 @@ internal fun ColorPicker(
             HoverTooltip(Strings.choose_value(label)) {
                 Box(
                     modifier = Modifier.size(width = 24.dp, height = 46.dp)
-                        .background(if (menuHovered && enabled) RibbonStyle.hover else Color.Transparent)
+                        .background(if (menuHovered && enabled) ribbonStyle.hover else Color.Transparent)
                         .hoverable(menuInteraction, enabled = enabled)
                         .clickable(interactionSource = menuInteraction, indication = null,
                             enabled = enabled, role = Role.Button) { expanded = true }
@@ -195,7 +195,7 @@ internal fun ColorPicker(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(DocumentSymbols.ArrowDropDown, contentDescription = null,
-                        tint = if (enabled) RibbonStyle.normalText else RibbonStyle.disabledText,
+                        tint = if (enabled) ribbonStyle.normalText else ribbonStyle.disabledText,
                         modifier = Modifier.size(16.dp))
                 }
             }

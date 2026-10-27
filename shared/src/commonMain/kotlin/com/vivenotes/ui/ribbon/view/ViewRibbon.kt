@@ -50,7 +50,7 @@ import com.vivenotes.ui.ribbon.RibbonBar
 import com.vivenotes.ui.ribbon.RibbonCommand
 import com.vivenotes.ui.ribbon.RibbonDivider
 import com.vivenotes.ui.ribbon.RibbonIcon
-import com.vivenotes.ui.ribbon.RibbonStyle
+import com.vivenotes.ui.ribbon.ribbonStyle
 import com.vivenotes.workspace.TabsLayout
 import com.vivenotes.workspace.ViewSettings
 import kotlin.math.roundToInt
@@ -131,8 +131,8 @@ internal fun ViewRibbon(
     defaultRuleLines: RuleLines = RuleLines.GridMedium,
     onDefaultRuleLines: (RuleLines) -> Unit = {},
 ) {
-    val (idle, active) = rememberViewRibbonIcons(RibbonStyle.normalText, RibbonStyle.activeText,
-        RibbonStyle.accent, Color(0xFFE94C4F))
+    val (idle, active) = rememberViewRibbonIcons(ribbonStyle.normalText, ribbonStyle.activeText,
+        ribbonStyle.accent, Color(0xFFE94C4F))
     RibbonBar {
         TabsLayoutMenu(settings.tabsLayout, idle.tabsLayout, actions.setTabsLayout)
         RibbonDivider()
@@ -248,7 +248,7 @@ private fun RuleLinesMenu(
 @Composable
 private fun PageColorMenu(current: Int?, pageOpen: Boolean, canvasDark: Boolean, onPick: (Int?) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    val neutral = RibbonStyle.normalText
+    val neutral = ribbonStyle.normalText
     // With no colour of its own, the page shows the canvas's; the bar says so.
     val swatch = current?.let(::Color) ?: if (canvasDark) Color(0xFF1F1F1F) else Color.White
     val icon = remember(neutral, swatch) { pageColorGlyph(neutral, swatch) }
