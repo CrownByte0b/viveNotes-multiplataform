@@ -222,7 +222,7 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
     }
 }
 
-private suspend fun PointerInputScope.detectCalculatorThrow(onCarry: (Offset) -> Unit, onRelease: (Velocity) -> Unit) {
+internal suspend fun PointerInputScope.detectCalculatorThrow(onCarry: (Offset) -> Unit, onRelease: (Velocity) -> Unit) {
     awaitEachGesture {
         val down = awaitFirstDown(false, PointerEventPass.Initial)
         if (down.type != PointerType.Touch) return@awaitEachGesture
@@ -231,8 +231,12 @@ private suspend fun PointerInputScope.detectCalculatorThrow(onCarry: (Offset) ->
         var total = Offset.Zero
         do {
             val event = awaitPointerEvent(PointerEventPass.Initial)
-            if (event.changes.any { it.type == PointerType.Stylus || it.type == PointerType.Eraser }) break
+            if (event.changes.any { it.pressed && it.type != PointerType.Touch }) {
+                if (carrying) onRelease(Velocity.Zero)
+                return@awaitEachGesture
+            }
             val pressed = event.changes.filter { it.pressed }
+            if (pressed.size < 2 && carrying) break
             if (pressed.size >= 2) {
                 val pan = event.calculatePan()
                 total += pan

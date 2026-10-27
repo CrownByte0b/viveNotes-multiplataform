@@ -2,8 +2,6 @@ package com.vivenotes.ui.canvas
 
 import com.vivenotes.workspace.InkSettings
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -219,12 +217,11 @@ internal actual fun PlatformInkLayer(
                     }
                 }
                 try {
-                    awaitEachGesture {
-                        val down = awaitFirstDown()
+                    awaitEachInkGesture {
+                        val down = awaitInkDown()
                         if ((down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) ||
                             down.position.y < titleFloorDp * density) {
-                            waitForPointersUp()
-                            return@awaitEachGesture
+                            return@awaitEachInkGesture
                         }
                         refresh()
                         inkInputActive = true
@@ -243,7 +240,8 @@ internal actual fun PlatformInkLayer(
                         while (true) {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id }
-                            if (change == null || change.isConsumed || !refresh() || generation != capturedGeneration) break
+                            if (change == null || change.isConsumed || !refresh() || generation != capturedGeneration ||
+                                (down.type == PointerType.Touch && event.changes.count { it.pressed && it.type == PointerType.Touch } > 1)) break
                             diagnostics?.inputObserved(1 + change.historical.size)
                             change.historical.forEach { historical ->
                                 observe(change.inkSample(historical.position, historical.uptimeMillis, false), historical.position)
@@ -255,7 +253,6 @@ internal actual fun PlatformInkLayer(
                             change.consume()
                             if (finished) break
                         }
-                        waitForPointersUp()
                         if (finished) {
                             val observation = gesture.observation(projected)
                             val request = observation.request()
@@ -280,10 +277,10 @@ internal actual fun PlatformInkLayer(
         }
     else Modifier.pointerInput(pageId, tool, penIndex, density, zoom, titleFloorDp) {
         try {
-            awaitEachGesture {
-                val down = awaitFirstDown()
-                if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
-                if (down.position.y < titleFloorDp * density) return@awaitEachGesture
+            awaitEachInkGesture {
+                val down = awaitInkDown()
+                if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachInkGesture
+                if (down.position.y < titleFloorDp * density) return@awaitEachInkGesture
                 inkInputActive = true
                 diagnostics?.inputObserved()
                 val capturedTool = currentPen
@@ -318,7 +315,8 @@ internal actual fun PlatformInkLayer(
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id }
-                        if (change == null || change.isConsumed || event.changes.count { it.pressed } > 1) break
+                        if (change == null || change.isConsumed ||
+                            (down.type == PointerType.Touch && event.changes.count { it.pressed && it.type == PointerType.Touch } > 1)) break
                         val finished = change.changedToUpIgnoreConsumed() ||
                             (down.type == PointerType.Mouse && !event.buttons.isPrimaryPressed)
                         if (hold?.spent != true) {
@@ -389,8 +387,20 @@ private class InkGestureTiming {
     fun uptime(): Long = eventUptime + (System.nanoTime() - startNanos) / 1_000_000L
 }
 
-private suspend fun AwaitPointerEventScope.waitForPointersUp() {
-    while (currentEvent.changes.any { it.pressed }) awaitPointerEvent(PointerEventPass.Final)
+/** A resting hand does not have to lift between pen strokes, including while holding the ruler. */
+private suspend fun PointerInputScope.awaitEachInkGesture(block: suspend AwaitPointerEventScope.() -> Unit) {
+    awaitPointerEventScope { while (true) block() }
+}
+
+private suspend fun AwaitPointerEventScope.awaitInkDown(): PointerInputChange {
+    while (true) {
+        val event = awaitPointerEvent()
+        val downs = event.changes.filter { it.changedToDown() }
+        downs.firstOrNull { it.type == PointerType.Stylus || it.type == PointerType.Eraser }?.let { return it }
+        downs.firstOrNull { it.type == PointerType.Mouse ||
+            event.changes.none { change -> change.pressed && (change.type == PointerType.Stylus || change.type == PointerType.Eraser) }
+        }?.let { return it }
+    }
 }
 
 private fun PointerInputChange.inkSample(

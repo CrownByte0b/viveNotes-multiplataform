@@ -40,6 +40,9 @@ internal class X11TouchSource(
     private var connection: MemorySegment = MemorySegment.NULL
     private var inputOpcode = -1
     private var refused = false
+    private var pens = emptyMap<Int, X11PenDevice>()
+    private val penDown = mutableSetOf<Int>()
+    private var hierarchyRoot = 0
 
     fun start() {
         Thread(::run, "vivenotes-x11-touch").apply { isDaemon = true }.start()
@@ -63,6 +66,7 @@ internal class X11TouchSource(
                 check(!extension.isNull && extension.get(JAVA_BYTE, 8).toInt() != 0) { "no XInput" }
                 inputOpcode = extension.get(JAVA_BYTE, 9).toInt() and 0xFF
                 checkVersion(arena)
+                discoverPens(arena)
                 val readable = Posix.Readable(arena, Xcb.fileDescriptor.invoke(connection) as Int)
                 log.event("touch") { "x11 touch listening" }
                 while (running) {
@@ -75,7 +79,11 @@ internal class X11TouchSource(
                         val event = Xcb.pollForEvent.invoke(connection) as MemorySegment
                         if (event.isNull) break
                         try {
-                            handle(event.reinterpret(EVENT_BYTES), arena)
+                            val header = event.reinterpret(EVENT_BYTES)
+                            val bytes = if (header.get(JAVA_BYTE, 0).toInt() and 0x7f == GENERIC_EVENT)
+                                maxOf(EVENT_BYTES, 36L + Integer.toUnsignedLong(header.get(JAVA_INT, 4)) * 4) else EVENT_BYTES
+                            check(bytes <= 1024 * 1024) { "Oversized XInput event" }
+                            handle(event.reinterpret(bytes), arena)
                         } finally {
                             Posix.free.invoke(event)
                         }
@@ -108,12 +116,43 @@ internal class X11TouchSource(
         val (xWindow, window) = request
         if (owners[xWindow] === window) return
         owners[xWindow] = window
-        // Touch from every master device, on this window.
-        val mask = arena.allocate(8)
+        selectInput(xWindow, arena)
+        // Children made later, such as a canvas the window adds, are selected when they appear.
+        val structure = arena.allocate(4).apply { set(JAVA_INT, 0, SUBSTRUCTURE_NOTIFY) }
+        Xcb.changeAttributes.invoke(arena, connection, xWindow, EVENT_MASK_ATTRIBUTE, structure)
+        val treeCookie = Xcb.queryTree.invoke(arena, connection, xWindow) as MemorySegment
+        val tree = Xcb.queryTreeReply.invoke(connection, treeCookie, MemorySegment.NULL) as MemorySegment
+        if (tree.isNull) return
+        try {
+            val root = tree.reinterpret(32).get(JAVA_INT, 8)
+            if (root != hierarchyRoot) {
+                val mask = arena.allocate(8)
+                mask.set(JAVA_SHORT, 0, 0)
+                mask.set(JAVA_SHORT, 2, 1)
+                mask.set(JAVA_INT, 4, 1 shl 11)
+                Xcb.selectEvents.invoke(arena, connection, root, 1.toShort(), mask)
+                hierarchyRoot = root
+            }
+            val count = Xcb.treeChildrenLength.invoke(tree) as Int
+            val children = (Xcb.treeChildren.invoke(tree) as MemorySegment).reinterpret(count * 4L)
+            for (index in 0 until count) requests += children.getAtIndex(JAVA_INT, index.toLong()) to window
+        } finally {
+            Posix.free.invoke(tree)
+        }
+    }
+
+    private fun selectInput(xWindow: Int, arena: Arena) {
+        val mask = arena.allocate((1L + pens.size) * 8)
         mask.set(JAVA_SHORT, 0, ALL_MASTER_DEVICES)
         mask.set(JAVA_SHORT, 2, 1)
         mask.set(JAVA_INT, 4, TOUCH_EVENTS)
-        val cookie = Xcb.selectEvents.invoke(arena, connection, xWindow, 1.toShort(), mask) as MemorySegment
+        pens.keys.forEachIndexed { index, id ->
+            val at = (index + 1) * 8L
+            mask.set(JAVA_SHORT, at, id.toShort())
+            mask.set(JAVA_SHORT, at + 2, 1)
+            mask.set(JAVA_INT, at + 4, (1 shl 4) or (1 shl 5) or (1 shl 6))
+        }
+        val cookie = Xcb.selectEvents.invoke(arena, connection, xWindow, (1 + pens.size).toShort(), mask) as MemorySegment
         val error = Xcb.requestCheck.invoke(connection, cookie) as MemorySegment
         if (!error.isNull) {
             val code = error.reinterpret(2).get(JAVA_BYTE, 1).toInt()
@@ -123,26 +162,62 @@ internal class X11TouchSource(
             refused = true
             return
         }
-        // Children made later, such as a canvas the window adds, are selected when they appear.
-        val structure = arena.allocate(4).apply { set(JAVA_INT, 0, SUBSTRUCTURE_NOTIFY) }
-        Xcb.changeAttributes.invoke(arena, connection, xWindow, EVENT_MASK_ATTRIBUTE, structure)
-        val treeCookie = Xcb.queryTree.invoke(arena, connection, xWindow) as MemorySegment
-        val tree = Xcb.queryTreeReply.invoke(connection, treeCookie, MemorySegment.NULL) as MemorySegment
-        if (tree.isNull) return
+    }
+
+    private fun discoverPens(arena: Arena) {
+        val cookie = Xcb.queryDevice.invoke(arena, connection, 0.toShort()) as MemorySegment
+        val reply = Xcb.queryDeviceReply.invoke(connection, cookie, MemorySegment.NULL) as MemorySegment
+        check(!reply.isNull) { "XInput device discovery failed" }
         try {
-            val count = Xcb.treeChildrenLength.invoke(tree) as Int
-            val children = (Xcb.treeChildren.invoke(tree) as MemorySegment).reinterpret(count * 4L)
-            for (index in 0 until count) requests += children.getAtIndex(JAVA_INT, index.toLong()) to window
-        } finally {
-            Posix.free.invoke(tree)
-        }
+            val size = 32L + Integer.toUnsignedLong(reply.reinterpret(12).get(JAVA_INT, 4)) * 4
+            check(size <= 1024 * 1024) { "Oversized XInput device list" }
+            pens = x11PenDevices(reply.reinterpret(size).toArray(JAVA_BYTE)) { atom ->
+                if (atom == 0) "" else atomName(atom, arena)
+            }.associateBy { it.id }
+            log.event("input") { "x11 pen devices discovered: ${pens.size}" }
+        } finally { Posix.free.invoke(reply) }
+    }
+
+    private fun atomName(atom: Int, arena: Arena): String {
+        val cookie = Xcb.getAtomName.invoke(arena, connection, atom) as MemorySegment
+        val reply = Xcb.getAtomNameReply.invoke(connection, cookie, MemorySegment.NULL) as MemorySegment
+        if (reply.isNull) return ""
+        try {
+            val length = reply.reinterpret(10).get(JAVA_SHORT, 8).toInt() and 0xffff
+            return reply.reinterpret(32L + length).asSlice(32, length.toLong()).toArray(JAVA_BYTE).decodeToString()
+        } finally { Posix.free.invoke(reply) }
     }
 
     private fun handle(event: MemorySegment, arena: Arena) {
         when (event.get(JAVA_BYTE, 0).toInt() and 0x7F) {
             GENERIC_EVENT -> {
                 if ((event.get(JAVA_BYTE, 1).toInt() and 0xFF) != inputOpcode) return
-                val phase = when (event.get(JAVA_SHORT, 8).toInt()) {
+                val eventType = event.get(JAVA_SHORT, 8).toInt()
+                if (eventType == 11) {
+                    frames.flush()
+                    onFrame(TouchFrame(clock.millis(event.get(JAVA_INT, 12)), emptyList(), cancelled = true))
+                    penDown.clear()
+                    discoverPens(arena)
+                    owners.keys.forEach { selectInput(it, arena) }
+                    return
+                }
+                if (eventType in 4..6) {
+                    val id = event.get(JAVA_SHORT, 56).toInt() and 0xffff
+                    val pen = pens[id] ?: return
+                    if (eventType != 6 && event.get(JAVA_INT, 16) != 1) return
+                    val phase = when (eventType) {
+                        4 -> { penDown += id; TouchPhase.Down }
+                        5 -> { if (!penDown.remove(id)) return; TouchPhase.Up }
+                        else -> { if (id !in penDown) return; TouchPhase.Move }
+                    }
+                    val pressure = pen.observe(event.asByteBuffer().order(java.nio.ByteOrder.nativeOrder()))
+                    val window = owners[event.get(JAVA_INT, 24)] ?: return
+                    frames.add(TouchChange(Long.MIN_VALUE or id.toLong(), phase, window,
+                        event.get(JAVA_INT, 36) / 65536.0, event.get(JAVA_INT, 40) / 65536.0, pen.type, pressure),
+                        clock.millis(event.get(JAVA_INT, 12)))
+                    return
+                }
+                val phase = when (eventType) {
                     TOUCH_BEGIN -> TouchPhase.Down
                     TOUCH_UPDATE -> TouchPhase.Move
                     TOUCH_END -> TouchPhase.Up
@@ -192,6 +267,10 @@ internal class X11TouchSource(
             FunctionDescriptor.of(ADDRESS, ADDRESS, cookie, ADDRESS))
         val selectEvents = function(input, "xcb_input_xi_select_events_checked",
             FunctionDescriptor.of(cookie, ADDRESS, JAVA_INT, JAVA_SHORT, ADDRESS))
+        val queryDevice = function(input, "xcb_input_xi_query_device", FunctionDescriptor.of(cookie, ADDRESS, JAVA_SHORT))
+        val queryDeviceReply = function(input, "xcb_input_xi_query_device_reply", FunctionDescriptor.of(ADDRESS, ADDRESS, cookie, ADDRESS))
+        val getAtomName = function(core, "xcb_get_atom_name", FunctionDescriptor.of(cookie, ADDRESS, JAVA_INT))
+        val getAtomNameReply = function(core, "xcb_get_atom_name_reply", FunctionDescriptor.of(ADDRESS, ADDRESS, cookie, ADDRESS))
     }
 
     companion object {

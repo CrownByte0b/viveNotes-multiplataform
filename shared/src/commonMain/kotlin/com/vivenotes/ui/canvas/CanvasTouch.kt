@@ -72,14 +72,15 @@ internal interface CanvasTouchActions {
  */
 internal fun Modifier.canvasTouchGestures(actions: State<CanvasTouchActions>): Modifier =
     pointerInput(Unit) {
-        var lastTapTime = -1L
-        var lastTapPosition = Offset.Zero
+        val taps = CanvasDoubleTap(viewConfiguration.doubleTapMinTimeMillis, viewConfiguration.doubleTapTimeoutMillis,
+            viewConfiguration.touchSlop)
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-            if (down.type != PointerType.Touch || down.isConsumed) return@awaitEachGesture
+            if (down.type != PointerType.Touch || down.isConsumed) { taps.cancel(); return@awaitEachGesture }
             val handler = actions.value
             handler.stopFling()
             val role = handler.roleAt(down.position)
+            if (role == FingerRole.Pan) taps.begin(down.type, down.uptimeMillis, down.position) else taps.cancel()
             // The tool would start on the press, so a finger that may not use it takes the press too.
             if (role == FingerRole.Pan) down.consume()
             val slop = viewConfiguration.touchSlop
@@ -97,6 +98,12 @@ internal fun Modifier.canvasTouchGestures(actions: State<CanvasTouchActions>): M
                 val event = awaitPointerEvent(PointerEventPass.Initial)
                 val touches = event.changes.filter { it.type == PointerType.Touch }
                 val pressed = touches.filter { it.pressed }
+                if (event.changes.any { it.pressed && (it.type == PointerType.Stylus || it.type == PointerType.Eraser) }) {
+                    touches.forEach { it.consume() }
+                    panning = false
+                    taps.cancel()
+                    break
+                }
                 if (pressed.isEmpty()) {
                     lastUp = touches.firstOrNull { it.id == down.id }
                     // The lift too, as Android's tracker has it: a finger that came to rest before
@@ -106,6 +113,7 @@ internal fun Modifier.canvasTouchGestures(actions: State<CanvasTouchActions>): M
                     break
                 }
                 if (pressed.size >= 2 || pinching) {
+                    taps.cancel()
                     // A second finger is a pinch, never a fling: the hand has not let go.
                     panning = false
                     if (pressed.size >= 2) {
@@ -128,6 +136,7 @@ internal fun Modifier.canvasTouchGestures(actions: State<CanvasTouchActions>): M
                     continue
                 }
                 val finger = pressed.single()
+                taps.move(finger.position)
                 if (role != FingerRole.Pan && role != FingerRole.PanAfterSlop) continue
                 panFinger = finger.id
                 velocity.addPointerInputChange(finger)
@@ -152,16 +161,9 @@ internal fun Modifier.canvasTouchGestures(actions: State<CanvasTouchActions>): M
                 handler.fling(released.x, released.y)
             } else if (role == FingerRole.Pan && !pinching && !wandered && lastUp != null) {
                 val up = lastUp
-                val interval = up.uptimeMillis - lastTapTime
-                val close = (up.position - lastTapPosition).getDistance() <= slop * 2
-                if (lastTapTime >= 0 && close &&
-                    interval in viewConfiguration.doubleTapMinTimeMillis..viewConfiguration.doubleTapTimeoutMillis) {
-                    lastTapTime = -1L
+                if (taps.end(up.uptimeMillis, up.position)) {
                     handler.doubleTap(up.position)
-                } else {
-                    lastTapTime = up.uptimeMillis
-                    lastTapPosition = up.position
                 }
-            }
+            } else taps.cancel()
         }
     }

@@ -28,11 +28,20 @@ internal class TouchAwareEventQueue : EventQueue() {
     /** Whether a finger is down on any of the app's windows. */
     var touching = false
 
+    /** Sources which deliver primary input themselves; leave other windows and buttons to AWT. */
+    val nativeMouseWindows = mutableMapOf<Window, () -> Boolean>()
+
     /** The cursor while it is inside a window and has not been sent away; null otherwise. */
     var mouse: MouseAt? = null
         private set
 
     override fun dispatchEvent(event: AWTEvent) {
+        if (event is MouseEvent && (event.id == MouseEvent.MOUSE_DRAGGED &&
+                event.modifiersEx and MouseEvent.BUTTON1_DOWN_MASK != 0 ||
+                event.button == MouseEvent.BUTTON1 && event.id in PRIMARY)) {
+            val window = event.component as? Window ?: SwingUtilities.getWindowAncestor(event.component)
+            if (nativeMouseWindows[window]?.invoke() == true) return
+        }
         if (event is MouseEvent && event.id in HOVER) {
             if (touching) return
             track(event)
@@ -55,6 +64,7 @@ internal class TouchAwareEventQueue : EventQueue() {
 
     companion object {
         private val HOVER = setOf(MouseEvent.MOUSE_MOVED, MouseEvent.MOUSE_ENTERED, MouseEvent.MOUSE_EXITED)
+        private val PRIMARY = setOf(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)
         private var installed: TouchAwareEventQueue? = null
 
         /** The process's queue, pushed onto AWT's the first time touch is set up. */

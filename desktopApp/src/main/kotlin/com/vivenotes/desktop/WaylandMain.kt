@@ -50,6 +50,7 @@ internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: De
         frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame), notes.notebookFiles(frame),
             notes.pdfExporter(frame), log, profile, onDarkThemeChange = { titleBar.dark = it }))
         frame.isVisible = true
+        DesktopTouch.attachPointers(frame, log)
         // The panel makes its drop target as it is shown.
         CopyOnlyDrops.install(frame, log)
     }

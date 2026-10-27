@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.PointerButtons
 import androidx.compose.ui.scene.ComposeScene
 import androidx.compose.ui.scene.ComposeScenePointer
 import com.vivenotes.diagnostics.DebugLog
@@ -35,6 +36,10 @@ internal class ComposeTouchInjector(
     private val mouse: TouchAwareEventQueue = TouchAwareEventQueue.install(),
 ) {
     private val tracker = TouchPointerTracker(::targetAt)
+
+    fun hasComposeContent(component: Component): Boolean =
+        component.mouseListeners.any { it.javaClass.name == "androidx.compose.ui.scene.ComposeSceneMediator\$mouseListener\$1" } ||
+            component is java.awt.Container && component.components.any(::hasComposeContent)
 
     fun accept(frame: TouchFrame) {
         for (dispatch in tracker.accept(frame)) {
@@ -93,10 +98,12 @@ internal class ComposeTouchInjector(
                                 id = PointerId(pointer.pointerId),
                                 position = mapping(pointer.window, pointer.x, pointer.y),
                                 pressed = pointer.pressed,
-                                type = PointerType.Touch,
+                                type = pointer.type,
+                                pressure = pointer.pressure,
                             )
                         },
                         timeMillis = dispatch.timeMillis,
+                        buttons = PointerButtons(isPrimaryPressed = dispatch.pointers.any { it.type == PointerType.Mouse && it.pressed }),
                     )
                 }
             }

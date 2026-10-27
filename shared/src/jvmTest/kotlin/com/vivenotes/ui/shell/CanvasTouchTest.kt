@@ -215,6 +215,41 @@ class CanvasTouchTest {
 
     private var touchSlop = 0f
 
+    @Test
+    fun aSecondFingerCancelsAShapeEvenBeforeThePinchMoves() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = withShape().toggleShapeTool()
+        val original = observed.selectedPage!!.document
+        setCanvas(observed, input = InputSettings(drawWithFinger = true), onState = { observed = it })
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+            down(0, Offset(650f, 550f))
+            moveBy(0, Offset(80f, 40f), delayMillis = 100)
+            down(1, Offset(850f, 550f))
+            up(1)
+            up(0)
+        }
+        runOnIdle { assertEquals(original, observed.selectedPage!!.document, "the interrupted shape was discarded") }
+    }
+
+    @Test
+    fun aSecondFingerCancelsALassoWithoutSelectingAnything() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = withShape().copy(objectLassoArmed = true)
+        setCanvas(observed, input = InputSettings(drawWithFinger = true), onState = { observed = it })
+        val shape = bounds(WorkspaceTestTags.primeObject(SHAPE))
+        val start = Offset(shape.left.value - 30f, shape.top.value - 30f) - canvasOrigin()
+        val end = Offset(shape.right.value + 30f, shape.bottom.value + 30f) - canvasOrigin()
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+            down(0, start)
+            moveTo(0, Offset(end.x, start.y), delayMillis = 50)
+            moveTo(0, end, delayMillis = 50)
+            down(1, end + Offset(50f, 0f))
+            up(1)
+            moveTo(0, Offset(start.x, end.y), delayMillis = 50)
+            moveTo(0, start, delayMillis = 50)
+            up(0)
+        }
+        runOnIdle { assertTrue(observed.selectedObjectIds.isEmpty(), "the interrupted lasso was discarded") }
+    }
+
     private fun ComposeUiTest.setCanvas(
         initial: WorkspaceState,
         input: InputSettings = InputSettings(),

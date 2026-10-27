@@ -26,6 +26,7 @@ import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.model.ink.Ruler
 import com.vivenotes.model.ink.RulerPoint
 import com.vivenotes.ui.canvas.ObjectGrab
+import com.vivenotes.ui.canvas.CanvasDoubleTap
 import com.vivenotes.ui.canvas.PageExtent
 import com.vivenotes.ui.canvas.selectedCanvasBounds
 import com.vivenotes.ui.ribbon.draw.*
@@ -85,17 +86,20 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
     var lasso by drafts.rectangle
     var inkDragOffset by drafts.inkOffset
     var pastePoint by drafts.paste
-    var previousTapTime = 0L
-    var previousTapPoint = Offset.Zero
+    val taps = CanvasDoubleTap(viewConfiguration.doubleTapMinTimeMillis, viewConfiguration.doubleTapTimeoutMillis,
+        viewConfiguration.touchSlop)
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        taps.begin(down.type, down.uptimeMillis, down.position, acceptStylus = currentState.objectLassoArmed, acceptMouse = true)
         if (down.isConsumed || currentState.inkTool != null) {
+            taps.cancel()
             waitForUpOrCancellation(pass = PointerEventPass.Initial)
             return@awaitEachGesture
         }
         val start = toPage(down.position)
         if (currentRuler?.let { it.grabs(RulerPoint(start.x, start.y)) &&
             (down.type == PointerType.Touch || it.grabsDial(RulerPoint(start.x, start.y))) } == true) {
+            taps.cancel()
             waitForUpOrCancellation(pass = PointerEventPass.Initial)
             return@awaitEachGesture
         }
@@ -172,7 +176,12 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
         do {
             val event = awaitPointerEvent(PointerEventPass.Initial)
             val change = event.changes.firstOrNull { it.id == down.id } ?: break
-            if (finger && event.changes.count { it.pressed } > 1 && change.isConsumed) pinched = true
+            taps.move(change.position)
+            if (finger && (change.isConsumed || event.changes.count { it.pressed && it.type == PointerType.Touch } > 1)) {
+                pinched = true
+                taps.cancel()
+                break
+            }
             last = change
             if (inkHit != null && canMoveInk && (change.position - down.position).getDistance() >= 12.dp.toPx()) {
                 change.consume()
@@ -201,6 +210,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
             else (last.position - down.position).getDistance()
         val completedLoop = if (freehand && !pinched && distance >= 12.dp.toPx()) lassoPath.snapshot() else emptyList()
         lassoPath.clear()
+        var tapCandidate = false
         if (pinched) {
             shapeDraft = null
             lasso = null
@@ -245,14 +255,14 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
                 focusManager.clearFocus()
                 canvasFocusRequester.requestFocus()
             } else if (!handled && !hitsContent(point, currentState) && y >= titleFloor) {
+                tapCandidate = true
                 focusManager.clearFocus()
                 canvasFocusRequester.requestFocus()
                 // Beside a sheet that bounds the page there is nowhere to put anything.
                 val style = currentState.selectedPage?.document?.style
                 val placeable = style != null && currentExtent?.canPlaceAt(style, x, y) == true
-                val isDouble = placeable && !currentState.canvasClipboard.isEmpty &&
-                    last.uptimeMillis - previousTapTime in 1..350 &&
-                    (point - previousTapPoint).getDistance() < 32f
+                val doubleTap = taps.end(last.uptimeMillis, last.position)
+                val isDouble = placeable && !currentState.canvasClipboard.isEmpty && doubleTap
                 if (isDouble) {
                     pastePoint = point
                 } else {
@@ -262,9 +272,8 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
                     } else if (currentState.textToolArmed && placeable) currentCreate(x, y)
                     else currentClearCanvasFocus()
                 }
-                previousTapTime = last.uptimeMillis
-                previousTapPoint = point
             }
         }
+        if (!tapCandidate) taps.cancel()
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.isTertiaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import java.awt.GraphicsEnvironment
 import java.util.concurrent.CopyOnWriteArrayList
@@ -43,18 +44,133 @@ class ComposeTouchInjectorTest {
     private data class Seen(val type: String, val pointers: List<Triple<PointerType, Offset, Boolean>>)
 
     @OptIn(ExperimentalComposeUiApi::class)
-    private fun show(content: @androidx.compose.runtime.Composable () -> Unit): Pair<JFrame, ComposePanel> {
+    private fun show(width: Int = 400, height: Int = 300, content: @androidx.compose.runtime.Composable () -> Unit): Pair<JFrame, ComposePanel> {
         lateinit var panel: ComposePanel
         SwingUtilities.invokeAndWait {
             val window = JFrame("Touch injection test")
             panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
             window.contentPane.add(panel)
-            window.setSize(400, 300)
+            window.setSize(width, height)
             window.isVisible = true
             panel.setContent(content)
             frame = window
         }
         return frame!! to panel
+    }
+
+    @Test
+    fun nativeStylusPressureReachesSavedInkAndAPalmDoesNotCancelTheStroke() {
+        if (GraphicsEnvironment.isHeadless()) return
+        val state = androidx.compose.runtime.mutableStateOf(com.vivenotes.workspace.WorkspaceState.demo()
+            .toggleInkTool(com.vivenotes.workspace.InkTool.Pen))
+        val (window, panel) = show(1400, 900) {
+            com.vivenotes.ui.theme.ViveNotesTheme {
+                com.vivenotes.ui.shell.WorkspaceScreen(state.value, { state.value = it(state.value) })
+            }
+        }
+        waitUntil("the editor to lay out") { panel.width > 1000 && panel.isShowing }
+        // Layout and composition settle before the first native packet, as for a displayed editor.
+        Thread.sleep(500)
+        val injector = ComposeTouchInjector()
+        val source = NativePointerFrames(window, mouse = false, touch = false, emit = injector::accept)
+        lateinit var origin: java.awt.Point
+        SwingUtilities.invokeAndWait { origin = SwingUtilities.convertPoint(panel, 0, 0, window) }
+        fun sample(x: Float, time: Long, pressure: Float) = com.vivenotes.byteink.compose.InkPointerSample(
+            origin.x + x, origin.y + 600f, time, androidx.ink.brush.InputToolType.STYLUS, pressure)
+        SwingUtilities.invokeAndWait {
+            source.accept(com.vivenotes.byteink.compose.InkInputEvent.Begin(sample(800f, 100, .2f), 7))
+            source.accept(com.vivenotes.byteink.compose.InkInputEvent.Move(sample(820f, 120, .4f), 7))
+            injector.accept(TouchFrame(130, listOf(TouchChange(1, TouchPhase.Down, window, origin.x + 1000.0, origin.y + 700.0))))
+            source.accept(com.vivenotes.byteink.compose.InkInputEvent.Batch(listOf(sample(840f, 140, .6f), sample(860f, 160, .9f)), pointerId = 7))
+            source.accept(com.vivenotes.byteink.compose.InkInputEvent.Finish(sample(880f, 180, .5f), 7))
+            // The hand stays on the screen between strokes, as when writing on a tablet.
+            source.accept(com.vivenotes.byteink.compose.InkInputEvent.Begin(sample(900f, 200, .2f), 7))
+            source.accept(com.vivenotes.byteink.compose.InkInputEvent.Move(sample(920f, 220, .6f), 7))
+            source.accept(com.vivenotes.byteink.compose.InkInputEvent.Move(sample(940f, 240, .9f), 7))
+            source.accept(com.vivenotes.byteink.compose.InkInputEvent.Finish(sample(960f, 260, .5f), 7))
+            injector.accept(TouchFrame(270, listOf(TouchChange(1, TouchPhase.Up, window, 0.0, 0.0))))
+        }
+        waitUntil("the saved pen stroke") { state.value.pendingInkEdits.isNotEmpty() }
+        SwingUtilities.invokeAndWait {
+            assertEquals(2, state.value.pendingInkEdits.size, "a resting palm must not prevent the next pen stroke")
+            val edit = state.value.pendingInkEdits.first().edit as com.vivenotes.data.InkEdit.AddStroke
+            val inputs = com.vivenotes.ink.StrokeInputBatchCodec.decode(edit.row.points)
+            assertEquals(com.vivenotes.ink.StrokeInputs.ToolType.Stylus, inputs.toolType)
+            val pressure = checkNotNull(inputs.pressure)
+            assertTrue(pressure.any { kotlin.math.abs(it - .2f) < .02f }, pressure.toList().toString())
+            assertTrue(pressure.any { kotlin.math.abs(it - .9f) < .02f }, pressure.toList().toString())
+            assertTrue(pressure.any { kotlin.math.abs(it - .6f) < .02f }, "native history retained pressure")
+        }
+    }
+
+    @Test
+    fun x11PenCaptureKeepsPrimaryMouseClicksAndDoesNotDuplicateThem() {
+        if (GraphicsEnvironment.isHeadless() || java.awt.Toolkit.getDefaultToolkit().javaClass.name != "sun.awt.X11.XToolkit") return
+        val clicks = java.util.concurrent.atomic.AtomicInteger()
+        val (window, panel) = show { Box(Modifier.fillMaxSize().clickable { clicks.incrementAndGet() }) }
+        waitUntil("the panel to lay out") { panel.width > 0 && panel.isShowing }
+        SwingUtilities.invokeAndWait { DesktopPointerSource.attach(window, ComposeTouchInjector(), com.vivenotes.diagnostics.DebugLog()) }
+        SwingUtilities.invokeAndWait { DesktopTouch.attachX11(window, com.vivenotes.diagnostics.DebugLog()) }
+        Thread.sleep(200)
+        lateinit var origin: java.awt.Point
+        SwingUtilities.invokeAndWait { origin = panel.locationOnScreen }
+        java.awt.Robot().apply {
+            mouseMove(origin.x + 100, origin.y + 100)
+            delay(100)
+            mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK)
+            delay(100)
+            mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK)
+            waitForIdle()
+        }
+        waitUntil("one native click") { clicks.get() > 0 }
+        Thread.sleep(200)
+        assertEquals(1, clicks.get(), "AWT and native capture must not duplicate a click")
+    }
+
+    @Test
+    fun nativeCaptureLeavesSwingFileDialogsWithTheirOwnMouseInput() {
+        if (GraphicsEnvironment.isHeadless()) return
+        SwingUtilities.invokeAndWait {
+            val window = JFrame("Swing input")
+            frame = window
+            window.add(javax.swing.JButton("File chooser control"))
+            window.setSize(300, 200)
+            window.isVisible = true
+            DesktopPointerSource.attach(window, ComposeTouchInjector(), com.vivenotes.diagnostics.DebugLog())
+            assertTrue(window !in TouchAwareEventQueue.install().nativeMouseWindows)
+        }
+    }
+
+    @Test
+    fun x11PenCapturePreservesMiddleButtonDrags() {
+        if (GraphicsEnvironment.isHeadless() || java.awt.Toolkit.getDefaultToolkit().javaClass.name != "sun.awt.X11.XToolkit") return
+        val drags = CopyOnWriteArrayList<Offset>()
+        val seen = CopyOnWriteArrayList<String>()
+        val (window, panel) = show {
+            Box(Modifier.fillMaxSize().pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        seen += "${event.type}: ${event.buttons}, ${event.changes.first().position}"
+                        if (event.buttons.isTertiaryPressed) drags += event.changes.first().position
+                    }
+                }
+            })
+        }
+        waitUntil("the panel to lay out") { panel.width > 0 && panel.isShowing }
+        SwingUtilities.invokeAndWait { DesktopPointerSource.attach(window, ComposeTouchInjector(), com.vivenotes.diagnostics.DebugLog()) }
+        SwingUtilities.invokeAndWait { DesktopTouch.attachX11(window, com.vivenotes.diagnostics.DebugLog()) }
+        Thread.sleep(200)
+        lateinit var origin: java.awt.Point
+        SwingUtilities.invokeAndWait { origin = panel.locationOnScreen }
+        java.awt.Robot().apply {
+            mouseMove(origin.x + 100, origin.y + 100); delay(100)
+            mousePress(java.awt.event.InputEvent.BUTTON2_DOWN_MASK); delay(100)
+            mouseMove(origin.x + 180, origin.y + 120); delay(100)
+            mouseRelease(java.awt.event.InputEvent.BUTTON2_DOWN_MASK)
+            waitForIdle()
+        }
+        waitUntil("the middle-button drag ($seen)") { drags.any { it.x > 150f } }
     }
 
     private fun waitUntil(what: String, condition: () -> Boolean) {

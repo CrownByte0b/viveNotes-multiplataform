@@ -1,6 +1,7 @@
 package com.vivenotes.desktop.touch
 
 import java.awt.Window
+import androidx.compose.ui.input.pointer.PointerType
 
 /** What one contact did. */
 internal enum class TouchPhase { Down, Move, Up }
@@ -16,6 +17,8 @@ internal data class TouchChange(
     val window: Window?,
     val x: Double,
     val y: Double,
+    val type: PointerType = PointerType.Touch,
+    val pressure: Float = Float.NaN,
 )
 
 /**
@@ -27,6 +30,7 @@ internal data class TouchFrame(
     val timeMillis: Long,
     val changes: List<TouchChange>,
     val cancelled: Boolean = false,
+    val cancelledWindow: Window? = null,
 )
 
 /**

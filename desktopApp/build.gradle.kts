@@ -85,6 +85,8 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutinesSwing)
     implementation(libs.kotlinx.serialization.json)
+    val byteinkVersion = providers.gradleProperty("byteinkVersion").orElse("0.1.0-SNAPSHOT").get()
+    implementation("com.vivenotes.byteink:byteink-compose:$byteinkVersion")
 
     implementation(libs.compose.uiToolingPreview)
 

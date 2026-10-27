@@ -1,9 +1,11 @@
 package com.vivenotes.desktop.touch
 
 import java.awt.Window
+import androidx.compose.ui.input.pointer.PointerType
 
 /** A contact as Compose sees it: a pointer of its own, at a point in its window. */
-internal data class TouchPointer(val pointerId: Long, val window: Window, val x: Double, val y: Double, val pressed: Boolean)
+internal data class TouchPointer(val pointerId: Long, val window: Window, val x: Double, val y: Double, val pressed: Boolean,
+    val type: PointerType = PointerType.Touch, val pressure: Float = Float.NaN)
 
 internal enum class TouchEventType { Press, Move, Release }
 
@@ -35,18 +37,20 @@ internal class TouchPointerTracker<T : Any>(
     private val resolve: (Window, Double, Double) -> T?,
     private var nextPointerId: Long = FIRST_POINTER_ID,
 ) {
-    private class Contact<T>(val pointerId: Long, val target: T, var window: Window, var x: Double, var y: Double)
+    private class Contact<T>(val pointerId: Long, val target: T, var window: Window, var x: Double, var y: Double,
+        val type: PointerType, var pressure: Float)
 
     private val contacts = LinkedHashMap<Long, Contact<T>>()
-    private val ignored = mutableSetOf<Long>()
+    private val ignored = mutableMapOf<Long, Window>()
 
     val active: Boolean get() = contacts.isNotEmpty()
 
     fun accept(frame: TouchFrame): List<TouchDispatch<T>> {
         if (frame.cancelled) {
-            val targets = contacts.values.map { it.target }.distinct()
-            contacts.clear()
-            ignored.clear()
+            val targets = contacts.values.filter { frame.cancelledWindow == null || it.window === frame.cancelledWindow }
+                .map { it.target }.distinct()
+            contacts.values.removeAll { it.target in targets }
+            ignored.entries.removeAll { frame.cancelledWindow == null || it.value === frame.cancelledWindow }
             return targets.map { TouchDispatch.Cancel(it) }
         }
         val out = mutableListOf<TouchDispatch<T>>()
@@ -62,10 +66,10 @@ internal class TouchPointerTracker<T : Any>(
                     val target = contacts.values.firstOrNull { it.window === window }?.target
                         ?: resolve(window, change.x, change.y)
                     if (target == null) {
-                        ignored += change.id
+                        ignored[change.id] = window
                         continue
                     }
-                    contacts[change.id] = Contact(nextPointerId++, target, window, change.x, change.y)
+                    contacts[change.id] = Contact(nextPointerId++, target, window, change.x, change.y, change.type, change.pressure)
                     pressed += target
                 }
                 TouchPhase.Move -> {
@@ -73,11 +77,17 @@ internal class TouchPointerTracker<T : Any>(
                     contact.window = change.window ?: contact.window
                     contact.x = change.x
                     contact.y = change.y
+                    contact.pressure = change.pressure
                     moved += contact.target
                 }
                 TouchPhase.Up -> {
-                    if (ignored.remove(change.id)) continue
+                    if (ignored.remove(change.id) != null) continue
                     val contact = contacts[change.id] ?: continue
+                    if (change.type != PointerType.Touch) {
+                        contact.x = change.x
+                        contact.y = change.y
+                        contact.pressure = change.pressure
+                    }
                     released.getOrPut(contact.target) { mutableListOf() } += contact
                 }
             }
@@ -103,7 +113,7 @@ internal class TouchPointerTracker<T : Any>(
         TouchDispatch.Event(target, type, pointersOf(target).filter(include), time)
 
     private fun pointersOf(target: T): List<TouchPointer> = contacts.values.filter { it.target == target }
-        .map { TouchPointer(it.pointerId, it.window, it.x, it.y, pressed = true) }
+        .map { TouchPointer(it.pointerId, it.window, it.x, it.y, pressed = true, it.type, it.pressure) }
 
     companion object {
         /** Clear of the mouse's pointer, which Compose numbers from zero. */

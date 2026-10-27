@@ -104,14 +104,15 @@ internal suspend fun PointerInputScope.detectRulerGestures(
             var hand = setOf(down.id)
             while (true) {
                 val event = awaitPointerEvent(PointerEventPass.Initial)
-                val pressed = event.changes.filter { it.pressed }
-                event.changes.forEach { it.consume() }
+                val handEvent = PointerEvent(event.changes.filter { it.type == down.type })
+                val pressed = handEvent.changes.filter { it.pressed }
+                handEvent.changes.forEach { it.consume() }
                 if (pressed.isEmpty()) break
                 val centroid = pressed.fold(Offset.Zero) { total, p -> total + p.position } / pressed.size.toFloat()
                 val ids = pressed.mapTo(mutableSetOf()) { it.id }
                 if (ids != hand) { hand = ids; anchor = centroid; travelled = true } else {
                     var next = rulerAt() ?: start
-                    if (pressed.size >= 2) next = next.turnedBy(event.calculateRotation() * PI.toFloat() / 180f)
+                    if (pressed.size >= 2) next = next.turnedBy(handEvent.calculateRotation() * PI.toFloat() / 180f)
                     if (centroid != anchor) {
                         val delta = toPage(centroid) - toPage(anchor)
                         next = next.movedBy(delta.x, delta.y)

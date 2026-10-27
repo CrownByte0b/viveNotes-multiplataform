@@ -83,6 +83,22 @@ internal object DesktopTouch {
 
     private fun injector(log: DebugLog): ComposeTouchInjector = injector ?: ComposeTouchInjector(log).also { injector = it }
 
+    fun attachPointers(window: Window, log: DebugLog) {
+        if (!enabled) return
+        if (!observingWindows) {
+            observingWindows = true
+            window.toolkit.addAWTEventListener({ event ->
+                if (event is WindowEvent && event.id == WindowEvent.WINDOW_OPENED) {
+                    attachX11(event.window, log)
+                    DesktopPointerSource.attach(event.window, injector(log), log)
+                }
+            }, java.awt.AWTEvent.WINDOW_EVENT_MASK)
+        }
+        DesktopPointerSource.attach(window, injector(log), log)
+    }
+
+    private var observingWindows = false
+
     private var touched = false
 
     /** Once per run: the first touch, which shows the platform delivers them at all. */
