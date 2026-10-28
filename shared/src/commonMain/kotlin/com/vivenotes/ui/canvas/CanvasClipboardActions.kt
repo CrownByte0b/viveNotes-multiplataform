@@ -1,6 +1,9 @@
 package com.vivenotes.ui.canvas
 
 import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.vivenotes.data.CanvasClipboardSource
 import com.vivenotes.data.ClipboardContent
 import com.vivenotes.data.ClipboardHtml
@@ -12,7 +15,8 @@ import com.vivenotes.richtext.CanvasPasteItem
 import com.vivenotes.richtext.canvasPasteItems
 import com.vivenotes.richtext.plainPasteBlocks
 import com.vivenotes.workspace.WorkspaceState
-import com.vivenotes.workspace.primeHeight
+import com.vivenotes.workspace.stackPastedOutlines
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +36,12 @@ internal class CanvasClipboardActions(
 ) {
     private val source get() = html as? CanvasClipboardSource
     private val pasteLock = Mutex()
+    var pendingLayout by mutableStateOf<CanvasPasteLayoutRequest?>(null)
+        private set
+
+    fun completeLayout(request: CanvasPasteLayoutRequest, heights: Map<String, Float>) {
+        if (pendingLayout === request) request.result.complete(stackPastedOutlines(request.outlines, heights))
+    }
 
     fun useInternal(): Boolean = !state().canvasClipboard.isEmpty && (source?.ownsInternalCopy() != false)
 
@@ -48,7 +58,6 @@ internal class CanvasClipboardActions(
                     val content = source?.readContent() ?: ClipboardContent(clipboard.getText()?.text, html?.read())
                     val items = withContext(Dispatchers.Default) { canvasPasteItems(content, marks) }
                     val outlines = mutableListOf<Outline>()
-                    var top = 0f
                     for (item in items) {
                         val outline = when (item) {
                             is CanvasPasteItem.Text -> {
@@ -73,25 +82,24 @@ internal class CanvasClipboardActions(
                                 }
                             }
                         } ?: continue
-                        val placed = when (outline) {
-                            is Outline.Text -> outline.copy(y = top)
-                            is Outline.Table -> outline.copy(y = top)
-                            is Outline.Image -> outline.copy(y = top)
-                            else -> outline
-                        }
-                        outlines += placed
-                        top += if (placed is Outline.Text) {
-                            placed.blocks.sumOf { block -> (block.text.length / 60 + 1).coerceAtLeast(1) } *
-                                before.fontSizeChoice * 1.5f + 24f
-                        } else placed.primeHeight() + 24f
+                        outlines += outline
                     }
-                    if (outlines.isNotEmpty()) change { it.insertClipboardOutlines(pageId, outlines, x, y) }
+                    val placed = if (outlines.size < 2) outlines else {
+                        val request = CanvasPasteLayoutRequest(outlines)
+                        pendingLayout = request
+                        request.result.await()
+                    }
+                    if (placed.isNotEmpty()) change { it.insertClipboardOutlines(pageId, placed, x, y) }
                     log.event("clipboard") { "canvas paste: prepared ${outlines.size} objects" }
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (error: Exception) {
                     log.event("clipboard") { "canvas paste failed: ${error::class.simpleName}" }
-                }
+                } finally { pendingLayout = null }
             }
         }
     }
+}
+
+internal class CanvasPasteLayoutRequest(val outlines: List<Outline>) {
+    val result = CompletableDeferred<List<Outline>>()
 }

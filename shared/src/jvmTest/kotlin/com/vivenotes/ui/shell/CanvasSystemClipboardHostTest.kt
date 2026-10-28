@@ -9,6 +9,8 @@ import androidx.compose.ui.awt.RenderSettings
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import com.vivenotes.data.AttachmentStore
 import com.vivenotes.data.HtmlSelection
 import com.vivenotes.data.ImportedPicture
@@ -18,6 +20,8 @@ import com.vivenotes.data.db.NotesDatabase
 import com.vivenotes.model.Outline
 import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.CANVAS_PASTE_MARGIN
+import com.vivenotes.workspace.TABLE_GUTTER
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeFalse
 import java.awt.GraphicsEnvironment
@@ -103,10 +107,35 @@ class CanvasSystemClipboardHostTest {
             waitFor { state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>().any {
                 it.blocks.any { block -> block.text == "Native clipboard text" }
             } }
-            paste(HtmlSelection("<table><tr><th>Column</th></tr><tr><td>Native cell</td></tr></table>", "Column\nNative cell"))
+            paste(HtmlSelection("<p>Before table</p><table><tr><th>Column</th></tr><tr><td>Native cell</td></tr></table><p>After table</p>",
+                "Before table\nColumn\nNative cell\nAfter table"))
             waitFor { state.value.selectedPage!!.document.outlines.any { it is Outline.Table } }
+            waitFor {
+                val tags = panel.semanticsOwners.flatMap { it.getAllSemanticsNodes(false) }
+                    .mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }.toSet()
+                state.value.selectedPage!!.document.outlines.takeLast(3).all {
+                    (if (it is Outline.Text) WorkspaceTestTags.textBox(it.id)
+                    else WorkspaceTestTags.primeObject(it.id)) in tags
+                }
+            }
             onEdt {
                 assertEquals("Native cell", state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single().cellAt(1, 0)!!.plainText)
+                val pasted = state.value.selectedPage!!.document.outlines.takeLast(3)
+                fun bounds(outline: Outline): Rect {
+                    val tag = if (outline is Outline.Text) WorkspaceTestTags.textBox(outline.id)
+                        else WorkspaceTestTags.primeObject(outline.id)
+                    val node = panel.semanticsOwners.flatMap { it.getAllSemanticsNodes(false) }.first {
+                        it.config.getOrNull(SemanticsProperties.TestTag) == tag
+                    }
+                    val coordinates = node.layoutInfo.coordinates
+                    return Rect(coordinates.localToRoot(Offset.Zero), coordinates.localToRoot(
+                        Offset(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())))
+                }
+                pasted.zipWithNext().forEach { (before, after) ->
+                    val nextTop = bounds(after).top - if (after is Outline.Table) TABLE_GUTTER else 0f
+                    assertEquals(CANVAS_PASTE_MARGIN, nextTop - bounds(before).bottom, 1f)
+                }
+                state.value = state.value.selectObject(pasted.filterIsInstance<Outline.Table>().single().id)
             }
             ctrl(KeyEvent.VK_C)
             waitFor { source.ownsInternalCopy() }

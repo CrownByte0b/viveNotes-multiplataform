@@ -30,6 +30,7 @@ import com.vivenotes.workspace.applyPreparedInkGeometry
 import com.vivenotes.ui.canvas.LocalInkGeometryPublisher
 import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.ui.canvas.CanvasClipboardActions
+import com.vivenotes.ui.canvas.CanvasPasteMeasurement
 import com.vivenotes.data.CanvasClipboardSource
 
 @Composable
@@ -211,5 +212,8 @@ internal fun WorkspacePage(
             }
         },
     )
+    canvasClipboard.pendingLayout?.let { request ->
+        CanvasPasteMeasurement(request, thumbnails) { canvasClipboard.completeLayout(request, it) }
+    }
     }
 }
