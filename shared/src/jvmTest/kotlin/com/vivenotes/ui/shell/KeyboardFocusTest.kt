@@ -11,6 +11,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -71,8 +72,9 @@ class KeyboardFocusTest {
     }
 
     /**
-     * Regression: Esc ended the editing but the text field kept the keyboard, so Ctrl+Z undid the
-     * text instead of the canvas and typing went on into the box.
+     * Regression: Esc ended the editing but the text field kept the keyboard, so Ctrl+Z went to the
+     * field's own undo and typing went on into the box. Since text is in the workspace's history,
+     * Ctrl+Z after Esc takes back the typing first, then the canvas's move.
      */
     @Test
     fun afterEscTheTextBoxNoLongerTakesKeys() = runDesktopComposeUiTest(width = 1400, height = 900) {
@@ -89,20 +91,26 @@ class KeyboardFocusTest {
         var observed = withShape.selectObject(shape.id).moveSelectedObjects(40f, 0f)
         setWorkspace(observed) { observed = it }
         onNodeWithTag(WorkspaceTestTags.BodyEditor).performClick()
-        // Something for the field's own undo to take back, were Ctrl+Z to reach it.
+        val untyped = runOnIdle { observed.richText!!.text }
         onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextInput("q")
-        val typed = runOnIdle { observed.richText!!.text }
 
         press(Key.Escape)
         runOnIdle { assertEquals(null, observed.focusedTextOutlineId) }
+        onNodeWithTag(WorkspaceTestTags.BodyEditor).assertIsNotFocused()
+        fun shapeX() = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>()
+            .first { it.id == shape.id }.x
+        fun bodyText() = RichTextBuffer(observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
+            .first { it.id == observed.bodyTextOutline?.id }.blocks).text
         ctrl(Key.Z)
         runOnIdle {
-            assertEquals(300f, observed.selectedPage!!.document.outlines
-                .filterIsInstance<Outline.Shape>().first { it.id == shape.id }.x, "Ctrl+Z did not undo the canvas")
-            assertEquals(null, observed.focusedTextOutlineId, "Ctrl+Z went back into the text box")
-            val body = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>()
-                .first { it.id == observed.bodyTextOutline?.id }
-            assertEquals(typed, RichTextBuffer(body.blocks).text, "Ctrl+Z undid the text")
+            assertEquals(untyped, bodyText(), "Ctrl+Z did not take back the typing")
+            assertEquals(340f, shapeX(), "one Ctrl+Z undid two steps")
+        }
+        ctrl(Key.Z)
+        runOnIdle {
+            assertEquals(300f, shapeX(), "Ctrl+Z did not undo the canvas")
+            assertEquals(null, observed.focusedTextOutlineId, "undoing the canvas left the text box being edited")
+            assertEquals(untyped, bodyText())
         }
     }
 

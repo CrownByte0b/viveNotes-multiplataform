@@ -48,6 +48,7 @@ import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.ui.components.ToolPaneWidth
 import com.vivenotes.ui.keyboard.ShortcutKeys
 import com.vivenotes.ui.keyboard.TextInputSessions
+import com.vivenotes.ui.keyboard.isTextFieldUndo
 import com.vivenotes.ui.navigation.NavigationDividerWidth
 import com.vivenotes.ui.navigation.NavigationRequests
 import com.vivenotes.ui.navigation.SectionTabsBar
@@ -241,8 +242,8 @@ internal fun WorkspaceContent(
                 },
                 canUndo = state.structuralUndo.isNotEmpty(),
                 canRedo = state.structuralRedo.isNotEmpty(),
-                onUndo = { onStateChange { it.undoStructure() } },
-                onRedo = { onStateChange { it.redoStructure() } },
+                onUndo = { shortcuts.undo() },
+                onRedo = { shortcuts.redo() },
                 accountConnected = accountConnected,
                 serverUnreachable = serverUnreachable,
                 onOpenAccount = onOpenAccount,
@@ -341,7 +342,10 @@ internal fun WorkspaceContent(
                             canvasDark = canvasDark,
                             showMargins = openPane == DockedPane.PaperSize,
                             onZoomChange = { zoom -> currentOnViewChange(currentView.copy(zoom = zoom).normalized()) },
-                            onTextShortcut = { event -> shortcutKeys.dispatch(event, currentBindings, ShortcutScope.TextBox, shortcuts::run) },
+                            onTextShortcut = { event ->
+                                shortcutKeys.dispatch(event, currentBindings, ShortcutScope.TextBox, shortcuts::run) ||
+                                    event.isTextFieldUndo()
+                            },
                             editorFocusRequester = editorFocusRequester,
                             canvasFocusRequester = canvasFocusRequester,
                             modifier = Modifier.weight(1f),

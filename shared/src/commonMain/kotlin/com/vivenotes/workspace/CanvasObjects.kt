@@ -28,8 +28,9 @@ data class InkHistoryChange(
     val afterDocument: com.vivenotes.model.PageDoc? = null,
 )
 
+/** An undo step: [document] is the page before it, unless [ink] or [text] says what changed instead. */
 data class StructuralSnapshot(val pageId: String, val document: com.vivenotes.model.PageDoc,
-    val ink: InkHistoryChange? = null)
+    val ink: InkHistoryChange? = null, val text: TextHistoryChange? = null)
 
 fun Outline.isPrimeObject(): Boolean = when (this) {
     is Outline.Shape, is Outline.Table, is Outline.Equation, is Outline.Image -> true

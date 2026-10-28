@@ -371,21 +371,6 @@ class WorkspaceStateTest {
     }
 
     @Test
-    fun structuralUndoKeepsTypingMadeAfterABoxMove() {
-        val initial = WorkspaceState.demo()
-        val id = initial.bodyTextOutline!!.id
-        val moved = initial.moveTextBox(id, 80f, 0f).focusBody()
-        val typed = moved.selectText(TextSelection(moved.richText!!.text.length))
-            .replaceSelectedText(" added")
-        val undone = typed.undoStructure()
-        assertEquals(initial.bodyTextOutline!!.x, undone.bodyTextOutline!!.x)
-        assertTrue(undone.selectedPage!!.body.endsWith(" added"))
-        val redone = undone.redoStructure()
-        assertEquals(80f, redone.bodyTextOutline!!.x)
-        assertTrue(redone.selectedPage!!.body.endsWith(" added"))
-    }
-
-    @Test
     fun liveCanvasTransformsKeepOneStructuralUndoSnapshotPerGesture() {
         val initial = WorkspaceState.demo()
         val id = initial.bodyTextOutline!!.id

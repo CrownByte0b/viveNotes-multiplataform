@@ -5,12 +5,13 @@ import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.ui.ribbon.view.ViewActions
 import com.vivenotes.workspace.NavigationActions
 import com.vivenotes.workspace.ShortcutAction
+import com.vivenotes.workspace.StructuralSnapshot
 import com.vivenotes.workspace.WorkspaceState
 
 /**
  * What each keyboard shortcut does in the workspace — the same commands the header, ribbon and
- * right-click menus run. Returns whether the key was used: an undo with nothing to undo leaves the
- * key to whatever else wants it.
+ * right-click menus run. Returns whether the key was used: on the canvas, an undo with nothing to
+ * undo leaves the key to whatever else wants it.
  */
 internal class WorkspaceShortcuts(
     private val state: () -> WorkspaceState,
@@ -32,10 +33,10 @@ internal class WorkspaceShortcuts(
         when (action) {
             ShortcutAction.Search -> onSearch?.invoke() ?: return false
             ShortcutAction.NewPage -> navigation.addPage()
-            ShortcutAction.Undo -> if (current.structuralUndo.isEmpty()) return false
-                else onStateChange { it.undoStructure() }
-            ShortcutAction.Redo -> if (current.structuralRedo.isEmpty()) return false
-                else onStateChange { it.redoStructure() }
+            // In a text box the key is used up even with nothing to undo: the text field's own undo
+            // would put back characters without their formatting.
+            ShortcutAction.Undo -> if (!undo()) return !onCanvas
+            ShortcutAction.Redo -> if (!redo()) return !onCanvas
             ShortcutAction.DeleteSelection -> {
                 if (!current.hasObjectSelection) return false
                 onStateChange { it.deleteSelectedObjects() }
@@ -69,6 +70,20 @@ internal class WorkspaceShortcuts(
             ShortcutAction.Outdent -> onStateChange { it.indentSelectedText(-1) }
             ShortcutAction.ExitList -> onStateChange { it.insertPlainParagraph() }
         }
+        return true
+    }
+
+    /** Undo, from the keyboard or the header; false when there is nothing to undo. */
+    fun undo(): Boolean = step(state().structuralUndo.lastOrNull()) { it.undoStructure() }
+
+    fun redo(): Boolean = step(state().structuralRedo.lastOrNull()) { it.redoStructure() }
+
+    private fun step(next: StructuralSnapshot?, transform: (WorkspaceState) -> WorkspaceState): Boolean {
+        next ?: return false
+        // A text step leaves its box being edited, with the caret where the text changed. A step from
+        // another page undoes nothing here, and leaves no box to give the keyboard to.
+        if (next.text != null && next.pageId == state().selectedPageId) onEditorCommand(transform)
+        else onStateChange(transform)
         return true
     }
 }

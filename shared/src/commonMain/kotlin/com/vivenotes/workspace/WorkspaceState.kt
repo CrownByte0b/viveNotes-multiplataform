@@ -193,8 +193,11 @@ data class WorkspaceState(
     val canvasClipboard: CanvasClipboard = CanvasClipboard(),
     /** Text last copied from a text box, with its formatting — see [pasteText]. */
     val textClipboard: TextClipboard? = null,
+    /** Undo history: objects, ink and text alike, the most recent step last. */
     val structuralUndo: List<StructuralSnapshot> = emptyList(),
     val structuralRedo: List<StructuralSnapshot> = emptyList(),
+    /** Typing the last text step may still take in — see [TypingRun]. */
+    val typingRun: TypingRun? = null,
     /** Why the last read or write of notes storage failed, until one succeeds again. */
     val storageError: String? = null,
     /** The File tab's `.vive` export or import, while it runs and until its result is dismissed. */
@@ -612,13 +615,15 @@ data class WorkspaceState(
     private fun discardEmptyTextHistory(ids: Set<String>): WorkspaceState {
         if (ids.isEmpty()) return this
         val page = selectedPage ?: return this
-        fun List<StructuralSnapshot>.withoutIds() = map { snapshot ->
-            if (snapshot.pageId != page.id) snapshot else snapshot.copy(
-                document = snapshot.document.copy(outlines = snapshot.document.outlines
-                    .filterNot { it.id in ids }))
+        fun List<StructuralSnapshot>.withoutIds() = mapNotNull { snapshot ->
+            if (snapshot.pageId != page.id) snapshot
+            else if (snapshot.text?.let { it.outlineId in ids } == true) null
+            else snapshot.copy(document = snapshot.document.copy(outlines = snapshot.document.outlines
+                .filterNot { it.id in ids }))
         }
         var undo = structuralUndo.withoutIds()
-        while (undo.lastOrNull()?.let { it.ink == null && it.pageId == page.id && it.document == page.document } == true) {
+        while (undo.lastOrNull()?.let { it.ink == null && it.text == null && it.pageId == page.id &&
+                it.document == page.document } == true) {
             undo = undo.dropLast(1)
         }
         return copy(structuralUndo = undo, structuralRedo = structuralRedo.withoutIds())
@@ -725,6 +730,13 @@ data class WorkspaceState(
         val prior = structuralUndo.lastOrNull() ?: return this
         val page = editablePage ?: return this
         if (prior.pageId != page.id) return this
+        prior.text?.let { change ->
+            // A step for a box that is no longer on the page has nothing left to undo.
+            val shown = showTextStep(change, change.before, change.selectionBefore)
+                ?: return copy(structuralUndo = structuralUndo.dropLast(1), typingRun = null).undoStructure()
+            return shown.copy(structuralUndo = shown.structuralUndo.dropLast(1),
+                structuralRedo = shown.structuralRedo + shown.structuralUndo.last(), typingRun = null)
+        }
         prior.ink?.let { change ->
             if (!page.inkReady || notebookTransfer.running || filePane.busy) return this
             return updatePage(page.id) { it.withDocument(if (change.afterDocument != null) prior.document.withCurrentTextFrom(it.document) else it.document).copy(ink = change.before.copy(
@@ -732,6 +744,7 @@ data class WorkspaceState(
                 pendingInkEdits = pendingInkEdits.queueInk(change.undo.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) }),
                 structuralUndo = structuralUndo.dropLast(1), structuralRedo = structuralRedo + prior,
                 selectedInk = null, selectedObjectIds = emptySet(), selectedTextOutlineIds = emptySet(),
+                typingRun = null,
             )
         }
         val restored = prior.document.withCurrentTextFrom(page.document)
@@ -740,6 +753,7 @@ data class WorkspaceState(
             structuralRedo = structuralRedo + StructuralSnapshot(page.id, page.document),
             focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
             selectedObjectIds = emptySet(), selectedInk = null, editorSelection = TextSelection(0),
+            typingRun = null,
         )
     }
 
@@ -747,6 +761,12 @@ data class WorkspaceState(
         val next = structuralRedo.lastOrNull() ?: return this
         val page = editablePage ?: return this
         if (next.pageId != page.id) return this
+        next.text?.let { change ->
+            val shown = showTextStep(change, change.after, change.selectionAfter)
+                ?: return copy(structuralRedo = structuralRedo.dropLast(1), typingRun = null).redoStructure()
+            return shown.copy(structuralRedo = shown.structuralRedo.dropLast(1),
+                structuralUndo = shown.structuralUndo + shown.structuralRedo.last(), typingRun = null)
+        }
         next.ink?.let { change ->
             if (!page.inkReady || notebookTransfer.running || filePane.busy) return this
             return updatePage(page.id) { it.withDocument(change.afterDocument?.withCurrentTextFrom(it.document) ?: it.document).copy(ink = change.after.copy(
@@ -754,6 +774,7 @@ data class WorkspaceState(
                 pendingInkEdits = pendingInkEdits.queueInk(change.redo.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) }),
                 structuralRedo = structuralRedo.dropLast(1), structuralUndo = structuralUndo + next,
                 selectedInk = null, selectedObjectIds = emptySet(), selectedTextOutlineIds = emptySet(),
+                typingRun = null,
             )
         }
         val restored = next.document.withCurrentTextFrom(page.document)
@@ -762,7 +783,39 @@ data class WorkspaceState(
             structuralUndo = structuralUndo + StructuralSnapshot(page.id, page.document),
             focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
             selectedObjectIds = emptySet(), selectedInk = null, editorSelection = TextSelection(0),
+            typingRun = null,
         )
+    }
+
+    /**
+     * The page with [change]'s box holding [blocks] and being edited with [selection]: Undo and Redo
+     * of text put the caret back where the text changed. Null when that box is no longer on the page.
+     */
+    private fun showTextStep(change: TextHistoryChange, blocks: List<Block>, selection: TextSelection): WorkspaceState? {
+        if (selectedPage?.document?.textContainer(change.outlineId) == null) return null
+        val focused = if (focusedTextOutlineId == change.outlineId) this else focusTextBox(change.outlineId)
+        val buffer = RichTextBuffer(blocks, typingMarks = focused.typingMarks).select(selection)
+        return focused.withRichText(buffer, record = false).copy(editorComposition = null)
+    }
+
+    /**
+     * [change], made to the open [page], as an undo step. A [keystroke] joins the typing step before
+     * it when it carries on where that one stopped ([TypingRun]); while an input method is composing,
+     * each change to what it composes joins it too.
+     */
+    private fun recordText(page: PageSummary, change: TextHistoryChange, keystroke: Keystroke?): WorkspaceState {
+        val last = structuralUndo.lastOrNull()
+        val run = typingRun
+        val joined = last?.text?.takeIf {
+            keystroke != null && run != null && run.outlineId == change.outlineId &&
+                last.pageId == page.id && it.outlineId == change.outlineId &&
+                (editorComposition != null || keystroke.joinable && keystroke.deleting == run.deleting &&
+                    run.caret == change.selectionBefore)
+        }
+        val undo = if (joined == null) structuralUndo + StructuralSnapshot(page.id, page.document, text = change)
+            else structuralUndo.dropLast(1) + last!!.copy(text = joined.copy(after = change.after, selectionAfter = change.selectionAfter))
+        return copy(structuralUndo = undo.takeLast(100), structuralRedo = emptyList(),
+            typingRun = keystroke?.let { TypingRun(change.outlineId, it.deleting, change.selectionAfter) })
     }
 
     /** Tapping one member of a locked group holds the whole group. */
@@ -1000,8 +1053,10 @@ data class WorkspaceState(
         selection: TextSelection,
         composition: TextSelection? = null,
     ): WorkspaceState {
-        val next = richText?.acceptTextChange(text, selection) ?: return this
-        return withRichText(next).copy(editorComposition = composition?.clamped(text.length))
+        val current = richText ?: return this
+        val next = current.acceptTextChange(text, selection)
+        val keystroke = Keystroke.of(current.text, text, current.selection.clamped(current.text.length))
+        return withRichText(next, keystroke).copy(editorComposition = composition?.clamped(text.length))
     }
 
     fun toggleSelectedMark(mark: Mark): WorkspaceState =
@@ -1051,11 +1106,14 @@ data class WorkspaceState(
         if (outline.blocks.isEmpty()) return this
         val blocks = RichTextBuffer(outline.blocks).toggleChecked(blockId).blocks
         if (blocks == outline.blocks) return this
+        // Undo puts the caret back on the to-do it unticks, in a box that may not be the one being edited.
+        val caret = if (focusedTextOutlineId == outlineId) editorSelection
+            else TextSelection(outline.blocks.takeWhile { it.id != blockId }.sumOf { it.editorText.length + 1 })
         return updatePage(page.id) { current ->
             current.withDocument(current.document.copy(outlines = current.document.outlines.map {
                 if (it.id == outlineId) outline.copy(blocks = blocks) else it
             }))
-        }
+        }.recordText(page, TextHistoryChange(outlineId, outline.blocks, blocks, caret, caret), keystroke = null)
     }
 
     /**
@@ -1114,7 +1172,11 @@ data class WorkspaceState(
         }
     }
 
-    internal fun withRichText(buffer: RichTextBuffer): WorkspaceState {
+    /**
+     * The text box being edited with [buffer]'s text and selection. A change to the text is an undo
+     * step unless [record] is false; [keystroke] is set when typing made it, which groups by word.
+     */
+    internal fun withRichText(buffer: RichTextBuffer, keystroke: Keystroke? = null, record: Boolean = true): WorkspaceState {
         val page = editablePage ?: return this
         val oldText = focusedTextOutline ?: return this
         val changedDoc = page.document.copy(outlines = page.document.outlines.map { outline ->
@@ -1122,8 +1184,11 @@ data class WorkspaceState(
             else if (outline is Outline.Table && outline.lockGroup == null && !outline.inkOnly)
                 outline.withCellBlocks(mapOf(oldText.id to buffer.blocks)) else outline
         })
-        return updatePage(page.id) { it.withDocument(changedDoc) }
+        val updated = updatePage(page.id) { it.withDocument(changedDoc) }
             .copy(editorSelection = buffer.selection, typingMarks = buffer.typingMarks)
+        if (!record || buffer.blocks == oldText.blocks) return updated
+        return updated.recordText(page,
+            TextHistoryChange(oldText.id, oldText.blocks, buffer.blocks, editorSelection, buffer.selection), keystroke)
     }
 
     /**

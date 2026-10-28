@@ -97,7 +97,7 @@ enum class ShortcutScope {
     /** Ahead of the focused control, wherever the focus is in the workspace. */
     Anywhere,
 
-    /** After the focused control leaves the key unused: in a text box, Ctrl+Z is the text's own undo. */
+    /** After the focused control leaves the key unused: in the page title, Ctrl+Z is the title's own undo. */
     Workspace,
 
     /** Only in the text box being edited, ahead of the text field's own keys. */
@@ -147,9 +147,11 @@ enum class ShortcutAction(
     Search({ Strings.search_notebook }, ShortcutGroup.Pages, ShortcutScope.Anywhere, false, ctrl(ShortcutKey.F)),
     NewPage({ Strings.new_page }, ShortcutGroup.Pages, ShortcutScope.Workspace, false, ctrl(ShortcutKey.N)),
 
-    Undo({ Strings.undo }, ShortcutGroup.Edit, ShortcutScope.Workspace, true, ctrl(ShortcutKey.Z)),
+    // A text box's own: its text and formatting are steps of the workspace's history, which the
+    // text field's undo, knowing only characters, would garble. They run on the canvas as well.
+    Undo({ Strings.undo }, ShortcutGroup.Edit, ShortcutScope.TextBox, true, ctrl(ShortcutKey.Z)),
     // Ctrl+R is the desktop's own redo; Ctrl+Shift+Z is Android's, and works as well.
-    Redo({ Strings.redo }, ShortcutGroup.Edit, ShortcutScope.Workspace, true, ctrl(ShortcutKey.R), ctrlShift(ShortcutKey.Z)),
+    Redo({ Strings.redo }, ShortcutGroup.Edit, ShortcutScope.TextBox, true, ctrl(ShortcutKey.R), ctrlShift(ShortcutKey.Z)),
     DeleteSelection({ Strings.delete_selection }, ShortcutGroup.Edit, ShortcutScope.Workspace, false, KeyChord(ShortcutKey.Delete)),
     Cut({ Strings.cut }, ShortcutGroup.Edit, ShortcutScope.TextBox, false, ctrl(ShortcutKey.X)),
     Copy({ Strings.copy }, ShortcutGroup.Edit, ShortcutScope.TextBox, false, ctrl(ShortcutKey.C)),
@@ -185,10 +187,11 @@ enum class ShortcutAction(
 
     /**
      * A text box command that also runs where [ShortcutScope.Workspace] is, for the objects selected
-     * on the canvas: Ctrl+C with a shape selected copies the shape. A desktop addition: on Android
-     * these run only in a text box.
+     * on the canvas: Ctrl+C with a shape selected copies the shape, and Ctrl+Z undoes the last step
+     * wherever it was. A desktop addition: on Android the clipboard runs only in a text box, and
+     * Undo and Redo are only the canvas's.
      */
-    val alsoOnCanvas: Boolean get() = this == Cut || this == Copy || this == Paste
+    val alsoOnCanvas: Boolean get() = this == Cut || this == Copy || this == Paste || this == Undo || this == Redo
 
     /**
      * Whether [chord] may run this command. A key that types needs Ctrl, Alt or Super, except for

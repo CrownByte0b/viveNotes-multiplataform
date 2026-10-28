@@ -190,19 +190,21 @@ class KeyBindingsTest {
         assertEquals(ShortcutDecision.Pass,
             bindings.decide(KeyChord(ShortcutKey.Delete), ShortcutScope.TextBox))
         assertEquals(ShortcutDecision.Pass, bindings.decide(ctrlZ, ShortcutScope.Anywhere))
-        // In a text box Ctrl+Z is the text's own undo, not the canvas's.
-        assertEquals(ShortcutDecision.Pass, bindings.decide(ctrlZ, ShortcutScope.TextBox))
+        // Desktop divergence from Android's Pass, where Ctrl+Z in a text box is the text's own undo:
+        // the workspace's history holds the text and its formatting, which the text field's would lose.
+        assertEquals(ShortcutDecision.Run(ShortcutAction.Undo), bindings.decide(ctrlZ, ShortcutScope.TextBox))
         assertEquals(ShortcutDecision.Run(ShortcutAction.Copy), bindings.decide(ctrlC, ShortcutScope.TextBox))
         // Desktop divergence from Android's Pass: the canvas copies its selected objects.
         assertEquals(ShortcutDecision.Run(ShortcutAction.Copy), bindings.decide(ctrlC, ShortcutScope.Workspace))
         assertEquals(ShortcutDecision.Pass, bindings.decide(ctrlK, ShortcutScope.TextBox))
     }
 
-    /** Cut, Copy and Paste reach the canvas; the rest of the text box's commands stay in it. */
+    /** Cut, Copy, Paste, Undo and Redo reach the canvas; the rest of the text box's commands stay in it. */
     @Test
-    fun onlyTheClipboardTextBoxCommandsAlsoRunOnTheCanvas() {
+    fun onlyTheClipboardAndHistoryTextBoxCommandsAlsoRunOnTheCanvas() {
         val bindings = KeyBindings.Default
-        for (action in listOf(ShortcutAction.Cut, ShortcutAction.Copy, ShortcutAction.Paste)) {
+        for (action in listOf(ShortcutAction.Cut, ShortcutAction.Copy, ShortcutAction.Paste,
+            ShortcutAction.Undo, ShortcutAction.Redo)) {
             assertEquals(ShortcutDecision.Run(action), bindings.decide(bindings.primary(action)!!, ShortcutScope.Workspace))
             assertEquals(ShortcutDecision.Run(action), bindings.decide(bindings.primary(action)!!, ShortcutScope.TextBox))
         }
@@ -230,6 +232,17 @@ class KeyBindingsTest {
         assertEquals(ShortcutDecision.Run(ShortcutAction.Copy),
             moved.decide(KeyChord(ShortcutKey.C, ctrl = true, shift = true), ShortcutScope.TextBox))
         assertEquals(ShortcutDecision.Pass, moved.decide(ctrlC, ShortcutScope.Workspace))
+    }
+
+    /** Regression guard: the text field's own undo would put text back without its formatting. */
+    @Test
+    fun aMovedUndoLeavesCtrlZToNoTextField() {
+        val moved = KeyBindings.Default.rebind(ShortcutAction.Undo, ctrlK)
+        assertEquals(ShortcutDecision.Swallow, moved.decide(ctrlZ, ShortcutScope.TextBox))
+        assertEquals(ShortcutDecision.Run(ShortcutAction.Undo), moved.decide(ctrlK, ShortcutScope.TextBox))
+        assertEquals(ShortcutDecision.Run(ShortcutAction.Undo), moved.decide(ctrlK, ShortcutScope.Workspace))
+        val noRedo = KeyBindings.Default.rebind(ShortcutAction.Redo, null)
+        assertEquals(ShortcutDecision.Swallow, noRedo.decide(ctrlShiftZ, ShortcutScope.TextBox))
     }
 
     @Test
