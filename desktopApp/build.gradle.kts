@@ -244,6 +244,7 @@ tasks.test {
     inputs.file(rootProject.file(".github/workflows/flatpak.yml"))
     inputs.file(rootProject.file(".github/workflows/attach-release-artifacts.yml"))
     inputs.file(rootProject.file(".github/scripts/attach_release_artifacts.py"))
+    inputs.file(rootProject.file(".github/scripts/ci-tests.init.gradle"))
     inputs.file(rootProject.file(".github/tests/test_release_artifacts.py"))
     systemProperty("vivenotes.test.projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)

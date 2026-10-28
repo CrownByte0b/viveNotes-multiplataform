@@ -37,7 +37,8 @@ jobs:
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
           flatpak install --user --noninteractive flathub org.freedesktop.Platform//26.08
       - name: Run JVM tests and lint
-        run: xvfb-run -a ./gradlew lint :shared:jvmTest :desktopApp:test --continue
+        timeout-minutes: 30
+        run: xvfb-run -a -s '-screen 0 1920x1200x24' ./gradlew lint :shared:jvmTest :desktopApp:test --continue --no-parallel --max-workers=1 --console=plain --init-script .github/scripts/ci-tests.init.gradle
       - name: Build Flatpak bundle
         env:
           VIVE_GOOGLE_DESKTOP_CLIENT_ID: ${{ secrets.VIVE_GOOGLE_DESKTOP_CLIENT_ID }}
@@ -65,5 +66,7 @@ jobs:
           name: flatpak-failure-reports
           path: |
             shared/build/reports/tests/
+            shared/build/test-results/
             desktopApp/build/reports/tests/
+            desktopApp/build/test-results/
             desktopApp/build/flatpak/smoke-test.log

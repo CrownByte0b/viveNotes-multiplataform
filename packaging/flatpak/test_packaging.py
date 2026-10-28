@@ -1,6 +1,8 @@
 import importlib.util
 import io
 import json
+import re
+import shlex
 import shutil
 import struct
 from pathlib import Path
@@ -18,6 +20,27 @@ spec.loader.exec_module(build)
 
 
 class PackagingTest(unittest.TestCase):
+    def test_ci_ui_checks_have_a_large_exclusive_display_and_bounded_diagnostics(self):
+        workflow = (HERE.parents[1] / ".github/workflows/flatpak.yml").read_text()
+        checks = workflow.split("      - name: Run JVM tests and lint\n", 1)[1].split("      - ", 1)[0]
+        self.assertRegex(checks, r"timeout-minutes: (?:[12][0-9]|30)\b")
+        command = shlex.split(re.search(r"^        run: (.+)$", checks, re.M)[1])
+        screen = shlex.split(command[command.index("-s") + 1])
+        width, height, depth = map(int, screen[2].split("x"))
+        self.assertGreaterEqual(width, 1800)
+        self.assertGreaterEqual(height, 1100)
+        self.assertEqual(24, depth)
+        self.assertIn("--no-parallel", command)
+        self.assertIn("--max-workers=1", command)
+        self.assertIn("--console=plain", command)
+        self.assertIn("--continue", command)
+        self.assertTrue({"lint", ":shared:jvmTest", ":desktopApp:test"}.issubset(command))
+        self.assertEqual(".github/scripts/ci-tests.init.gradle", command[command.index("--init-script") + 1])
+        failure_upload = workflow.split("      - name: Upload failed test reports\n", 1)[1]
+        self.assertIn("if: failure()", failure_upload)
+        self.assertIn("shared/build/test-results/", failure_upload)
+        self.assertIn("desktopApp/build/test-results/", failure_upload)
+
     def test_desktop_identity_and_scoped_permissions(self):
         manifest = json.loads((HERE / f"{build.APP_ID}.json").read_text())
         self.assertEqual(build.APP_ID, manifest["id"])

@@ -1,0 +1,12 @@
+import java.time.Duration
+import org.gradle.api.tasks.testing.Test
+
+allprojects {
+    tasks.withType(Test).configureEach {
+        timeout.set(Duration.ofMinutes(10))
+        testLogging {
+            events 'started', 'passed', 'skipped', 'failed'
+            exceptionFormat 'full'
+        }
+    }
+}
