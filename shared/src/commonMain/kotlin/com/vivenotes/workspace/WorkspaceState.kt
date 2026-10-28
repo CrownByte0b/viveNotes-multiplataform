@@ -851,6 +851,22 @@ data class WorkspaceState(
             copy(canvasClipboard = CanvasClipboard(objects = objects, texts = texts, ink = ink))
     }
 
+    /** Whether anything on the canvas is selected as an object: prime objects, text boxes or ink. */
+    val hasObjectSelection: Boolean get() =
+        selectedObjectIds.isNotEmpty() || selectedTextOutlineIds.isNotEmpty() || selectedInk != null
+
+    /**
+     * Ctrl+X on the canvas: [copySelectedObjects], then [deleteSelectedObjects] as one undo step.
+     * Locked objects are cut too, as they are copied and deleted: lock means stays put.
+     */
+    fun cutSelectedObjects(): WorkspaceState {
+        if (editablePage == null) return this
+        val copied = copySelectedObjects()
+        if (copied === this) return this
+        val cut = copied.deleteSelectedObjects()
+        return if (cut === copied) this else cut
+    }
+
     private fun deleteSelectedOutlines(): WorkspaceState = editOutlines { outlines ->
         outlines.filterNot { it.id in selectedTextOutlineIds ||
             (it.id in selectedObjectIds && it.isPrimeObject()) }

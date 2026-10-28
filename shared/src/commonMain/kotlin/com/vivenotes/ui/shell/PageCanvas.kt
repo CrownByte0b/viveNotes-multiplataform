@@ -135,6 +135,7 @@ internal fun PageCanvas(
     pictures: PictureLibrary?,
     thumbnails: VideoThumbnailSource?,
     canvasOrigin: CanvasOrigin,
+    keyboardPaste: CanvasKeyboardPaste,
     canvasControl: CanvasViewControl,
     zoom: Float,
     /** Settings → Hardware: a finger uses the armed drawing tool rather than moving the page. */
@@ -450,6 +451,36 @@ internal fun PageCanvas(
     SideEffect {
         canvasControl.viewportWidthDp = interaction.viewportPx.width / density.density
         canvasControl.pageWidthDp = extent?.page?.width?.value ?: 0f
+    }
+
+    /** The canvas clipboard at page [point]; ink is laid out off the main thread, one paste at a time. */
+    fun pasteCanvas(point: Offset) {
+        val before = currentState
+        val clipboard = before.canvasClipboard
+        debugLog.event("objects") { "paste ${clipboard.outlines.size} objects" + if (clipboard.ink != null) " with ink" else "" }
+        if (before.canvasClipboard.ink == null) currentPaste(point.x, point.y)
+        else if (!interaction.inkMoveBusy) {
+            interaction.inkMoveBusy = true
+            inkMoveScope.launch {
+                try {
+                    val prepared = withContext(Dispatchers.Default) { before.pasteCanvasAt(point.x, point.y) }
+                    currentPreparedPaste(before, prepared)
+                } finally { interaction.inkMoveBusy = false }
+            }
+        }
+    }
+    SideEffect {
+        keyboardPaste.paste = paste@{
+            val snapshot = currentState
+            val style = snapshot.selectedPage?.takeIf { it.editable }?.document?.style ?: return@paste false
+            if (snapshot.canvasClipboard.isEmpty) return@paste false
+            val extent = currentExtent ?: return@paste false
+            interaction.pastePoint = null
+            pasteCanvas(keyboardPastePoint(canvasPointer.position?.let(::toPage), toPage(Offset.Zero), style) { x, y ->
+                extent.canPlaceAt(style, x, y)
+            })
+            true
+        }
     }
 
     fun hitsContent(point: Offset, snapshot: WorkspaceState): Boolean =
@@ -821,17 +852,7 @@ internal fun PageCanvas(
                             modifier = Modifier.offset(point.x.dp, point.y.dp),
                         ) {
                             TextButton(onClick = {
-                                val before = currentState
-                                if (before.canvasClipboard.ink == null) currentPaste(point.x, point.y)
-                                else if (!interaction.inkMoveBusy) {
-                                    interaction.inkMoveBusy = true
-                                    inkMoveScope.launch {
-                                        try {
-                                            val prepared = withContext(Dispatchers.Default) { before.pasteCanvasAt(point.x, point.y) }
-                                            currentPreparedPaste(before, prepared)
-                                        } finally { interaction.inkMoveBusy = false }
-                                    }
-                                }
+                                pasteCanvas(point)
                                 interaction.pastePoint = null
                             }, modifier = Modifier.testTag(WorkspaceTestTags.CanvasPaste)) { Text(Strings.paste) }
                         }

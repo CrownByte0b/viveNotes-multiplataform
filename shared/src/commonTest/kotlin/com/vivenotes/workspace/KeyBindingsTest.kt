@@ -193,8 +193,33 @@ class KeyBindingsTest {
         // In a text box Ctrl+Z is the text's own undo, not the canvas's.
         assertEquals(ShortcutDecision.Pass, bindings.decide(ctrlZ, ShortcutScope.TextBox))
         assertEquals(ShortcutDecision.Run(ShortcutAction.Copy), bindings.decide(ctrlC, ShortcutScope.TextBox))
-        assertEquals(ShortcutDecision.Pass, bindings.decide(ctrlC, ShortcutScope.Workspace))
+        // Desktop divergence from Android's Pass: the canvas copies its selected objects.
+        assertEquals(ShortcutDecision.Run(ShortcutAction.Copy), bindings.decide(ctrlC, ShortcutScope.Workspace))
         assertEquals(ShortcutDecision.Pass, bindings.decide(ctrlK, ShortcutScope.TextBox))
+    }
+
+    /** Cut, Copy and Paste reach the canvas; the rest of the text box's commands stay in it. */
+    @Test
+    fun onlyTheClipboardTextBoxCommandsAlsoRunOnTheCanvas() {
+        val bindings = KeyBindings.Default
+        for (action in listOf(ShortcutAction.Cut, ShortcutAction.Copy, ShortcutAction.Paste)) {
+            assertEquals(ShortcutDecision.Run(action), bindings.decide(bindings.primary(action)!!, ShortcutScope.Workspace))
+            assertEquals(ShortcutDecision.Run(action), bindings.decide(bindings.primary(action)!!, ShortcutScope.TextBox))
+        }
+        for (action in ShortcutAction.entries.filter { it.scope == ShortcutScope.TextBox && !it.alsoOnCanvas }) {
+            assertEquals(ShortcutDecision.Pass, bindings.decide(bindings.primary(action)!!, ShortcutScope.Workspace), action.name)
+        }
+        assertEquals(ShortcutDecision.Pass, bindings.decide(ctrlC, ShortcutScope.Anywhere))
+        // A held Ctrl+X cuts once; a held Ctrl+V keeps pasting, as in a text box.
+        assertEquals(ShortcutDecision.Swallow,
+            bindings.decide(KeyChord(ShortcutKey.X, ctrl = true), ShortcutScope.Workspace, repeat = true))
+        assertEquals(ShortcutDecision.Run(ShortcutAction.Paste),
+            bindings.decide(KeyChord(ShortcutKey.V, ctrl = true), ShortcutScope.Workspace, repeat = true))
+        // Rebound, Copy follows its new chord onto the canvas, and the old one copies nothing there.
+        val ctrlShiftC = KeyChord(ShortcutKey.C, ctrl = true, shift = true)
+        val moved = bindings.rebind(ShortcutAction.Copy, ctrlShiftC)
+        assertEquals(ShortcutDecision.Run(ShortcutAction.Copy), moved.decide(ctrlShiftC, ShortcutScope.Workspace))
+        assertEquals(ShortcutDecision.Pass, moved.decide(ctrlC, ShortcutScope.Workspace))
     }
 
     /** Regression guard: a moved text box command must not fall back to the text field's own copy. */

@@ -113,6 +113,7 @@ internal fun WorkspaceContent(
     textInput: TextInputSessions,
 ) {
     val canvasOrigin = remember { CanvasOrigin() }
+    val keyboardPaste = remember { CanvasKeyboardPaste() }
     val canvasControl = remember { CanvasViewControl() }
     var openPane by remember { mutableStateOf<DockedPane?>(null) }
     var searchQuery by remember { mutableStateOf("") }
@@ -185,6 +186,7 @@ internal fun WorkspaceContent(
     val currentBindings by rememberUpdatedState(bindings)
     val shortcuts = WorkspaceShortcuts({ currentState }, onStateChange, ::applyEditorCommand, navigation,
         viewActions, TextClipboardActions(LocalClipboardManager.current, ::applyEditorCommand, LocalClipboardHtml.current),
+        canvasPaste = { keyboardPaste.paste() },
         onSearch = if (search == null) null else { {
             fileActions?.closePane()
             openPane = DockedPane.Search
@@ -332,6 +334,7 @@ internal fun WorkspaceContent(
                             pictures = pictures,
                             thumbnails = thumbnails.takeIf { view.linkPreviews },
                             canvasOrigin = canvasOrigin,
+                            keyboardPaste = keyboardPaste,
                             canvasControl = canvasControl,
                             view = view,
                             input = input,

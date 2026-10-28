@@ -20,11 +20,15 @@ internal class WorkspaceShortcuts(
     private val navigation: NavigationActions,
     private val view: ViewActions,
     private val clipboard: TextClipboardActions,
+    /** Pastes the canvas clipboard where Ctrl+V puts it; false when there was nothing to paste. */
+    private val canvasPaste: () -> Boolean = { false },
     private val onSearch: (() -> Unit)? = null,
 ) {
     fun run(action: ShortcutAction): Boolean {
         val current = state()
         val selected = !current.editorSelection.collapsed
+        // Outside a text box, Cut, Copy and Paste act on the canvas's objects and its clipboard.
+        val onCanvas = current.focusedTextOutlineId == null
         when (action) {
             ShortcutAction.Search -> onSearch?.invoke() ?: return false
             ShortcutAction.NewPage -> navigation.addPage()
@@ -33,13 +37,22 @@ internal class WorkspaceShortcuts(
             ShortcutAction.Redo -> if (current.structuralRedo.isEmpty()) return false
                 else onStateChange { it.redoStructure() }
             ShortcutAction.DeleteSelection -> {
-                if (current.selectedObjectIds.isEmpty() && current.selectedTextOutlineIds.isEmpty() && current.selectedInk == null) return false
+                if (!current.hasObjectSelection) return false
                 onStateChange { it.deleteSelectedObjects() }
             }
-            // With nothing selected these still use the key, as the text field's own would.
-            ShortcutAction.Cut -> if (selected) clipboard.cut(current, null)
-            ShortcutAction.Copy -> if (selected) clipboard.copy(current, null)
-            ShortcutAction.Paste -> clipboard.paste(null, keepFormatting = true)
+            // With nothing selected in a text box these still use the key, as the text field's own would.
+            ShortcutAction.Cut -> when {
+                !onCanvas -> if (selected) clipboard.cut(current, null)
+                current.hasObjectSelection -> onStateChange { it.cutSelectedObjects() }
+                else -> return false
+            }
+            ShortcutAction.Copy -> when {
+                !onCanvas -> if (selected) clipboard.copy(current, null)
+                current.hasObjectSelection -> onStateChange { it.copySelectedObjects() }
+                else -> return false
+            }
+            ShortcutAction.Paste -> if (onCanvas) return canvasPaste()
+                else clipboard.paste(null, keepFormatting = true)
             ShortcutAction.PastePlainText -> clipboard.paste(null, keepFormatting = false)
             ShortcutAction.SelectAll -> current.focusedTextOutlineId?.let { id ->
                 onEditorCommand { it.selectAllTextBox(id) }

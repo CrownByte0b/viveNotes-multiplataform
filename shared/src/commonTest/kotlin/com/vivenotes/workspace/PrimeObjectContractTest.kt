@@ -84,6 +84,64 @@ class PrimeObjectContractTest {
         assertTrue(deleted.undoStructure().redoStructure().selectedPage!!.document.outlines.isEmpty())
     }
 
+    /** Ctrl+X: Copy, then Delete, as one undo step, locked or not; the cut objects paste back whole. */
+    @Test
+    fun cutFillsTheSharedClipboardAndDeletesInOneUndoStepForAllFourKindsAndTextBoxes() {
+        val text = Outline.Text("text", 100f, 400f, blocks = listOf(Block.of("Written text")))
+        val outlines = objects() + text
+        val selected = workspace(outlines).selectObjectsInRect(80f, 200f, 850f, 600f)
+        assertEquals(objects().map { it.id }.toSet(), selected.selectedObjectIds)
+        assertEquals(setOf(text.id), selected.selectedTextOutlineIds)
+        assertTrue(selected.hasObjectSelection)
+        val cut = selected.cutSelectedObjects()
+        assertTrue(cut.selectedPage!!.document.outlines.isEmpty())
+        assertFalse(cut.hasObjectSelection)
+        assertEquals(outlines.filter { it.isPrimeObject() }, cut.canvasClipboard.objects)
+        assertEquals(listOf(text), cut.canvasClipboard.texts)
+        assertEquals(selected.structuralUndo.size + 1, cut.structuralUndo.size)
+        assertEquals(outlines, cut.undoStructure().selectedPage!!.document.outlines)
+        val pasted = cut.pasteCanvasAt(100f, 600f)
+        val back = pasted.selectedPage!!.document.outlines
+        assertEquals(5, back.size)
+        assertEquals("Written text", back.filterIsInstance<Outline.Text>().single().blocks.single().text)
+        assertTrue(back.none { it.id in outlines.map(Outline::id) })
+        // Lock means stays put, not protected: a locked group is cut like any other.
+        val locked = workspace(objects().map { it.withLockGroup("pinned") }).selectObject("shape")
+        assertEquals(objects().map { it.id }.toSet(), locked.selectedObjectIds)
+        val lockedCut = locked.cutSelectedObjects()
+        assertTrue(lockedCut.selectedPage!!.document.outlines.isEmpty())
+        assertEquals(4, lockedCut.canvasClipboard.objects.size)
+    }
+
+    /**
+     * Regression: a pasted shape kept the original's segments, so its outline was drawn over the
+     * original while its frame and handles sat where it was pasted. Android's `pasteObjects`
+     * translates the segments with the shape.
+     */
+    @Test
+    fun aPastedShapeIsDrawnWhereItLandsWithFreshSegmentIds() {
+        val shape = objects().filterIsInstance<Outline.Shape>().single()
+        val pasted = workspace(listOf(shape)).selectObject(shape.id).copySelectedObjects().pasteCanvasAt(500f, 600f)
+        val copy = pasted.selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().single { it.id != shape.id }
+        val dx = 500f - shape.x
+        val dy = 600f - shape.y
+        assertEquals(500f, copy.x)
+        assertEquals(600f, copy.y)
+        assertEquals(shape.segments.map { it.translated(dx, dy).copy(id = "") }, copy.segments.map { it.copy(id = "") })
+        assertTrue(copy.segments.none { segment -> shape.segments.any { it.id == segment.id } })
+        assertEquals(copy, copy.withRecomputedBounds())
+    }
+
+    @Test
+    fun cutWithNothingSelectedOrOnAPageThatMayNotChangeLeavesEverythingAlone() {
+        val idle = workspace(objects())
+        assertFalse(idle.hasObjectSelection)
+        assertSame(idle, idle.cutSelectedObjects())
+        val held = idle.selectObject("shape")
+        val standIn = held.updatePage(held.selectedPageId) { it.copy(content = PageContent.Unloaded) }
+        assertSame(standIn, standIn.cutSelectedObjects())
+    }
+
     @Test
     fun textAndOutlineSelectionsCannotPartiallyLockOnlyTheOutline() {
         val shape = objects().first()

@@ -52,6 +52,8 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.isPrimaryPressed
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
@@ -461,6 +463,21 @@ private fun CanvasTextBox(
                 onOpenTextMenu(outline.id, request.selection)
                 textMenu = request
             }
+            .onMarginClick(outline.id, leaves = { point ->
+                val armed = workspaceState.value.let {
+                    it.inkTool != null || it.shapeToolArmed || it.drawPlacement != null || it.objectLassoArmed
+                }
+                armed || listOfNotNull(textLayouts[outline.id]?.size, previewLayouts[outline.id]?.layout?.size).any {
+                    point.x in 0f..it.width.toFloat() && point.y in 0f..it.height.toFloat()
+                }
+            }) { point ->
+                val text = workspaceState.value.richTextFor(outline.id)?.text.orEmpty()
+                val caret = textLayouts[outline.id]?.let { layout ->
+                    caretAt(layout, text, Offset(point.x.coerceIn(0f, layout.size.width.toFloat()),
+                        point.y.coerceIn(0f, (layout.size.height - 1f).coerceAtLeast(0f))))
+                } ?: text.length
+                currentEditTextAt(outline.id, TextSelection(caret))
+            }
             .testTag(WorkspaceTestTags.textBox(outline.id)),
     ) {
         if (focused || lassoSelected) Box(Modifier.matchParentSize()
@@ -638,3 +655,25 @@ private fun CanvasTextBox(
 }
 
 private val TextBoxPadding = 8.dp
+
+/**
+ * A click on a box's margin — the padding round its text, and any height dragged below it — edits
+ * the box at the caret nearest the click, as a tap anywhere in an Android container does. The page
+ * leaves every press on a box to the box, so the margin otherwise took clicks and did nothing.
+ * Points are given from the text's top left. [leaves] is asked of each press: one the text or its
+ * preview handles, or a tool that acts on presses over a box, is not this one's.
+ */
+private fun Modifier.onMarginClick(key: Any?, leaves: (Offset) -> Boolean, onClick: (Offset) -> Unit): Modifier =
+    pointerInput(key) {
+        awaitEachGesture {
+            val down = awaitFirstDown()
+            val padding = TextBoxPadding.toPx()
+            val point = down.position - Offset(padding, padding)
+            if (down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed || leaves(point))
+                return@awaitEachGesture
+            val up = waitForUpOrCancellation() ?: return@awaitEachGesture
+            if ((up.position - down.position).getDistance() > viewConfiguration.touchSlop) return@awaitEachGesture
+            up.consume()
+            onClick(point)
+        }
+    }

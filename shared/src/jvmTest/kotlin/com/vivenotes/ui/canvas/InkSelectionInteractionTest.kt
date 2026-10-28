@@ -68,6 +68,38 @@ class InkSelectionInteractionTest {
         runOnIdle { assertEquals(2, state.value.selectedPage!!.ink!!.desktopGeometry().projections.size) }
     }
 
+    /** Regression: Ctrl+C and Ctrl+X on selected ink did nothing; only the toolkit's Copy filled the clipboard. */
+    @Test
+    fun ctrlCCtrlXAndCtrlVCopyCutAndPasteRealInkUnderTheMouse() = runDesktopComposeUiTest(width = 1500, height = 900) {
+        val state = mutableStateOf(workspace())
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
+        fun ctrl(key: Key) = onRoot().performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(key) } }
+        fun projections() = state.value.selectedPage!!.ink!!.desktopGeometry().projections.size
+        onNodeWithTag(INK_LAYER_TAG).performMouseInput { click(Offset(40f, 200f)) }
+        runOnIdle { assertNotNull(state.value.selectedInk) }
+        ctrl(Key.C)
+        runOnIdle { assertNotNull(state.value.canvasClipboard.ink); assertEquals(1, projections()) }
+
+        onNodeWithTag(WorkspaceTestTags.CanvasExtent).performMouseInput { moveTo(Offset(400f, 400f)) }
+        ctrl(Key.V)
+        waitUntil(timeoutMillis = 5000) { state.value.structuralUndo.size == 1 }
+        runOnIdle {
+            assertEquals(2, projections())
+            assertEquals(400f, state.value.selectedInk!!.bounds.left, 0.5f)
+        }
+
+        // The pasted copy is what is selected now: cutting it leaves the original.
+        ctrl(Key.X)
+        runOnIdle {
+            assertEquals(1, projections())
+            assertNull(state.value.selectedInk)
+            assertEquals(2, state.value.structuralUndo.size)
+        }
+        ctrl(Key.V)
+        waitUntil(timeoutMillis = 5000) { state.value.structuralUndo.size == 3 }
+        runOnIdle { assertEquals(2, projections()) }
+    }
+
     @Test
     fun theInkToolkitRecoloursTheSelectionAndUndoRestoresItsOriginalBrushColour() = runDesktopComposeUiTest(width = 1500, height = 900) {
         val state = mutableStateOf(workspace())

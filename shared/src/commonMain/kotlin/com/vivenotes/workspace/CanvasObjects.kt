@@ -40,8 +40,9 @@ fun Outline.isPrimeObject(): Boolean = when (this) {
 fun Outline.duplicateAt(newX: Float, newY: Float): Outline = when (this) {
     is Outline.Text -> copy(id = newId(), x = newX, y = newY,
         blocks = blocks.map { it.copy(id = newId()) })
-    is Outline.Shape -> translated(newX - x, newY - y).copy(id = newId(), lockGroup = null,
-        segments = segments.map { it.copy(id = newId()) })
+    is Outline.Shape -> translated(newX - x, newY - y).let { moved ->
+        moved.copy(id = newId(), lockGroup = null, segments = moved.segments.map { it.copy(id = newId()) })
+    }
     is Outline.Equation -> copy(id = newId(), x = newX, y = newY, lockGroup = null)
     is Outline.Image -> copy(id = newId(), x = newX, y = newY, lockGroup = null)
     is Outline.Table -> copy(id = newId(), x = newX, y = newY, lockGroup = null,

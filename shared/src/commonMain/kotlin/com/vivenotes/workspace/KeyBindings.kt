@@ -184,6 +184,13 @@ enum class ShortcutAction(
     val defaults: List<KeyChord> = chords.toList()
 
     /**
+     * A text box command that also runs where [ShortcutScope.Workspace] is, for the objects selected
+     * on the canvas: Ctrl+C with a shape selected copies the shape. A desktop addition: on Android
+     * these run only in a text box.
+     */
+    val alsoOnCanvas: Boolean get() = this == Cut || this == Copy || this == Paste
+
+    /**
      * Whether [chord] may run this command. A key that types needs Ctrl, Alt or Super, except for
      * a command that never runs while a text field has the keyboard, where it types nothing.
      */
@@ -259,6 +266,7 @@ class KeyBindings private constructor(private val overrides: Map<ShortcutAction,
                     return if (textDefault) ShortcutDecision.Swallow else ShortcutDecision.Pass
                 action.scope == ShortcutScope.TextBox || (textDefault && action.scope == ShortcutScope.Workspace)
             }
+            ShortcutScope.Workspace -> action?.scope == at || action?.alsoOnCanvas == true
             else -> action?.scope == at
         }
         if (!claimed || action == null) return ShortcutDecision.Pass
