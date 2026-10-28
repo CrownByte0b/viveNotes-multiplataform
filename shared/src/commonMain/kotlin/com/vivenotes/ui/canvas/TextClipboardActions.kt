@@ -9,6 +9,9 @@ import com.vivenotes.richtext.TextSelection
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.copySelectedText
 import com.vivenotes.workspace.pasteText
+import com.vivenotes.workspace.restoreTextSelection
+import com.vivenotes.workspace.activeWordSelections
+import com.vivenotes.workspace.restoreWordSelections
 
 /** The platform's [ClipboardHtml], beside Compose's clipboard; none unless the host provides one. */
 internal val LocalClipboardHtml = staticCompositionLocalOf<ClipboardHtml?> { null }
@@ -28,13 +31,15 @@ internal class TextClipboardActions(
 ) {
     /** [state] is what is on screen: the clipboard takes the text the user can see selected. */
     fun copy(state: WorkspaceState, selection: TextSelection?) {
-        clipboard.setText(AnnotatedString(state.at(selection).selectedText))
-        onEditorCommand { it.at(selection).copySelectedText() }
+        val selected = state.at(selection)
+        clipboard.setText(AnnotatedString(selected.selectedText))
+        onEditorCommand { it.restoreWordSelections(selected.activeWordSelections).at(selection).copySelectedText() }
     }
 
     fun cut(state: WorkspaceState, selection: TextSelection?) {
-        clipboard.setText(AnnotatedString(state.at(selection).selectedText))
-        onEditorCommand { it.at(selection).copySelectedText().replaceSelectedText("") }
+        val selected = state.at(selection)
+        clipboard.setText(AnnotatedString(selected.selectedText))
+        onEditorCommand { it.restoreWordSelections(selected.activeWordSelections).at(selection).copySelectedText().replaceSelectedText("") }
     }
 
     fun paste(selection: TextSelection?, keepFormatting: Boolean) {
@@ -47,5 +52,5 @@ internal class TextClipboardActions(
 
     fun markCanvasCopy() { (html as? CanvasClipboardSource)?.markInternalCopy() }
 
-    private fun WorkspaceState.at(selection: TextSelection?): WorkspaceState = selection?.let(::selectText) ?: this
+    private fun WorkspaceState.at(selection: TextSelection?): WorkspaceState = restoreTextSelection(selection)
 }

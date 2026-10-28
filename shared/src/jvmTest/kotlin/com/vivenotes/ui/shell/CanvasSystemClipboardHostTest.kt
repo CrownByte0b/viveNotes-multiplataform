@@ -7,6 +7,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.geometry.Offset
@@ -18,6 +19,12 @@ import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.SystemClipboardContent
 import com.vivenotes.data.db.NotesDatabase
 import com.vivenotes.model.Outline
+import com.vivenotes.model.Block
+import com.vivenotes.model.Mark
+import com.vivenotes.model.newTable
+import com.vivenotes.richtext.RichTextBuffer
+import com.vivenotes.richtext.TextSelection
+import androidx.compose.ui.text.TextLayoutResult
 import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.CANVAS_PASTE_MARGIN
@@ -46,6 +53,83 @@ import kotlin.test.fail
 /** Native keys and the real desktop clipboard through the application's displayed workspace. */
 @OptIn(ExperimentalComposeUiApi::class, ComposeToolingApi::class)
 class CanvasSystemClipboardHostTest {
+    @Test
+    fun nativeCtrlDoubleClickSelectsWordsAcrossCellsAndCopyFormattingUndoUseEveryRange() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+        val table = newTable(2, 1, x = 60f, y = 300f).let { grid -> grid.copy(rows = grid.rows.map { row ->
+            row.copy(cells = row.cells.mapIndexed { index, cell ->
+                cell.copy(blocks = listOf(Block.of(if (index == 0) "alpha beta" else "gamma omega")))
+            })
+        }) }
+        val base = WorkspaceState.demo()
+        val state = mutableStateOf(base.updatePage(base.selectedPageId) { page ->
+            page.copy(document = page.document.copy(outlines = listOf(table)))
+        }.selectObject(table.id))
+        lateinit var window: JFrame
+        lateinit var panel: ComposePanel
+        onEdt {
+            window = JFrame("Native word selection")
+            panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
+            window.contentPane.add(panel)
+            window.setSize(1400, 900)
+            window.isVisible = true
+            panel.setContent { WorkspaceScreen(state.value, { state.value = it(state.value) }) }
+        }
+        try {
+            val left = table.cellAt(0, 0)!!.id
+            val right = table.cellAt(0, 1)!!.id
+            fun node(id: String) = panel.semanticsOwners.flatMap { it.getAllSemanticsNodes(false) }.firstOrNull {
+                it.config.getOrNull(SemanticsProperties.TestTag) == com.vivenotes.ui.ribbon.draw.TableTags.cell(id)
+            }
+            waitFor { node(left) != null && node(right) != null }
+            val robot = Robot().apply { autoDelay = 35 }
+            fun doubleWord(id: String, offset: Int) {
+                val point = onEdt {
+                    val field = node(id)!!
+                    val layouts = mutableListOf<TextLayoutResult>()
+                    field.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(layouts)
+                    val at = field.layoutInfo.coordinates.localToRoot(layouts.single().getBoundingBox(offset).center)
+                    val origin = panel.locationOnScreen
+                    java.awt.Point(origin.x + at.x.toInt(), origin.y + at.y.toInt())
+                }
+                robot.mouseMove(point.x, point.y)
+                repeat(2) {
+                    robot.mousePress(InputEvent.BUTTON1_DOWN_MASK)
+                    robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK)
+                    robot.delay(80)
+                }
+                robot.waitForIdle()
+            }
+            fun ctrl(key: Int) {
+                robot.keyPress(KeyEvent.VK_CONTROL); robot.keyPress(key)
+                robot.keyRelease(key); robot.keyRelease(KeyEvent.VK_CONTROL)
+                robot.waitForIdle()
+            }
+            robot.keyPress(KeyEvent.VK_CONTROL)
+            doubleWord(right, 8)
+            waitFor { state.value.selectedText == "omega" }
+            doubleWord(left, 2)
+            waitFor { state.value.selectedText == "alpha\nomega" }
+            robot.keyRelease(KeyEvent.VK_CONTROL)
+            ctrl(KeyEvent.VK_C)
+            waitFor { runCatching { Toolkit.getDefaultToolkit().systemClipboard.getData(DataFlavor.stringFlavor) }
+                .getOrNull() == "alpha\nomega" }
+            ctrl(KeyEvent.VK_B)
+            waitFor { state.value.structuralUndo.size == 1 }
+            onEdt {
+                val changed = state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single()
+                assertTrue(Mark.Bold in RichTextBuffer(changed.cellAt(0, 0)!!.blocks).select(TextSelection(0, 5)).activeMarks)
+                assertTrue(Mark.Bold in RichTextBuffer(changed.cellAt(0, 1)!!.blocks).select(TextSelection(6, 11)).activeMarks)
+            }
+            ctrl(KeyEvent.VK_Z)
+            waitFor { state.value.structuralUndo.isEmpty() }
+            onEdt {
+                assertEquals(table, state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single())
+                assertEquals("alpha\nomega", state.value.selectedText)
+            }
+        } finally { onEdt { panel.setContent { }; window.dispose() } }
+    }
+
     @Test
     fun nativePasteInADesktopWindowInsertsTextTablesAndStoredPictures() {
         assumeFalse(GraphicsEnvironment.isHeadless())

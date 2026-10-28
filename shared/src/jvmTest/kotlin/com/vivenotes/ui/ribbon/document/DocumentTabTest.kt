@@ -296,6 +296,7 @@ class DocumentTabTest {
         onRoot().performKeyInput { keyDown(Key.CtrlLeft) }
         onNodeWithTag(WorkspaceTestTags.BodyEditor).performMouseInput { click(Offset(20f, 10f)) }
         onRoot().performKeyInput { keyUp(Key.CtrlLeft) }
+        waitUntil(timeoutMillis = 5_000) { opened.isNotEmpty() }
         runOnIdle { assertEquals(listOf("https://example.com"), opened) }
         onRoot().performKeyInput { keyDown(Key.CtrlLeft) }
         onNodeWithTag(WorkspaceTestTags.BodyEditor).performMouseInput { click(Offset(200f, 10f)) }

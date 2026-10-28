@@ -20,6 +20,7 @@ import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.ui.keyboard.LocalKeyBindings
 import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.textSelectionsFor
 
 /** Semantics identifiers for the text box's right-click menu. */
 object TextMenuTags {
@@ -73,7 +74,8 @@ internal fun textMenuAt(
         editor != null -> text.linkSpanAtPoint(editor, point)
         else -> null
     }
-    val current = if (state.focusedTextOutlineId == outlineId) state.editorSelection else null
+    val current = state.textSelectionsFor(outlineId).firstOrNull { clicked != null && clicked in it.min..it.max }
+        ?: if (state.focusedTextOutlineId == outlineId) state.editorSelection else null
     return TextMenuRequest(outlineId, position, selectionForRightClick(current, clicked), link)
 }
 

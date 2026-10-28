@@ -88,10 +88,12 @@ internal fun DocumentRibbon(
     fontSize: Int,
     defaults: EditorDefaults,
     onLinkRequest: (LinkEditorRequest) -> Unit,
+    selectionMarks: Set<Mark>? = null,
+    onSelectionCaptured: () -> Unit = {},
 ) {
     val (idle, active) = rememberDocumentRibbonIcons(ribbonStyle.normalText,
         ribbonStyle.activeText, ribbonStyle.accent)
-    val marks = richText?.activeMarks.orEmpty()
+    val marks = selectionMarks ?: richText?.activeMarks.orEmpty()
     val block = richText?.currentBlock
     val editable = richText != null
     var selectionAtPress by remember { mutableStateOf<TextSelection?>(null) }
@@ -101,7 +103,10 @@ internal fun DocumentRibbon(
         return captured
     }
     val hasRange = editable && (!richText.selection.collapsed || selectionAtPress?.collapsed == false)
-    RibbonBar(Modifier.captureSelectionOnPress(richText?.selection) { selectionAtPress = it }) {
+    RibbonBar(Modifier.captureSelectionOnPress(richText?.selection) {
+        selectionAtPress = it
+        onSelectionCaptured()
+    }) {
         RibbonIcon(if (textToolArmed) active.insertText else idle.insertText, Strings.text,
             selected = textToolArmed, tag = DocumentRibbonTags.Text, twoTone = true,
             onClick = commands.toggleTextTool)

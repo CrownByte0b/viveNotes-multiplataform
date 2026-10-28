@@ -18,7 +18,7 @@ data class TextClipboard(val text: String, val blocks: List<Block>)
  * the system clipboard. Nothing changes when nothing is selected.
  */
 fun WorkspaceState.copySelectedText(): WorkspaceState {
-    val fragment = richText?.selectedFragment().orEmpty()
+    val fragment = selectedTextFragments()
     if (fragment.isEmpty()) return this
     return copy(textClipboard = TextClipboard(selectedText, fragment))
 }
@@ -37,8 +37,8 @@ fun WorkspaceState.pasteText(clipboardText: String, keepFormatting: Boolean, cli
     if (text.isEmpty()) return this
     val buffer = richText ?: return this
     if (keepFormatting) {
-        textClipboard?.takeIf { it.text == text }?.let { return withRichText(buffer.insertFragment(it.blocks)) }
-        clipboardHtml?.let { pastedHtmlBlocks(it, buffer.activeMarks) }?.let { return withRichText(buffer.insertFormatted(it)) }
+        textClipboard?.takeIf { it.text == text }?.let { return editTextSelections { buffer -> buffer.insertFragment(it.blocks) } }
+        clipboardHtml?.let { pastedHtmlBlocks(it, buffer.activeMarks) }?.let { return editTextSelections { buffer -> buffer.insertFormatted(it) } }
     }
-    return withRichText(buffer.replace(text))
+    return editTextSelections { it.replace(text) }
 }

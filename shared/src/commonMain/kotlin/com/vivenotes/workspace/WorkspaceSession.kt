@@ -206,6 +206,11 @@ class WorkspaceSession(
         if (before.selectedObjectIds != after.selectedObjectIds) log.event("objects") {
             if (after.selectedObjectIds.isEmpty()) "selection cleared" else "selected ${after.selectedObjectIds.size} objects"
         }
+        val oldWords = before.activeWordSelections
+        val newWords = after.activeWordSelections
+        if (oldWords?.ranges?.size != newWords?.ranges?.size || oldWords?.ownerId != newWords?.ownerId) log.event("text") {
+            "word selection: ${newWords?.ranges?.size ?: 0} ranges in ${newWords?.ranges?.map { it.containerId }?.distinct()?.size ?: 0} fields"
+        }
         if (before.canvasClipboard != after.canvasClipboard) log.event("objects") {
             "copied ${after.canvasClipboard.outlines.size} objects"
         }

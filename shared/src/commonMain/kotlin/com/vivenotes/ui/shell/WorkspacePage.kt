@@ -31,6 +31,11 @@ import com.vivenotes.ui.canvas.LocalInkGeometryPublisher
 import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.ui.canvas.CanvasClipboardActions
 import com.vivenotes.ui.canvas.CanvasPasteMeasurement
+import com.vivenotes.ui.canvas.LocalWordSelectionActions
+import com.vivenotes.ui.canvas.WordSelectionActions
+import com.vivenotes.ui.canvas.TextClipboardActions
+import com.vivenotes.workspace.addWordSelection
+import com.vivenotes.workspace.activateTextSelection
 import com.vivenotes.data.CanvasClipboardSource
 
 @Composable
@@ -73,11 +78,24 @@ internal fun WorkspacePage(
     val fileDrops = rememberFileDropHandlers(pictures, onStateChange, debugLog)
     val clipboardHtml = LocalClipboardHtml.current
     val clipboardManager = LocalClipboardManager.current
+    val latestEditorCommand by rememberUpdatedState(applyEditorCommand)
+    val latestRequestFocus by rememberUpdatedState(requestEditorFocus)
+    val wordActions = remember(clipboardManager, clipboardHtml) {
+        WordSelectionActions({ latestState },
+            add = { id, range ->
+                latestOnStateChange { it.addWordSelection(id, range) }
+                latestRequestFocus()
+            },
+            clear = { latestOnStateChange { it.copy(wordSelections = null) } },
+            activate = { id, range -> latestOnStateChange { it.activateTextSelection(id, range) } },
+            clipboard = TextClipboardActions(clipboardManager, { latestEditorCommand(it) }, clipboardHtml),
+            edit = { latestEditorCommand(it) })
+    }
     val canvasClipboard = remember(clipboardManager, clipboardHtml, pictures, selectionScope, debugLog) {
         CanvasClipboardActions({ latestState }, { latestOnStateChange(it) },
             clipboardManager, clipboardHtml, pictures, selectionScope, debugLog)
     }
-    CompositionLocalProvider(LocalInkGeometryPublisher provides { source, prepared ->
+    CompositionLocalProvider(LocalWordSelectionActions provides wordActions, LocalInkGeometryPublisher provides { source, prepared ->
         latestOnStateChange { it.applyPreparedInkGeometry(source, prepared) }
     }) {
     PageCanvas(
@@ -191,9 +209,7 @@ internal fun WorkspacePage(
             })
         },
         onOpenTextMenu = { id, selection ->
-            onStateChange { current ->
-                (if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)).selectText(selection)
-            }
+            onStateChange { it.activateTextSelection(id, selection) }
         },
         onEditTextAt = { id, selection ->
             onStateChange { current ->

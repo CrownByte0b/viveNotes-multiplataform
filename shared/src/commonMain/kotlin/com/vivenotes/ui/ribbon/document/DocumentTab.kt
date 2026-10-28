@@ -4,6 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalClipboardManager
 import com.vivenotes.data.PictureCamera
@@ -16,6 +19,11 @@ import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.restoreTextSelection
+import com.vivenotes.workspace.selectedTextMarks
+import com.vivenotes.workspace.WordSelections
+import com.vivenotes.workspace.activeWordSelections
+import com.vivenotes.workspace.restoreWordSelections
 import com.vivenotes.workspace.EditorDefaults
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -70,13 +78,19 @@ internal fun DocumentTab(
     onPictureDialog: (PictureDialog) -> Unit = {},
     log: DebugLog = DebugLog(),
 ) {
-    val clipboard = TextClipboardActions(LocalClipboardManager.current, onEditorCommand, LocalClipboardHtml.current)
+    var wordsAtPress by remember { mutableStateOf<WordSelections?>(null) }
+    fun applyRibbonCommand(command: (WorkspaceState) -> WorkspaceState) {
+        val words = wordsAtPress
+        wordsAtPress = null
+        onEditorCommand { command(it.restoreWordSelections(words)) }
+    }
+    val clipboard = TextClipboardActions(LocalClipboardManager.current, ::applyRibbonCommand, LocalClipboardHtml.current)
     val scope = rememberCoroutineScope()
     val currentState by rememberUpdatedState(state)
     fun WorkspaceState.withRibbonSelection(selection: TextSelection?): WorkspaceState =
-        selection?.takeIf { it != editorSelection }?.let(::selectText) ?: this
+        restoreTextSelection(selection)
     fun edit(selection: TextSelection?, command: WorkspaceState.() -> WorkspaceState) =
-        onEditorCommand { it.withRibbonSelection(selection).command() }
+        applyRibbonCommand { it.withRibbonSelection(selection).command() }
 
     /**
      * Stores downloaded or photographed [bytes] and puts them on the page open now — Android's
@@ -132,6 +146,8 @@ internal fun DocumentTab(
         // are disabled rather than quietly editing some other box.
         richText = state.richText?.takeIf { state.selectedPage?.editable == true },
         textToolArmed = state.textToolArmed,
+        selectionMarks = state.selectedTextMarks,
+        onSelectionCaptured = { wordsAtPress = currentState.activeWordSelections },
         commands = DocumentCommands(
             toggleTextTool = { onStateChange { it.toggleTextTool() } },
             canChooseFont = state.selectedPage?.editable == true,
@@ -162,8 +178,8 @@ internal fun DocumentTab(
             setLineSpacing = { spacing, selection -> edit(selection) { setSelectedLineSpacing(spacing) } },
             indent = { delta, selection -> edit(selection) { indentSelectedText(delta) } },
             // The clipboard takes the text the user can see selected, from this frame's state.
-            copy = { selection -> clipboard.copy(state, selection) },
-            cut = { selection -> clipboard.cut(state, selection) },
+            copy = { selection -> clipboard.copy(state.restoreWordSelections(wordsAtPress), selection) },
+            cut = { selection -> clipboard.cut(state.restoreWordSelections(wordsAtPress), selection) },
             // Formatting included, as Ctrl+V does; the right-click menu also offers it without.
             paste = { selection -> clipboard.paste(selection, keepFormatting = true) },
             insertLink = { label, url, selection -> edit(selection) { insertLink(label, url) } },

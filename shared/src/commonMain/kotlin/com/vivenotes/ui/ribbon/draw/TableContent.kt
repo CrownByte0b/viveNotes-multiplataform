@@ -5,6 +5,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -19,6 +22,21 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextLayoutResult
+import com.vivenotes.model.TableCell
+import com.vivenotes.richtext.TextSelection
+import com.vivenotes.ui.canvas.LocalWordSelectionActions
+import com.vivenotes.ui.canvas.selectAdditionalWords
+import com.vivenotes.ui.canvas.wordAt
+import com.vivenotes.ui.components.ContextMenu
+import com.vivenotes.ui.components.ContextMenuItem
+import com.vivenotes.ui.components.onSecondaryPress
+import com.vivenotes.ui.icons.DocumentSymbols
+import com.vivenotes.ui.icons.ContextSymbols
+import com.vivenotes.localization.Strings
+import com.vivenotes.ui.keyboard.LocalKeyBindings
+import com.vivenotes.workspace.ShortcutAction
+import com.vivenotes.workspace.textSelectionsFor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -29,7 +47,6 @@ import androidx.compose.ui.unit.sp
 import com.vivenotes.model.Outline
 import com.vivenotes.data.automaticColorOr
 import com.vivenotes.richtext.RichTextBuffer
-import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.asAnnotatedString
 import com.vivenotes.workspace.WorkspaceState
@@ -100,35 +117,88 @@ internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Co
                 row.cells.forEachIndexed { c, cell ->
                     val header = (r == 0 && table.headerRow) || (c == 0 && table.headerColumn)
                     Box(Modifier.width(table.columns.getOrElse(c) { 160f }.dp).fillMaxHeight()) {
-                        if (!table.inkOnly) {
-                            val focused = table.lockGroup == null && state.focusedTextOutlineId == cell.id
-                            val buffer = RichTextBuffer(cell.blocks,
-                                if (focused) state.editorSelection else TextSelection(0),
-                                if (focused) state.typingMarks else emptySet())
-                            val cellStyle = TextStyle(color = canvasInk, fontSize = 14.sp,
-                                fontWeight = if (header) FontWeight.Bold else FontWeight.Normal)
-                            if (!editing) {
-                                Text(buffer.asAnnotatedString(colors), style = cellStyle,
-                                    modifier = Modifier.fillMaxSize().padding(8.dp).testTag(TableTags.cell(cell.id)))
-                            } else {
-                                BasicTextField(TextFieldValue(buffer.asAnnotatedString(colors), TextRange(buffer.selection.start, buffer.selection.end)),
-                                    { onChange(cell.id, it) }, readOnly = state.selectedPage?.editable != true,
-                                    cursorBrush = SolidColor(canvasInk),
-                                    textStyle = cellStyle,
-                                    modifier = Modifier.fillMaxSize().padding(8.dp).testTag(TableTags.cell(cell.id))
-                                        .then(if (focused) Modifier.focusRequester(focusRequester) else Modifier)
-                                        .onFocusChanged { if (it.isFocused && !focused) onFocus(cell.id) }
-                                        .onPreviewKeyEvent { event ->
-                                            if (event.type == KeyEventType.KeyDown && event.key == Key.Tab && !event.isCtrlPressed && !event.isAltPressed) {
-                                                val next = if (event.isShiftPressed) table.cellBefore(cell.id) else table.cellAfter(cell.id)
-                                                if (next != null) { onFocus(next); true } else onShortcut(event)
-                                            } else onShortcut(event)
-                                        })
-                            }
-                        }
+                        if (!table.inkOnly) TableCellText(table, cell, header, editing, canvasInk,
+                            state, colors, focusRequester, onFocus, onChange, onShortcut)
+
                     }
                 }
             }
         }
+    }
+}
+
+
+@Composable
+private fun TableCellText(
+    table: Outline.Table, cell: TableCell, header: Boolean, editing: Boolean, canvasInk: Color,
+    state: WorkspaceState, colors: RichTextColors, focusRequester: FocusRequester,
+    onFocus: (String) -> Unit, onChange: (String, TextFieldValue) -> Unit, onShortcut: (KeyEvent) -> Boolean,
+) {
+    val focused = table.lockGroup == null && state.focusedTextOutlineId == cell.id
+    val buffer = RichTextBuffer(cell.blocks, if (focused) state.editorSelection else TextSelection(0),
+        if (focused) state.typingMarks else emptySet())
+    val cellStyle = TextStyle(color = canvasInk, fontSize = 14.sp,
+        fontWeight = if (header) FontWeight.Bold else FontWeight.Normal)
+    var layout by remember(cell.id) { mutableStateOf<TextLayoutResult?>(null) }
+    var keyboardFocus by remember(cell.id) { mutableStateOf(false) }
+    var menu by remember(cell.id) { mutableStateOf<Offset?>(null) }
+    val actions = LocalWordSelectionActions.current
+    val density = LocalDensity.current
+    val selectionTint = androidx.compose.material3.MaterialTheme.colorScheme.primary.copy(alpha = .35f)
+    val modifier = Modifier.fillMaxSize().padding(8.dp)
+        .testTag(TableTags.cell(cell.id))
+        .selectAdditionalWords(cell.id, rangeAt = { point ->
+            wordAt(layout, buffer.text, layout?.getOffsetForPosition(point) ?: 0)
+        })
+        .drawBehind {
+            layout?.let { result -> state.textSelectionsFor(cell.id).forEach { range ->
+                if (!keyboardFocus || !focused || range != state.editorSelection) {
+                    drawPath(result.getPathForRange(range.min.coerceIn(0, result.layoutInput.text.length),
+                        range.max.coerceIn(0, result.layoutInput.text.length)), selectionTint)
+                }
+            } }
+        }
+        .then(if (actions == null || table.lockGroup != null) Modifier else Modifier.onSecondaryPress(cell.id) { point ->
+            val clicked = layout?.getOffsetForPosition(point)?.coerceIn(0, buffer.text.length) ?: 0
+            val range = state.textSelectionsFor(cell.id).firstOrNull { clicked in it.min..it.max }
+                ?: if (focused && clicked in state.editorSelection.min..state.editorSelection.max)
+                    state.editorSelection else TextSelection(clicked)
+            actions.activate(cell.id, range)
+            menu = point + with(density) { Offset(8.dp.toPx(), 8.dp.toPx()) }
+        })
+    if (!editing) {
+        Text(buffer.asAnnotatedString(colors), style = cellStyle, modifier = modifier, onTextLayout = { layout = it })
+    } else {
+        BasicTextField(TextFieldValue(buffer.asAnnotatedString(colors), TextRange(buffer.selection.start, buffer.selection.end)),
+            { onChange(cell.id, it) }, readOnly = state.selectedPage?.editable != true,
+            cursorBrush = SolidColor(canvasInk), textStyle = cellStyle, onTextLayout = { layout = it },
+            modifier = modifier.then(if (focused) Modifier.focusRequester(focusRequester) else Modifier)
+                .onFocusChanged {
+                    keyboardFocus = it.isFocused
+                    if (it.isFocused && !focused) onFocus(cell.id)
+                }
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.Tab && !event.isCtrlPressed && !event.isAltPressed) {
+                        val next = if (event.isShiftPressed) table.cellBefore(cell.id) else table.cellAfter(cell.id)
+                        if (next != null) { onFocus(next); true } else onShortcut(event)
+                    } else onShortcut(event)
+                })
+    }
+    if (actions != null) ContextMenu(menu, onDismiss = { menu = null }) {
+        val bindings = LocalKeyBindings.current
+        val selected = actions.state().selectedText.isNotEmpty()
+        ContextMenuItem(Strings.cut, DocumentSymbols.ContentCut, shortcut = bindings.primary(ShortcutAction.Cut)?.label,
+            enabled = selected, onClick = { menu = null; actions.clipboard.cut(actions.state(), null) })
+        ContextMenuItem(Strings.copy, DocumentSymbols.ContentCopy, shortcut = bindings.primary(ShortcutAction.Copy)?.label,
+            enabled = selected, onClick = { menu = null; actions.clipboard.copy(actions.state(), null) })
+        ContextMenuItem(Strings.paste, DocumentSymbols.ContentPaste, shortcut = bindings.primary(ShortcutAction.Paste)?.label,
+            enabled = actions.clipboard.canPaste(), onClick = { menu = null; actions.clipboard.paste(null, true) })
+        ContextMenuItem(Strings.paste_as_plain_text, ContextSymbols.PasteAsText,
+            shortcut = bindings.primary(ShortcutAction.PastePlainText)?.label,
+            enabled = actions.clipboard.canPaste(), onClick = { menu = null; actions.clipboard.paste(null, false) })
+        ContextMenuItem(Strings.select_all, ContextSymbols.SelectAll, shortcut = bindings.primary(ShortcutAction.SelectAll)?.label,
+            onClick = { menu = null; actions.edit { it.selectAllTextBox(cell.id) } })
+        ContextMenuItem(Strings.clear_formatting, DocumentSymbols.FormatClear, enabled = selected,
+            onClick = { menu = null; actions.edit { it.clearSelectedFormatting() } })
     }
 }

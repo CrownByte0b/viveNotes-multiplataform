@@ -91,6 +91,9 @@ import com.vivenotes.ui.canvas.PreviewLayout
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.TextBoxPreviews
 import com.vivenotes.ui.canvas.TextClipboardActions
+import com.vivenotes.ui.canvas.selectAdditionalWords
+import com.vivenotes.ui.canvas.wordAt
+import com.vivenotes.workspace.textSelectionsFor
 import com.vivenotes.ui.canvas.TextContextMenu
 import com.vivenotes.ui.canvas.TextMenuRequest
 import com.vivenotes.ui.canvas.asAnnotatedString
@@ -98,6 +101,7 @@ import com.vivenotes.ui.canvas.caretAt
 import com.vivenotes.ui.canvas.detectObjectDrag
 import com.vivenotes.ui.canvas.drawBlockDecorations
 import com.vivenotes.ui.canvas.linkAtPoint
+import com.vivenotes.ui.canvas.linkSpanAtPoint
 import com.vivenotes.ui.canvas.linkPointer
 import com.vivenotes.ui.canvas.scrollOnlyForTyping
 import com.vivenotes.ui.canvas.storedEquationPreviews
@@ -453,6 +457,17 @@ private fun CanvasTextBox(
         modifier = Modifier.offset(x, y).width(width)
             .heightIn(min = maxOf(outline.minHeight, 80f).dp)
             .onPlaced(publishPlacement)
+            .selectAdditionalWords(outline.id, rangeAt = { position ->
+                val point = position - with(density) { Offset(TextBoxPadding.toPx(), TextBoxPadding.toPx()) }
+                val layout = textLayouts[outline.id]
+                val offset = previewLayouts[outline.id]?.caretAt(point) ?: layout?.getOffsetForPosition(point) ?: 0
+                wordAt(layout, currentRichText.text, offset)
+            }, onCtrlClick = { position ->
+                val point = position - with(density) { Offset(TextBoxPadding.toPx(), TextBoxPadding.toPx()) }
+                val link = previewLayouts[outline.id]?.linkAt(point, currentRichText.linkSpans())
+                    ?: textLayouts[outline.id]?.let { currentRichText.linkSpanAtPoint(it, point) }
+                link?.let { runCatching { uriHandler.openUri(it.href) } }
+            })
             // Clicking or focusing a box leaves the page where it is; typing still
             // keeps the caret in view.
             .scrollOnlyForTyping { workspaceState.value.richTextFor(outline.id)?.text }
@@ -529,6 +544,12 @@ private fun CanvasTextBox(
                 Box(Modifier
                     .drawBehind {
                         textLayouts[outline.id]?.let { layout ->
+                            workspaceState.value.textSelectionsFor(outline.id).forEach { range ->
+                                if (keyboardTextBox != outline.id || range != workspaceState.value.editorSelection) {
+                                    drawPath(layout.getPathForRange(range.min.coerceIn(0, layout.layoutInput.text.length),
+                                        range.max.coerceIn(0, layout.layoutInput.text.length)), selectionTint)
+                                }
+                            }
                             if (menuSelection != null && keyboardTextBox != outline.id) {
                                 val start = menuSelection.min.coerceIn(0, layout.layoutInput.text.length)
                                 val end = menuSelection.max.coerceIn(0, layout.layoutInput.text.length)
@@ -545,6 +566,7 @@ private fun CanvasTextBox(
                         // editors do, leaving a plain click to place the caret.
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            if (down.isConsumed) return@awaitEachGesture
                             val layout = textLayouts[outline.id] ?: return@awaitEachGesture
                             val snapshot = workspaceState.value.richTextFor(outline.id) ?: return@awaitEachGesture
                             val todo = todoAt(layout, snapshot.blocks, down.position, this)

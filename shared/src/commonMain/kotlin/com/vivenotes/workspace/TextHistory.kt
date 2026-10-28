@@ -14,6 +14,9 @@ data class TextHistoryChange(
     val after: List<Block>,
     val selectionBefore: TextSelection,
     val selectionAfter: TextSelection,
+    val companions: List<TextHistoryChange> = emptyList(),
+    val wordsBefore: WordSelections? = null,
+    val wordsAfter: WordSelections? = null,
 )
 
 /**

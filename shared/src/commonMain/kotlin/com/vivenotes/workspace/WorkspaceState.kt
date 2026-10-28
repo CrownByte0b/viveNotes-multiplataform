@@ -105,7 +105,7 @@ data class PageSummary(
     val editable: Boolean get() = content == PageContent.Loaded
 }
 
-private fun PageSummary.withDocument(next: PageDoc, refreshPreview: Boolean = true): PageSummary =
+internal fun PageSummary.withDocument(next: PageDoc, refreshPreview: Boolean = true): PageSummary =
     copy(document = next, preview = if (refreshPreview) pagePreview(next) else preview)
 
 /**
@@ -203,6 +203,7 @@ data class WorkspaceState(
     /** The File tab's `.vive` export or import, while it runs and until its result is dismissed. */
     val notebookTransfer: NotebookTransferState = NotebookTransferState(),
     val filePane: FilePaneState = FilePaneState(),
+    val wordSelections: WordSelections? = null,
 ) {
     val selectedNotebook: NotebookSummary? by lazy(LazyThreadSafetyMode.PUBLICATION) {
         notebooks.firstOrNull { it.id == selectedNotebookId }
@@ -242,10 +243,10 @@ data class WorkspaceState(
     }
 
     val fontFamilyChoice: String get() = if (richText != null)
-        richText!!.activeMarks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.name ?: "sans-serif"
+        selectedTextMarks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.name ?: "sans-serif"
     else nextFontFamily ?: editorDefaults.fontFamily
     val fontSizeChoice: Int get() = if (richText != null)
-        richText!!.activeMarks.filterIsInstance<Mark.FontSize>().firstOrNull()?.sp ?: 15
+        selectedTextMarks.filterIsInstance<Mark.FontSize>().firstOrNull()?.sp ?: 15
     else nextFontSize ?: editorDefaults.fontSize
 
     /** With no editor open, a font choice arms only the next newly placed text box. */
@@ -288,6 +289,7 @@ data class WorkspaceState(
 
     /** Escape and the Select command return to the ordinary mouse pointer. */
     fun selectPointer(): WorkspaceState = discardEmptyFocusedTextBox().copy(
+        wordSelections = null,
         inkTool = null, drawPlacement = null, pendingEquation = null,
         textToolArmed = false,
         objectLassoArmed = false,
@@ -517,7 +519,7 @@ data class WorkspaceState(
             },
         ).withRecomputedBounds()
         return editOutlines { it + shape }.copy(selectedObjectIds = setOf(shape.id),
-            selectedTextOutlineIds = emptySet(), focusedTextOutlineId = null)
+            selectedTextOutlineIds = emptySet(), focusedTextOutlineId = null, wordSelections = null)
     }
 
     fun createStraightLine(line: com.vivenotes.model.ink.StraightLine, pen: InkPenSettings): WorkspaceState {
@@ -570,12 +572,12 @@ data class WorkspaceState(
                 nextFontSize ?: editorDefaults.fontSize) else emptySet()
         return next.copy(focusedTextOutlineId = id, selectedTextOutlineIds = emptySet(),
             selectedObjectIds = emptySet(), selectedInk = null,
-            editorSelection = TextSelection(0), typingMarks = marks, editorComposition = null,
+            editorSelection = TextSelection(0), wordSelections = null, typingMarks = marks, editorComposition = null,
             nextFontFamily = null, nextFontSize = null)
     }
 
     fun clearCanvasFocus(): WorkspaceState = discardEmptyFocusedTextBox().copy(
-        focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
+        focusedTextOutlineId = null, wordSelections = null, selectedTextOutlineIds = emptySet(),
         selectedObjectIds = emptySet(), selectedInk = null, editorComposition = null)
 
     private fun discardEmptyFocusedTextBox(): WorkspaceState {
@@ -587,7 +589,7 @@ data class WorkspaceState(
         return updatePage(page.id) { candidate ->
             candidate.withDocument(candidate.document.copy(
                 outlines = candidate.document.outlines.filterNot { it.id == id }))
-        }.copy(focusedTextOutlineId = null, editorSelection = TextSelection(0),
+        }.copy(focusedTextOutlineId = null, editorSelection = TextSelection(0), wordSelections = null,
             typingMarks = emptySet(), editorComposition = null)
             .discardEmptyTextHistory(setOf(id))
     }
@@ -604,7 +606,7 @@ data class WorkspaceState(
         return editOutlines { outlines ->
             outlines.filterNot { it is Outline.Text && it.isUnwritten() } + outline
         }.copy(focusedTextOutlineId = outline.id, selectedTextOutlineIds = emptySet(),
-            editorSelection = TextSelection(0),
+            editorSelection = TextSelection(0), wordSelections = null,
             typingMarks = editorDefaults.textMarks(nextFontFamily ?: editorDefaults.fontFamily,
                 nextFontSize ?: editorDefaults.fontSize), editorComposition = null,
             nextFontFamily = null, nextFontSize = null)
@@ -653,7 +655,7 @@ data class WorkspaceState(
 
     fun deleteTextBox(id: String): WorkspaceState = editOutlines { outlines ->
         outlines.filterNot { it is Outline.Text && it.id == id }
-    }.copy(focusedTextOutlineId = null, editorSelection = TextSelection(0),
+    }.copy(focusedTextOutlineId = null, editorSelection = TextSelection(0), wordSelections = null,
         typingMarks = emptySet(), editorComposition = null,
         selectedTextOutlineIds = selectedTextOutlineIds - id)
 
@@ -689,7 +691,7 @@ data class WorkspaceState(
                 focusedTextOutlineId = null, selectedInk = change.selection,
                 selectedTextOutlineIds = pasted.filterIsInstance<Outline.Text>().map { it.id }.toSet(),
                 selectedObjectIds = pasted.filter { it.isPrimeObject() }.map { it.id }.toSet(),
-                editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null,
+                editorSelection = TextSelection(0), wordSelections = null, typingMarks = emptySet(), editorComposition = null,
                 pendingInkEdits = pendingInkEdits.queueInk(change.edits.map { com.vivenotes.data.PendingInkEdit(newId(), page.id, it) }),
                 structuralUndo = (structuralUndo + StructuralSnapshot(page.id, page.document, history)).takeLast(100),
                 structuralRedo = emptyList(),
@@ -700,7 +702,7 @@ data class WorkspaceState(
             selectedTextOutlineIds = emptySet(),
             selectedObjectIds = pasted.filter { it.isPrimeObject() }.map { it.id }.toSet(),
             selectedInk = null,
-            editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null,
+            editorSelection = TextSelection(0), wordSelections = null, typingMarks = emptySet(), editorComposition = null,
         )
     }
 
@@ -745,7 +747,7 @@ data class WorkspaceState(
         if (prior.pageId != page.id) return this
         prior.text?.let { change ->
             // A step for a box that is no longer on the page has nothing left to undo.
-            val shown = showTextStep(change, change.before, change.selectionBefore)
+            val shown = showTextStep(change, before = true)
                 ?: return copy(structuralUndo = structuralUndo.dropLast(1), typingRun = null).undoStructure()
             return shown.copy(structuralUndo = shown.structuralUndo.dropLast(1),
                 structuralRedo = shown.structuralRedo + shown.structuralUndo.last(), typingRun = null)
@@ -765,7 +767,7 @@ data class WorkspaceState(
             structuralUndo = structuralUndo.dropLast(1),
             structuralRedo = structuralRedo + StructuralSnapshot(page.id, page.document),
             focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
-            selectedObjectIds = emptySet(), selectedInk = null, editorSelection = TextSelection(0),
+            selectedObjectIds = emptySet(), selectedInk = null, editorSelection = TextSelection(0), wordSelections = null,
             typingRun = null,
         )
     }
@@ -775,7 +777,7 @@ data class WorkspaceState(
         val page = editablePage ?: return this
         if (next.pageId != page.id) return this
         next.text?.let { change ->
-            val shown = showTextStep(change, change.after, change.selectionAfter)
+            val shown = showTextStep(change, before = false)
                 ?: return copy(structuralRedo = structuralRedo.dropLast(1), typingRun = null).redoStructure()
             return shown.copy(structuralRedo = shown.structuralRedo.dropLast(1),
                 structuralUndo = shown.structuralUndo + shown.structuralRedo.last(), typingRun = null)
@@ -795,7 +797,7 @@ data class WorkspaceState(
             structuralRedo = structuralRedo.dropLast(1),
             structuralUndo = structuralUndo + StructuralSnapshot(page.id, page.document),
             focusedTextOutlineId = null, selectedTextOutlineIds = emptySet(),
-            selectedObjectIds = emptySet(), selectedInk = null, editorSelection = TextSelection(0),
+            selectedObjectIds = emptySet(), selectedInk = null, editorSelection = TextSelection(0), wordSelections = null,
             typingRun = null,
         )
     }
@@ -804,11 +806,17 @@ data class WorkspaceState(
      * The page with [change]'s box holding [blocks] and being edited with [selection]: Undo and Redo
      * of text put the caret back where the text changed. Null when that box is no longer on the page.
      */
-    private fun showTextStep(change: TextHistoryChange, blocks: List<Block>, selection: TextSelection): WorkspaceState? {
+    private fun showTextStep(change: TextHistoryChange, before: Boolean): WorkspaceState? {
         if (selectedPage?.document?.textContainer(change.outlineId) == null) return null
+        val changes = listOf(change) + change.companions
+        val blocks = if (before) change.before else change.after
+        val selection = if (before) change.selectionBefore else change.selectionAfter
         val focused = if (focusedTextOutlineId == change.outlineId) this else focusTextBox(change.outlineId)
         val buffer = RichTextBuffer(blocks, typingMarks = focused.typingMarks).select(selection)
-        return focused.withRichText(buffer, record = false).copy(editorComposition = null)
+        return focused.updatePage(selectedPageId) { page -> page.withDocument(page.document.withTextBlocks(
+            changes.associate { it.outlineId to if (before) it.before else it.after }))
+        }.copy(editorSelection = buffer.selection, typingMarks = buffer.typingMarks, editorComposition = null,
+            wordSelections = if (before) change.wordsBefore else change.wordsAfter)
     }
 
     /**
@@ -838,7 +846,7 @@ data class WorkspaceState(
         val ids = if (tapped.lockGroup == null) setOf(id) else
             objects.filter { it.lockGroup == tapped.lockGroup }.map { it.id }.toSet()
         return discardEmptyFocusedTextBox().copy(selectedObjectIds = ids, selectedInk = null,
-            selectedTextOutlineIds = emptySet(), focusedTextOutlineId = null)
+            selectedTextOutlineIds = emptySet(), focusedTextOutlineId = null, wordSelections = null)
     }
 
     /** Mixed lassos prefer movable outlines; a loop containing only locks selects those groups. */
@@ -981,7 +989,7 @@ data class WorkspaceState(
             selectedNotebookId = notebook.id,
             selectedSectionId = section?.id.orEmpty(),
             selectedPageId = section?.pages?.firstOrNull()?.id.orEmpty(),
-            editorSelection = TextSelection(0),
+            editorSelection = TextSelection(0), wordSelections = null,
             typingMarks = emptySet(),
             editorComposition = null,
             focusedTextOutlineId = null,
@@ -999,7 +1007,7 @@ data class WorkspaceState(
             selectedNotebookId = notebook.id,
             selectedSectionId = section.id,
             selectedPageId = section.pages.firstOrNull()?.id.orEmpty(),
-            editorSelection = TextSelection(0),
+            editorSelection = TextSelection(0), wordSelections = null,
             typingMarks = emptySet(),
             editorComposition = null,
             focusedTextOutlineId = null,
@@ -1017,7 +1025,7 @@ data class WorkspaceState(
             selectedNotebookId = owner.first.id,
             selectedSectionId = owner.second.id,
             selectedPageId = id,
-            editorSelection = TextSelection(0),
+            editorSelection = TextSelection(0), wordSelections = null,
             typingMarks = emptySet(),
             editorComposition = null,
             focusedTextOutlineId = null,
@@ -1058,7 +1066,7 @@ data class WorkspaceState(
 
     fun selectText(selection: TextSelection): WorkspaceState {
         val next = richText?.select(selection) ?: return this
-        return copy(editorSelection = next.selection, typingMarks = next.typingMarks)
+        return copy(editorSelection = next.selection, typingMarks = next.typingMarks, wordSelections = if (next.selection == editorSelection) wordSelections else null)
     }
 
     fun editSelectedText(
@@ -1066,51 +1074,57 @@ data class WorkspaceState(
         selection: TextSelection,
         composition: TextSelection? = null,
     ): WorkspaceState {
+        editSelectedWords(text, selection)?.let { return it }
         val current = richText ?: return this
         val next = current.acceptTextChange(text, selection)
         val keystroke = Keystroke.of(current.text, text, current.selection.clamped(current.text.length))
-        return withRichText(next, keystroke).copy(editorComposition = composition?.clamped(text.length))
+        return copy(wordSelections = null).withRichText(next, keystroke).copy(editorComposition = composition?.clamped(text.length))
     }
 
     fun toggleSelectedMark(mark: Mark): WorkspaceState =
-        richText?.toggleMark(mark)?.let(::withRichText) ?: this
+        if (activeWordSelections == null) richText?.toggleMark(mark)?.let(::withRichText) ?: this
+        else editTextSelections { if (mark in selectedTextMarks) it.clearMark(mark) else it.setMark(mark) }
 
     fun setSelectedMark(mark: Mark): WorkspaceState =
-        richText?.setMark(mark)?.let(::withRichText) ?: this
+        editTextSelections { it.setMark(mark) }
 
     fun clearSelectedMark(mark: Mark): WorkspaceState =
-        richText?.clearMark(mark)?.let(::withRichText) ?: this
+        editTextSelections { it.clearMark(mark) }
 
     fun replaceSelectedText(text: String): WorkspaceState =
-        richText?.replace(text)?.let(::withRichText) ?: this
+        editTextSelections { it.replace(text) }
 
     val selectedText: String
-        get() = richText?.let { buffer ->
-            buffer.text.substring(buffer.selection.min, buffer.selection.max)
-        }.orEmpty()
+        get() = orderedTextRanges().mapNotNull { target ->
+            selectedPage?.document?.textIndex?.get(target.containerId)?.let {
+                val buffer = RichTextBuffer(it.blocks)
+                val range = target.range.clamped(buffer.text.length)
+                buffer.text.substring(range.min, range.max).takeIf { text -> text.isNotEmpty() }
+            }
+        }.joinToString("\n")
 
     fun clearSelectedFormatting(): WorkspaceState =
-        richText?.clearFormatting()?.let(::withRichText) ?: this
+        editTextSelections { it.clearFormatting() }
 
     fun setSelectedBlockType(type: BlockType): WorkspaceState =
-        richText?.setBlockType(type)?.let(::withRichText) ?: this
+        editTextSelections(paragraphs = true) { it.setBlockType(type) }
 
     fun alignSelectedText(align: Align): WorkspaceState =
-        richText?.setAlign(align)?.let(::withRichText) ?: this
+        editTextSelections(paragraphs = true) { it.setAlign(align) }
 
     fun setSelectedLineSpacing(spacing: Float): WorkspaceState =
-        richText?.setLineSpacing(spacing)?.let(::withRichText) ?: this
+        editTextSelections(paragraphs = true) { it.setLineSpacing(spacing) }
 
     fun indentSelectedText(delta: Int): WorkspaceState =
-        richText?.indent(delta)?.let(::withRichText) ?: this
+        editTextSelections(paragraphs = true) { it.indent(delta) }
 
     /** Ctrl+Enter: a plain paragraph after the caret, out of the list — [RichTextBuffer.insertPlainParagraph]. */
     fun insertPlainParagraph(): WorkspaceState =
-        richText?.insertPlainParagraph()?.let(::withRichText) ?: this
+        editTextSelections { it.insertPlainParagraph() }
 
     /** Links the selection, changes the link at the caret, or inserts [label] linked there. */
     fun insertLink(label: String, url: String): WorkspaceState =
-        richText?.insertLink(label, url)?.let(::withRichText) ?: this
+        editTextSelections { it.insertLink(label, url) }
 
     /** Ticks or unticks a to-do in any text box, focused or not. */
     fun toggleTodo(outlineId: String, blockId: String): WorkspaceState {
@@ -1221,7 +1235,7 @@ data class WorkspaceState(
             updatedLabel = Strings.just_now,
         )
         return updateSection(section.id) { it.copy(pages = it.pages + page) }
-            .copy(selectedPageId = id, editorSelection = TextSelection(0), typingMarks = emptySet(), editorComposition = null)
+            .copy(selectedPageId = id, editorSelection = TextSelection(0), wordSelections = null, typingMarks = emptySet(), editorComposition = null)
     }
 
     /** Replaces one page wherever it is. No editability check: storage uses it to load and unload. */

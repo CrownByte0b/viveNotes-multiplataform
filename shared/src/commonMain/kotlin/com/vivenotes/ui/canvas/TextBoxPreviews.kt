@@ -200,6 +200,7 @@ internal fun TextBoxPreviews(
             .pointerInput(ranges) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    if (down.isConsumed) return@awaitEachGesture
                     pressedAt = down.position
                     val shown = layout ?: return@awaitEachGesture
                     val todo = todoAt(shown.layout, currentBlocks, down.position, this, offsets::toDisplay)
