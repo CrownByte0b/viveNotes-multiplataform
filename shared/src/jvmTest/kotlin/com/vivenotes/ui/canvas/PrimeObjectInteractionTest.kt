@@ -3,6 +3,7 @@ package com.vivenotes.ui.canvas
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asSkiaBitmap
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.model.*
@@ -154,6 +155,27 @@ class PrimeObjectInteractionTest {
                 click(Offset(700f, 600f)); advanceEventTime(120); click(Offset(702f, 601f))
             }
             onNodeWithTag(WorkspaceTestTags.CanvasPaste).assertIsDisplayed()
+        }
+
+    @Test
+    fun hoveringAndPressingAPictureLeavesItsPixelsUntinted() =
+        runDesktopComposeUiTest(width = 1500, height = 1000) {
+            val image = Outline.Image("image", 100f, 220f, 120f, attachmentId = "attachment", height = 80f)
+            val shape = Outline.Shape(id = "shape", kind = ShapeKind.Rectangle,
+                segments = seedSegments(ShapeKind.Rectangle, 400f, 220f, 520f, 300f, ::newId)).withRecomputedBounds()
+            val state = mutableStateOf(workspace(listOf(image, shape)))
+            setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
+            val probe = Offset(20f, 20f)
+            // The shape still answers a press with the theme's ripple, so the probe can see one.
+            for ((id, tinted) in listOf(image.id to false, shape.id to true)) {
+                val node = onNodeWithTag(WorkspaceTestTags.primeObject(id))
+                val idle = node.captureToImage().toPixelMap()[probe.x.toInt(), probe.y.toInt()]
+                node.performMouseInput { moveTo(probe); press() }
+                val pressed = node.captureToImage().toPixelMap()[probe.x.toInt(), probe.y.toInt()]
+                node.performMouseInput { release(); moveTo(Offset(-200f, -100f)) }
+                assertEquals(tinted, idle != pressed, "$id: $idle -> $pressed")
+            }
+            runOnIdle { assertEquals(setOf(shape.id), state.value.selectedObjectIds) }
         }
 
     private fun save(node: SemanticsNodeInteraction, name: String) {

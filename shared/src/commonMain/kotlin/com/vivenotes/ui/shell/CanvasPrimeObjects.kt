@@ -1,6 +1,7 @@
 package com.vivenotes.ui.shell
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -176,7 +177,9 @@ internal fun CanvasPrimeObjects(
                         },
                     )
                 }
-                .clickable {
+                // A picture is part of the page: a click selects it without a ripple over it.
+                .clickable(interactionSource = null,
+                    indication = if (outline is Outline.Image) null else LocalIndication.current) {
                     focusManager.clearFocus()
                     canvasFocusRequester.requestFocus()
                     if (outline.id !in workspaceState.value.selectedObjectIds) onSelectObject(outline.id)
