@@ -43,7 +43,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The desktop's account and sync wiring end to end — Android's `SyncAccounts` and foreground
@@ -132,6 +134,32 @@ class DesktopSyncTest {
             assertTrue(sync.accounts.hasPendingChanges(), "the unanswered push stays queued")
         } finally {
             server.releasePushes()
+            library.close()
+        }
+    }
+
+    /**
+     * The window stays open until this returns. With nothing to push, ending a stream the server
+     * keeps silent must not wait out the final push's bound and the cancel grace after it.
+     */
+    @Test
+    fun closingEndsAnIdleStreamAtOnce() = runBlocking {
+        server.silentStream = true
+        val library = NotesLibrary.open(File(root, "notes"))
+        try {
+            register(library)
+            val sync = desktopSync(library, finalPushTimeout = 5.seconds)
+            sync.start()
+            withTimeout(10_000) { sync.accounts.streamReady.first { it } }
+            // Long enough for the stream's reader to be back in its read, waiting for an event.
+            delay(200)
+
+            val started = System.nanoTime()
+            sync.stop()
+            val elapsed = (System.nanoTime() - started) / 1_000_000
+
+            assertTrue(elapsed < 2_000, "close waited $elapsed ms")
+        } finally {
             library.close()
         }
     }
@@ -305,6 +333,7 @@ class DesktopSyncTest {
     private fun desktopSync(
         library: NotesLibrary,
         cardCheckout: Boolean = DesktopBuildInfo.CARD_CHECKOUT,
+        finalPushTimeout: Duration = 500.milliseconds,
     ) = DesktopSync(
         library = library,
         profile = DesktopProfile.DEVELOPMENT,
@@ -313,7 +342,7 @@ class DesktopSyncTest {
         cloudBaseUrl = server.url,
         googleClientId = "",
         cardCheckout = cardCheckout,
-        finalPushTimeout = 500.milliseconds,
+        finalPushTimeout = finalPushTimeout,
     )
 
     /** What a sign-in leaves behind: the registration, written to the store this library's app reads. */
@@ -347,6 +376,8 @@ class DesktopSyncTest {
         /** The managed server's gate: the stream and pushes answer `402` until the account has a plan. */
         @Volatile var requiresPlan = false
         @Volatile var couponRedeemed = false
+        /** Says nothing after the first page until [stop], as the managed server does while nothing changes. */
+        @Volatile var silentStream = false
         val streamsOpened = AtomicInteger()
         /** "<method> <path> <Authorization>" of every billing request. */
         val billingCalls = CopyOnWriteArrayList<String>()
@@ -354,6 +385,7 @@ class DesktopSyncTest {
         private val pushStarted = CountDownLatch(1)
         private val pushRelease = CountDownLatch(1)
         private val streamClosed = CountDownLatch(1)
+        private val hangUp = CountDownLatch(1)
         @Volatile private var cursor = 0L
         private val server = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0).apply {
             executor = Executors.newCachedThreadPool()
@@ -374,6 +406,7 @@ class DesktopSyncTest {
 
         fun stop() {
             pushRelease.countDown()
+            hangUp.countDown()
             server.stop(0)
             (server.executor as java.util.concurrent.ExecutorService).shutdownNow()
         }
@@ -392,8 +425,11 @@ class DesktopSyncTest {
             try {
                 out.write("event: ready\ndata: {\"changes\":[],\"cursor\":$cursor,\"hasMore\":false,\"purges\":[]}\n\n".toByteArray())
                 out.flush()
-                // Silent while nothing changes, as the real stream is; a comment line now and then is
-                // how this end notices the client has gone.
+                if (silentStream) {
+                    hangUp.await(30, TimeUnit.SECONDS)
+                    return
+                }
+                // A comment line now and then is how this end notices the client has gone.
                 while (true) {
                     Thread.sleep(50)
                     out.write(": keep-alive\n\n".toByteArray())

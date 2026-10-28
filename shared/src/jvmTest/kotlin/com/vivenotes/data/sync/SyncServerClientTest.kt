@@ -3,10 +3,17 @@ package com.vivenotes.data.sync
 
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -16,6 +23,7 @@ import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -560,6 +568,44 @@ class SyncServerClientTest {
             .toList()
         assertTrue(events[0] is ChangeStreamEvent.Ready)
         assertEquals(ChangeStreamEvent.Unauthorized, events[1])
+    }
+
+    /**
+     * The managed server says nothing while nothing changes, so an open stream's reader is almost
+     * always waiting in a read, and that is where closing the window cancels it. The JDK's
+     * `disconnect()` waits for a read in progress to return, so the cancel itself must end the read.
+     */
+    @Test
+    fun cancellingAnIdleChangeStreamEndsItsWaitingRead() = runBlocking {
+        val hangUp = CountDownLatch(1)
+        respond = { exchange ->
+            exchange.responseHeaders.add("Content-Type", "text/event-stream")
+            exchange.sendResponseHeaders(200, 0)
+            exchange.responseBody.use { body ->
+                body.write(
+                    "event: ready\ndata: {\"changes\":[],\"purges\":[],\"cursor\":0,\"hasMore\":false}\n\n"
+                        .encodeToByteArray(),
+                )
+                body.flush()
+                hangUp.await(30, TimeUnit.SECONDS)
+            }
+        }
+        val ready = CompletableDeferred<Unit>()
+        // Its own scope: a read that stays blocked must fail the assertion, not hang this test.
+        val watching = CoroutineScope(Dispatchers.Default).launch {
+            SyncServerClient().watchChanges(baseUrl, "vive_abc", since = 0).collect { ready.complete(Unit) }
+        }
+        try {
+            withTimeout(10_000) { ready.await() }
+            // Long enough for the reader to be back in its read, waiting for an event.
+            delay(200)
+
+            watching.cancel()
+
+            assertNotNull("the stream's read outlived its cancellation", withTimeoutOrNull(2_000) { watching.join() })
+        } finally {
+            hangUp.countDown()
+        }
     }
 
     @Test

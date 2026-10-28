@@ -4,6 +4,7 @@ package com.vivenotes.data.sync
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -27,7 +29,7 @@ import java.net.URLEncoder
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.Executors
 
 /**
  * Why connecting to a server failed, in the terms the person who typed the address can act on.
@@ -1188,9 +1190,12 @@ class SyncServerClient(
      * `GET /v1/changes`; SSE is now the delivery channel rather than a prompt to make another GET.
      *
      * `callbackFlow` is doing lifecycle work here, not adapting a callback API. A blocking
-     * `HttpURLConnection` read does not observe coroutine cancellation by itself, so [awaitClose]
-     * disconnects it from the cancelling thread. That lets backgrounding the app close the socket
-     * immediately even though an idle server intentionally sends no heartbeats.
+     * `HttpURLConnection` read does not observe coroutine cancellation by itself, and on the JDK
+     * `disconnect()` from another thread waits for a read in progress to return — on an idle stream,
+     * whose server intentionally sends no heartbeats, until the next change. So the reader runs on
+     * a virtual thread, whose socket the JDK closes when the thread is interrupted, and its blocking
+     * calls are [runInterruptible]: cancelling the flow, as closing the window does, ends the read
+     * and closes the socket at once.
      *
      * Buffered one event deep, so the next page is read and decoded while the last is applied and
      * no further. `callbackFlow`'s default is 64, and on a first sync the reader outruns Room: it
@@ -1216,8 +1221,7 @@ class SyncServerClient(
             return@callbackFlow
         }
 
-        val activeConnection = AtomicReference<HttpURLConnection?>()
-        val reader = launch(Dispatchers.IO) {
+        val reader = launch(changeStreamThreads) {
             val connection = try {
                 openConnection(url)
             } catch (unreachable: IOException) {
@@ -1227,9 +1231,7 @@ class SyncServerClient(
                 }
                 return@launch
             }
-            activeConnection.set(connection)
             if (!isActive) {
-                activeConnection.compareAndSet(connection, null)
                 connection.disconnect()
                 return@launch
             }
@@ -1238,21 +1240,21 @@ class SyncServerClient(
                 connection.requestMethod = "GET"
                 connection.connectTimeout = CONNECT_TIMEOUT_MS
                 // Infinite by design. The server says nothing when nothing changed; cancellation
-                // interrupts this through disconnect() in awaitClose rather than through a timer.
+                // ends the read by interrupting this virtual thread rather than through a timer.
                 connection.readTimeout = 0
                 connection.instanceFollowRedirects = false
                 connection.setRequestProperty("Accept", CHANGE_STREAM_CONTENT_TYPE)
                 connection.setRequestProperty("Cache-Control", "no-cache")
                 connection.setRequestProperty("Authorization", "Bearer $token")
 
-                val status = connection.responseCode
+                val status = runInterruptible { connection.responseCode }
                 if (status == 401) {
                     trySend(ChangeStreamEvent.Unauthorized)
                     close()
                     return@launch
                 }
                 if (status !in 200..299) {
-                    val payload = readBounded(connection.errorStream)
+                    val payload = runInterruptible { readBounded(connection.errorStream) }
                     trySend(
                         ChangeStreamEvent.Failed(
                             reason = failureFor(status, payload),
@@ -1276,7 +1278,7 @@ class SyncServerClient(
                     val dataLines = mutableListOf<String>()
                     var dataLength = 0
                     while (isActive) {
-                        val line = lines.next() ?: break
+                        val line = runInterruptible { lines.next() } ?: break
                         when {
                             line.isEmpty() -> {
                                 // One line is the usual case, and joining it would copy the page.
@@ -1339,15 +1341,12 @@ class SyncServerClient(
                     close()
                 }
             } finally {
-                activeConnection.compareAndSet(connection, null)
                 connection.disconnect()
             }
         }
 
-        awaitClose {
-            activeConnection.getAndSet(null)?.disconnect()
-            reader.cancel()
-        }
+        // Interrupts the reader's blocking call, which closes its socket; it then disconnects itself.
+        awaitClose { reader.cancel() }
     }.buffer(1)
 
     private fun decodePullChangesPage(payload: String): PullChangesPage {
@@ -2054,6 +2053,12 @@ class SyncServerClient(
     }
 
     private companion object {
+        /**
+         * Where the change stream reads. The JDK closes a virtual thread's socket when the thread is
+         * interrupted, which is how [runInterruptible] ends a read the server may never answer.
+         */
+        val changeStreamThreads = Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher()
+
         const val CONNECT_TIMEOUT_MS = 10_000
         /** One page at a time of a file on both byte routes, a response body or the change stream. */
         const val TRANSFER_BUFFER_BYTES = 64 * 1024
