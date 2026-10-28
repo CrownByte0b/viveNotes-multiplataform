@@ -23,6 +23,7 @@ internal class PictureHttp(
     private val openConnection: (URL) -> HttpURLConnection = { url ->
         url.openConnection() as HttpURLConnection
     },
+    private val allowHttp: Boolean = false,
 ) {
     sealed interface Text {
         data class Ok(val body: String) : Text
@@ -82,7 +83,7 @@ internal class PictureHttp(
         // Android's lenient parse, kept so an address one app fetches the other fetches too.
         @Suppress("DEPRECATION")
         val url = runCatching { URL(address) }.getOrNull() ?: return null
-        if (url.protocol != "https") return null
+        if (url.protocol != "https" && !(allowHttp && url.protocol == "http")) return null
         return openConnection(url).apply {
             connectTimeout = CONNECT_TIMEOUT_MS
             readTimeout = READ_TIMEOUT_MS

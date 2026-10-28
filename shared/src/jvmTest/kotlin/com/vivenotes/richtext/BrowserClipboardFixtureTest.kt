@@ -3,6 +3,7 @@ package com.vivenotes.richtext
 import com.vivenotes.model.Block
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Mark
+import com.vivenotes.data.ClipboardContent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -82,5 +83,16 @@ class BrowserClipboardFixtureTest {
         val blocks = pastedHtmlBlocks(fixture("chromium-linux.html"), caret)!!
         assertThePage(blocks)
         assertEquals(caret + Mark.TextColor(0xFFC62828.toInt()), blocks.run("red note").marks)
+    }
+
+    @Test
+    fun bothBrowsersPasteTheirTablesAsEditableCanvasObjects() {
+        for (name in listOf("firefox-linux.html", "chromium-linux.html")) {
+            val items = canvasPasteItems(ClipboardContent(html = fixture(name)), caret)
+            val table = items.filterIsInstance<CanvasPasteItem.Table>().single().outline
+            assertEquals(listOf(listOf("Name", "Value"), listOf("x", "1")),
+                table.rows.map { it.cells.map { cell -> cell.plainText } }, name)
+            assertTrue(items.filterIsInstance<CanvasPasteItem.Text>().flatMap { it.blocks }.any { it.type == BlockType.Heading1 }, name)
+        }
     }
 }

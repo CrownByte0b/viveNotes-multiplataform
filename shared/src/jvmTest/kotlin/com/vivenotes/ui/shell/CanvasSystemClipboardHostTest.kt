@@ -1,0 +1,149 @@
+package com.vivenotes.ui.shell
+
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.tooling.ComposeToolingApi
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.awt.ComposePanel
+import androidx.compose.ui.awt.RenderSettings
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getAllSemanticsNodes
+import androidx.compose.ui.semantics.getOrNull
+import com.vivenotes.data.AttachmentStore
+import com.vivenotes.data.HtmlSelection
+import com.vivenotes.data.ImportedPicture
+import com.vivenotes.data.PictureLibrary
+import com.vivenotes.data.SystemClipboardContent
+import com.vivenotes.data.db.NotesDatabase
+import com.vivenotes.model.Outline
+import com.vivenotes.ui.canvas.LocalClipboardHtml
+import com.vivenotes.workspace.WorkspaceState
+import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeFalse
+import java.awt.GraphicsEnvironment
+import java.awt.Robot
+import java.awt.Toolkit
+import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.StringSelection
+import java.awt.datatransfer.Transferable
+import java.awt.datatransfer.UnsupportedFlavorException
+import java.awt.event.InputEvent
+import java.awt.event.KeyEvent
+import java.awt.image.BufferedImage
+import java.nio.file.Files
+import javax.swing.JFrame
+import javax.swing.SwingUtilities
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+import kotlin.test.fail
+
+/** Native keys and the real desktop clipboard through the application's displayed workspace. */
+@OptIn(ExperimentalComposeUiApi::class, ComposeToolingApi::class)
+class CanvasSystemClipboardHostTest {
+    @Test
+    fun nativePasteInADesktopWindowInsertsTextTablesAndStoredPictures() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+        val root = Files.createTempDirectory("canvas-clipboard-host").toFile()
+        val database = NotesDatabase.create(root.resolve(NotesDatabase.FILE_NAME))
+        val store = AttachmentStore(root.resolve("attachments"), database)
+        val pictures = object : PictureLibrary {
+            override suspend fun choose(): ImportedPicture? = null
+            override suspend fun import(bytes: ByteArray) = store.import(bytes)
+            override suspend fun bytes(attachmentId: String) = store.bytes(attachmentId)
+        }
+        val state = mutableStateOf(WorkspaceState.demo().clearCanvasFocus())
+        val clipboard = Toolkit.getDefaultToolkit().systemClipboard
+        val source = SystemClipboardContent()
+        lateinit var window: JFrame
+        lateinit var panel: ComposePanel
+        onEdt {
+            window = JFrame("Canvas clipboard integration")
+            panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
+            window.contentPane.add(panel)
+            window.setSize(1400, 900)
+            window.isVisible = true
+            panel.setContent {
+                CompositionLocalProvider(LocalClipboardHtml provides source) {
+                    WorkspaceScreen(state.value, { state.value = it(state.value) }, pictures = pictures)
+                }
+            }
+        }
+        try {
+            waitFor {
+                panel.semanticsOwners.any { owner -> owner.getAllSemanticsNodes(false).any {
+                    it.config.getOrNull(SemanticsProperties.TestTag) == WorkspaceTestTags.PageCanvas
+                } }
+            }
+            val point = onEdt {
+                val canvas = panel.semanticsOwners.flatMap { it.getAllSemanticsNodes(false) }.first {
+                    it.config.getOrNull(SemanticsProperties.TestTag) == WorkspaceTestTags.PageCanvas
+                }.boundsInRoot
+                val origin = panel.locationOnScreen
+                java.awt.Point(origin.x + canvas.left.toInt() + 600, origin.y + canvas.top.toInt() + 450)
+            }
+            val robot = Robot().apply { autoDelay = 35 }
+            robot.mouseMove(point.x, point.y)
+            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK)
+            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK)
+            robot.waitForIdle()
+            fun ctrl(key: Int) {
+                robot.keyPress(KeyEvent.VK_CONTROL)
+                robot.keyPress(key)
+                robot.keyRelease(key)
+                robot.keyRelease(KeyEvent.VK_CONTROL)
+                robot.waitForIdle()
+            }
+            fun paste(contents: Transferable) {
+                onEdt { clipboard.setContents(contents, null) }
+                ctrl(KeyEvent.VK_V)
+            }
+            paste(StringSelection("Native clipboard text"))
+            waitFor { state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>().any {
+                it.blocks.any { block -> block.text == "Native clipboard text" }
+            } }
+            paste(HtmlSelection("<table><tr><th>Column</th></tr><tr><td>Native cell</td></tr></table>", "Column\nNative cell"))
+            waitFor { state.value.selectedPage!!.document.outlines.any { it is Outline.Table } }
+            onEdt {
+                assertEquals("Native cell", state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single().cellAt(1, 0)!!.plainText)
+            }
+            ctrl(KeyEvent.VK_C)
+            waitFor { source.ownsInternalCopy() }
+            ctrl(KeyEvent.VK_V)
+            waitFor { state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().size == 2 }
+            paste(object : Transferable {
+                override fun getTransferDataFlavors() = arrayOf(DataFlavor.imageFlavor)
+                override fun isDataFlavorSupported(flavor: DataFlavor?) = flavor == DataFlavor.imageFlavor
+                override fun getTransferData(flavor: DataFlavor?): Any = if (flavor == DataFlavor.imageFlavor)
+                    BufferedImage(40, 20, BufferedImage.TYPE_INT_ARGB) else throw UnsupportedFlavorException(flavor)
+            })
+            waitFor { state.value.selectedPage!!.document.outlines.any { it is Outline.Image } }
+            val image = onEdt { state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Image>().single() }
+            runBlocking { assertNotNull(store.bytes(image.attachmentId)) }
+            onEdt {
+                assertEquals(320f, image.width)
+                assertEquals(160f, image.height)
+                assertTrue(state.value.structuralUndo.size >= 3)
+            }
+        } finally {
+            onEdt { panel.setContent { }; window.dispose() }
+            database.close()
+            root.deleteRecursively()
+        }
+    }
+
+    private fun waitFor(condition: () -> Boolean) {
+        repeat(250) {
+            if (onEdt(condition)) return
+            Thread.sleep(20)
+        }
+        fail("Timed out waiting for native clipboard paste")
+    }
+
+    private fun <T> onEdt(block: () -> T): T {
+        var result: Result<T>? = null
+        SwingUtilities.invokeAndWait { result = runCatching(block) }
+        return result!!.getOrThrow()
+    }
+}

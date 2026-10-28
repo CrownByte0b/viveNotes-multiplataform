@@ -44,12 +44,18 @@ internal class WorkspaceShortcuts(
             // With nothing selected in a text box these still use the key, as the text field's own would.
             ShortcutAction.Cut -> when {
                 !onCanvas -> if (selected) clipboard.cut(current, null)
-                current.hasObjectSelection -> onStateChange { it.cutSelectedObjects() }
+                current.hasObjectSelection -> {
+                    onStateChange { it.cutSelectedObjects() }
+                    clipboard.markCanvasCopy()
+                }
                 else -> return false
             }
             ShortcutAction.Copy -> when {
                 !onCanvas -> if (selected) clipboard.copy(current, null)
-                current.hasObjectSelection -> onStateChange { it.copySelectedObjects() }
+                current.hasObjectSelection -> {
+                    onStateChange { it.copySelectedObjects() }
+                    clipboard.markCanvasCopy()
+                }
                 else -> return false
             }
             ShortcutAction.Paste -> if (onCanvas) return canvasPaste()

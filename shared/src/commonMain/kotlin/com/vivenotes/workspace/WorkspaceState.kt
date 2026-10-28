@@ -657,6 +657,19 @@ data class WorkspaceState(
         typingMarks = emptySet(), editorComposition = null,
         selectedTextOutlineIds = selectedTextOutlineIds - id)
 
+    fun insertClipboardOutlines(pageId: String, outlines: List<Outline>, x: Float, y: Float): WorkspaceState {
+        val page = editablePage?.takeIf { it.id == pageId } ?: return this
+        if (outlines.isEmpty() || !x.isFinite() || !y.isFinite()) return this
+        val top = y.coerceAtLeast(page.document.style.titleFloor)
+        val pasted = outlines.map { it.duplicateAt(x.coerceAtLeast(0f) + it.x, top + it.y) }
+        return selectPointer().editOutlines { it + pasted }.copy(
+            focusedTextOutlineId = null,
+            selectedTextOutlineIds = pasted.filterIsInstance<Outline.Text>().map { it.id }.toSet(),
+            selectedObjectIds = pasted.filter { it.isPrimeObject() }.map { it.id }.toSet(),
+            selectedInk = null, typingRun = null, nextFontFamily = null, nextFontSize = null,
+        )
+    }
+
     fun pasteCanvasAt(x: Float, y: Float): WorkspaceState {
         val page = editablePage ?: return this
         if (canvasClipboard.isEmpty || !x.isFinite() || !y.isFinite()) return this

@@ -221,7 +221,10 @@ internal fun TextContextMenu(
             icon = DocumentSymbols.ContentCopy,
             onClick = {
                 onClose()
-                request?.let { onEditorCommand { current -> current.copyTextBox(it.outlineId) } }
+                request?.let {
+                    onEditorCommand { current -> current.copyTextBox(it.outlineId) }
+                    clipboard.markCanvasCopy()
+                }
             },
             modifier = Modifier.testTag(TextMenuTags.CopyBox),
         )

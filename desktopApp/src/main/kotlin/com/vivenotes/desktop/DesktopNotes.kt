@@ -77,7 +77,7 @@ internal class DesktopNotes(
     val search = com.vivenotes.search.DesktopContentSearch(library.repository, library.attachments,
         com.vivenotes.search.SearchProcessPool(log = log), log)
     /** What browsers and documents copy as HTML, so a paste keeps their headings, lists and marks. */
-    val clipboardHtml = com.vivenotes.data.SystemClipboardHtml(log)
+    val clipboardHtml = com.vivenotes.data.SystemClipboardContent(log)
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
     var editorDefaults by mutableStateOf(editorStore?.load() ?: EditorDefaults())
         private set

@@ -4,6 +4,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import com.vivenotes.data.ClipboardHtml
+import com.vivenotes.data.CanvasClipboardSource
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.copySelectedText
@@ -43,6 +44,8 @@ internal class TextClipboardActions(
     }
 
     fun canPaste(): Boolean = clipboard.hasText()
+
+    fun markCanvasCopy() { (html as? CanvasClipboardSource)?.markInternalCopy() }
 
     private fun WorkspaceState.at(selection: TextSelection?): WorkspaceState = selection?.let(::selectText) ?: this
 }

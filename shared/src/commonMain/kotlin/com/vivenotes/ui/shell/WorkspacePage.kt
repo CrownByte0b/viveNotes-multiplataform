@@ -13,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.key.KeyEvent
 import com.vivenotes.data.PictureLibrary
@@ -27,6 +28,9 @@ import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.applyPreparedInkGeometry
 import com.vivenotes.ui.canvas.LocalInkGeometryPublisher
+import com.vivenotes.ui.canvas.LocalClipboardHtml
+import com.vivenotes.ui.canvas.CanvasClipboardActions
+import com.vivenotes.data.CanvasClipboardSource
 
 @Composable
 internal fun WorkspacePage(
@@ -66,6 +70,12 @@ internal fun WorkspacePage(
     SideEffect { selectionWorker.updateContext(selectionContext) }
     DisposableEffect(selectionWorker) { onDispose { selectionWorker.close() } }
     val fileDrops = rememberFileDropHandlers(pictures, onStateChange, debugLog)
+    val clipboardHtml = LocalClipboardHtml.current
+    val clipboardManager = LocalClipboardManager.current
+    val canvasClipboard = remember(clipboardManager, clipboardHtml, pictures, selectionScope, debugLog) {
+        CanvasClipboardActions({ latestState }, { latestOnStateChange(it) },
+            clipboardManager, clipboardHtml, pictures, selectionScope, debugLog)
+    }
     CompositionLocalProvider(LocalInkGeometryPublisher provides { source, prepared ->
         latestOnStateChange { it.applyPreparedInkGeometry(source, prepared) }
     }) {
@@ -79,6 +89,7 @@ internal fun WorkspacePage(
         thumbnails = thumbnails,
         canvasOrigin = canvasOrigin,
         keyboardPaste = keyboardPaste,
+        canvasClipboard = canvasClipboard,
         canvasControl = canvasControl,
         zoom = view.zoom,
         drawWithFinger = input.drawWithFinger,
@@ -133,7 +144,10 @@ internal fun WorkspacePage(
         onResizeObjects = { ax, ay, sx, sy, history ->
             onStateChange { it.resizeSelectedObjects(ax, ay, sx, sy, history) }
         },
-        onCopyObjects = { onStateChange { it.copySelectedObjects() } },
+        onCopyObjects = {
+            onStateChange { it.copySelectedObjects() }
+            (clipboardHtml as? CanvasClipboardSource)?.markInternalCopy()
+        },
         onDeleteObjects = { onStateChange { it.deleteSelectedObjects() } },
         onToggleObjectLock = { onStateChange { it.toggleObjectLock() } },
         onColorObjects = { argb, followsTheme -> onStateChange { it.colorSelectedObjects(argb, followsTheme) } },

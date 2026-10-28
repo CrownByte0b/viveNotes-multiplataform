@@ -16,7 +16,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -43,6 +42,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.areAnyPressed
 import androidx.compose.ui.input.pointer.isCtrlPressed
@@ -96,6 +96,12 @@ import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.RulerLayer
 import com.vivenotes.ui.canvas.TextCaretKeys
 import com.vivenotes.ui.canvas.TextClipboardActions
+import com.vivenotes.ui.canvas.CanvasClipboardActions
+import com.vivenotes.ui.components.ContextMenu
+import com.vivenotes.ui.components.ContextMenuItem
+import com.vivenotes.ui.icons.DocumentSymbols
+import com.vivenotes.ui.keyboard.LocalKeyBindings
+import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.ui.canvas.canvasPointerIcon
 import com.vivenotes.ui.canvas.canvasTouchGestures
 import com.vivenotes.ui.canvas.contentEdge
@@ -136,6 +142,7 @@ internal fun PageCanvas(
     thumbnails: VideoThumbnailSource?,
     canvasOrigin: CanvasOrigin,
     keyboardPaste: CanvasKeyboardPaste,
+    canvasClipboard: CanvasClipboardActions,
     canvasControl: CanvasViewControl,
     zoom: Float,
     /** Settings → Hardware: a finger uses the armed drawing tool rather than moving the page. */
@@ -455,6 +462,10 @@ internal fun PageCanvas(
 
     /** The canvas clipboard at page [point]; ink is laid out off the main thread, one paste at a time. */
     fun pasteCanvas(point: Offset) {
+        if (!canvasClipboard.useInternal()) {
+            canvasClipboard.pasteExternal(point.x, point.y)
+            return
+        }
         val before = currentState
         val clipboard = before.canvasClipboard
         debugLog.event("objects") { "paste ${clipboard.outlines.size} objects" + if (clipboard.ink != null) " with ink" else "" }
@@ -473,7 +484,7 @@ internal fun PageCanvas(
         keyboardPaste.paste = paste@{
             val snapshot = currentState
             val style = snapshot.selectedPage?.takeIf { it.editable }?.document?.style ?: return@paste false
-            if (snapshot.canvasClipboard.isEmpty) return@paste false
+            if (!canvasClipboard.canPaste()) return@paste false
             val extent = currentExtent ?: return@paste false
             interaction.pastePoint = null
             pasteCanvas(keyboardPastePoint(canvasPointer.position?.let(::toPage), toPage(Offset.Zero), style) { x, y ->
@@ -560,7 +571,7 @@ internal fun PageCanvas(
             val snapshot = currentState
             val point = toPage(position)
             val style = snapshot.selectedPage?.document?.style ?: return
-            if (!snapshot.canvasClipboard.isEmpty && !hitsContent(point, snapshot) &&
+            if (canvasClipboard.canPaste() && !hitsContent(point, snapshot) &&
                 !hitsSelectedTransform(point, snapshot) && !hitsSelectionToolbar(point, snapshot, reach = 80f) &&
                 currentExtent?.canPlaceAt(style, point.x, point.y) == true) {
                 interaction.pastePoint = point
@@ -631,6 +642,21 @@ internal fun PageCanvas(
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull() ?: continue
+                        if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed && !change.isConsumed) {
+                            val point = toPage(change.position)
+                            val snapshot = currentState
+                            val style = snapshot.selectedPage?.document?.style
+                            if (style != null && !hitsContent(point, snapshot) &&
+                                !hitsSelectedTransform(point, snapshot) &&
+                                currentExtent?.canPlaceAt(style, point.x, point.y) == true) {
+                                currentClearCanvasFocus()
+                                focusManager.clearFocus()
+                                canvasFocusRequester.requestFocus()
+                                interaction.pastePoint = point.takeIf { canvasClipboard.canPaste() }
+                                event.changes.forEach { it.consume() }
+                                continue
+                            }
+                        }
                         // However a drag ended, an object is no longer held once every button is up.
                         if (event.type == PointerEventType.Release && !event.buttons.areAnyPressed) objectGrab.releaseAll()
                         if (interaction.panActive) {
@@ -675,7 +701,8 @@ internal fun PageCanvas(
                     currentSelectObjects = { l, t, r, b -> currentSelectObjects(l, t, r, b) },
                     currentDrawObject = { x, y -> currentDrawObject(x, y) },
                     currentCreate = { x, y -> currentCreate(x, y) },
-                    currentClearCanvasFocus = { currentClearCanvasFocus() }
+                    currentClearCanvasFocus = { currentClearCanvasFocus() },
+                    canPaste = { canvasClipboard.canPaste() },
                 )
             },
     ) {
@@ -845,18 +872,6 @@ internal fun PageCanvas(
                         onToggleObjectLock = onToggleObjectLock,
                         onDeleteObjects = onDeleteObjects
                     )
-                    interaction.pastePoint?.let { point ->
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = MaterialTheme.shapes.medium,
-                            modifier = Modifier.offset(point.x.dp, point.y.dp),
-                        ) {
-                            TextButton(onClick = {
-                                pasteCanvas(point)
-                                interaction.pastePoint = null
-                            }, modifier = Modifier.testTag(WorkspaceTestTags.CanvasPaste)) { Text(Strings.paste) }
-                        }
-                    }
                 }
             }
         }
@@ -898,6 +913,21 @@ internal fun PageCanvas(
                     }
                 })
             }
+        }
+        ContextMenu(
+            anchor = interaction.pastePoint?.let { point ->
+                Offset(point.x * zoom * density.density - horizontalScroll.value,
+                    point.y * zoom * density.density - verticalScroll.value)
+            },
+            onDismiss = { interaction.pastePoint = null },
+        ) {
+            ContextMenuItem(label = Strings.paste, icon = DocumentSymbols.ContentPaste,
+                shortcut = LocalKeyBindings.current.primary(ShortcutAction.Paste)?.label,
+                enabled = canvasClipboard.canPaste(),
+                onClick = {
+                    interaction.pastePoint?.let(::pasteCanvas)
+                    interaction.pastePoint = null
+                }, modifier = Modifier.testTag(WorkspaceTestTags.CanvasPaste))
         }
         if (state.selectedInk == null) SideEffect { interaction.inkToolkitBoundsInView = null }
         if (page.content == PageContent.Unreadable) {

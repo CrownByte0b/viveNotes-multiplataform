@@ -74,6 +74,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
     currentDrawObject: (Float, Float) -> Unit,
     currentCreate: (Float, Float) -> Unit,
     currentClearCanvasFocus: () -> Unit,
+    canPaste: () -> Boolean,
 ) {
     val currentState by workspaceState
     val currentRuler by rulerState
@@ -262,7 +263,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
                 val style = currentState.selectedPage?.document?.style
                 val placeable = style != null && currentExtent?.canPlaceAt(style, x, y) == true
                 val doubleTap = taps.end(last.uptimeMillis, last.position)
-                val isDouble = placeable && !currentState.canvasClipboard.isEmpty && doubleTap
+                val isDouble = placeable && doubleTap && canPaste()
                 if (isDouble) {
                     pastePoint = point
                 } else {
