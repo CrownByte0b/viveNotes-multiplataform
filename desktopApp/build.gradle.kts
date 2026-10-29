@@ -112,6 +112,8 @@ val launchJvmArgs = listOf(nativeAccessJvmArg) + when {
 val jbrJvmArgs = listOf("--add-opens=java.desktop/sun.awt.wl=ALL-UNNAMED")
 
 val appVersion = project.version.toString()
+// MSI packaging requires a numeric version; build-info keeps the full development version.
+val nativePackageVersion = appVersion.substringBefore('-').substringBefore('+')
 
 val prepareWindowsResources = tasks.register<PrepareWindowsResources>("prepareWindowsResources") {
     group = "distribution"
@@ -169,7 +171,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "Vive Notes"
-            packageVersion = appVersion
+            packageVersion = nativePackageVersion
             description = "Handwritten and typed notes with offline math recognition"
             vendor = "CROWNBYTE LLC"
             licenseFile.set(rootProject.file("LICENSE.md"))
@@ -247,6 +249,7 @@ tasks.test {
     inputs.file(rootProject.file(".github/scripts/ci-tests.init.gradle"))
     inputs.file(rootProject.file(".github/tests/test_release_artifacts.py"))
     systemProperty("vivenotes.test.projectRoot", rootProject.projectDir.absolutePath)
+    systemProperty("vivenotes.test.appVersion", appVersion)
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
     systemProperty("vivenotes.test.gradleHome", gradle.gradleHomeDir!!.absolutePath)
     systemProperty("vivenotes.test.gradleUserHome", gradle.gradleUserHomeDir.absolutePath)

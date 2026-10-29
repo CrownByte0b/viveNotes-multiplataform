@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 class DesktopBuildInfoTest {
     @Test
     fun packagedBuildVersionIsAvailableToTheApp() {
-        assertEquals("1.0.0", DesktopBuildInfo.version)
+        assertEquals(checkNotNull(System.getProperty("vivenotes.test.appVersion")), DesktopBuildInfo.version)
     }
 
     @Test

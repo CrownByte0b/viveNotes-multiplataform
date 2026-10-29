@@ -1,14 +1,16 @@
+VERSION=1.0.0-dev.0
+
 all:
-	echo "?"
+	echo "No default" $(VERSION)
 
 flathubLint:
-	flatpak run --filesystem=/tmp:ro --command=flatpak-builder-lint \
-	org.flatpak.Builder appstream /tmp/net.vivenotes.ViveNotes.metainfo.xml
+	flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest packaging/flathub/net.vivenotes.ViveNotes.yml
 
 
 buildFlatpak:
 	python3 -B packaging/flatpak/build.py
 
-flatpak: buildFlatpak
-	flatpak install --user desktopApp/build/flatpak/ViveNotes-1.0.0-x86_64.flatpak
+flatpakInstall:
+	buildFlatpak
+	flatpak install --user desktopApp/build/flatpak/ViveNotes-$(VERSION)-x86_64.flatpak
 	flatpak run net.vivenotes.ViveNotes
