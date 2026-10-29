@@ -33,7 +33,7 @@ This is the port of the android client [Vive Notes](https://github.com/AquilaIgn
         </a>
       </td>
       <td align="center">
-        <a href="">
+        <a href="https://github.com/CrownByte0b/viveNotes-multiplataform/releases/latest/download/ViveNotes-x64.msi">
           <img src="repo/windows-logo.svg" height="80" alt="Download for Windows">
         </a>
       </td>
