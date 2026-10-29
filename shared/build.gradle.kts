@@ -184,7 +184,7 @@ kotlin {
         }
         jvmMain.dependencies {
             // Skiko supplies the Android renderer's vector canvas; FOP writes those paths to PDF.
-            implementation("org.apache.xmlgraphics:fop-core:2.11")
+            implementation("org.apache.xmlgraphics:fop-core:2.12")
             val byteinkVersion = providers.gradleProperty("byteinkVersion").orElse("0.1.0-SNAPSHOT").get()
             implementation("com.vivenotes.byteink:byteink-compose:$byteinkVersion")
             implementation("com.vivenotes.byteink:byteink-kit:$byteinkVersion")
