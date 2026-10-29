@@ -53,8 +53,9 @@ jobs:
       - name: Prepare native UI test desktop
         run: ./packaging/windows/prepare-test-desktop.ps1
       - name: Run JVM tests and lint
+        timeout-minutes: 30
         run: |
-          ./gradlew.bat lint :shared:jvmTest :desktopApp:test --continue
+          ./gradlew.bat lint :shared:jvmTest :desktopApp:test --continue --no-parallel --max-workers=1 --console=plain --init-script .github/scripts/ci-tests.init.gradle
           if ($LASTEXITCODE -ne 0) { throw 'JVM checks failed.' }
       - name: Build MSI
         env:

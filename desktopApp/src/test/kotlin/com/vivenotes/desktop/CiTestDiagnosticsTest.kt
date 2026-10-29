@@ -13,6 +13,35 @@ class CiTestDiagnosticsTest {
     @get:Rule val temp = TemporaryFolder()
 
     @Test
+    fun ciWorkflowsGiveNativeUiSuitesExclusiveDesktopAccessAndBoundedDiagnostics() {
+        val root = File(System.getProperty("vivenotes.test.projectRoot"))
+        val workflows = mapOf("desktop-tests.yml" to 2, "flatpak.yml" to 1, "windows-msi.yml" to 1)
+        for ((name, expectedSteps) in workflows) {
+            val workflow = File(root, ".github/workflows/$name").readText()
+            val steps = workflow.split("      - ").filter {
+                it.contains(":shared:jvmTest") && it.contains(":desktopApp:test")
+            }
+            assertEquals(expectedSteps, steps.size, "$name JVM verification steps")
+            for (step in steps) {
+                val command = step.lineSequence().single {
+                    it.contains(":shared:jvmTest") && it.contains(":desktopApp:test")
+                }.trim().split(Regex("\\s+"))
+                assertTrue(command.containsAll(listOf("--no-parallel", "--max-workers=1")),
+                    "$name: native UI test JVMs share one desktop and must run serially")
+                assertTrue(command.containsAll(listOf("--console=plain", "--continue")),
+                    "$name: report progress and collect failures from every suite")
+                val initIndex = command.indexOf("--init-script")
+                assertTrue(initIndex >= 0, "$name: use the CI progress and timeout init script")
+                assertEquals(".github/scripts/ci-tests.init.gradle", command.getOrNull(initIndex + 1), name)
+                assertTrue(Regex("timeout-minutes: (?:[12][0-9]|30)\\b").containsMatchIn(step),
+                    "$name: bound the verification step to 10–30 minutes")
+            }
+            assertTrue(workflow.contains("shared/build/test-results/"), name)
+            assertTrue(workflow.contains("desktopApp/build/test-results/"), name)
+        }
+    }
+
+    @Test
     fun ciInitScriptReportsTestProgressAndStopsAStalledTestWorker() {
         assumeTrue(!System.getProperty("os.name").startsWith("Windows"))
         val root = File(System.getProperty("vivenotes.test.projectRoot"))

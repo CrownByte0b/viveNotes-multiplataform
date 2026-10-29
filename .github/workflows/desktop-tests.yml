@@ -51,13 +51,15 @@ jobs:
         run: command -v xvfb-run >/dev/null || { sudo apt-get update && sudo apt-get install -y xvfb; }
       - name: Run desktop tests
         if: runner.os == 'Linux'
-        run: xvfb-run -a -s '-screen 0 1920x1200x24' ./gradlew :shared:jvmTest :desktopApp:test --continue
+        timeout-minutes: 30
+        run: xvfb-run -a -s '-screen 0 1920x1200x24' ./gradlew :shared:jvmTest :desktopApp:test --continue --no-parallel --max-workers=1 --console=plain --init-script .github/scripts/ci-tests.init.gradle
       - name: Run desktop tests
         if: runner.os == 'Windows'
+        timeout-minutes: 30
         shell: pwsh
         run: |
           ./packaging/windows/prepare-test-desktop.ps1
-          ./gradlew.bat :shared:jvmTest :desktopApp:test --continue
+          ./gradlew.bat :shared:jvmTest :desktopApp:test --continue --no-parallel --max-workers=1 --console=plain --init-script .github/scripts/ci-tests.init.gradle
           if ($LASTEXITCODE -ne 0) { throw 'JVM checks failed.' }
       - name: Upload test reports
         if: failure()
