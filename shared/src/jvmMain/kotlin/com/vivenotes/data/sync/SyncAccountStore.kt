@@ -21,6 +21,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.file.AccessDeniedException
 import java.nio.file.Files
@@ -157,23 +158,8 @@ class SyncAccountStore(
         write { it.remove(ACCOUNT) }
     }
 
-    /**
-     * DataStore's `edit`, tried again while Windows will not replace the file. DataStore reads its
-     * file without waiting for a write under way, and Windows refuses to replace a file that is open,
-     * so a write can fail with [AccessDeniedException] after its value is already showing. Each try
-     * reads the file again, so a later one writes what the refused one could not.
-     */
     private suspend fun write(transform: suspend (MutablePreferences) -> Unit) {
-        var attempt = 1
-        while (true) {
-            try {
-                store.edit(transform)
-                return
-            } catch (refused: AccessDeniedException) {
-                if (attempt == REPLACE_ATTEMPTS) throw refused
-                delay(REPLACE_RETRY_MILLIS * attempt++)
-            }
-        }
+        retrySyncAccountWrite { store.edit(transform) }
     }
 
     /**
@@ -189,12 +175,26 @@ class SyncAccountStore(
 
         /** Separate from [ACCOUNT] so that forgetting a registration does not forget the install. */
         val INSTALLATION_ID = stringPreferencesKey("installationId")
-
-        /** Waits 50 ms longer each time, 750 ms in all: far longer than a read of this small file. */
-        const val REPLACE_ATTEMPTS = 6
-        const val REPLACE_RETRY_MILLIS = 50L
     }
 }
+
+/** DataStore 1.3 wraps a refused Windows file replacement in an [IOException]. */
+internal suspend fun <T> retrySyncAccountWrite(write: suspend () -> T): T {
+    var attempt = 1
+    while (true) {
+        try {
+            return write()
+        } catch (refused: IOException) {
+            if (generateSequence<Throwable>(refused) { it.cause }.none { it is AccessDeniedException } ||
+                attempt == REPLACE_ATTEMPTS) throw refused
+            delay(REPLACE_RETRY_MILLIS * attempt++)
+        }
+    }
+}
+
+/** Wait 50 ms longer each time, 750 ms in all, for a reader of this small file to close. */
+private const val REPLACE_ATTEMPTS = 6
+private const val REPLACE_RETRY_MILLIS = 50L
 
 private val syncAccountJson: Json = Json { ignoreUnknownKeys = true }
 
