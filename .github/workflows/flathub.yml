@@ -1,0 +1,53 @@
+name: Flathub source build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Prepare pinned Flathub builder and submission
+        run: python3 -B packaging/flathub/run_ci.py --phase prepare
+      - name: Test manual runner contracts
+        run: python3 -B .github/tests/test_flathub_ci.py
+      - name: Cache Flathub sources and build results
+        uses: actions/cache@v5
+        with:
+          path: build/flathub-ci/work/.flatpak-builder
+          key: flathub-source-x86_64-${{ hashFiles('packaging/flathub/**', 'packaging/flatpak/flathub.json') }}
+          restore-keys: |
+            flathub-source-x86_64-
+      - name: Validate submission manifest
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 -B packaging/flathub/run_ci.py --phase manifest
+      - name: Download all declared sources
+        run: python3 -B packaging/flathub/run_ci.py --phase download
+      - name: Build pinned manifest offline
+        id: build
+        run: python3 -B packaging/flathub/run_ci.py --phase build
+      - name: Validate built repository
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 -B packaging/flathub/run_ci.py --phase lint
+      - name: Create test bundle
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: python3 -B packaging/flathub/run_ci.py --phase bundle
+      - name: Upload bundle and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ViveNotes-Flathub-x86_64
+          if-no-files-found: warn
+          path: |
+            build/flathub-ci/work/artifacts/
+            build/flathub-ci/work/.local/state/flatpak_builder_lint/linter.log
+            build/flathub-ci/work/builddir/files/manifest.json

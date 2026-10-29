@@ -57,6 +57,12 @@ def local_manifest(manifest, packs, release_date, client_id=""):
                 if "dest" in source:
                     local["dest"] = source["dest"]
                 source = local
+            elif source.get("type") in {"patch", "file"} and "url" not in source:
+                source = source.copy()
+                if "path" in source:
+                    source["path"] = str(HERE / source["path"])
+                if "paths" in source:
+                    source["paths"] = [str(HERE / path) for path in source["paths"]]
             sources.append(source)
         module["sources"] = sources
         module["build-commands"] = [command.replace('"$(git log -1 --no-show-signature --format=%cs)"', release_date)
