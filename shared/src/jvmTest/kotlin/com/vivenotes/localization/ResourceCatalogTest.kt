@@ -53,9 +53,12 @@ private fun environmentFor(locale: Locale): ResourceEnvironment {
     }
 }
 
+private val defaultFixtureEnvironment by lazy { environmentFor(Locale.ROOT) }
+private val frenchFixtureEnvironment by lazy { environmentFor(Locale.FRANCE) }
+
 internal suspend fun loadFrenchFixtures() {
-    val french = environmentFor(Locale.FRANCE)
-    val defaults = environmentFor(Locale.ROOT)
+    val french = frenchFixtureEnvironment
+    val defaults = defaultFixtureEnvironment
     Localization.load { resource ->
         FrenchFixtures[resource.key]?.let { getString(french, it) } ?: getString(defaults, resource)
     }
@@ -69,7 +72,7 @@ class ResourceCatalogTest {
     fun everyGeneratedDefaultMatchesTheActualPackagedComposeResource() = runBlocking {
         assertTrue(defaultStrings.size >= 800)
         assertTrue(Res.allStringResources.keys.containsAll(defaultStrings.keys))
-        val environment = environmentFor(Locale.ROOT)
+        val environment = defaultFixtureEnvironment
         for ((key, value) in defaultStrings) {
             assertEquals(value, getString(environment, Res.allStringResources.getValue(key)), key)
         }
@@ -104,11 +107,12 @@ class ResourceCatalogTest {
     @Test
     fun aFailedReloadKeepsThePreviousCompleteCatalog() = runBlocking {
         loadFrenchFixtures()
+        val environment = defaultFixtureEnvironment
         var calls = 0
         assertFailsWith<IllegalStateException> {
             Localization.load { resource ->
                 if (++calls == 3) error("fixture read failed")
-                getString(resource)
+                getString(environment, resource)
             }
         }
         assertEquals("Fermer", Strings.close)
@@ -128,8 +132,9 @@ class ResourceCatalogTest {
 
     @Test
     fun translatedConvergenceVerdictsRemainValidPlainTextLatex() = runBlocking {
+        val environment = defaultFixtureEnvironment
         Localization.load { resource ->
-            if (resource.key == "math_engine_converges") "Converge à 100%" else getString(resource)
+            if (resource.key == "math_engine_converges") "Converge à 100%" else getString(environment, resource)
         }
         assertEquals("\\text{Converge à 100\\%}", MathText.translateVerdict("\\text{Converges}"))
         assertEquals("x^{2}", MathText.translateVerdict("x^{2}"))
@@ -150,9 +155,9 @@ class ResourceCatalogTest {
     @Test
     fun initializationLogsOnlyWhenDiagnosticsAreEnabled() = runBlocking {
         val output = mutableListOf<String>()
-        Localization.initialize(log = DebugLog(false, output::add))
+        Localization.initialize(environment = defaultFixtureEnvironment, log = DebugLog(false, output::add))
         assertTrue(output.isEmpty())
-        Localization.initialize(log = DebugLog(true, output::add))
+        Localization.initialize(environment = defaultFixtureEnvironment, log = DebugLog(true, output::add))
         assertEquals(1, output.size)
         assertTrue(output.single().contains("[localization] loaded"))
     }
