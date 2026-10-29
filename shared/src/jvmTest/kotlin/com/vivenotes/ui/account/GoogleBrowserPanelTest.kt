@@ -4,8 +4,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.TextClipboard
+import com.vivenotes.data.LocalTextClipboard
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
@@ -136,7 +136,7 @@ class GoogleBrowserPanelTest {
         val opened = CopyOnWriteArrayList<URI>()
         val host = host(openBrowser = { opened += it })
         setContent {
-            CompositionLocalProvider(LocalClipboardManager provides clipboard) {
+            CompositionLocalProvider(LocalTextClipboard provides clipboard) {
                 ViveNotesTheme { host.Destination(visible = true, onBack = {}) }
             }
         }
@@ -168,7 +168,7 @@ class GoogleBrowserPanelTest {
 
     private fun ComposeUiTest.setScreen() {
         setContent {
-            CompositionLocalProvider(LocalClipboardManager provides clipboard) {
+            CompositionLocalProvider(LocalTextClipboard provides clipboard) {
                 ViveNotesTheme {
                     AccountScreen(
                         onBack = {},
@@ -210,7 +210,7 @@ class GoogleBrowserPanelTest {
             URLDecoder.decode(part.substringAfter('='), StandardCharsets.UTF_8)
     }
 
-    private class FakeClipboard : ClipboardManager {
+    private class FakeClipboard : TextClipboard {
         var text: String? = null
 
         override fun getText(): AnnotatedString? = text?.let(::AnnotatedString)

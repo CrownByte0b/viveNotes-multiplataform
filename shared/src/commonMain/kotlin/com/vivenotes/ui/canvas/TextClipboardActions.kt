@@ -1,7 +1,7 @@
 package com.vivenotes.ui.canvas
 
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.platform.ClipboardManager
+import com.vivenotes.data.TextClipboard
 import androidx.compose.ui.text.AnnotatedString
 import com.vivenotes.data.ClipboardHtml
 import com.vivenotes.data.CanvasClipboardSource
@@ -25,7 +25,7 @@ internal val LocalClipboardHtml = staticCompositionLocalOf<ClipboardHtml?> { nul
  * editor's selection, and [onEditorCommand] hands the keyboard back to the text box afterwards.
  */
 internal class TextClipboardActions(
-    private val clipboard: ClipboardManager,
+    private val clipboard: TextClipboard,
     private val onEditorCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
     private val html: ClipboardHtml? = null,
 ) {

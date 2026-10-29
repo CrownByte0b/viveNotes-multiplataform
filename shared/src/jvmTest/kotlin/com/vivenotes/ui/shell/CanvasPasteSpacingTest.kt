@@ -8,8 +8,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.TextClipboard
+import com.vivenotes.data.LocalTextClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -91,7 +91,7 @@ class CanvasPasteSpacingTest {
         val initialCount = initial.selectedPage!!.document.outlines.size
         var observed = initial
         val source = Source(html)
-        val clipboard = object : ClipboardManager {
+        val clipboard = object : TextClipboard {
             override fun getText(): AnnotatedString? = null
             override fun setText(annotatedString: AnnotatedString) {}
         }
@@ -103,7 +103,7 @@ class CanvasPasteSpacingTest {
         setContent {
             var state by remember { mutableStateOf(initial) }
             val density = LocalDensity.current
-            CompositionLocalProvider(LocalClipboardManager provides clipboard, LocalClipboardHtml provides source,
+            CompositionLocalProvider(LocalTextClipboard provides clipboard, LocalClipboardHtml provides source,
                 LocalDensity provides Density(density.density, fontScale)) {
                 WorkspaceScreen(state, { state = it(state); observed = state }, pictures = pictures, thumbnails = thumbnails,
                     viewSettings = ViewSettings(zoom = zoom))

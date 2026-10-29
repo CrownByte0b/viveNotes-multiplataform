@@ -19,9 +19,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.text.input.OffsetMapping
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -265,14 +262,14 @@ internal fun RichTextBuffer.asAnnotatedString(colors: RichTextColors): Annotated
  * item stood to the left of its bullet. That block gets a zero-width space of its own after the
  * text, which no editor offset maps to, so its caret is measured from where its text begins.
  */
-internal object BlockSeparators : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
+internal object BlockSeparators {
+    fun filter(text: AnnotatedString): BlockPresentation {
         val shown = text.text.replace('\n', ZERO_WIDTH_SPACE)
         if (text.isNotEmpty() && text.text.last() != '\n') {
-            return TransformedText(AnnotatedString(shown, text.spanStyles, text.paragraphStyles), OffsetMapping.Identity)
+            return BlockPresentation(AnnotatedString(shown, text.spanStyles, text.paragraphStyles), EndPadding(text.length))
         }
         val end = text.length
-        return TransformedText(
+        return BlockPresentation(
             AnnotatedString(shown + ZERO_WIDTH_SPACE, text.spanStyles,
                 text.paragraphStyles.map { if (it.end == end) it.copy(end = end + 1) else it }),
             EndPadding(end),
@@ -280,10 +277,12 @@ internal object BlockSeparators : VisualTransformation {
     }
 
     /** The added character is past the editor's text: every editor offset stays where it was. */
-    private class EndPadding(private val length: Int) : OffsetMapping {
-        override fun originalToTransformed(offset: Int): Int = offset
-        override fun transformedToOriginal(offset: Int): Int = minOf(offset, length)
+    class EndPadding(private val length: Int) {
+        fun originalToTransformed(offset: Int): Int = offset
+        fun transformedToOriginal(offset: Int): Int = minOf(offset, length)
     }
+
+    data class BlockPresentation(val text: AnnotatedString, val offsetMapping: EndPadding)
 
     private const val ZERO_WIDTH_SPACE = '\u200B'
 }

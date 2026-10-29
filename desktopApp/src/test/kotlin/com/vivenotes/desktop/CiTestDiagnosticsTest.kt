@@ -61,7 +61,7 @@ class CiTestDiagnosticsTest {
         val command = listOf(
             File(System.getProperty("vivenotes.test.gradleHome"), "bin/gradle").path,
             "test", "--offline", "--console=plain", "--no-configuration-cache", "--max-workers=1",
-            "--init-script", init.path, "--gradle-user-home", System.getProperty("vivenotes.test.gradleUserHome"),
+            "--warning-mode=fail", "--init-script", init.path, "--gradle-user-home", System.getProperty("vivenotes.test.gradleUserHome"),
         )
         val process = ProcessBuilder(command).directory(fixture).redirectErrorStream(true).redirectOutput(log)
             .apply { environment()["JAVA_HOME"] = System.getProperty("java.home") }.start()

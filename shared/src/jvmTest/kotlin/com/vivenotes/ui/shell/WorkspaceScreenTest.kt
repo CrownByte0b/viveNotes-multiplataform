@@ -18,8 +18,8 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.TextClipboard
+import com.vivenotes.data.LocalTextClipboard
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
@@ -52,7 +52,7 @@ import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.ui.account.AccountHost
 import com.vivenotes.ui.account.AccountDestinationFrame
 import com.vivenotes.ui.account.AccountTags
-import androidx.compose.foundation.text.BasicTextField
+import com.vivenotes.ui.components.BoundTextField
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -1536,7 +1536,7 @@ class WorkspaceScreenTest {
 
     private fun ComposeUiTest.setWorkspace(
         initial: WorkspaceState = WorkspaceState.demo(),
-        clipboard: ClipboardManager? = null,
+        clipboard: TextClipboard? = null,
         accountHost: AccountHost? = null,
         onStateChange: (WorkspaceState) -> Unit = {},
     ) {
@@ -1547,7 +1547,7 @@ class WorkspaceScreenTest {
                     WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) },
                         accountHost = accountHost)
                 } else {
-                    CompositionLocalProvider(LocalClipboardManager provides clipboard) {
+                    CompositionLocalProvider(LocalTextClipboard provides clipboard) {
                         WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) },
                             accountHost = accountHost)
                     }
@@ -1593,7 +1593,7 @@ class WorkspaceScreenTest {
                     Text("Connected")
                 } else {
                     var password by remember { mutableStateOf("") }
-                    BasicTextField(password, { password = it }, Modifier.testTag(PASSWORD))
+                    BoundTextField(password, { password = it }, Modifier.testTag(PASSWORD))
                 }
             }
         }
@@ -1603,7 +1603,7 @@ class WorkspaceScreenTest {
         }
     }
 
-    private class FakeClipboard : ClipboardManager {
+    private class FakeClipboard : TextClipboard {
         var value: AnnotatedString? = null
         override fun getText(): AnnotatedString? = value
         override fun setText(annotatedString: AnnotatedString) { value = annotatedString }

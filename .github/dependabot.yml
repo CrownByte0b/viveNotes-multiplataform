@@ -14,6 +14,8 @@ updates:
 
   - package-ecosystem: 'uv'
     directory: '/shared/src/jvmMain/python'
+    allow:
+      - dependency-name: 'sympy'
     schedule:
       interval: 'weekly'
     groups:

@@ -28,7 +28,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.rememberTextClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
@@ -186,7 +186,7 @@ internal fun WorkspaceContent(
     }
     val currentBindings by rememberUpdatedState(bindings)
     val shortcuts = WorkspaceShortcuts({ currentState }, onStateChange, ::applyEditorCommand, navigation,
-        viewActions, TextClipboardActions(LocalClipboardManager.current, ::applyEditorCommand, LocalClipboardHtml.current),
+        viewActions, TextClipboardActions(rememberTextClipboard(), ::applyEditorCommand, LocalClipboardHtml.current),
         canvasPaste = { keyboardPaste.paste() },
         onSearch = if (search == null) null else { {
             fileActions?.closePane()

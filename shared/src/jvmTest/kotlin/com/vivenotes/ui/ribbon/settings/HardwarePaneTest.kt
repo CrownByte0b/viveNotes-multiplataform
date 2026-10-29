@@ -12,8 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.TextClipboard
+import com.vivenotes.data.LocalTextClipboard
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -319,7 +319,7 @@ class HardwarePaneTest {
     private fun ComposeUiTest.setWorkspace(
         initial: WorkspaceState = WorkspaceState.demo().copy(activeTab = RibbonTab.Settings),
         bindings: KeyBindings = KeyBindings.Default,
-        clipboard: ClipboardManager? = null,
+        clipboard: TextClipboard? = null,
         onStateChange: (WorkspaceState) -> Unit = {},
     ) {
         setContent {
@@ -330,12 +330,12 @@ class HardwarePaneTest {
             }
             ViveNotesTheme(darkTheme = true) {
                 if (clipboard == null) content()
-                else CompositionLocalProvider(LocalClipboardManager provides clipboard) { content() }
+                else CompositionLocalProvider(LocalTextClipboard provides clipboard) { content() }
             }
         }
     }
 
-    private class FakeClipboard : ClipboardManager {
+    private class FakeClipboard : TextClipboard {
         var value: AnnotatedString? = null
         override fun getText(): AnnotatedString? = value
         override fun setText(annotatedString: AnnotatedString) { value = annotatedString }

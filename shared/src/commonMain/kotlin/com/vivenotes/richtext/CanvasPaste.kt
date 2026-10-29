@@ -39,7 +39,8 @@ internal fun imageLink(value: String, base: String? = null): String? = imageAddr
 }
 
 private fun htmlCanvasItems(source: String, marks: Set<Mark>): List<CanvasPasteItem> {
-    val sourceBase = Regex("(?im)^SourceURL:(.+)$").find(source)?.groupValues?.get(1)?.trim()
+    val sourceBase = Regex("^SourceURL:(.+)$", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
+        .find(source)?.groupValues?.get(1)?.trim()
     val html = if (source.startsWith("Version:")) source.substring(source.indexOf('<').coerceAtLeast(0)) else source
     val tags = visibleTags(html)
     // Browsers may offer only selected rows, without their enclosing table.

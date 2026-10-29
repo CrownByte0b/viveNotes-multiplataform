@@ -55,7 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.rememberTextClipboard
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -67,7 +67,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.vivenotes.ui.components.BoundPasswordField
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -427,16 +427,14 @@ fun AccountScreen(
                                 .fillMaxWidth()
                                 .testTag(AccountTags.LINK_EMAIL),
                         )
-                        OutlinedTextField(
+                        BoundPasswordField(
                             value = linkPassword,
                             onValueChange = { linkPassword = it },
                             label = { Text(Strings.account_link_password) },
-                            visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Password,
                                 imeAction = ImeAction.Done,
                             ),
-                            singleLine = true,
                             enabled = !linking,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -804,7 +802,7 @@ fun AccountScreen(
                                 .fillMaxWidth()
                                 .testTag(AccountTags.CLOUD_EMAIL),
                         )
-                        OutlinedTextField(
+                        BoundPasswordField(
                             value = cloudPassword,
                             onValueChange = { cloudPassword = it },
                             label = { Text(Strings.account_password) },
@@ -816,12 +814,10 @@ fun AccountScreen(
                             } else {
                                 null
                             },
-                            visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Password,
                                 imeAction = ImeAction.Done,
                             ),
-                            singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag(AccountTags.CLOUD_PASSWORD),
@@ -835,7 +831,7 @@ fun AccountScreen(
                             cloudConfirmPassword.isNotEmpty() &&
                             cloudConfirmPassword != cloudPassword
                         if (cloudSignUp) {
-                            OutlinedTextField(
+                            BoundPasswordField(
                                 value = cloudConfirmPassword,
                                 onValueChange = { cloudConfirmPassword = it },
                                 label = {
@@ -850,12 +846,10 @@ fun AccountScreen(
                                 } else {
                                     null
                                 },
-                                visualTransformation = PasswordVisualTransformation(),
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Password,
                                     imeAction = ImeAction.Done,
                                 ),
-                                singleLine = true,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .testTag(AccountTags.CLOUD_CONFIRM),
@@ -1002,16 +996,14 @@ fun AccountScreen(
                                 .fillMaxWidth()
                                 .testTag(AccountTags.EMAIL),
                         )
-                        OutlinedTextField(
+                        BoundPasswordField(
                             value = password,
                             onValueChange = { password = it },
                             label = { Text(Strings.account_password) },
-                            visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Password,
                                 imeAction = ImeAction.Done,
                             ),
-                            singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag(AccountTags.PASSWORD),
@@ -1191,19 +1183,17 @@ private fun PasswordResetScreen(
                             .fillMaxWidth()
                             .testTag(AccountTags.RESET_CODE),
                     )
-                    OutlinedTextField(
+                    BoundPasswordField(
                         value = newPassword,
                         onValueChange = { newPassword = it },
                         label = { Text(Strings.account_reset_new_password) },
                         supportingText = {
                             Text(Strings.account_password_minimum)
                         },
-                        visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Password,
                             imeAction = ImeAction.Next,
                         ),
-                        singleLine = true,
                         enabled = !state.changingPassword,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1211,7 +1201,7 @@ private fun PasswordResetScreen(
                     )
                     val passwordsMismatch = confirmPassword.isNotEmpty() &&
                         confirmPassword != newPassword
-                    OutlinedTextField(
+                    BoundPasswordField(
                         value = confirmPassword,
                         onValueChange = { confirmPassword = it },
                         label = {
@@ -1223,12 +1213,10 @@ private fun PasswordResetScreen(
                         } else {
                             null
                         },
-                        visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Password,
                             imeAction = ImeAction.Done,
                         ),
-                        singleLine = true,
                         enabled = !state.changingPassword,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1335,7 +1323,7 @@ private fun GoogleSignInButton(
  */
 @Composable
 private fun GoogleBrowserPanel(page: String, onRetry: () -> Unit) {
-    val clipboard = LocalClipboardManager.current
+    val clipboard = rememberTextClipboard()
     // Per page, so a new attempt's link is not announced as already copied.
     var copied by remember(page) { mutableStateOf(false) }
 

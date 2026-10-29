@@ -7,8 +7,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.TextClipboard
+import com.vivenotes.data.LocalTextClipboard
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseButton
@@ -188,13 +188,13 @@ class CanvasExternalClipboardTest {
 
     private fun ComposeUiTest.setWorkspace(initial: WorkspaceState, source: Source, pictures: PictureLibrary? = null,
         observe: (WorkspaceState) -> Unit) {
-        val clipboard = object : ClipboardManager {
+        val clipboard = object : TextClipboard {
             override fun getText() = source.content.text?.let(::AnnotatedString)
             override fun setText(annotatedString: AnnotatedString) { source.content = ClipboardContent(text = annotatedString.text); source.internal = false }
         }
         setContent {
             var state by remember { mutableStateOf(initial) }
-            CompositionLocalProvider(LocalClipboardManager provides clipboard, LocalClipboardHtml provides source) {
+            CompositionLocalProvider(LocalTextClipboard provides clipboard, LocalClipboardHtml provides source) {
                 WorkspaceScreen(state = state, onStateChange = { state = it(state); observe(state) }, pictures = pictures)
             }
         }

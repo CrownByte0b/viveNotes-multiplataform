@@ -91,6 +91,19 @@ class CanvasPasteTest {
     }
 
     @Test
+    fun sourceUrlHeadersResolvePicturesAcrossLineEndingsAndCase() {
+        for (ending in listOf("\n", "\r\n")) {
+            for (header in listOf("SourceURL", "sourceurl", "SOURCEURL")) {
+                val html = listOf("Version:1.0", "StartHTML:0",
+                    "$header:https://example.org/path/page", "<html><img src='photo.png'></html>")
+                    .joinToString(ending)
+                assertEquals("https://example.org/path/photo.png",
+                    assertIs<CanvasPasteItem.Image>(paste(html).single()).address)
+            }
+        }
+    }
+
+    @Test
     fun aCopiedImageAddressMakesAPictureAndOrdinaryLinksRemainText() {
         assertIs<CanvasPasteItem.Image>(canvasPasteItems(ClipboardContent(text = "https://example.org/photo.JPG?size=large")).single())
         assertIs<CanvasPasteItem.Image>(canvasPasteItems(ClipboardContent(imageUrl = "https://example.org/media?id=1")).single())

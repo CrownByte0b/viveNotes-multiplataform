@@ -5,7 +5,7 @@ import com.vivenotes.localization.MathText
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
+import com.vivenotes.ui.components.BoundTextField
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,7 +16,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.rememberTextClipboard
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -46,7 +46,7 @@ internal fun MathPane(initial: String, math: DrawMath, showInterpretation: Boole
                       log: DebugLog = remember { DebugLog() }, onClose: () -> Unit) {
     val state = remember(initial, math) { MathPaneState(initial) }
     var decimal by remember { mutableStateOf(false) }
-    val clipboard = LocalClipboardManager.current
+    val clipboard = rememberTextClipboard()
     val scope = rememberCoroutineScope()
     LaunchedEffect(state, state.source, math) {
         val version = ++state.requestVersion
@@ -71,7 +71,7 @@ internal fun MathPane(initial: String, math: DrawMath, showInterpretation: Boole
     }
     MathPaneFrame(onClose) {
         MathSection(Strings.latex) {
-            BasicTextField(state.source, {
+            BoundTextField(state.source, {
                 state.requestVersion++
                 state.source = it; state.copied = false; state.analysis = null; state.result = null; state.error = null; state.busy = it.isNotBlank()
             }, minLines = 1, maxLines = 6,

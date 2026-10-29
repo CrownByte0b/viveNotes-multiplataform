@@ -50,7 +50,7 @@ import androidx.compose.ui.input.pointer.isTertiaryPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.rememberTextClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -333,7 +333,7 @@ internal fun PageCanvas(
             titleFocus.requestFocus()
         }
     }
-    val textClipboard = TextClipboardActions(LocalClipboardManager.current, onTextCommand, LocalClipboardHtml.current)
+    val textClipboard = TextClipboardActions(rememberTextClipboard(), onTextCommand, LocalClipboardHtml.current)
     val caretKeys = remember(page?.id) { TextCaretKeys() }
     /** Up, Down or End in the text box being edited, when [TextCaretKeys] moves the caret for it. */
     fun moveCaret(id: String, event: KeyEvent): Boolean {

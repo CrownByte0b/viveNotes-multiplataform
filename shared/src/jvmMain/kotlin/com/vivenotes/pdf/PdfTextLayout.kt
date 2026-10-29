@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.platform.registerSkikoComposeImplementation
+import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
@@ -163,7 +164,7 @@ internal class PdfTextMeasurer {
         registerSkikoComposeImplementation()
     }
 
-    private val measurer = TextMeasurer(createFontFamilyResolver(), Density(1f), LayoutDirection.Ltr)
+    private val measurer = TextMeasurer(createFontFamilyResolver(), LocaleList(java.util.Locale.getDefault().toLanguageTag()), Density(1f), LayoutDirection.Ltr)
     private var fonts: Map<String, FontFamily>? = null
 
     private suspend fun bundledFonts(): Map<String, FontFamily> = fonts ?: listOf("inter", "lora", "jetbrains_mono")

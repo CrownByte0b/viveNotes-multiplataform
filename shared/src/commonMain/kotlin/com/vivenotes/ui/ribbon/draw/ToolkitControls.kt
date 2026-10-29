@@ -163,8 +163,10 @@ internal fun ColumnScope.ToolkitSlider(label: String, value: Float, range: Close
                 }
             } finally { held = false }
         }) {
-            Slider(draft, { draft = (range.start + ((it - range.start) / step).roundToInt() * step).coerceIn(range) },
-                valueRange = range, steps = (((range.endInclusive - range.start) / step).roundToInt() - 1).coerceAtLeast(0),
+            val slider = rememberSliderState(draft,
+                steps = (((range.endInclusive - range.start) / step).roundToInt() - 1).coerceAtLeast(0), trackRange = range)
+            slider.value = draft
+            Slider(slider, { draft = (range.start + ((it - range.start) / step).roundToInt() * step).coerceIn(range) },
                 onValueChangeFinished = { if (draft != value) onChange(draft) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp).testTag(tag)
                     .semantics { contentDescription = label })

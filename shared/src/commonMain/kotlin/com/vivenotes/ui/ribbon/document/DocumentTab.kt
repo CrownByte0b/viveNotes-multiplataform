@@ -8,7 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.rememberTextClipboard
 import com.vivenotes.data.PictureCamera
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.diagnostics.DebugLog
@@ -84,7 +84,7 @@ internal fun DocumentTab(
         wordsAtPress = null
         onEditorCommand { command(it.restoreWordSelections(words)) }
     }
-    val clipboard = TextClipboardActions(LocalClipboardManager.current, ::applyRibbonCommand, LocalClipboardHtml.current)
+    val clipboard = TextClipboardActions(rememberTextClipboard(), ::applyRibbonCommand, LocalClipboardHtml.current)
     val scope = rememberCoroutineScope()
     val currentState by rememberUpdatedState(state)
     fun WorkspaceState.withRibbonSelection(selection: TextSelection?): WorkspaceState =

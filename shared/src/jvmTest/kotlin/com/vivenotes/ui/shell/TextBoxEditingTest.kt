@@ -9,8 +9,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.TextClipboard
+import com.vivenotes.data.LocalTextClipboard
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -288,21 +288,21 @@ class TextBoxEditingTest {
 
     private fun ComposeUiTest.setWorkspace(
         initial: WorkspaceState,
-        clipboard: ClipboardManager = FakeClipboard(),
+        clipboard: TextClipboard = FakeClipboard(),
         html: ClipboardHtml? = null,
         onStateChange: (WorkspaceState) -> Unit = {},
     ) {
         setContent {
             var state by remember { mutableStateOf(initial) }
             ViveNotesTheme(darkTheme = true) {
-                CompositionLocalProvider(LocalClipboardManager provides clipboard, LocalClipboardHtml provides html) {
+                CompositionLocalProvider(LocalTextClipboard provides clipboard, LocalClipboardHtml provides html) {
                     WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) })
                 }
             }
         }
     }
 
-    private class FakeClipboard(var value: AnnotatedString? = null) : ClipboardManager {
+    private class FakeClipboard(var value: AnnotatedString? = null) : TextClipboard {
         override fun getText(): AnnotatedString? = value
         override fun setText(annotatedString: AnnotatedString) { value = annotatedString }
     }

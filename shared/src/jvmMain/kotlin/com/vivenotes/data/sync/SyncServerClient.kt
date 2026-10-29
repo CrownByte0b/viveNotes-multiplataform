@@ -767,7 +767,7 @@ class SyncServerClient(
         ).encodeToByteArray()
 
         val url = try {
-            URL("$serverBaseUrl/v1/devices")
+            URI("$serverBaseUrl/v1/devices").toURL()
         } catch (malformed: java.net.MalformedURLException) {
             return@withContext DeviceRegistration.Rejected(ConnectFailure.InvalidAddress)
         }
@@ -1146,7 +1146,7 @@ class SyncServerClient(
     suspend fun checkToken(serverBaseUrl: String, token: String): TokenCheck =
         withContext(Dispatchers.IO) {
             val url = try {
-                URL("$serverBaseUrl/v1/devices")
+                URI("$serverBaseUrl/v1/devices").toURL()
             } catch (malformed: java.net.MalformedURLException) {
                 return@withContext TokenCheck.Unknown(ConnectFailure.InvalidAddress)
             }
@@ -1213,7 +1213,7 @@ class SyncServerClient(
             return@callbackFlow
         }
         val url = try {
-            URL("$serverBaseUrl/v1/changes/watch?since=$since")
+            URI("$serverBaseUrl/v1/changes/watch?since=$since").toURL()
         } catch (malformed: java.net.MalformedURLException) {
             trySend(ChangeStreamEvent.Failed(ConnectFailure.InvalidAddress, retryable = false))
             close()
@@ -1676,7 +1676,7 @@ class SyncServerClient(
     private fun blobUrl(serverBaseUrl: String, digest: String): URL? {
         if (!isBlobDigest(digest)) return null
         return try {
-            URL("$serverBaseUrl/v1/blobs/$digest")
+            URI("$serverBaseUrl/v1/blobs/$digest").toURL()
         } catch (malformed: java.net.MalformedURLException) {
             null
         }
@@ -1697,7 +1697,7 @@ class SyncServerClient(
         body: ByteArray? = null,
     ): RawServerResult = withContext(Dispatchers.IO) {
         val url = try {
-            URL("$serverBaseUrl$path")
+            URI("$serverBaseUrl$path").toURL()
         } catch (malformed: java.net.MalformedURLException) {
             return@withContext RawServerResult.InvalidAddress
         }
@@ -1746,7 +1746,7 @@ class SyncServerClient(
         maxResponseBytes: Int = MAX_RESPONSE_BYTES,
     ): RawServerResult = withContext(Dispatchers.IO) {
         val url = try {
-            URL("$serverBaseUrl$path")
+            URI("$serverBaseUrl$path").toURL()
         } catch (malformed: java.net.MalformedURLException) {
             return@withContext RawServerResult.InvalidAddress
         }

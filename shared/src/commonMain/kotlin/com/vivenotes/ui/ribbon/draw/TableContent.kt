@@ -1,7 +1,7 @@
 package com.vivenotes.ui.ribbon.draw
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicTextField
+import com.vivenotes.ui.components.BoundTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -169,7 +169,7 @@ private fun TableCellText(
     if (!editing) {
         Text(buffer.asAnnotatedString(colors), style = cellStyle, modifier = modifier, onTextLayout = { layout = it })
     } else {
-        BasicTextField(TextFieldValue(buffer.asAnnotatedString(colors), TextRange(buffer.selection.start, buffer.selection.end)),
+        BoundTextField(TextFieldValue(buffer.asAnnotatedString(colors), TextRange(buffer.selection.start, buffer.selection.end)),
             { onChange(cell.id, it) }, readOnly = state.selectedPage?.editable != true,
             cursorBrush = SolidColor(canvasInk), textStyle = cellStyle, onTextLayout = { layout = it },
             modifier = modifier.then(if (focused) Modifier.focusRequester(focusRequester) else Modifier)

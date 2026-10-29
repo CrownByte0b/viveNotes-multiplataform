@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.BasicTextField
+import com.vivenotes.ui.components.BoundTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -97,9 +97,9 @@ private fun MeasurePastedText(
             blocks = outline.blocks, colors = colors,
             onPreviewLayout = { preview = it }, onPreparationChanged = { prepared = it },
         )
-        BasicTextField(
+        BoundTextField(
             value = TextFieldValue(styled), onValueChange = {}, enabled = false, readOnly = true,
-            visualTransformation = BlockSeparators, minLines = 3, textStyle = style,
+            separateBlocks = true, minLines = 3, textStyle = style,
             onTextLayout = { editor = it },
             modifier = Modifier.fillMaxWidth().padding(8.dp),
         )

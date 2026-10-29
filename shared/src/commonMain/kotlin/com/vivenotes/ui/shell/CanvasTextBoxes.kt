@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.BasicTextField
+import com.vivenotes.ui.components.BoundTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -84,7 +84,6 @@ import com.vivenotes.model.findVideoLinks
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.LinkTarget
 import com.vivenotes.richtext.TextSelection
-import com.vivenotes.ui.canvas.BlockSeparators
 import com.vivenotes.ui.canvas.CtrlState
 import com.vivenotes.ui.canvas.LocalObjectGrab
 import com.vivenotes.ui.canvas.PreviewLayout
@@ -528,7 +527,7 @@ private fun CanvasTextBox(
             if (!showingPreview) previewLayouts.remove(outline.id)
             if (focused || styledText.isEmpty()) previewPrepared = true
         }
-        BasicTextField(
+        BoundTextField(
             value = TextFieldValue(
                 annotatedString = styledText,
                 selection = TextRange(richText?.selection?.start ?: 0,
@@ -538,7 +537,7 @@ private fun CanvasTextBox(
                 } else null,
             ),
             onValueChange = { onBodyChange(outline.id, it) },
-            visualTransformation = BlockSeparators,
+            separateBlocks = true,
             onTextLayout = { counters.textLayouts++; textLayouts[outline.id] = it },
             decorationBox = { inner ->
                 Box(Modifier

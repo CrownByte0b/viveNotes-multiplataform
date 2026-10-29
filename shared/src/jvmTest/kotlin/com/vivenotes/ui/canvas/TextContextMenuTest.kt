@@ -8,8 +8,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.TextClipboard
+import com.vivenotes.data.LocalTextClipboard
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -414,20 +414,20 @@ class TextContextMenuTest {
 
     private fun ComposeUiTest.setWorkspace(
         initial: WorkspaceState,
-        clipboard: ClipboardManager,
+        clipboard: TextClipboard,
         onStateChange: (WorkspaceState) -> Unit,
     ) {
         setContent {
             var state by remember { mutableStateOf(initial) }
             ViveNotesTheme(darkTheme = true) {
-                CompositionLocalProvider(LocalClipboardManager provides clipboard) {
+                CompositionLocalProvider(LocalTextClipboard provides clipboard) {
                     WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) })
                 }
             }
         }
     }
 
-    private class FakeClipboard : ClipboardManager {
+    private class FakeClipboard : TextClipboard {
         var value: AnnotatedString? = null
         override fun getText(): AnnotatedString? = value
         override fun setText(annotatedString: AnnotatedString) { value = annotatedString }

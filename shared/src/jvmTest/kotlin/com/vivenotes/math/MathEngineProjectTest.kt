@@ -3,6 +3,7 @@ package com.vivenotes.math
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -26,6 +27,15 @@ class MathEngineProjectTest {
             val carried = javaClass.getResourceAsStream("/math-engine/$name")!!.use { it.readBytes() }
             assertArrayEquals(name, File(sources, name).readBytes(), carried)
         }
+    }
+
+    @Test
+    fun sympyLatexParserKeepsItsCompatibleAntlrRuntime() {
+        val project = File(sources, "pyproject.toml").readText()
+        val lock = File(sources, "uv.lock").readText()
+        assertTrue("SymPy 1.14's generated LaTeX parser requires ANTLR 4.11",
+            project.contains("\"antlr4-python3-runtime==4.11.1\""))
+        assertTrue(lock.contains("name = \"antlr4-python3-runtime\"\nversion = \"4.11.1\""))
     }
 
     @Test

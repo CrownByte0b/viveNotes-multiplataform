@@ -9,8 +9,8 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.graphics.toPixelMap
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.TextClipboard
+import com.vivenotes.data.rememberTextClipboard
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
@@ -121,9 +121,9 @@ class MathPaneReferenceTest {
 
     @Test
     fun copyPublishesEditedPlainLatexToTheDesktopClipboardAndResetsItsFeedback() = runDesktopComposeUiTest(width = 500, height = 900) {
-        lateinit var clipboard: ClipboardManager
+        lateinit var clipboard: TextClipboard
         setContent { ViveNotesTheme {
-            clipboard = LocalClipboardManager.current
+            clipboard = rememberTextClipboard()
             MathPane(SOURCE, Math()) {}
         } }
         onNodeWithTag(MathPaneTags.Copy).performClick()

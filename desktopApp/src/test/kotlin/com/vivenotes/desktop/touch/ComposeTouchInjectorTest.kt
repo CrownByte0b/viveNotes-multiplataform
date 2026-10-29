@@ -198,11 +198,17 @@ class ComposeTouchInjectorTest {
         waitUntil("the panel to lay out") { panel.width > 0 && panel.isShowing }
         val injector = ComposeTouchInjector()
         lateinit var origin: java.awt.Point
+        lateinit var content: java.awt.Component
         var scale = 1f
         SwingUtilities.invokeAndWait {
             origin = SwingUtilities.convertPoint(panel, 0, 0, window)
+            content = SwingUtilities.getDeepestComponentAt(panel, 30, 30)
             scale = panel.graphicsConfiguration.defaultTransform.scaleX.toFloat()
         }
+        mouse(content, java.awt.event.MouseEvent.MOUSE_MOVED, 30, 30)
+        waitUntil("a mouse hover before touch") { seen.any { event ->
+            event.pointers.any { it.first == PointerType.Mouse }
+        } }
         val x = origin.x + 120.5
         val y = origin.y + 80.25
         fun send(vararg changes: TouchChange) = SwingUtilities.invokeAndWait { injector.accept(TouchFrame(1, changes.toList())) }
@@ -210,9 +216,13 @@ class ComposeTouchInjectorTest {
         send(TouchChange(1, TouchPhase.Down, window, x, y))
         send(TouchChange(1, TouchPhase.Move, window, x + 30, y))
         send(TouchChange(1, TouchPhase.Up, window, 0.0, 0.0))
-        waitUntil("press, move and release") { seen.count { it.type in setOf("Press", "Move", "Release") } >= 3 }
+        waitUntil("the touch release") { seen.any { event ->
+            event.type == "Release" && event.pointers.any { it.first == PointerType.Touch }
+        } }
 
-        val events = seen.filter { it.type in setOf("Press", "Move", "Release") }
+        val events = seen.filter { event ->
+            event.type in setOf("Press", "Move", "Release") && event.pointers.any { it.first == PointerType.Touch }
+        }
         assertEquals(listOf("Press", "Move", "Release"), events.map { it.type })
         events.flatMap { it.pointers }.forEach { assertEquals(PointerType.Touch, it.first) }
         val press = events[0].pointers.single()

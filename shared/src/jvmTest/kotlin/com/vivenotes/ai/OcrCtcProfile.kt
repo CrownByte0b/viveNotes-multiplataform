@@ -315,7 +315,7 @@ private class CtcProfileCounters {
     }
     fun processCpuNanos(): Long = process?.processCpuTime ?: -1
     fun measure(operation: () -> CtcProfileReading): CtcProfileSample {
-        val id = Thread.currentThread().id
+        val id = Thread.currentThread().threadId()
         val beforeAllocated = allocated(id)
         val beforeCpu = threads?.getThreadCpuTime(id) ?: -1
         val before = System.nanoTime()

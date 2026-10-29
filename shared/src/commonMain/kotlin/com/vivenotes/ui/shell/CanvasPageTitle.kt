@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.BasicTextField
+import com.vivenotes.ui.components.BoundTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,7 +38,7 @@ internal fun CanvasPageTitle(
     var titleValue by titleState
     if (!page.document.style.hideTitle) {
         Column(Modifier.offset(16.dp, 8.dp).width(720.dp)) {
-            BasicTextField(
+            BoundTextField(
                 value = titleValue,
                 onValueChange = { titleValue = it; onTitleChange(it.text) },
                 singleLine = true,

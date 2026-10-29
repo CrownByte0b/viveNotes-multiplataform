@@ -66,7 +66,9 @@ class SearchPaneTest {
             onNodeWithTag(WorkspaceTestTags.BodyEditor).assertIsDisplayed()
             onNodeWithTag(WorkspaceTestTags.BodyEditor).assert(SemanticsMatcher.expectValue(
                 SemanticsProperties.TextSelectionRange, androidx.compose.ui.text.TextRange(20, 26)))
-            onRoot().performKeyInput { keyDown(Key.CtrlLeft); pressKey(Key.F); keyUp(Key.CtrlLeft) }
+            onNodeWithTag(WorkspaceTestTags.BodyEditor).performKeyInput {
+                keyDown(Key.CtrlLeft); pressKey(Key.F); keyUp(Key.CtrlLeft)
+            }
             onNodeWithTag(SearchTags.Query).assertIsFocused()
             onNodeWithTag(SearchTags.Close).performClick()
             onNodeWithTag(SearchTags.Pane).assertDoesNotExist()

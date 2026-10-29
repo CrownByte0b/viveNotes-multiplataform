@@ -7,8 +7,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.TextClipboard
+import com.vivenotes.data.LocalTextClipboard
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
@@ -145,20 +145,20 @@ class CanvasClipboardKeysTest {
 
     private fun ComposeUiTest.setWorkspace(
         initial: WorkspaceState,
-        clipboard: ClipboardManager = FakeClipboard(),
+        clipboard: TextClipboard = FakeClipboard(),
         onStateChange: (WorkspaceState) -> Unit = {},
     ) {
         setContent {
             var state by remember { mutableStateOf(initial) }
             ViveNotesTheme(darkTheme = true) {
-                CompositionLocalProvider(LocalClipboardManager provides clipboard) {
+                CompositionLocalProvider(LocalTextClipboard provides clipboard) {
                     WorkspaceScreen(state = state, onStateChange = { state = it(state); onStateChange(state) })
                 }
             }
         }
     }
 
-    private class FakeClipboard(var value: AnnotatedString? = null) : ClipboardManager {
+    private class FakeClipboard(var value: AnnotatedString? = null) : TextClipboard {
         override fun getText(): AnnotatedString? = value
         override fun setText(annotatedString: AnnotatedString) { value = annotatedString }
     }

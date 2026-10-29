@@ -328,7 +328,7 @@ private class KernelCounters {
     }
     fun processCpu(): Long = process?.processCpuTime ?: -1L
     fun sample(operation: () -> TextRecognitionResult): KernelSample {
-        val id = Thread.currentThread().id
+        val id = Thread.currentThread().threadId()
         val allocated = threads?.getThreadAllocatedBytes(id) ?: -1L
         val cpu = threads?.getThreadCpuTime(id) ?: -1L
         val start = System.nanoTime()

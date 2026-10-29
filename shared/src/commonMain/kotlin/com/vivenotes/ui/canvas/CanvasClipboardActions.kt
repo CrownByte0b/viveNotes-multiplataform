@@ -1,6 +1,6 @@
 package com.vivenotes.ui.canvas
 
-import androidx.compose.ui.platform.ClipboardManager
+import com.vivenotes.data.TextClipboard
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -28,7 +28,7 @@ import kotlinx.coroutines.withContext
 internal class CanvasClipboardActions(
     private val state: () -> WorkspaceState,
     private val change: ((WorkspaceState) -> WorkspaceState) -> Unit,
-    private val clipboard: ClipboardManager,
+    private val clipboard: TextClipboard,
     private val html: ClipboardHtml?,
     private val pictures: PictureLibrary?,
     private val scope: CoroutineScope,

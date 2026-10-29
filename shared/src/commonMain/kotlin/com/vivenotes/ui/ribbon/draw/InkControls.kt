@@ -204,8 +204,10 @@ internal fun Choice(label: String, chosen: Boolean, tag: String, onClick: () -> 
 internal fun KitSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, step: Float, tag: String, onChange: (Float) -> Unit) {
     var draft by remember(value) { mutableFloatStateOf(value) }
     Text(Strings.value_value_dp(label, draft.toString().removeSuffix(".0")), style = MaterialTheme.typography.bodyMedium)
-    Slider(draft, { draft = (range.start + ((it - range.start) / step).roundToInt() * step).coerceIn(range) },
-        valueRange = range, steps = ((range.endInclusive - range.start) / step).roundToInt() - 1,
+    val slider = rememberSliderState(draft,
+        steps = (((range.endInclusive - range.start) / step).roundToInt() - 1).coerceAtLeast(0), trackRange = range)
+    slider.value = draft
+    Slider(slider, { draft = (range.start + ((it - range.start) / step).roundToInt() * step).coerceIn(range) },
         onValueChangeFinished = { if (draft != value) onChange(draft) },
         modifier = Modifier.testTag(tag).semantics { contentDescription = label })
 }

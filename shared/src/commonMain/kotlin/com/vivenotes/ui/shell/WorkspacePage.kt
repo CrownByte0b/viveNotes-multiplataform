@@ -13,7 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.rememberTextClipboard
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.key.KeyEvent
 import com.vivenotes.data.PictureLibrary
@@ -77,7 +77,7 @@ internal fun WorkspacePage(
     DisposableEffect(selectionWorker) { onDispose { selectionWorker.close() } }
     val fileDrops = rememberFileDropHandlers(pictures, onStateChange, debugLog)
     val clipboardHtml = LocalClipboardHtml.current
-    val clipboardManager = LocalClipboardManager.current
+    val clipboardManager = rememberTextClipboard()
     val latestEditorCommand by rememberUpdatedState(applyEditorCommand)
     val latestRequestFocus by rememberUpdatedState(requestEditorFocus)
     val wordActions = remember(clipboardManager, clipboardHtml) {

@@ -7,8 +7,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import com.vivenotes.data.TextClipboard
+import com.vivenotes.data.LocalTextClipboard
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.semantics.SemanticsActions
@@ -182,7 +182,7 @@ class WordSelectionInteractionTest {
         observe: (WorkspaceState) -> Unit) {
         setContent {
             var state by remember { mutableStateOf(initial) }
-            CompositionLocalProvider(LocalClipboardManager provides clipboard, LocalUriHandler provides uriHandler) {
+            CompositionLocalProvider(LocalTextClipboard provides clipboard, LocalUriHandler provides uriHandler) {
                 WorkspaceScreen(state, { state = it(state); observe(state) })
             }
         }
@@ -203,7 +203,7 @@ class WordSelectionInteractionTest {
     private fun ComposeUiTest.ctrl(key: Key) = onRoot().performKeyInput {
         keyDown(Key.CtrlLeft); keyDown(key); keyUp(key); keyUp(Key.CtrlLeft)
     }
-    private class Clipboard(var value: AnnotatedString? = null) : ClipboardManager {
+    private class Clipboard(var value: AnnotatedString? = null) : TextClipboard {
         override fun getText() = value
         override fun setText(annotatedString: AnnotatedString) { value = annotatedString }
     }
