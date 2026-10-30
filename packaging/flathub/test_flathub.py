@@ -69,6 +69,18 @@ class FlathubManifestTest(unittest.TestCase):
         gradle = next(s for s in module("vivenotes")["sources"] if isinstance(s, dict) and s.get("dest") == "gradle-dist")
         self.assertEqual((url, digest), (gradle["url"], gradle["sha256"]))
 
+    @unittest.skipUnless((BYTEINK / "gradle/libs.versions.toml").is_file(), "needs the ByteInk checkout")
+    def test_offline_sources_include_the_app_and_byteink_compose_build_plugins(self):
+        versions = {tomllib.loads((repository / "gradle/libs.versions.toml").read_text())
+                    ["versions"]["composeMultiplatform"] for repository in (ROOT, BYTEINK)}
+        sources = json.loads((HERE / "maven-sources.json").read_text())
+        for version in versions:
+            with self.subTest(version=version):
+                destination = f"offline-repository/org/jetbrains/compose/compose-gradle-plugin/{version}"
+                names = {entry["dest-filename"] for entry in sources if entry["dest"] == destination}
+                expected = {f"compose-gradle-plugin-{version}.{extension}" for extension in ("jar", "pom", "module")}
+                self.assertTrue(expected <= names, f"Missing Compose plugin {version} files: {sorted(expected - names)}")
+
     @unittest.skipUnless((BYTEINK / "upstream/pins.properties").is_file(), "needs the ByteInk checkout")
     def test_ink_sources_are_byteinks_pins(self):
         pins = dict(re.findall(r"^([\w.]+)=(.*)$", (BYTEINK / "upstream/pins.properties").read_text(), re.M))

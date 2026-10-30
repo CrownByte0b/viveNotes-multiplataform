@@ -2,6 +2,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -118,6 +119,7 @@ class FlathubRunnerTest(unittest.TestCase):
         self.assertIn("all", command)
         self.assertNotIn("--privileged", command)
         self.assertIn("BUILD_ARCH=x86_64", command)
+        self.assertIn("REPO=https://github.com/flathub/flathub", command)
         self.assertIn("/proc:/host/proc", command)
         self.assertIn(f"{self.state / 'flatpak'}:/home/flatbld/.local/share/flatpak:z", command)
         self.assertIn("GITHUB_TOKEN", command)
@@ -140,6 +142,22 @@ class FlathubRunnerTest(unittest.TestCase):
         self.assertIn("install-if-extra-data", build)
         bundle = ci.container_command("bundle", self.state, self.builder)[-1]
         self.assertIn(f"artifacts/{ci.APP_ID}.flatpak {ci.APP_ID} test", bundle)
+
+    def test_custom_apparmor_profile_is_selected_without_enabling_a_privileged_container(self):
+        for phase in ci.PHASES:
+            with self.subTest(phase=phase):
+                command = ci.container_command(phase, self.state, self.builder, ci.APPARMOR_PROFILE)
+                self.assertIn(f"apparmor={ci.APPARMOR_PROFILE}", command)
+                self.assertNotIn("apparmor=unconfined", command)
+                self.assertNotIn("--privileged", command)
+
+    def test_sandbox_probe_checks_user_and_network_namespaces_before_building(self):
+        command = ci.container_command("sandbox", self.state, self.builder)
+        for flag in ("--unshare-user", "--unshare-net", "--unshare-pid"):
+            self.assertIn(flag, command[-1])
+        self.assertIn("127.0.0.1", command[-1])
+        self.assertNotIn("prepare-env", command[-1])
+        self.assertEqual("sandbox", ci.PHASES[0])
 
     def test_failed_builds_keep_the_log_and_propagate_the_failure(self):
         log = Path(self.temporary.name) / "failure.log"
@@ -172,6 +190,19 @@ class FlathubWorkflowTest(unittest.TestCase):
         self.assertIn("build/flathub-ci/work/.flatpak-builder", workflow)
         self.assertNotIn("continue-on-error", workflow)
 
+    def test_hosted_builder_loads_a_named_userns_profile_before_any_container_runs(self):
+        workflow = (ROOT / ".github/workflows/flathub.yml").read_text()
+        profile = (ROOT / ".github/flathub-ci.apparmor").read_text()
+        self.assertIn(f"profile {ci.APPARMOR_PROFILE} flags=(unconfined)", profile)
+        self.assertIn("  userns,", profile)
+        self.assertIn(f"VIVE_FLATHUB_APPARMOR_PROFILE: {ci.APPARMOR_PROFILE}", workflow)
+        load = workflow.index("sudo apparmor_parser --replace .github/flathub-ci.apparmor")
+        probe = workflow.index("run_ci.py --phase sandbox")
+        download = workflow.index("run_ci.py --phase download")
+        self.assertLess(load, probe)
+        self.assertLess(probe, download)
+        self.assertNotIn("sysctl", workflow)
+
     @unittest.skipUnless((ROOT / "build/flathub-ci/vorarbeiter/justfile").is_file(), "needs the cloned upstream builder")
     def test_pinned_upstream_build_preserves_the_flathub_offline_build_flags(self):
         builder = ROOT / "build/flathub-ci/vorarbeiter"
@@ -179,6 +210,27 @@ class FlathubWorkflowTest(unittest.TestCase):
         recipes = (builder / "justfile").read_text()
         for flag in ("--sandbox", "--disable-download", "--ccache", "--override-source-date-epoch 1321009871"):
             self.assertIn(flag, recipes)
+
+
+@unittest.skipUnless(os.environ.get("VIVE_TEST_FLATHUB_SANDBOX") == "1", "set VIVE_TEST_FLATHUB_SANDBOX=1 for Docker checks")
+class FlathubSandboxTest(unittest.TestCase):
+    def test_real_builder_creates_an_isolated_network_and_working_loopback(self):
+        profile = os.environ.get("VIVE_FLATHUB_APPARMOR_PROFILE", "unconfined")
+        command = ci.container_command("sandbox", ROOT / "build/flathub-ci",
+                                       ROOT / "build/flathub-ci/vorarbeiter", profile)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("FLATHUB_SANDBOX_OK", result.stdout)
+
+
+@unittest.skipUnless(os.environ.get("VIVE_TEST_FLATHUB_REPOSITORY") == "1", "needs a completed Flathub source build")
+class FlathubRepositoryTest(unittest.TestCase):
+    def test_real_repository_passes_the_submission_linter(self):
+        profile = os.environ.get("VIVE_FLATHUB_APPARMOR_PROFILE", "unconfined")
+        command = ci.container_command("lint", ROOT / "build/flathub-ci",
+                                       ROOT / "build/flathub-ci/vorarbeiter", profile)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=180)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

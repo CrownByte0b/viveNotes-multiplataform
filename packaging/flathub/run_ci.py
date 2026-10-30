@@ -9,6 +9,7 @@ the manifest's release pins. Outputs and the upstream builder checkout live in b
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shlex
 import shutil
@@ -18,6 +19,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 APP_ID = "net.vivenotes.ViveNotes"
+SUBMISSION_URL = "https://github.com/flathub/flathub"
 UPSTREAM_URL = "https://github.com/flathub-infra/vorarbeiter.git"
 UPSTREAM_REVISION = "90b52674d33facc30feccf7d2f3d40ba5b819b77"
 BUILDER_IMAGE = (
@@ -25,7 +27,21 @@ BUILDER_IMAGE = (
     "sha256:5b41839c0657f7e57a95400de11833ee1b38ff3ccc1c5572426c7fb4830b0aa4"
 )
 LOCAL_REF = "refs/pull/local/head"
-PHASES = ("manifest", "download", "build", "lint", "bundle")
+APPARMOR_PROFILE = "vivenotes-flathub-ci"
+PHASES = ("sandbox", "manifest", "download", "build", "lint", "bundle")
+SANDBOX_PROBE = """
+import socket
+assert [name for _, name in socket.if_nameindex()] == ["lo"], "Network namespace is not isolated"
+with socket.socket() as server, socket.socket() as client:
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    client.connect(server.getsockname())
+    connection, _ = server.accept()
+    with connection:
+        client.sendall(b"sandbox")
+        assert connection.recv(7) == b"sandbox"
+print("FLATHUB_SANDBOX_OK loopback=127.0.0.1 interfaces=lo")
+"""
 
 
 def run(command, **kwargs):
@@ -83,7 +99,7 @@ def prepare(root, state, builder):
     return work
 
 
-def container_command(phase, state, builder):
+def container_command(phase, state, builder, apparmor_profile="unconfined"):
     recipes = {
         "manifest": [("validate-manifest", APP_ID)],
         "download": [("download-sources", APP_ID)],
@@ -91,7 +107,11 @@ def container_command(phase, state, builder):
         "lint": [("validate-build",)],
     }
     commands = [["just", "-f", ".flathub.justfile", "prepare-env"]]
-    if phase == "bundle":
+    if phase == "sandbox":
+        commands = [["bwrap", "--die-with-parent", "--unshare-user", "--uid", "0", "--gid", "0",
+                     "--unshare-net", "--unshare-pid", "--ro-bind", "/", "/", "--dev", "/dev",
+                     "--proc", "/proc", "--", "python3", "-c", SANDBOX_PROBE]]
+    elif phase == "bundle":
         commands.append(["flatpak", "build-bundle",
                          "--runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo",
                          "repo", f"artifacts/{APP_ID}.flatpak", APP_ID, "test"])
@@ -101,11 +121,12 @@ def container_command(phase, state, builder):
     command = [
         "docker", "run", "--rm", "--init",
         "--security-opt", f"seccomp={builder / 'flatpak.seccomp.json'}",
-        "--security-opt", "apparmor=unconfined", "--cap-drop", "all", "--entrypoint=",
+        "--security-opt", f"apparmor={apparmor_profile}", "--cap-drop", "all", "--entrypoint=",
         "--env", "TMPDIR=/work/tmp", "--env", "XDG_STATE_HOME=/work/.local/state",
         "--env", f"APP_ID={APP_ID}", "--env", f"REF={LOCAL_REF}",
         "--env", "PR_TARGET_BRANCH=new-pr", "--env", "BUILD_ARCH=x86_64",
-        "--env", "REPO=https://github.com/CrownByte0b/viveNotes-multiplataform",
+        # The linter uses REPO to select submission policy, including test-ref media handling.
+        "--env", f"REPO={SUBMISSION_URL}",
         "--env", "GITHUB_ACTIONS", "--env", "GITHUB_TOKEN",
         "--volume", "/proc:/host/proc",
         "--volume", f"{state / 'work'}:/work:z",
@@ -142,6 +163,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--phase", choices=("all", "prepare", *PHASES), default="all")
     parser.add_argument("--state-dir", type=Path, default=ROOT / "build/flathub-ci")
+    parser.add_argument("--apparmor-profile", default=os.environ.get("VIVE_FLATHUB_APPARMOR_PROFILE", "unconfined"),
+                        help=f"On AppArmor hosts, load .github/flathub-ci.apparmor and select {APPARMOR_PROFILE}")
     args = parser.parse_args()
     state = args.state_dir.resolve()
     builder = state / "vorarbeiter"
@@ -152,7 +175,7 @@ def main():
         parser.error("Run --phase prepare first")
     phases = PHASES if args.phase == "all" else (() if args.phase == "prepare" else (args.phase,))
     for phase in phases:
-        run_logged(container_command(phase, state, builder), state / f"work/artifacts/{phase}.log")
+        run_logged(container_command(phase, state, builder, args.apparmor_profile), state / f"work/artifacts/{phase}.log")
 
 
 if __name__ == "__main__":
