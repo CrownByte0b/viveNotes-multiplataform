@@ -22,6 +22,7 @@ TAG = "v1.2.3"
 COMMIT = "a" * 40
 MSI = "ViveNotes-1.2.3-x64.msi"
 FLATPAK = "ViveNotes-1.2.3-x86_64.flatpak"
+APPIMAGE = "ViveNotes-1.2.3-x86_64.AppImage"
 
 
 class ReleaseArtifactsTest(unittest.TestCase):
@@ -38,6 +39,8 @@ class ReleaseArtifactsTest(unittest.TestCase):
         self.corrupt_msi = False
         self.missing_flatpak = False
         self.duplicate_flatpak = False
+        self.corrupt_appimage = False
+        self.missing_appimage = False
         self.expired = False
         self.assets = []
         self.runs = {}
@@ -113,7 +116,7 @@ class ReleaseArtifactsTest(unittest.TestCase):
                 if self.corrupt_msi:
                     msi.write_bytes(b"tampered MSI")
                 (directory / "smoke.log").write_text("not a release asset")
-            elif not self.missing_flatpak:
+            elif arguments[3] == "11" and not self.missing_flatpak:
                 bundle = directory / "flatpak" / FLATPAK
                 bundle.parent.mkdir()
                 bundle.write_bytes(b"Flatpak fixture")
@@ -121,6 +124,14 @@ class ReleaseArtifactsTest(unittest.TestCase):
                     (directory / FLATPAK).write_bytes(b"ambiguous bundle")
                 (directory / "SHA256SUMS").write_text("dependency inventory, not a bundle checksum")
                 (directory / "manifest.json").write_text("{}")
+            elif arguments[3] == "12" and not self.missing_appimage:
+                image = directory / APPIMAGE
+                image.write_bytes(b"AppImage fixture")
+                digest = hashlib.sha256(image.read_bytes()).hexdigest()
+                (directory / (APPIMAGE + ".sha256")).write_text(f"{digest}  {APPIMAGE}\n", encoding="ascii")
+                if self.corrupt_appimage:
+                    image.write_bytes(b"tampered AppImage")
+                (directory / "smoke-test.log").write_text("not a release asset")
             return subprocess.CompletedProcess(arguments, 0, stdout="")
         if arguments[1:3] == ["release", "upload"]:
             self.assertEqual(TAG, arguments[3])
@@ -136,10 +147,12 @@ class ReleaseArtifactsTest(unittest.TestCase):
         before = copy.deepcopy(self.release)
         self.attach()
         self.assertEqual(before, self.release)
-        self.assertEqual(["10", "11"], [call[3] for call in self.downloads])
-        self.assertEqual({MSI, MSI + ".sha256", FLATPAK}, set(self.uploads[0]))
+        self.assertEqual(["10", "11", "12"], [call[3] for call in self.downloads])
+        self.assertEqual({MSI, MSI + ".sha256", FLATPAK, APPIMAGE, APPIMAGE + ".sha256"}, set(self.uploads[0]))
+        self.assertEqual(b"AppImage fixture", self.uploads[0][APPIMAGE])
         self.assertIn("publish it manually", self.summary.read_text())
-        self.assertIn("actions/runs/10", self.summary.read_text())
+        for run in ("10", "11", "12"):
+            self.assertIn(f"actions/runs/{run}", self.summary.read_text())
 
     def test_supports_annotated_tags(self):
         self.annotated = True
@@ -164,15 +177,17 @@ class ReleaseArtifactsTest(unittest.TestCase):
                     self.attach()
                 self.assertEqual([], self.downloads)
 
-    def test_both_latest_builds_must_succeed_before_downloading(self):
-        original = self.runs["flatpak.yml"][0]
-        for state in ({"status": "in_progress", "conclusion": None},
-                      {"status": "completed", "conclusion": "failure"}):
-            with self.subTest(state=state):
-                self.runs["flatpak.yml"] = [original, {**original, "id": 99, **state}]
-                with self.assertRaisesRegex(ValueError, "has not succeeded"):
-                    self.attach()
-                self.assertEqual([], self.downloads)
+    def test_every_latest_build_must_succeed_before_downloading(self):
+        for workflow, _ in release_artifacts.BUILDS:
+            original = self.runs[workflow][0]
+            for state in ({"status": "in_progress", "conclusion": None},
+                          {"status": "completed", "conclusion": "failure"}):
+                with self.subTest(workflow=workflow, state=state):
+                    self.runs[workflow] = [original, {**original, "id": 99, **state}]
+                    with self.assertRaisesRegex(ValueError, "has not succeeded"):
+                        self.attach()
+                    self.assertEqual([], self.downloads)
+            self.runs[workflow] = [original]
 
     def test_expired_artifacts_cannot_be_attached(self):
         self.expired = True
@@ -180,8 +195,8 @@ class ReleaseArtifactsTest(unittest.TestCase):
             self.attach()
         self.assertEqual([], self.downloads)
 
-    def test_tampered_msi_missing_or_ambiguous_bundle_upload_nothing(self):
-        for attribute in ("corrupt_msi", "missing_flatpak", "duplicate_flatpak"):
+    def test_tampered_installer_missing_or_ambiguous_bundle_upload_nothing(self):
+        for attribute in ("corrupt_msi", "missing_flatpak", "duplicate_flatpak", "corrupt_appimage", "missing_appimage"):
             with self.subTest(attribute=attribute):
                 setattr(self, attribute, True)
                 with self.assertRaises(ValueError):

@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 BUILDS = (
     ("windows-msi.yml", "ViveNotes-Windows-x64"),
     ("flatpak.yml", "ViveNotes-Linux-x86_64"),
+    ("appimage.yml", "ViveNotes-Linux-AppImage-x86_64"),
 )
 
 
@@ -63,20 +64,22 @@ def build_run(repo, workflow, artifact, tag, commit):
 
 def release_files(directory, version):
     names = [f"ViveNotes-{version}-x64.msi", f"ViveNotes-{version}-x64.msi.sha256",
-             f"ViveNotes-{version}-x86_64.flatpak"]
+             f"ViveNotes-{version}-x86_64.flatpak",
+             f"ViveNotes-{version}-x86_64.AppImage", f"ViveNotes-{version}-x86_64.AppImage.sha256"]
     files = []
     for name in names:
         matches = list(directory.rglob(name))
         if len(matches) != 1 or not matches[0].is_file():
             raise ValueError(f"Expected exactly one {name} in the downloaded artifacts.")
         files.append(matches[0])
-    msi, checksum, _ = files
-    match = re.fullmatch(r"([0-9a-fA-F]{64})  " + re.escape(msi.name) + r"\s*",
-                         checksum.read_text(encoding="ascii"))
-    with msi.open("rb") as source:
-        digest = hashlib.file_digest(source, "sha256").hexdigest()
-    if not match or match[1].lower() != digest:
-        raise ValueError("The MSI SHA-256 checksum does not match the installer.")
+    msi, msi_checksum, _, appimage, appimage_checksum = files
+    for installer, checksum in ((msi, msi_checksum), (appimage, appimage_checksum)):
+        match = re.fullmatch(r"([0-9a-fA-F]{64})  " + re.escape(installer.name) + r"\s*",
+                             checksum.read_text(encoding="ascii"))
+        with installer.open("rb") as source:
+            digest = hashlib.file_digest(source, "sha256").hexdigest()
+        if not match or match[1].lower() != digest:
+            raise ValueError(f"The SHA-256 checksum does not match {installer.name}.")
     return files
 
 

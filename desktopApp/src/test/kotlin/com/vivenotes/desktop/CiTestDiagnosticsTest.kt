@@ -15,7 +15,9 @@ class CiTestDiagnosticsTest {
     @Test
     fun ciWorkflowsGiveNativeUiSuitesExclusiveDesktopAccessAndBoundedDiagnostics() {
         val root = File(System.getProperty("vivenotes.test.projectRoot"))
-        val workflows = mapOf("desktop-tests.yml" to 2, "flatpak.yml" to 1, "windows-msi.yml" to 1)
+        val workflows = mapOf(
+            "desktop-tests.yml" to 2, "flatpak.yml" to 1, "appimage.yml" to 1, "windows-msi.yml" to 1,
+        )
         for ((name, expectedSteps) in workflows) {
             val workflow = File(root, ".github/workflows/$name").readText()
             val steps = workflow.split("      - ").filter {

@@ -240,10 +240,12 @@ tasks.test {
         "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js"))
     inputs.file(rootProject.file("tools/lint/ResourceLint.java"))
     inputs.files(fileTree(rootProject.file("packaging/flatpak")))
+    inputs.files(fileTree(rootProject.file("packaging/appimage")))
     inputs.files(fileTree(rootProject.file("packaging/windows")))
     inputs.file(rootProject.file(".github/workflows/windows-msi.yml"))
     inputs.file(rootProject.file(".github/workflows/desktop-tests.yml"))
     inputs.file(rootProject.file(".github/workflows/flatpak.yml"))
+    inputs.file(rootProject.file(".github/workflows/appimage.yml"))
     inputs.file(rootProject.file(".github/workflows/attach-release-artifacts.yml"))
     inputs.file(rootProject.file(".github/scripts/attach_release_artifacts.py"))
     inputs.file(rootProject.file(".github/scripts/ci-tests.init.gradle"))
@@ -325,12 +327,11 @@ afterEvaluate {
     }
 }
 
-// Flatpak bundles the complete JBR separately; keep this payload independent of jpackage's JDK.
-tasks.register<Sync>("stageFlatpak") {
-    group = "distribution"
-    description = "Stage the production JVM jars for Linux Flatpak packaging"
+// Flatpak and AppImage bundle the complete JBR separately; keep their payloads independent of
+// jpackage's JDK.
+fun Sync.stageLinuxJars(destination: String) {
     dependsOn(tasks.jar)
-    into(layout.buildDirectory.dir("flatpak/payload/lib"))
+    into(layout.buildDirectory.dir(destination))
     // Different Maven groups can publish the same jar name (AndroidX/JetBrains lifecycle).
     // Keep both on the flat classpath; identical artifacts can be copied once.
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -342,4 +343,16 @@ tasks.register<Sync>("stageFlatpak") {
         }
     }
     from(tasks.jar)
+}
+
+tasks.register<Sync>("stageFlatpak") {
+    group = "distribution"
+    description = "Stage the production JVM jars for Linux Flatpak packaging"
+    stageLinuxJars("flatpak/payload/lib")
+}
+
+tasks.register<Sync>("stageAppImage") {
+    group = "distribution"
+    description = "Stage the production JVM jars for Linux AppImage packaging"
+    stageLinuxJars("appimage/AppDir/usr/lib")
 }

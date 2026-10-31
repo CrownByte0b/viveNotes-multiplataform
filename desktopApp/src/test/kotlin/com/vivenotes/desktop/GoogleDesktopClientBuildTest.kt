@@ -50,7 +50,9 @@ class GoogleDesktopClientBuildTest {
     /** Only the steps that build what ships see the client id; tests and lint run without it. */
     @Test
     fun onlyTheReleaseBuildStepsReceiveTheClientId() {
-        val builds = mapOf("windows-msi.yml" to "Build MSI", "flatpak.yml" to "Build Flatpak bundle")
+        val builds = mapOf(
+            "windows-msi.yml" to "Build MSI", "flatpak.yml" to "Build Flatpak bundle", "appimage.yml" to "Build AppImage",
+        )
         for ((file, buildStep) in builds) {
             val steps = steps(File(root, ".github/workflows/$file").readText())
             for ((name, body) in steps) {

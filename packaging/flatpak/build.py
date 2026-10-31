@@ -92,10 +92,24 @@ def stage_metadata(output, version, release_date):
     shutil.copy2(HERE / "flathub.json", output)
 
 
-def stage(args, output):
-    version = args.version or re.search(r"^version=(.+)$", (ROOT / "gradle.properties").read_text(), re.M)[1]
+def release_version(requested=None):
+    version = requested or re.search(r"^version=(.+)$", (ROOT / "gradle.properties").read_text(), re.M)[1]
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][a-zA-Z0-9.-]+)?", version):
         raise ValueError("Use a three-component version, optionally with a prerelease suffix")
+    return version
+
+
+def source_epoch():
+    return int(os.environ.get("SOURCE_DATE_EPOCH") or subprocess.check_output(
+        ["git", "show", "--no-show-signature", "-s", "--format=%ct", "HEAD"], cwd=ROOT, text=True).strip())
+
+
+def release_date(epoch):
+    return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).date().isoformat()
+
+
+def stage(args, output):
+    version = release_version(args.version)
     run(ROOT / "gradlew", ":desktopApp:stageFlatpak", f"-Pversion={version}")
     payload = output / "payload"
     licenses = payload / "share/licenses" / APP_ID
@@ -122,10 +136,7 @@ def stage(args, output):
     (payload / "bin").mkdir(exist_ok=True)
     shutil.copy2(HERE / "vivenotes", payload / "bin/vivenotes")
     (payload / "bin/vivenotes").chmod(0o755)
-    epoch = int(os.environ.get("SOURCE_DATE_EPOCH") or subprocess.check_output(
-        ["git", "show", "--no-show-signature", "-s", "--format=%ct", "HEAD"], cwd=ROOT, text=True).strip())
-    date = datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).date().isoformat()
-    stage_metadata(output, version, date)
+    stage_metadata(output, version, release_date(source_epoch()))
     shutil.copy2(HERE / f"{APP_ID}.json", output)
     run("desktop-file-validate", payload / f"share/applications/{APP_ID}.desktop")
     run("appstreamcli", "validate", "--no-net", payload / f"share/metainfo/{APP_ID}.metainfo.xml")

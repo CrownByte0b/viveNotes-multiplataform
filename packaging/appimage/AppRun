@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+here=$(dirname "$(readlink -f "$0")")
+exec "$here/usr/jbr/bin/java" \
+    --enable-native-access=ALL-UNNAMED \
+    --add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED \
+    --add-exports=java.desktop/sun.awt=ALL-UNNAMED \
+    --add-opens=java.desktop/sun.awt.wl=ALL-UNNAMED \
+    -Dvivenotes.profile=production \
+    "-Dvivenotes.uv=$here/usr/bin/uv" \
+    -cp "$here/usr/lib/*" com.vivenotes.desktop.MainKt "$@"
