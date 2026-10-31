@@ -1,6 +1,9 @@
 package com.vivenotes.ui.canvas
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
@@ -18,13 +21,20 @@ import androidx.compose.ui.text.ParagraphStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.model.Block
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Run
 import com.vivenotes.richtext.RichTextBuffer
+import com.vivenotes.ui.theme.ViveNotesTheme
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import javax.imageio.ImageIO
@@ -79,6 +89,30 @@ class TextBoxPreviewsTest {
         onNodeWithTag("text-box-preview").assertIsDisplayed().performClick()
         assertEquals(1, edits)
         assertEquals("Area is \$\\frac{a}{b}\$.", source.text)
+    }
+
+    @Test
+    fun pressingThePreviewToEditLeavesItsPixelsUntinted() = runDesktopComposeUiTest {
+        var edits = 0
+        setContent {
+            ViveNotesTheme {
+                Column {
+                    TextBoxPreviews(AnnotatedString("Area is \$x^2\$ by now."), TextStyle(fontSize = 15.sp),
+                        Color.Black, 300f, thumbnails = null, onEdit = { edits++ }, onOpenVideo = {})
+                    Box(Modifier.size(80.dp).background(Color.White).testTag("ripple-control").clickable {})
+                }
+            }
+        }
+        // The theme's ripple shows on an ordinary clickable, so the probe can see one.
+        for ((tag, tinted) in listOf("text-box-preview" to false, "ripple-control" to true)) {
+            val node = onNodeWithTag(tag)
+            val idle = node.captureToImage().toPixelMap()
+            node.performMouseInput { moveTo(Offset(3f, 7f)); press() }
+            val pressed = node.captureToImage().toPixelMap()
+            node.performMouseInput { release(); moveTo(Offset(-200f, -100f)) }
+            assertEquals(tinted, !idle.buffer.contentEquals(pressed.buffer), tag)
+        }
+        assertEquals(1, edits)
     }
 
     @Test

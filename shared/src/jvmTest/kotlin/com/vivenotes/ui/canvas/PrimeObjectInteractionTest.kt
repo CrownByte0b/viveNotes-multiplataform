@@ -1,11 +1,21 @@
 package com.vivenotes.ui.canvas
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import androidx.compose.ui.unit.dp
 import com.vivenotes.model.*
 import com.vivenotes.model.ink.ShapeKind
 import com.vivenotes.model.ink.seedSegments
@@ -158,25 +168,39 @@ class PrimeObjectInteractionTest {
         }
 
     @Test
-    fun hoveringAndPressingAPictureLeavesItsPixelsUntinted() =
+    fun hoveringAndPressingAnyObjectLeavesItsPixelsUntinted() =
         runDesktopComposeUiTest(width = 1500, height = 1000) {
-            val image = Outline.Image("image", 100f, 220f, 120f, attachmentId = "attachment", height = 80f)
-            val shape = Outline.Shape(id = "shape", kind = ShapeKind.Rectangle,
-                segments = seedSegments(ShapeKind.Rectangle, 400f, 220f, 520f, 300f, ::newId)).withRecomputedBounds()
-            val state = mutableStateOf(workspace(listOf(image, shape)))
-            setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
-            val probe = Offset(20f, 20f)
-            // The shape still answers a press with the theme's ripple, so the probe can see one.
-            for ((id, tinted) in listOf(image.id to false, shape.id to true)) {
-                val node = onNodeWithTag(WorkspaceTestTags.primeObject(id))
-                val idle = node.captureToImage().toPixelMap()[probe.x.toInt(), probe.y.toInt()]
-                node.performMouseInput { moveTo(probe); press() }
-                val pressed = node.captureToImage().toPixelMap()[probe.x.toInt(), probe.y.toInt()]
-                node.performMouseInput { release(); moveTo(Offset(-200f, -100f)) }
-                assertEquals(tinted, idle != pressed, "$id: $idle -> $pressed")
+            val objects = listOf(
+                Outline.Image("image", 100f, 220f, 120f, attachmentId = "attachment", height = 80f),
+                Outline.Shape(id = "shape", kind = ShapeKind.Rectangle,
+                    segments = seedSegments(ShapeKind.Rectangle, 300f, 220f, 420f, 300f, ::newId)).withRecomputedBounds(),
+                newTable(2, 2, 500f, 220f).copy(id = "table"),
+                Outline.Equation("equation", 700f, 220f, 120f, 80f, "x^2"),
+            )
+            val state = mutableStateOf(workspace(objects))
+            setContent {
+                ViveNotesTheme {
+                    Box(Modifier.fillMaxSize()) {
+                        WorkspaceScreen(state.value, { state.value = it(state.value) })
+                        Box(Modifier.align(Alignment.BottomEnd).size(80.dp).background(Color.White)
+                            .testTag(RippleControl).clickable {})
+                    }
+                }
             }
-            runOnIdle { assertEquals(setOf(shape.id), state.value.selectedObjectIds) }
+            // The theme's ripple shows on an ordinary clickable, so the probe can see one.
+            val probes = objects.map { WorkspaceTestTags.primeObject(it.id) to false } + (RippleControl to true)
+            for ((tag, tinted) in probes) {
+                val node = onNodeWithTag(tag)
+                val idle = node.captureToImage().toPixelMap()
+                node.performMouseInput { moveTo(Offset(20f, 20f)); press() }
+                val pressed = node.captureToImage().toPixelMap()
+                node.performMouseInput { release(); moveTo(Offset(-200f, -100f)) }
+                assertEquals(tinted, !idle.buffer.contentEquals(pressed.buffer), tag)
+            }
+            runOnIdle { assertEquals(setOf("equation"), state.value.selectedObjectIds) }
         }
+
+    private companion object { const val RippleControl = "ripple-control" }
 
     private fun save(node: SemanticsNodeInteraction, name: String) {
         val directory = File("build/test-artifacts").apply { mkdirs() }

@@ -214,7 +214,8 @@ internal fun TextBoxPreviews(
                     link?.let { onOpenLink(it.href) }
                 }
             }
-            .clickable {
+            // The box is part of the page, not a button: a click edits it without a ripple over it.
+            .clickable(interactionSource = null, indication = null) {
                 val shown = layout
                 val at = pressedAt
                 // Editing starts where the box was clicked.
