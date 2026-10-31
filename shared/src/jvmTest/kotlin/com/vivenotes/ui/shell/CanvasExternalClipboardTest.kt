@@ -12,7 +12,9 @@ import com.vivenotes.data.LocalTextClipboard
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseButton
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -26,9 +28,11 @@ import com.vivenotes.data.ClipboardContent
 import com.vivenotes.data.ClipboardHtml
 import com.vivenotes.data.ImportedPicture
 import com.vivenotes.data.PictureLibrary
+import com.vivenotes.localization.Strings
 import com.vivenotes.model.Block
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
+import com.vivenotes.ui.canvas.CanvasPasteTags
 import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.ui.ribbon.draw.TableTags
 import com.vivenotes.workspace.WorkspaceState
@@ -173,6 +177,76 @@ class CanvasExternalClipboardTest {
             val old = observed.notebooks.flatMap { it.sections }.flatMap { it.pages }.single { it.id == originalPage }
             assertTrue(old.document.outlines.none { it is Outline.Image })
         }
+    }
+
+    /** While a picture downloads, the paste shows where it will land, and stops when it has. */
+    @Test
+    fun aPasteStillDownloadingShowsItsProgressWhereItWillLand() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = initial()
+        val ready = CompletableDeferred<Unit>()
+        val source = Source(ClipboardContent(html = "<img src='https://example.org/slow.png'>"), image = null, ready = ready)
+        setWorkspace(observed, source, Pictures()) { observed = it }
+        val at = Offset(500f, 350f)
+        onNodeWithTag(WorkspaceTestTags.CanvasExtent).performMouseInput { click(at, MouseButton.Secondary) }
+        onNodeWithTag(WorkspaceTestTags.CanvasPaste).performClick()
+        waitUntil { onAllNodesWithTag(CanvasPasteTags.Progress).fetchSemanticsNodes().isNotEmpty() }
+        val page = onNodeWithTag(WorkspaceTestTags.CanvasExtent).fetchSemanticsNode().boundsInRoot
+        val shown = onNodeWithTag(CanvasPasteTags.Progress).fetchSemanticsNode().boundsInRoot
+        assertEquals(page.left + at.x, shown.left, 2f, "drawn from where the paste lands")
+        assertEquals(page.top + at.y, shown.top, 2f)
+        onNodeWithTag(CanvasPasteTags.Progress).assertContentDescriptionEquals(Strings.pasting)
+
+        runOnIdle { ready.complete(Unit) }
+        waitUntil { onAllNodesWithTag(CanvasPasteTags.Progress).fetchSemanticsNodes().isEmpty() }
+        // Nothing came back for the picture, so its address is pasted instead, where it was shown.
+        runOnIdle {
+            val text = observed.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>().last()
+            assertEquals("https://example.org/slow.png", text.blocks.single().text)
+            assertEquals(at.x, text.x, 0.5f)
+            assertEquals(at.y, text.y, 0.5f)
+        }
+    }
+
+    /** Ctrl+V pressed again while a picture downloads: two pastes at one point, each shown and placed. */
+    @Test
+    fun twoPastesAtOnePointEachShowAndLand() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = initial()
+        val ready = CompletableDeferred<Unit>()
+        val source = Source(ClipboardContent(text = "https://example.org/slow.png"), ready = ready)
+        val pictures = Pictures()
+        setWorkspace(observed, source, pictures) { observed = it }
+        point()
+        ctrl(Key.V)
+        ctrl(Key.V)
+        waitUntil { onAllNodesWithTag(CanvasPasteTags.Progress).fetchSemanticsNodes().size == 2 }
+        runOnIdle { ready.complete(Unit) }
+        waitUntil { observed.selectedPage!!.document.outlines.count { it is Outline.Image } == 2 }
+        waitUntil { onAllNodesWithTag(CanvasPasteTags.Progress).fetchSemanticsNodes().isEmpty() }
+        runOnIdle { assertEquals(2, observed.structuralUndo.size, "each paste is its own step of Undo") }
+    }
+
+    @Test
+    fun aPasteStillDownloadingIsShownOnlyOnItsOwnPage() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = initial()
+        val originalPage = observed.selectedPageId
+        val ready = CompletableDeferred<Unit>()
+        val source = Source(ClipboardContent(text = "https://example.org/slow.png"), ready = ready)
+        val pictures = Pictures()
+        setWorkspace(observed, source, pictures) { observed = it }
+        point()
+        ctrl(Key.V)
+        waitUntil { onAllNodesWithTag(CanvasPasteTags.Progress).fetchSemanticsNodes().isNotEmpty() }
+        ctrl(Key.N)
+        waitUntil { observed.selectedPageId != originalPage }
+        waitForIdle()
+        assertTrue(onAllNodesWithTag(CanvasPasteTags.Progress).fetchSemanticsNodes().isEmpty())
+
+        onNodeWithTag(WorkspaceTestTags.page(originalPage)).performClick()
+        waitUntil { observed.selectedPageId == originalPage }
+        waitUntil { onAllNodesWithTag(CanvasPasteTags.Progress).fetchSemanticsNodes().isNotEmpty() }
+        runOnIdle { ready.complete(Unit) }
+        waitUntil { pictures.imports == 1 }
+        waitUntil { onAllNodesWithTag(CanvasPasteTags.Progress).fetchSemanticsNodes().isEmpty() }
     }
 
     private fun initial() = WorkspaceState.demo().let { state ->

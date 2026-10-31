@@ -91,6 +91,7 @@
     <string name="cut">Cut</string>
     <string name="copy">Copy</string>
     <string name="paste">Paste</string>
+    <string name="pasting">Pasting…</string>
     <string name="paste_as_plain_text">Paste as plain text</string>
     <string name="insert_link">Insert link</string>
     <string name="clear_formatting">Clear formatting</string>

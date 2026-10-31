@@ -23,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -97,6 +98,7 @@ import com.vivenotes.ui.canvas.RulerLayer
 import com.vivenotes.ui.canvas.TextCaretKeys
 import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.ui.canvas.CanvasClipboardActions
+import com.vivenotes.ui.canvas.CanvasPasteProgress
 import com.vivenotes.ui.components.ContextMenu
 import com.vivenotes.ui.components.ContextMenuItem
 import com.vivenotes.ui.icons.DocumentSymbols
@@ -913,6 +915,10 @@ internal fun PageCanvas(
                     }
                 })
             }
+        }
+        // Where pastes from another app will land on this page, while they are read and downloaded.
+        canvasClipboard.pendingPastes.filter { it.pageId == page.id }.forEach { pending ->
+            key(pending.at) { CanvasPasteProgress(pending.at, zoom * density.density, horizontalScroll, verticalScroll) }
         }
         ContextMenu(
             anchor = interaction.pastePoint?.let { point ->
