@@ -217,6 +217,12 @@ tasks.withType<Test>().configureEach {
     jvmArgs(launchJvmArgs)
 }
 
+// The JVM UI suites open real windows and send native clicks and keys on one shared display: run at
+// once, their windows cover each other and take each other's input and focus. The configuration
+// cache lets Gradle run tasks in parallel, so each suite waits for the shared one (CI also runs with
+// one worker). `NativeUiSuiteOrderTest` checks the order.
+val sharedUiSuite = ":shared:jvmTest"
+
 // Compose reads `compose.layers.type` once, for the first window or panel the JVM makes, so the
 // Wayland host's popups, on layers of their own, are tested in a JVM that starts with them as the
 // host does. `test` runs it after itself, whatever its own outcome.
@@ -229,6 +235,7 @@ val waylandPopupTest = tasks.register<Test>("waylandPopupTest") {
     classpath = regular.classpath
     filter.includeTestsMatching(waylandPopupTests)
     systemProperty("compose.layers.type", "COMPONENT")
+    mustRunAfter(sharedUiSuite)
 }
 
 tasks.test {
@@ -250,6 +257,10 @@ tasks.test {
     inputs.file(rootProject.file(".github/scripts/attach_release_artifacts.py"))
     inputs.file(rootProject.file(".github/scripts/ci-tests.init.gradle"))
     inputs.file(rootProject.file(".github/tests/test_release_artifacts.py"))
+    inputs.file(rootProject.file(".github/tests/test_flathub_ci.py"))
+    inputs.file(rootProject.file(".github/workflows/flathub.yml"))
+    inputs.file(rootProject.file(".github/flathub-ci.apparmor"))
+    inputs.file(rootProject.file("packaging/flathub/run_ci.py"))
     systemProperty("vivenotes.test.projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("vivenotes.test.appVersion", appVersion)
     systemProperty("vivenotes.test.settingsFile", settingsFile.absolutePath)
@@ -257,6 +268,7 @@ tasks.test {
     systemProperty("vivenotes.test.gradleUserHome", gradle.gradleUserHomeDir.absolutePath)
     filter.excludeTestsMatching(waylandPopupTests)
     finalizedBy(waylandPopupTest)
+    mustRunAfter(sharedUiSuite)
 }
 
 // Installed distributions use the production profile. Gradle's everyday run uses a stable,

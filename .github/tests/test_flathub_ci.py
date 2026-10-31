@@ -4,6 +4,9 @@ import io
 import json
 import os
 from pathlib import Path
+import shlex
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -159,6 +162,36 @@ class FlathubRunnerTest(unittest.TestCase):
         self.assertNotIn("prepare-env", command[-1])
         self.assertEqual("sandbox", ci.PHASES[0])
 
+    def test_every_phase_hands_the_builders_directories_back_when_it_ends(self):
+        command = ci.container_command("build", self.state, self.builder)
+        self.assertIn(f"{self.state / 'work'}:{ci.WORK_MOUNT}:z", command)
+        self.assertIn(f"{self.state / 'flatpak'}:{ci.FLATPAK_MOUNT}:z", command)
+        for phase in ci.PHASES:
+            with self.subTest(phase=phase):
+                trap = ci.container_command(phase, self.state, self.builder)[-1].splitlines()[0]
+                self.assertTrue(trap.startswith("trap ") and trap.endswith(" EXIT"), trap)
+                for mount in (ci.WORK_MOUNT, ci.FLATPAK_MOUNT):
+                    self.assertIn(mount, trap)
+
+    def test_handback_opens_the_builders_directories_and_keeps_a_failed_recipes_status(self):
+        work, flatpak = Path(self.temporary.name) / "work", Path(self.temporary.name) / "flatpak"
+        app = work / "builddir/files/app"
+        directories = (work, work / "builddir", work / "builddir/files", flatpak, flatpak / "repo/objects")
+        script = "\n".join([
+            f"trap {shlex.quote(ci.handback((work, flatpak)))} EXIT",
+            shlex.join(["mkdir", "-p", str(app.parent), str(flatpak / "repo/objects")]),
+            shlex.join(["touch", str(app)]),
+            shlex.join(["chmod", "0444", str(app)]),
+            shlex.join(["chmod", "0755", *map(str, directories)]),
+            "exit 7",
+        ])
+        result = subprocess.run(["bash", "-euo", "pipefail", "-c", script], capture_output=True, text=True)
+        self.assertEqual(7, result.returncode, result.stderr)
+        for directory in directories:
+            self.assertEqual(0o777, stat.S_IMODE(directory.stat().st_mode), directory)
+        # Only directories open up; deleting a file needs its directory, not the file, writable.
+        self.assertEqual(0o444, stat.S_IMODE(app.stat().st_mode))
+
     def test_failed_builds_keep_the_log_and_propagate_the_failure(self):
         log = Path(self.temporary.name) / "failure.log"
         command = [sys.executable, "-c", "import sys; print('compiler failed'); sys.exit(7)"]
@@ -221,6 +254,28 @@ class FlathubSandboxTest(unittest.TestCase):
         result = subprocess.run(command, capture_output=True, text=True, timeout=60)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("FLATHUB_SANDBOX_OK", result.stdout)
+
+
+@unittest.skipUnless(os.environ.get("VIVE_TEST_FLATHUB_SANDBOX") == "1", "set VIVE_TEST_FLATHUB_SANDBOX=1 for Docker checks")
+class FlathubOwnershipTest(unittest.TestCase):
+    def test_the_invoking_user_can_delete_what_the_builder_leaves(self):
+        temporary = Path(tempfile.mkdtemp(prefix="vive-flathub-owner-"))
+        work = temporary / "work"
+        work.mkdir()
+        work.chmod(0o777)
+        docker = ["docker", "run", "--rm", "--init", "--cap-drop", "all", "--entrypoint=",
+                  "--volume", f"{work}:{ci.WORK_MOUNT}:z", "--workdir", ci.WORK_MOUNT, ci.BUILDER_IMAGE,
+                  "/bin/bash", "-euo", "pipefail", "-c"]
+        # Cleanups run last first: the builder removes its own files whatever happens, then the rest goes.
+        self.addCleanup(shutil.rmtree, temporary, ignore_errors=True)
+        self.addCleanup(subprocess.run, [*docker, "rm -rf builddir"], capture_output=True)
+        trap = ci.container_command("manifest", temporary, temporary)[-1].splitlines()[0]
+        script = "\n".join([trap, 'test "$(id -u)" != 0', "mkdir -p builddir/files/app",
+                            "chmod 0755 builddir builddir/files builddir/files/app",
+                            "touch builddir/files/app/bin", "exit 3"])
+        result = subprocess.run([*docker, script], capture_output=True, text=True, timeout=120)
+        self.assertEqual(3, result.returncode, result.stdout + result.stderr)
+        shutil.rmtree(work / "builddir")
 
 
 @unittest.skipUnless(os.environ.get("VIVE_TEST_FLATHUB_REPOSITORY") == "1", "needs a completed Flathub source build")

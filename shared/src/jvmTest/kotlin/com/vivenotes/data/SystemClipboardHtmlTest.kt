@@ -10,6 +10,7 @@ import java.awt.datatransfer.Transferable
 import java.awt.datatransfer.UnsupportedFlavorException
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -64,10 +65,19 @@ class SystemClipboardHtmlTest {
     /**
      * Another process owning the X11 clipboard, as a browser does: the HTML crosses the X server
      * as `text/html` and comes back intact, accents, CJK and emoji included.
+     *
+     * This process copied first, as the app (or an earlier test in this JVM) leaves it. AWT keeps
+     * answering from that copy until its event queue handles the X server's SelectionClear, so the
+     * read waits for the lost-ownership callback. In the app, a paste key arrives after that event.
      */
     @Test
     fun htmlCopiedByAnotherProcessCrossesTheDisplayIntact() {
         assumeFalse("needs a display", GraphicsEnvironment.isHeadless() || System.getenv("DISPLAY").isNullOrEmpty())
+        val board = Toolkit.getDefaultToolkit().systemClipboard
+        val reader = SystemClipboardHtml(clipboard = { board })
+        val replaced = CountDownLatch(1)
+        board.setContents(StringSelection("an earlier copy of ours")) { _, _ -> replaced.countDown() }
+        assertNull(reader.read(), "our own plain-text copy offers no HTML")
         val java = ProcessHandle.current().info().command().orElseThrow()
         val owner = ProcessBuilder(java, "--enable-native-access=ALL-UNNAMED", "-cp", System.getProperty("java.class.path"),
             ClipboardOwner::class.java.name).redirectError(ProcessBuilder.Redirect.DISCARD).start()
@@ -77,7 +87,8 @@ class SystemClipboardHtmlTest {
             await("owned")
             ClipboardOwner.writeTo(owner, page)
             await("set")
-            assertEquals(page, SystemClipboardHtml(clipboard = { Toolkit.getDefaultToolkit().systemClipboard }).read())
+            assertTrue(replaced.await(10, TimeUnit.SECONDS), "AWT never reported that another process took the clipboard")
+            assertEquals(page, reader.read())
         } finally {
             owner.outputStream.close()
             owner.waitFor(10, TimeUnit.SECONDS)

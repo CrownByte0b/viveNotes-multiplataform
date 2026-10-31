@@ -112,6 +112,7 @@ class ComposeTouchInjectorTest {
         SwingUtilities.invokeAndWait { DesktopPointerSource.attach(window, ComposeTouchInjector(), com.vivenotes.diagnostics.DebugLog()) }
         SwingUtilities.invokeAndWait { DesktopTouch.attachX11(window, com.vivenotes.diagnostics.DebugLog()) }
         Thread.sleep(200)
+        awaitPlaced(window)
         lateinit var origin: java.awt.Point
         SwingUtilities.invokeAndWait { origin = panel.locationOnScreen }
         java.awt.Robot().apply {
@@ -161,6 +162,7 @@ class ComposeTouchInjectorTest {
         SwingUtilities.invokeAndWait { DesktopPointerSource.attach(window, ComposeTouchInjector(), com.vivenotes.diagnostics.DebugLog()) }
         SwingUtilities.invokeAndWait { DesktopTouch.attachX11(window, com.vivenotes.diagnostics.DebugLog()) }
         Thread.sleep(200)
+        awaitPlaced(window)
         lateinit var origin: java.awt.Point
         SwingUtilities.invokeAndWait { origin = panel.locationOnScreen }
         java.awt.Robot().apply {
@@ -179,6 +181,31 @@ class ComposeTouchInjectorTest {
             check(System.currentTimeMillis() < deadline) { "timed out waiting for $what" }
             Thread.sleep(10)
         }
+    }
+
+    /**
+     * Robot input aims at screen positions, so it waits until the window manager is done with the
+     * new window: a tiling desktop (Hyprland, for one) places, resizes and animates it after it
+     * appears, and a click aimed before then lands elsewhere. Without a window manager (Xvfb) the
+     * window keeps its first place, so this costs one second there.
+     */
+    private fun awaitPlaced(window: JFrame) {
+        var last: java.awt.Rectangle? = null
+        var steadySince = System.nanoTime()
+        val deadline = steadySince + 20_000_000_000L
+        while (System.nanoTime() < deadline) {
+            var bounds: java.awt.Rectangle? = null
+            SwingUtilities.invokeAndWait {
+                bounds = if (window.isShowing) java.awt.Rectangle(window.locationOnScreen, window.size) else null
+            }
+            val now = System.nanoTime()
+            if (bounds == null || bounds != last) {
+                last = bounds
+                steadySince = now
+            } else if (now - steadySince >= 1_000_000_000L) return
+            Thread.sleep(20)
+        }
+        error("the window never kept one place; last bounds $last")
     }
 
     @Test

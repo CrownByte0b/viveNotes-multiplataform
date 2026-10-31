@@ -32,6 +32,7 @@ import com.vivenotes.workspace.TABLE_GUTTER
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeFalse
 import java.awt.GraphicsEnvironment
+import java.awt.Rectangle
 import java.awt.Robot
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
@@ -49,6 +50,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
+
+/** How long a new window must keep one place before native input aims at it. */
+private const val STEADY_NANOS = 1_000_000_000L
 
 /** Native keys and the real desktop clipboard through the application's displayed workspace. */
 @OptIn(ExperimentalComposeUiApi::class, ComposeToolingApi::class)
@@ -81,7 +85,8 @@ class CanvasSystemClipboardHostTest {
             fun node(id: String) = panel.semanticsOwners.flatMap { it.getAllSemanticsNodes(false) }.firstOrNull {
                 it.config.getOrNull(SemanticsProperties.TestTag) == com.vivenotes.ui.ribbon.draw.TableTags.cell(id)
             }
-            waitFor { node(left) != null && node(right) != null }
+            waitFor("both cells to compose") { node(left) != null && node(right) != null }
+            awaitPlaced(window)
             val robot = Robot().apply { autoDelay = 35 }
             fun doubleWord(id: String, offset: Int) {
                 val point = onEdt {
@@ -107,22 +112,24 @@ class CanvasSystemClipboardHostTest {
             }
             robot.keyPress(KeyEvent.VK_CONTROL)
             doubleWord(right, 8)
-            waitFor { state.value.selectedText == "omega" }
+            waitFor("Ctrl+double-click to select \"omega\"") { state.value.selectedText == "omega" }
             doubleWord(left, 2)
-            waitFor { state.value.selectedText == "alpha\nomega" }
+            waitFor("Ctrl+double-click to add \"alpha\"") { state.value.selectedText == "alpha\nomega" }
             robot.keyRelease(KeyEvent.VK_CONTROL)
             ctrl(KeyEvent.VK_C)
-            waitFor { runCatching { Toolkit.getDefaultToolkit().systemClipboard.getData(DataFlavor.stringFlavor) }
-                .getOrNull() == "alpha\nomega" }
+            waitFor("Ctrl+C to copy both words") {
+                runCatching { Toolkit.getDefaultToolkit().systemClipboard.getData(DataFlavor.stringFlavor) }
+                    .getOrNull() == "alpha\nomega"
+            }
             ctrl(KeyEvent.VK_B)
-            waitFor { state.value.structuralUndo.size == 1 }
+            waitFor("Ctrl+B to bold both words in one step") { state.value.structuralUndo.size == 1 }
             onEdt {
                 val changed = state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single()
                 assertTrue(Mark.Bold in RichTextBuffer(changed.cellAt(0, 0)!!.blocks).select(TextSelection(0, 5)).activeMarks)
                 assertTrue(Mark.Bold in RichTextBuffer(changed.cellAt(0, 1)!!.blocks).select(TextSelection(6, 11)).activeMarks)
             }
             ctrl(KeyEvent.VK_Z)
-            waitFor { state.value.structuralUndo.isEmpty() }
+            waitFor("Ctrl+Z to undo the bold") { state.value.structuralUndo.isEmpty() }
             onEdt {
                 assertEquals(table, state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().single())
                 assertEquals("alpha\nomega", state.value.selectedText)
@@ -159,11 +166,12 @@ class CanvasSystemClipboardHostTest {
             }
         }
         try {
-            waitFor {
+            waitFor("the page canvas to compose") {
                 panel.semanticsOwners.any { owner -> owner.getAllSemanticsNodes(false).any {
                     it.config.getOrNull(SemanticsProperties.TestTag) == WorkspaceTestTags.PageCanvas
                 } }
             }
+            awaitPlaced(window)
             val point = onEdt {
                 val canvas = panel.semanticsOwners.flatMap { it.getAllSemanticsNodes(false) }.first {
                     it.config.getOrNull(SemanticsProperties.TestTag) == WorkspaceTestTags.PageCanvas
@@ -188,13 +196,15 @@ class CanvasSystemClipboardHostTest {
                 ctrl(KeyEvent.VK_V)
             }
             paste(StringSelection("Native clipboard text"))
-            waitFor { state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>().any {
-                it.blocks.any { block -> block.text == "Native clipboard text" }
-            } }
+            waitFor("Ctrl+V to paste the text") {
+                state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>().any {
+                    it.blocks.any { block -> block.text == "Native clipboard text" }
+                }
+            }
             paste(HtmlSelection("<p>Before table</p><table><tr><th>Column</th></tr><tr><td>Native cell</td></tr></table><p>After table</p>",
                 "Before table\nColumn\nNative cell\nAfter table"))
-            waitFor { state.value.selectedPage!!.document.outlines.any { it is Outline.Table } }
-            waitFor {
+            waitFor("Ctrl+V to paste the HTML table") { state.value.selectedPage!!.document.outlines.any { it is Outline.Table } }
+            waitFor("the pasted objects to be displayed") {
                 val tags = panel.semanticsOwners.flatMap { it.getAllSemanticsNodes(false) }
                     .mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }.toSet()
                 state.value.selectedPage!!.document.outlines.takeLast(3).all {
@@ -222,16 +232,18 @@ class CanvasSystemClipboardHostTest {
                 state.value = state.value.selectObject(pasted.filterIsInstance<Outline.Table>().single().id)
             }
             ctrl(KeyEvent.VK_C)
-            waitFor { source.ownsInternalCopy() }
+            waitFor("Ctrl+C to copy the table") { source.ownsInternalCopy() }
             ctrl(KeyEvent.VK_V)
-            waitFor { state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().size == 2 }
+            waitFor("Ctrl+V to paste the copied table") {
+                state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Table>().size == 2
+            }
             paste(object : Transferable {
                 override fun getTransferDataFlavors() = arrayOf(DataFlavor.imageFlavor)
                 override fun isDataFlavorSupported(flavor: DataFlavor?) = flavor == DataFlavor.imageFlavor
                 override fun getTransferData(flavor: DataFlavor?): Any = if (flavor == DataFlavor.imageFlavor)
                     BufferedImage(40, 20, BufferedImage.TYPE_INT_ARGB) else throw UnsupportedFlavorException(flavor)
             })
-            waitFor { state.value.selectedPage!!.document.outlines.any { it is Outline.Image } }
+            waitFor("Ctrl+V to paste the picture") { state.value.selectedPage!!.document.outlines.any { it is Outline.Image } }
             val image = onEdt { state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Image>().single() }
             runBlocking { assertNotNull(store.bytes(image.attachmentId)) }
             onEdt {
@@ -246,12 +258,34 @@ class CanvasSystemClipboardHostTest {
         }
     }
 
-    private fun waitFor(condition: () -> Boolean) {
+    private fun waitFor(what: String, condition: () -> Boolean) {
         repeat(250) {
             if (onEdt(condition)) return
             Thread.sleep(20)
         }
-        fail("Timed out waiting for native clipboard paste")
+        fail("Timed out waiting for $what")
+    }
+
+    /**
+     * Native input aims at screen positions, so it starts once the window manager is done with the
+     * new window: a tiling desktop (Hyprland, for one) places, resizes and animates it after it
+     * appears, and a click aimed before then lands elsewhere. Without a window manager (Xvfb) the
+     * window keeps its first place, so this costs [STEADY_NANOS] there.
+     */
+    private fun awaitPlaced(window: JFrame) {
+        var last: Rectangle? = null
+        var steadySince = System.nanoTime()
+        val deadline = steadySince + 20_000_000_000L
+        while (System.nanoTime() < deadline) {
+            val bounds = onEdt { if (window.isShowing) Rectangle(window.locationOnScreen, window.size) else null }
+            val now = System.nanoTime()
+            if (bounds == null || bounds != last) {
+                last = bounds
+                steadySince = now
+            } else if (now - steadySince >= STEADY_NANOS) return
+            Thread.sleep(20)
+        }
+        fail("The window never kept one place; last bounds $last")
     }
 
     private fun <T> onEdt(block: () -> T): T {

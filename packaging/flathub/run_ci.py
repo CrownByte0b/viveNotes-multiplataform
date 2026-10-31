@@ -28,6 +28,8 @@ BUILDER_IMAGE = (
 )
 LOCAL_REF = "refs/pull/local/head"
 APPARMOR_PROFILE = "vivenotes-flathub-ci"
+WORK_MOUNT = "/work"
+FLATPAK_MOUNT = "/home/flatbld/.local/share/flatpak"
 PHASES = ("sandbox", "manifest", "download", "build", "lint", "bundle")
 SANDBOX_PROBE = """
 import socket
@@ -99,6 +101,19 @@ def prepare(root, state, builder):
     return work
 
 
+def handback(paths):
+    """Shell command that opens the builder's own directories under paths to every user.
+
+    The image runs as flatbld (uid 1001, GitHub's runner user). On any other host the files it
+    leaves in the bind mounts belong to someone else, inside directories the invoking user cannot
+    change, so neither rm -rf nor ./gradlew clean can delete them. Opening them as prepare() opens
+    the mount points keeps the caches reusable and deletable.
+    """
+    targets = " ".join(shlex.quote(str(path)) for path in paths)
+    return (f'find {targets} -xdev -type d -user "$(id -u)" ! -perm -0777 '
+            "-exec chmod a+rwx {} + 2>/dev/null || true")
+
+
 def container_command(phase, state, builder, apparmor_profile="unconfined"):
     recipes = {
         "manifest": [("validate-manifest", APP_ID)],
@@ -117,7 +132,9 @@ def container_command(phase, state, builder, apparmor_profile="unconfined"):
                          "repo", f"artifacts/{APP_ID}.flatpak", APP_ID, "test"])
     else:
         commands.extend([["just", "-f", ".flathub.justfile", *recipe] for recipe in recipes[phase]])
-    script = "\n".join(shlex.join(command) for command in commands)
+    # The trap runs when the script ends, also after a failed recipe, and keeps its exit status.
+    script = "\n".join([f"trap {shlex.quote(handback((WORK_MOUNT, FLATPAK_MOUNT)))} EXIT",
+                        *(shlex.join(command) for command in commands)])
     command = [
         "docker", "run", "--rm", "--init",
         "--security-opt", f"seccomp={builder / 'flatpak.seccomp.json'}",
@@ -129,9 +146,9 @@ def container_command(phase, state, builder, apparmor_profile="unconfined"):
         "--env", f"REPO={SUBMISSION_URL}",
         "--env", "GITHUB_ACTIONS", "--env", "GITHUB_TOKEN",
         "--volume", "/proc:/host/proc",
-        "--volume", f"{state / 'work'}:/work:z",
-        "--volume", f"{state / 'flatpak'}:/home/flatbld/.local/share/flatpak:z",
-        "--workdir", "/work", BUILDER_IMAGE,
+        "--volume", f"{state / 'work'}:{WORK_MOUNT}:z",
+        "--volume", f"{state / 'flatpak'}:{FLATPAK_MOUNT}:z",
+        "--workdir", WORK_MOUNT, BUILDER_IMAGE,
         "/bin/bash", "-euo", "pipefail", "-c", script,
     ]
     return command
