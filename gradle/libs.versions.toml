@@ -10,14 +10,14 @@ junit = "4.13.2"
 kotlin = "2.4.21"
 # KSP2 versions independently of Kotlin; 2.3.10 is the first release that handles Kotlin 2.4.
 ksp = "2.3.12"
-kotlin-wrappers = "2026.10.4"
+kotlin-wrappers = "2026.10.5"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.12.0"
 material3 = "1.13.0-beta01"
 mocha = "11.7.6"
 # ONNX Runtime's JVM package. The Android app runs `onnxruntime-android` 1.27.0, the line its
 # recognition models were validated on; the shared model tests hold this one to the same outputs.
-onnxruntime = "1.31.0"
+onnxruntime = "1.31.1"
 ratex = "0.1.15"
 # The Android app's Room line (2.8.1 there), so both builds compile the same schema. Room 2.8 is
 # tested against androidx.sqlite 2.6.
