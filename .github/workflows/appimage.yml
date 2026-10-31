@@ -31,7 +31,8 @@ jobs:
         run: |
           sudo apt-get update
           # mksquashfs builds the image; fusermount3 lets the smoke test mount it as users do.
-          sudo apt-get install -y squashfs-tools fuse3 appstream desktop-file-utils xvfb
+          # libxcb-xinput0 is the host library the app's X11 touch input needs; the runner lacks it.
+          sudo apt-get install -y squashfs-tools fuse3 appstream desktop-file-utils xvfb libxcb-xinput0
       - name: Run JVM tests and lint
         timeout-minutes: 30
         run: xvfb-run -a -s '-screen 0 1920x1200x24' ./gradlew lint :shared:jvmTest :desktopApp:test --continue --no-parallel --max-workers=1 --console=plain --init-script .github/scripts/ci-tests.init.gradle

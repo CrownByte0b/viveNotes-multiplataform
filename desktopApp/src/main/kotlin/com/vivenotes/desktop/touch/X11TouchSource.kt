@@ -26,11 +26,13 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * selected as they appear.
  *
  * XCB rather than Xlib because Xlib's error handler is one per process, and it is the runtime's.
- * [onFrame] is called on this source's thread, with positions in root-window pixels.
+ * [onFrame] is called on this source's thread, with positions in root-window pixels. Without
+ * [libraries] (Debian and Ubuntu package the XInput one apart, as libxcb-xinput0) there is no touch.
  */
 internal class X11TouchSource(
     private val onFrame: (TouchFrame) -> Unit,
     private val log: DebugLog,
+    private val libraries: List<String> = listOf(CORE_LIBRARY, INPUT_LIBRARY),
 ) {
     @Volatile private var running = true
     private val requests = ConcurrentLinkedQueue<Pair<Int, Window>>()
@@ -58,6 +60,10 @@ internal class X11TouchSource(
     }
 
     private fun run() {
+        missingLibrary(libraries)?.let { name ->
+            log.event("touch") { "x11 touch unavailable: $name is not installed" }
+            return
+        }
         try {
             Arena.ofConfined().use { arena ->
                 connection = Xcb.connect.invoke(MemorySegment.NULL, MemorySegment.NULL) as MemorySegment
@@ -94,7 +100,8 @@ internal class X11TouchSource(
                 }
             }
         } catch (failure: Throwable) {
-            log.event("touch") { "x11 touch unavailable: $failure" }
+            // A failed initializer of [Xcb] keeps its reason in the cause.
+            log.event("touch") { "x11 touch unavailable: ${(failure as? ExceptionInInitializerError)?.cause ?: failure}" }
         }
     }
 
@@ -240,8 +247,8 @@ internal class X11TouchSource(
     /** libxcb and its XInput extension. */
     private object Xcb {
         private val linker = Linker.nativeLinker()
-        private val core = SymbolLookup.libraryLookup("libxcb.so.1", Arena.global())
-        private val input = SymbolLookup.libraryLookup("libxcb-xinput.so.0", Arena.global())
+        private val core = SymbolLookup.libraryLookup(CORE_LIBRARY, Arena.global())
+        private val input = SymbolLookup.libraryLookup(INPUT_LIBRARY, Arena.global())
         private val cookie = MemoryLayout.structLayout(JAVA_INT.withName("sequence"))
 
         private fun function(lib: SymbolLookup, name: String, descriptor: FunctionDescriptor): MethodHandle =
@@ -274,6 +281,8 @@ internal class X11TouchSource(
     }
 
     companion object {
+        private const val CORE_LIBRARY = "libxcb.so.1"
+        private const val INPUT_LIBRARY = "libxcb-xinput.so.0"
         private const val MAJOR = 2
         private const val MINOR = 2
         private const val ALL_MASTER_DEVICES: Short = 1
@@ -288,6 +297,16 @@ internal class X11TouchSource(
         private const val SUBSTRUCTURE_NOTIFY = 1 shl 19
         private const val EVENT_BYTES = 64L
         private const val POLL_TIMEOUT_MILLIS = 100
+
+        /** The first of [names] the dynamic linker cannot open, or null when it opens them all. */
+        private fun missingLibrary(names: List<String>): String? = names.firstOrNull { name ->
+            try {
+                Arena.ofConfined().use { SymbolLookup.libraryLookup(name, it) }
+                false
+            } catch (_: IllegalArgumentException) {
+                true
+            }
+        }
 
         /**
          * Stops JetBrains Runtime selecting touch on its X windows, which it would do for every window
