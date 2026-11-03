@@ -46,9 +46,11 @@ jobs:
       # The math engine's tests have uv install the pinned CPython and SymPy; without uv they skip.
       - uses: astral-sh/setup-uv@v7
       # Window class, popup and touch tests skip without a display.
-      - name: Install Xvfb
+      - name: Install Linux graphics build and test dependencies
         if: runner.os == 'Linux'
-        run: command -v xvfb-run >/dev/null || { sudo apt-get update && sudo apt-get install -y xvfb; }
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libegl-dev libwayland-dev libwayland-bin
       - name: Run desktop tests
         if: runner.os == 'Linux'
         timeout-minutes: 30

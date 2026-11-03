@@ -7,6 +7,9 @@ import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
 import androidx.compose.ui.semantics.*
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
+import com.vivenotes.desktop.rendering.WaylandRendering
+import com.vivenotes.desktop.rendering.waylandComposePanel
+import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.theme.ViveNotesTheme
@@ -17,6 +20,7 @@ import com.vivenotes.model.PageDoc
 import java.awt.Component
 import java.awt.GraphicsEnvironment
 import java.awt.KeyboardFocusManager
+import java.awt.Toolkit
 import java.awt.event.KeyEvent
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
@@ -41,8 +45,8 @@ class ToolkitPopupKeyboardContractTest {
         lateinit var panel: ComposePanel
         SwingUtilities.invokeAndWait {
             frame = JFrame("Selection color keyboard contract")
-            panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
-            val host = PopupLayerHost(panel)
+            panel = createPanel()
+            val host = PopupLayerHost(panel, DebugLog())
             panel.windowContainer = host
             frame.contentPane.add(host)
             frame.setSize(1600, 1100)
@@ -95,8 +99,8 @@ class ToolkitPopupKeyboardContractTest {
         lateinit var panel: ComposePanel
         SwingUtilities.invokeAndWait {
             frame = JFrame("Toolkit keyboard contract")
-            panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
-            val host = PopupLayerHost(panel)
+            panel = createPanel()
+            val host = PopupLayerHost(panel, DebugLog())
             panel.windowContainer = host
             frame.contentPane.add(host)
             frame.setSize(1600, 1100)
@@ -136,6 +140,14 @@ class ToolkitPopupKeyboardContractTest {
             waitFor("the test composition to close before disposing its Swing host") { node(panel, DrawRibbonTags.penKit(0)) == null }
             SwingUtilities.invokeAndWait { frame.dispose() }
         }
+    }
+
+    private fun createPanel(): ComposePanel {
+        if (Toolkit.getDefaultToolkit().javaClass.name == "sun.awt.wl.WLToolkit") {
+            WaylandRendering.prepare()
+            return waylandComposePanel(DebugLog())
+        }
+        return ComposePanel(renderSettings = RenderSettings.SwingGraphics())
     }
 
     /**

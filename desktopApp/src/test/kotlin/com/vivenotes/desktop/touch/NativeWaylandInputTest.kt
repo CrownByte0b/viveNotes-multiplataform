@@ -4,9 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.awt.ComposePanel
-import androidx.compose.ui.awt.RenderSettings
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.desktop.rendering.WaylandRendering
+import com.vivenotes.desktop.rendering.waylandComposePanel
 import java.awt.Toolkit
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.swing.JFrame
@@ -19,6 +19,7 @@ class NativeWaylandInputTest {
     @OptIn(ExperimentalComposeUiApi::class)
     @Test fun nativeCaptureWaitsForTheConfiguredSurfaceAndReattachesAfterHideShow() {
         assumeTrue(Toolkit.getDefaultToolkit().javaClass.name == "sun.awt.wl.WLToolkit")
+        WaylandRendering.prepare()
         val lines = CopyOnWriteArrayList<String>()
         val log = DebugLog(true) { lines += it }
         var frame: JFrame? = null
@@ -33,7 +34,7 @@ class NativeWaylandInputTest {
             SwingUtilities.invokeAndWait {
                 val window = JFrame("Wayland native input")
                 frame = window
-                val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
+                val panel = waylandComposePanel(log)
                 window.add(panel)
                 panel.setContent { Box(Modifier.fillMaxSize()) }
                 window.setSize(400, 300)

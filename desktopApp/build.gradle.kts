@@ -62,6 +62,33 @@ abstract class PrepareWindowsResources : DefaultTask() {
     }
 }
 
+abstract class BuildWaylandEgl : DefaultTask() {
+    @get:InputDirectory @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceDirectory: DirectoryProperty
+    @get:InputDirectory @get:PathSensitive(PathSensitivity.NONE)
+    abstract val jniHeaders: DirectoryProperty
+    @get:Input abstract val architecture: Property<String>
+    @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction fun compile() {
+        val source = sourceDirectory.get().asFile
+        val target = outputDirectory.get().asFile.resolve("native/linux-${architecture.get()}").apply { mkdirs() }
+        val headers = jniHeaders.get().asFile
+        fun command(vararg arguments: String) {
+            val process = ProcessBuilder(*arguments).redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().readText()
+            check(process.waitFor() == 0) { "Wayland EGL build failed: ${arguments.first()}\n$output" }
+        }
+        val protocol = source.resolve("viewporter.xml").absolutePath
+        command("wayland-scanner", "client-header", protocol, temporaryDir.resolve("viewporter-client-protocol.h").absolutePath)
+        command("wayland-scanner", "private-code", protocol, temporaryDir.resolve("viewporter-protocol.c").absolutePath)
+        command("cc", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", "-fPIC", "-shared", "-Wl,-z,defs",
+            "-I${headers.absolutePath}", "-I${headers.resolve("linux").absolutePath}", "-I${temporaryDir.absolutePath}",
+            source.resolve("wayland_egl.c").absolutePath, temporaryDir.resolve("viewporter-protocol.c").absolutePath,
+            "-o", target.resolve("libvive_wayland_egl.so").absolutePath, "-lEGL", "-lwayland-client", "-lwayland-egl")
+    }
+}
+
 plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.composeMultiplatform)
@@ -93,6 +120,23 @@ dependencies {
     testImplementation(libs.kotlin.testJunit)
     testImplementation(libs.junit)
 }
+
+val buildWaylandEgl = tasks.register<BuildWaylandEgl>("buildWaylandEgl") {
+    group = "build"
+    description = "Build the native Wayland EGL presentation bridge"
+    sourceDirectory.set(layout.projectDirectory.dir("src/main/native"))
+    jniHeaders.set(File(System.getProperty("java.home"), "include"))
+    architecture.set(when (val arch = System.getProperty("os.arch")) {
+        "amd64", "x86_64" -> "x86_64"
+        "arm64", "aarch64" -> "aarch64"
+        else -> arch
+    })
+    outputDirectory.set(layout.buildDirectory.dir("generated/waylandEgl"))
+    val linux = System.getProperty("os.name").startsWith("Linux", ignoreCase = true)
+    val sources = layout.projectDirectory.file("src/main/native/wayland_egl.c").asFile
+    onlyIf { linux && sources.isFile }
+}
+sourceSets.main { resources.srcDir(buildWaylandEgl.flatMap { it.outputDirectory }) }
 
 // Skiko loads a native library; JDK 24+ warns about that, and a future release will block it.
 val nativeAccessJvmArg = "--enable-native-access=ALL-UNNAMED"
@@ -235,6 +279,30 @@ val waylandPopupTest = tasks.register<Test>("waylandPopupTest") {
     classpath = regular.classpath
     filter.includeTestsMatching(waylandPopupTests)
     systemProperty("compose.layers.type", "COMPONENT")
+    mustRunAfter(sharedUiSuite)
+}
+
+tasks.register<Test>("nativeWaylandTest") {
+    group = "verification"
+    description = "Checks native Wayland EGL rendering and input on an owned JBR/Wayland display"
+    val regular = tasks.test.get()
+    testClassesDirs = regular.testClassesDirs
+    classpath = regular.classpath
+    dependsOn(tasks.testClasses)
+    val runtime = providers.environmentVariable("VIVE_JBR_HOME").orNull
+    if (runtime != null) executable = File(runtime, "bin/java").absolutePath
+    val missingRuntime = runtime.isNullOrBlank()
+    doFirst { check(!missingRuntime) { "nativeWaylandTest requires VIVE_JBR_HOME pointing to JetBrains Runtime" } }
+    outputs.upToDateWhen { false }
+    systemProperty("awt.toolkit.name", "WLToolkit")
+    systemProperty("compose.layers.type", "COMPONENT")
+    jvmArgs(jbrJvmArgs)
+    providers.environmentVariable("VIVE_WAYLAND_SCREENSHOTS").orNull?.let {
+        systemProperty("vivenotes.test.waylandScreenshotDir", it)
+    }
+    filter.includeTestsMatching("com.vivenotes.desktop.rendering.NativeWaylandRenderingTest")
+    filter.includeTestsMatching("com.vivenotes.desktop.touch.NativeWaylandInputTest")
+    filter.includeTestsMatching("com.vivenotes.desktop.ToolkitPopupKeyboardContractTest")
     mustRunAfter(sharedUiSuite)
 }
 

@@ -1,5 +1,7 @@
 package com.vivenotes.desktop
 
+import com.vivenotes.desktop.rendering.WaylandRendering
+import com.vivenotes.diagnostics.DebugLog
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.Graphics
@@ -17,12 +19,17 @@ import javax.swing.JLayeredPane
  * a child that was gone and threw `No such child`. A child removed while this pane paints is
  * therefore hidden at once, which leaves the indices alone, and removed as soon as the paint ends.
  */
-internal class PopupLayerHost(private val content: JComponent) : JLayeredPane() {
+internal class PopupLayerHost(private val content: JComponent, private val renderLog: DebugLog? = null) : JLayeredPane() {
     private var painting = 0
     private val removedWhilePainting = mutableListOf<Component>()
 
     init {
         add(content, DEFAULT_LAYER)
+    }
+
+    override fun addImpl(component: Component, constraints: Any?, index: Int) {
+        renderLog?.let { WaylandRendering.observe(component, it) }
+        super.addImpl(component, constraints, index)
     }
 
     override fun doLayout() {

@@ -2,11 +2,11 @@ package com.vivenotes.desktop
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.awt.ComposePanel
-import androidx.compose.ui.awt.RenderSettings
 import com.vivenotes.App
 import com.vivenotes.desktop.titlebar.TitleBar
 import com.vivenotes.desktop.touch.DesktopTouch
+import com.vivenotes.desktop.rendering.waylandComposePanel
+import com.vivenotes.desktop.rendering.WaylandRendering
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.PictureLibrary
@@ -28,6 +28,7 @@ import javax.swing.WindowConstants
 internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: DebugLog) {
     System.setProperty("compose.layers.type", "COMPONENT")
     requireNativeWaylandToolkit(Toolkit.getDefaultToolkit().javaClass.name)
+    WaylandRendering.prepare()
     DesktopTouch.startWayland(log)
     notes.start()
     val monitor = primaryMonitorArea()
@@ -67,8 +68,8 @@ internal fun requireNativeWaylandToolkit(toolkitClassName: String) {
 private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, notebookFiles: NotebookFiles,
                                  pdfExporter: com.vivenotes.pdf.PdfExportService, log: DebugLog,
                                  profile: DesktopProfile, onDarkThemeChange: (Boolean) -> Unit): PopupLayerHost {
-    val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
-    val host = PopupLayerHost(panel)
+    val panel = waylandComposePanel(log)
+    val host = PopupLayerHost(panel, log)
     panel.windowContainer = host
     panel.setContent {
         // WLToolkit's SwingGraphics host can keep the last file-dialog frame until another input

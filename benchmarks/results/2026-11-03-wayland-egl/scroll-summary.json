@@ -1,0 +1,56 @@
+{
+  "schema": "vive-wayland-egl-scroll-diagnostic/1",
+  "machine": {
+    "gpu": "Mesa Intel Iris Xe (Tiger Lake GT2)",
+    "compositor": "Hyprland",
+    "displayPixels": [1920, 1080],
+    "compositorScale": 1.5,
+    "javaRuntime": "25.0.4.1+1-b635.75",
+    "skiko": "0.156.0"
+  },
+  "workload": {
+    "scope": "Real installed application entry point inside Flatpak, using disposable SQLite backups",
+    "inkRowsOnPage": 419,
+    "wheelEventsDown": 60,
+    "wheelEventsUp": 60,
+    "waitAfterDispatchMillis": 16,
+    "networkEnabled": false,
+    "windowLogicalSize": [720, 670],
+    "awtToolkit": "sun.awt.wl.WLToolkit",
+    "instrumentation": "JFR profile and MethodTrace; synchronous AWT wheel dispatch, without forced repaint"
+  },
+  "before": {
+    "renderer": "SOFTWARE_FAST",
+    "scrollPosition": [0, 5502, 0],
+    "edtQueueMedianMs": 35.673,
+    "edtQueueP95Ms": 53.519,
+    "swingPaintMedianMs": 23.799,
+    "swingPaintP95Ms": 33.079,
+    "softwareSwingPainterCalls": 236
+  },
+  "after": {
+    "renderer": "OPENGL via native Wayland EGL subsurface",
+    "artifact": "Rebuilt and installed Flatpak; application classes loaded exclusively from /app/lib",
+    "flatpakCommit": "b758a14aae07a7fc1311c3c67f7a8c6301d281fd212bc232e16fedd1648cbc5a",
+    "scrollPosition": [0, 5493, 0],
+    "edtQueueMedianMs": 14.353,
+    "edtQueueP95Ms": 38.435,
+    "swingPaintMedianMs": 11.169,
+    "swingPaintP95Ms": 22.934,
+    "swingPaintCalls": 238,
+    "softwareSwingPainterCalls": 0
+  },
+  "limits": [
+    "One diagnostic run per mode; these are not FPS or physical input-to-presentation latency.",
+    "JFR and method tracing perturb execution; filesystem, JVM and graphics caches were not controlled.",
+    "The injection loop waits for EDT dispatch, so slower modes receive a slower input stream.",
+    "Scroll positions and frame counts differ because smooth scrolling and the event loop are asynchronous.",
+    "The renderer uses Compose input and scene management while replacing only native Wayland presentation."
+  ],
+  "references": [
+    "https://github.com/JetBrains/skiko/blob/master/skiko/src/jvmMain/kotlin/org/jetbrains/skia/GLAssembledInterface.kt",
+    "https://github.com/JetBrains/skiko/blob/master/skiko/src/jvmMain/kotlin/org/jetbrains/skia/DirectContext.jvm.kt",
+    "https://wayland.freedesktop.org/docs/html/apa.html#protocol-spec-wl_subsurface",
+    "https://kotlinlang.org/docs/multiplatform/compose-desktop-swing-interoperability.html"
+  ]
+}
