@@ -615,8 +615,11 @@ internal fun PageCanvas(
             // Where the mouse is, for the badge beside it that shows what a click will insert.
             .followPointer(canvasPointer)
             // Ahead of the page's own handlers: on the initial pass, the first modifier is asked first.
-            .pointerInput(page?.id) {
-                detectRulerGestures({ currentRuler }, ::toPage) { interaction.rulerPlacement = it }
+            // Keyed by the placement it writes, which is new for each page and each time the ruler is
+            // shown: a handler started earlier would keep moving the placement of a ruler now gone.
+            .pointerInput(interaction.rulerPlacementState) {
+                val placement = interaction.rulerPlacementState
+                detectRulerGestures({ currentRuler }, ::toPage) { placement.value = it }
             }
             .canvasTouchGestures(touchActions)
             .pointerInput(page?.id) {
