@@ -45,7 +45,7 @@ class PackagingTest(unittest.TestCase):
         manifest = json.loads((HERE / f"{build.APP_ID}.json").read_text())
         self.assertEqual(build.APP_ID, manifest["id"])
         self.assertEqual("26.08", manifest["runtime-version"])
-        self.assertEqual({"--socket=wayland", "--socket=fallback-x11", "--share=ipc",
+        self.assertEqual({"--socket=wayland", "--socket=x11", "--share=ipc",
                           "--share=network", "--device=dri"}, set(manifest["finish-args"]))
         desktop = (HERE / f"{build.APP_ID}.desktop").read_text()
         self.assertIn(f"Icon={build.APP_ID}\n", desktop)
@@ -57,6 +57,13 @@ class PackagingTest(unittest.TestCase):
         self.assertEqual(build.APP_ID, metadata.findtext("id"))
         self.assertEqual(f"{build.APP_ID}.desktop", metadata.findtext("launchable"))
         self.assertTrue(metadata.findtext("project_license").startswith("LicenseRef-proprietary="))
+
+    def test_x11_remains_available_in_wayland_sessions(self):
+        manifest = json.loads((HERE / f"{build.APP_ID}.json").read_text())
+        permissions = manifest["finish-args"]
+        self.assertIn("--socket=wayland", permissions)
+        self.assertIn("--socket=x11", permissions)
+        self.assertNotIn("--socket=fallback-x11", permissions)
 
     def test_flathub_listing_has_identity_licensing_branding_and_desktop_support(self):
         metadata = ET.parse(HERE / f"{build.APP_ID}.metainfo.xml").getroot()
