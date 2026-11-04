@@ -12,6 +12,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import com.vivenotes.math.MathEngine
+import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.model.ink.LineType
 import com.vivenotes.model.ink.ShapeKind
@@ -177,7 +178,7 @@ class DrawToolkitReferenceTest {
         var closed = false
         val math = object : DrawMath {
             override val engine: MathEngine get() = error("No calculation requested")
-            override suspend fun readFormula(ink: InkPage): String = error("No recognition requested")
+            override suspend fun readFormula(ink: InkPage, lines: List<Outline.Shape>): String = error("No recognition requested")
         }
         setContent {
             ViveNotesTheme(darkTheme = true) {

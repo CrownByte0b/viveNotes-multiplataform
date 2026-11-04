@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.math.*
+import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.ui.canvas.INK_LAYER_TAG
 import com.vivenotes.ui.components.assertIsIndeterminateWavyBar
@@ -29,7 +30,7 @@ class DrawMathCancellationTest {
                 }
                 override suspend fun execute(latex: String, actionId: String) = MathOperationResult(latex = latex)
             }
-            override suspend fun readFormula(ink: InkPage) = ""
+            override suspend fun readFormula(ink: InkPage, lines: List<Outline.Shape>) = ""
         }
         setContent { ViveNotesTheme { MathPane("x+1", math) {} } }
         mainClock.advanceTimeBy(300)
@@ -50,7 +51,7 @@ class DrawMathCancellationTest {
                 override suspend fun analyze(latex: String) = MathAnalysis(actions = listOf(MathAction("simplify", "Simplify")))
                 override suspend fun execute(latex: String, actionId: String) = MathOperationResult(latex = latex)
             }
-            override suspend fun readFormula(ink: InkPage): String {
+            override suspend fun readFormula(ink: InkPage, lines: List<Outline.Shape>): String {
                 val index = reads++
                 withContext(NonCancellable) { gates[index].await(); finished += index }
                 return "${index + 1}"
@@ -91,7 +92,7 @@ class DrawMathCancellationTest {
                 }
                 override suspend fun execute(latex: String, actionId: String) = MathOperationResult(latex = latex)
             }
-            override suspend fun readFormula(ink: InkPage) = ""
+            override suspend fun readFormula(ink: InkPage, lines: List<Outline.Shape>) = ""
         }
         setContent { ViveNotesTheme { MathPane("old", math) {} } }
         mainClock.advanceTimeBy(250)
@@ -118,7 +119,7 @@ class DrawMathCancellationTest {
                     return MathOperationResult(latex = latex)
                 }
             }
-            override suspend fun readFormula(ink: InkPage) = ""
+            override suspend fun readFormula(ink: InkPage, lines: List<Outline.Shape>) = ""
         }
         setContent { ViveNotesTheme { MathPane("old", math) {} } }
         mainClock.advanceTimeBy(300)

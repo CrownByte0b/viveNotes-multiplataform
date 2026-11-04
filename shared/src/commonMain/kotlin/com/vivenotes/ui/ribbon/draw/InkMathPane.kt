@@ -6,6 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.diagnostics.DebugLog
 import kotlinx.coroutines.CancellationException
@@ -14,21 +15,24 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
+/** What Math was pressed on: the ink and the lines selected with it (`WorkspaceState.selectedFormulaLines`). */
+internal data class InkMathRequest(val selection: InkSelection, val lines: List<Outline.Shape> = emptyList())
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-internal fun InkMathPane(selection: InkSelection, math: DrawMath, showInterpretation: Boolean = false,
+internal fun InkMathPane(request: InkMathRequest, math: DrawMath, showInterpretation: Boolean = false,
                          log: DebugLog = remember { DebugLog() }, onClose: () -> Unit) {
-    var source by remember(selection, math) { mutableStateOf<String?>(null) }
-    var error by remember(selection, math) { mutableStateOf<String?>(null) }
-    var attempt by remember(selection, math) { mutableIntStateOf(0) }
-    LaunchedEffect(selection, math) { math.holdFormulaModel() }
-    LaunchedEffect(selection, math, attempt) {
+    var source by remember(request, math) { mutableStateOf<String?>(null) }
+    var error by remember(request, math) { mutableStateOf<String?>(null) }
+    var attempt by remember(request, math) { mutableIntStateOf(0) }
+    LaunchedEffect(request, math) { math.holdFormulaModel() }
+    LaunchedEffect(request, math, attempt) {
         source = null
         error = null
         try {
-            val ink = withContext(Dispatchers.Default) { selection.forRecognition() }
+            val ink = withContext(Dispatchers.Default) { request.selection.forRecognition() }
                 ?: throw IllegalStateException(Strings.the_selected_ink_could_not_be_read)
-            val recognized = withoutTrailingEquals(math.readFormula(ink))
+            val recognized = withoutTrailingEquals(math.readFormula(ink, request.lines))
             currentCoroutineContext().ensureActive()
             check(recognized.isNotBlank()) { Strings.no_formula_was_recognized_try_selecting_the_expression_again }
             source = recognized

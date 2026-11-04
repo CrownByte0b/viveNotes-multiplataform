@@ -37,7 +37,6 @@ import com.vivenotes.ai.AiModels
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.diagnostics.DebugLog
-import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.model.search.ContentHit
 import com.vivenotes.model.search.ContentKind
 import com.vivenotes.richtext.TextSelection
@@ -141,18 +140,19 @@ internal fun WorkspaceContent(
     var tabTextSelection by remember { mutableStateOf<Pair<String, TextSelection>?>(null) }
     var calculatorOpen by remember { mutableStateOf(false) }
     var mathSource by remember { mutableStateOf("") }
-    var inkMathSelection by remember { mutableStateOf<InkSelection?>(null) }
+    var inkMath by remember { mutableStateOf<InkMathRequest?>(null) }
     val formulaReady = aiModels?.state?.collectAsState()?.value?.formulaReady == true && drawMath != null
-    val inkMathValid = inkMathSelection?.let { selection ->
-        state.inkOnlySelection && state.selectedInk === selection && state.selectedPage?.ink === selection.page && formulaReady
+    val inkMathValid = inkMath?.let { request ->
+        state.inkAndLinesSelection && state.selectedInk === request.selection &&
+            state.selectedPage?.ink === request.selection.page && state.selectedFormulaLines == request.lines && formulaReady
     } ?: true
     LaunchedEffect(inkMathValid) {
         if (!inkMathValid) {
-            inkMathSelection = null
+            inkMath = null
             if (openPane == DockedPane.Math) openPane = null
         }
     }
-    LaunchedEffect(openPane) { if (openPane != DockedPane.Math) inkMathSelection = null }
+    LaunchedEffect(openPane) { if (openPane != DockedPane.Math) inkMath = null }
     LaunchedEffect(formulaReady) { if (!formulaReady) calculatorOpen = false }
     val canvasDark = view.canvasDarkForTheme(themePreference,
         MaterialTheme.colorScheme.background.luminance() < 0.45f)
@@ -351,7 +351,8 @@ internal fun WorkspaceContent(
                             modifier = Modifier.weight(1f),
                             requestEditorFocus = { editorFocusRequest++ },
                             formulaReady = formulaReady,
-                            onInkMath = { selection -> if (formulaReady && state.inkOnlySelection && state.selectedInk === selection) { inkMathSelection = selection; openPane = DockedPane.Math } },
+                            onInkMath = { selection -> if (formulaReady && state.inkAndLinesSelection && state.selectedInk === selection) {
+                                inkMath = InkMathRequest(selection, state.selectedFormulaLines); openPane = DockedPane.Math } },
                             applyEditorCommand = ::applyEditorCommand,
                             onLinkRequest = { linkEditor = it }
                         )
@@ -377,12 +378,12 @@ internal fun WorkspaceContent(
                         onSearchHit = { hit -> searchHit = hit; searchRevealTick++; if (onOpenSearchPage != null) onOpenSearchPage(hit.unit.sectionId, hit.unit.pageId) else onStateChange { it.selectPage(hit.unit.pageId) } },
                         searchFocusTick = searchFocusTick,
                         drawMath = drawMath,
-                        inkMathSelection = inkMathSelection,
+                        inkMath = inkMath,
                         mathSource = mathSource,
                         inkMathValid = inkMathValid,
                         developmentBuild = developmentBuild,
                         debugLog = debugLog,
-                        onCloseInkMath = { inkMathSelection = null; openPane = null },
+                        onCloseInkMath = { inkMath = null; openPane = null },
                         aiModels = aiModels
                     )
 
@@ -392,7 +393,7 @@ internal fun WorkspaceContent(
         if (calculatorOpen && formulaReady && drawMath != null) FloatingCalculator(state.inkSettings,
             state.activePenIndex.takeIf { state.inkTool == com.vivenotes.workspace.InkTool.Pen } ?: 0,
             input.drawWithFinger, drawMath, onOpenInPanel = { source ->
-                inkMathSelection = null; mathSource = source; openPane = DockedPane.Math
+                inkMath = null; mathSource = source; openPane = DockedPane.Math
             },
             onClose = { calculatorOpen = false }, modifier = Modifier.padding(end = when (openPane) {
                 DockedPane.Math -> MathPaneWidth

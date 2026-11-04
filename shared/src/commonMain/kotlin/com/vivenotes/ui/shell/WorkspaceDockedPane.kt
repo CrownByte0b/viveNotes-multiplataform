@@ -8,7 +8,6 @@ import androidx.compose.ui.Modifier
 import com.vivenotes.ai.AiModels
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.model.PageStyle
-import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.model.search.ContentHit
 import com.vivenotes.search.ContentSearchService
 import com.vivenotes.search.SearchRequest
@@ -49,7 +48,7 @@ internal fun WorkspaceDockedPane(
     onSearchHit: (ContentHit) -> Unit,
     searchFocusTick: Int,
     drawMath: DrawMath?,
-    inkMathSelection: InkSelection?,
+    inkMath: InkMathRequest?,
     mathSource: String,
     inkMathValid: Boolean,
     developmentBuild: Boolean,
@@ -101,10 +100,10 @@ internal fun WorkspaceDockedPane(
                     onHit = onSearchHit, onClose = onClosePane, focusRequest = searchFocusTick)
             }
             DockedPane.Math -> drawMath?.let { math ->
-                val selection = inkMathSelection
-                if (selection == null) MathPane(mathSource, math, showInterpretation = developmentBuild,
+                val request = inkMath
+                if (request == null) MathPane(mathSource, math, showInterpretation = developmentBuild,
                     log = debugLog, onClose = onClosePane)
-                else if (inkMathValid) InkMathPane(selection, math, showInterpretation = developmentBuild,
+                else if (inkMathValid) InkMathPane(request, math, showInterpretation = developmentBuild,
                     log = debugLog, onClose = onCloseInkMath)
             }
             DockedPane.Models -> ModelsPane(aiModels, onClose = onClosePane)

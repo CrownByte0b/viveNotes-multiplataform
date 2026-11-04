@@ -7,6 +7,7 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.ai.*
 import com.vivenotes.math.*
 import com.vivenotes.model.PageDoc
+import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.ui.canvas.INK_LAYER_TAG
 import com.vivenotes.ui.shell.WorkspaceScreen
@@ -34,7 +35,7 @@ class CalculatorInteractionTest {
                 return MathOperationResult(latex = "\\frac{1}{2}", decimal = "0.5")
             }
         }
-        override suspend fun readFormula(ink: InkPage): String { reads += ink; return "1 / 2 = " }
+        override suspend fun readFormula(ink: InkPage, lines: List<Outline.Shape>): String { reads += ink; return "1 / 2 = " }
     }
 
     @Test

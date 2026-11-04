@@ -1,6 +1,19 @@
 package com.vivenotes.ai
 
+import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.platform.registerSkikoComposeImplementation
+import androidx.ink.brush.InputToolType
+import androidx.ink.strokes.MutableStrokeInputBatch
+import androidx.ink.strokes.Stroke
+import com.vivenotes.byteink.kit.ViveInkTool
+import com.vivenotes.data.db.InkStrokeEntity
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.ink.InkPageReader
+import com.vivenotes.ink.desktopGeometry
+import com.vivenotes.ink.toEntity
+import com.vivenotes.model.Outline
+import com.vivenotes.model.ink.ShapeKind
+import com.vivenotes.model.ink.seedSegments
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
@@ -239,6 +252,53 @@ class OnnxRecognitionSmokeTest {
             models.close()
         }
     }
+
+    /**
+     * A fraction bar drawn with the Line tool is a shape, not ink, so the Math toolkit hands it to
+     * [renderDrawInk] beside the strokes. Without it these models read a handwritten 1 over 2 as
+     * anything but a fraction; with it inked at their stem width they read `\frac{1}{2}`.
+     */
+    @OptIn(InternalComposeUiApi::class)
+    @Test
+    fun formulaModelsReadALineShapeBarAsAFraction() = runBlocking {
+        registerSkikoComposeImplementation()
+        val installed = listOf(FormulaEngine.UniMerNetSmall, FormulaEngine.FormulaNetS)
+            .mapNotNull { engine -> seededStore(engine)?.let { engine to it } }
+        assumeTrue("no formula model is installed in the development profile", installed.isNotEmpty())
+        val ink = InkPageReader.read("page", listOf(
+            inkStroke("one", 42f to 110f, 50f to 102f, 50f to 140f),
+            inkStroke("two", 34f to 160f, 38f to 153f, 46f to 150f, 55f to 152f, 58f to 159f, 54f to 168f,
+                44f to 178f, 33f to 190f, 61f to 190f),
+        ), emptyList(), emptyList()).desktopGeometry().projections
+        var next = 0
+        val bar = Outline.Shape(id = "bar", kind = ShapeKind.Line,
+            segments = seedSegments(ShapeKind.Line, 25f, 146f, 70f, 146f) { "bar-${next++}" }).withRecomputedBounds()
+        for ((engine, models) in installed) {
+            val recognition = OnnxInkRecognitionEngine(models, formulaEngine = { engine })
+            try {
+                val withBar = renderDrawInk(ink, engine.stemPx, listOf(bar)).use {
+                    withTimeout(60_000) { recognition.recognizeFormula(it).latex }
+                }
+                val withoutBar = renderDrawInk(ink, engine.stemPx).use {
+                    withTimeout(60_000) { recognition.recognizeFormula(it).latex }
+                }
+                assertTrue("$engine read \"$withBar\" with the bar",
+                    withBar.replace(Regex("\\s+"), "").contains("\\frac{1}{2}"))
+                assertFalse("$engine read a fraction without its bar: \"$withoutBar\"", withoutBar.contains("\\frac"))
+            } finally {
+                recognition.close()
+                models.close()
+            }
+        }
+    }
+
+    private fun inkStroke(id: String, vararg points: Pair<Float, Float>): InkStrokeEntity =
+        ViveInkTool(sizeDp = 3f, colorArgb = 0xff000000.toInt()).let { tool ->
+            val inputs = MutableStrokeInputBatch().apply {
+                points.forEachIndexed { index, (x, y) -> add(InputToolType.MOUSE, x, y, index * 12L) }
+            }
+            tool.complete(Stroke(tool.brush, inputs), id, "page", 0, 1L, null).row.toEntity()
+        }
 
     private suspend fun assertFormulaRead(models: AiModelStore, formula: FormulaEngine) {
         val image = textImage(900, 180, 112f, listOf(Triple("x² + y² = z²", 24f, 130f)))

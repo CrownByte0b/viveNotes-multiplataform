@@ -16,14 +16,21 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.ink.brush.InputToolType
+import androidx.ink.strokes.MutableStrokeInputBatch
+import androidx.ink.strokes.Stroke
 import com.vivenotes.ai.*
+import com.vivenotes.byteink.kit.ViveInkTool
 import com.vivenotes.ink.*
 import com.vivenotes.math.*
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
 import com.vivenotes.model.ink.InkPage
+import com.vivenotes.model.ink.ShapeKind
+import com.vivenotes.model.ink.seedSegments
 import com.vivenotes.ui.components.assertIsIndeterminateWavyBar
 import com.vivenotes.ui.ribbon.draw.DrawMath
+import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.theme.ViveNotesTheme
@@ -49,6 +56,7 @@ class InkToolkitInteractionTest {
 
     private class Math(private val read: suspend (Int) -> String = { "x^2-4=0=" }) : DrawMath {
         val reads = mutableListOf<InkPage>()
+        val lineReads = mutableListOf<List<Outline.Shape>>()
         val calls = mutableListOf<Pair<String, String>>()
         override val engine = object : MathEngine {
             override suspend fun analyze(latex: String) = MathAnalysis(actions = listOf(
@@ -58,9 +66,10 @@ class InkToolkitInteractionTest {
                 return MathOperationResult(latex = "x = -2, 2")
             }
         }
-        override suspend fun readFormula(ink: InkPage): String {
+        override suspend fun readFormula(ink: InkPage, lines: List<Outline.Shape>): String {
             val index = reads.size
             reads += ink
+            lineReads += lines
             return read(index)
         }
     }
@@ -122,6 +131,62 @@ class InkToolkitInteractionTest {
         onNodeWithTag(WorkspaceTestTags.ObjectCopy).assertIsDisplayed()
         onNodeWithTag(WorkspaceTestTags.ObjectDelete).assertIsDisplayed()
         runOnIdle { assertTrue(math.reads.isEmpty()) }
+    }
+
+    private fun stroke(id: String, pageId: String, fromX: Float, fromY: Float, toX: Float, toY: Float) =
+        ViveInkTool(sizeDp = 4f, colorArgb = 0xff000000.toInt()).let { tool ->
+            val inputs = MutableStrokeInputBatch().apply {
+                add(InputToolType.MOUSE, fromX, fromY, 0L); add(InputToolType.MOUSE, toX, toY, 80L)
+            }
+            tool.complete(Stroke(tool.brush, inputs), id, pageId, 0, 1L, null).row.toEntity()
+        }
+
+    private fun shape(id: String, kind: ShapeKind, startX: Float, startY: Float, endX: Float, endY: Float): Outline.Shape {
+        var next = 0
+        return Outline.Shape(id = id, kind = kind,
+            segments = seedSegments(kind, startX, startY, endX, endY) { "$id-${next++}" }).withRecomputedBounds()
+    }
+
+    @Test
+    fun lassoedFractionBarKeepsMathAndIsReadWithTheInkButAnotherShapeRemovesMath() = runDesktopComposeUiTest(width = 1500, height = 1000) {
+        val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
+        val pageId = base.selectedPageId
+        // 1 over 2: two strokes with a line drawn between them as the bar, and a rectangle beside them.
+        val ink = InkPageReader.read(pageId, listOf(stroke("numerator", pageId, 335f, 290f, 335f, 330f),
+            stroke("denominator", pageId, 320f, 360f, 350f, 395f)), emptyList(), emptyList())
+        val bar = shape("bar", ShapeKind.Line, 305f, 345f, 365f, 345f)
+        val box = shape("box", ShapeKind.Rectangle, 440f, 300f, 500f, 380f)
+        val state = mutableStateOf(base.updatePage(pageId) { it.copy(document = PageDoc(outlines = listOf(bar, box)), ink = ink) })
+        val math = Math()
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }, aiModels = Models(), drawMath = math) } }
+        fun lasso(right: Float) = onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+            moveTo(Offset(280f, 270f)); press()
+            moveTo(Offset(right, 270f)); moveTo(Offset(right, 420f)); moveTo(Offset(280f, 420f)); moveTo(Offset(280f, 270f))
+            release()
+        }
+
+        onNodeWithTag(DrawRibbonTags.ObjectLasso).performClick()
+        lasso(right = 400f)
+        runOnIdle {
+            assertEquals(setOf("numerator", "denominator"), state.value.selectedInk?.targetIds)
+            assertEquals(setOf(bar.id), state.value.selectedObjectIds)
+        }
+        onNodeWithTag(WorkspaceTestTags.InkGroup).assertDoesNotExist()
+        onNodeWithTag(WorkspaceTestTags.InkMath).assertIsDisplayed().performClick()
+        waitUntil(timeoutMillis = 5000) { math.reads.isNotEmpty() }
+        onNodeWithTag("draw-math-source").assertIsDisplayed().assertTextContains("x^2-4=0")
+        runOnIdle {
+            assertEquals(listOf(listOf(bar)), math.lineReads)
+            assertEquals(2, math.reads.single().desktopGeometry().projections.size)
+            assertTrue(state.value.pendingInkEdits.isEmpty())
+        }
+
+        lasso(right = 530f)
+        runOnIdle { assertEquals(setOf(bar.id, box.id), state.value.selectedObjectIds) }
+        onNodeWithTag("draw-math-source").assertDoesNotExist()
+        onNodeWithTag(WorkspaceTestTags.InkMath).assertDoesNotExist()
+        onNodeWithTag(WorkspaceTestTags.ObjectCopy).assertIsDisplayed()
+        runOnIdle { assertEquals(1, math.reads.size) }
     }
 
     @Test

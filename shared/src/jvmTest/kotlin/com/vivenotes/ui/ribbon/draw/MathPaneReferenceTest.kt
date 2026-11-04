@@ -18,6 +18,7 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.math.*
+import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.ui.components.ToolPaneTags
 import com.vivenotes.ui.theme.ViveNotesTheme
@@ -49,7 +50,7 @@ class MathPaneReferenceTest {
                 else MathOperationResult(title = "Simplified", latex = latex, decimal = if (noDecimal) null else "1.41421356237")
             }
         }
-        override suspend fun readFormula(ink: InkPage) = SOURCE
+        override suspend fun readFormula(ink: InkPage, lines: List<Outline.Shape>) = SOURCE
     }
 
     @Test

@@ -460,6 +460,23 @@ data class WorkspaceState(
 
     val inkOnlySelection: Boolean get() = selectedInk != null && selectedObjectIds.isEmpty() && selectedTextOutlineIds.isEmpty()
 
+    /**
+     * Android's `CanvasSelection.isInkAndLines`, the Math toolkit's gate: ink, plus at most the shapes
+     * that are strokes in all but storage, the line and the arrow ([ShapeKind.hasEnds]). A fraction
+     * bar drawn with the Line tool belongs to the formula it sits in. Ink is still required, and an
+     * id the page no longer has fails rather than being skipped.
+     */
+    val inkAndLinesSelection: Boolean get() {
+        val ink = selectedInk ?: return false
+        if (ink.targetIds.isEmpty() || selectedTextOutlineIds.isNotEmpty()) return false
+        val outlines = selectedPage?.document?.outlines.orEmpty()
+        return selectedObjectIds.all { id -> (outlines.firstOrNull { it.id == id } as? Outline.Shape)?.kind?.hasEnds == true }
+    }
+
+    /** The lines and arrows [inkAndLinesSelection] admits, in page order: drawn into the recognition image. */
+    val selectedFormulaLines: List<Outline.Shape> get() = selectedPage?.document?.outlines.orEmpty()
+        .filterIsInstance<Outline.Shape>().filter { it.id in selectedObjectIds && it.kind.hasEnds }
+
     fun toggleInkGroup(): WorkspaceState {
         if (!inkOnlySelection) return this
         val selection = selectedInk ?: return this

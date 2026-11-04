@@ -891,7 +891,7 @@ internal fun PageCanvas(
                 enabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy && !interaction.inkMoveBusy,
                 showColor = state.selectedTextOutlineIds.isEmpty(), onBoundsChange = { interaction.inkToolkitBoundsInView = it },
                 showGroup = state.inkOnlySelection && (selection.targetIds.size > 1 || selection.isGrouped),
-                showMath = state.inkOnlySelection && inkMathAvailable,
+                showMath = state.inkAndLinesSelection && inkMathAvailable,
                 onMath = { onInkMath(selection) },
                 onGroup = {
                     if (!interaction.inkMoveBusy) {
