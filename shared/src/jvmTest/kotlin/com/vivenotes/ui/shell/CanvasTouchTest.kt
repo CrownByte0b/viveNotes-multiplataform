@@ -18,6 +18,7 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import com.vivenotes.model.Outline
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
@@ -214,6 +215,64 @@ class CanvasTouchTest {
     }
 
     private var touchSlop = 0f
+
+    // The ruler is shown from the ribbon once the page is in use, as it is in practice: the page's
+    // gestures have already started (Compose starts them on the first pointer event), and the
+    // ruler's placement is made after them.
+    @Test
+    fun aFingerSlidesARulerShownAfterThePageOpenedAndItsOldPlaceScrollsAgain() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            setCanvas(withShape().toggleInkTool(InkTool.Pen).copy(activeTab = RibbonTab.Draw))
+            showRulerOnAPageInUse()
+            val beside = rulerCentre() + Offset(250f, 0f)
+            val start = bounds(WorkspaceTestTags.primeObject(SHAPE)).top.value
+
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+                down(beside)
+                repeat(10) { moveBy(Offset(0f, 20f), delayMillis = 16) }
+                up()
+            }
+            assertEquals(start, bounds(WorkspaceTestTags.primeObject(SHAPE)).top.value, 0.5f, "the ruler took the drag")
+
+            // The band is now 200 px lower, so the finger lands on the page and scrolls it.
+            scrollFrom(beside)
+            assertEquals(80f, start - bounds(WorkspaceTestTags.primeObject(SHAPE)).top.value, 1f)
+        }
+
+    @Test
+    fun aFingerTapOnTheDialTurnsARulerShownAfterThePageOpened() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        setCanvas(withShape().toggleInkTool(InkTool.Pen).copy(activeTab = RibbonTab.Draw))
+        showRulerOnAPageInUse()
+        val centre = rulerCentre()
+        val start = bounds(WorkspaceTestTags.primeObject(SHAPE)).top.value
+
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput { click(centre) }
+
+        // Turned an eighth, the band no longer lies under this point on its old line: the page scrolls.
+        scrollFrom(centre + Offset(250f, 0f))
+        assertEquals(80f, start - bounds(WorkspaceTestTags.primeObject(SHAPE)).top.value, 1f)
+    }
+
+    /** A finger scrolls the page first, then the ribbon shows the ruler. */
+    private fun ComposeUiTest.showRulerOnAPageInUse() {
+        scrollFrom(rulerCentre())
+        onNodeWithTag(DrawRibbonTags.RulerTool).performClick()
+    }
+
+    /** A new ruler is centred in the page's viewport, which is the canvas node itself. */
+    private fun ComposeUiTest.rulerCentre(): Offset = bounds(WorkspaceTestTags.PageCanvas).let {
+        Offset(it.width.value / 2, it.height.value / 2)
+    }
+
+    /** An 80 px finger scroll; under an armed pen the page follows from the first move. */
+    private fun ComposeUiTest.scrollFrom(point: Offset) {
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+            down(point)
+            repeat(8) { moveBy(Offset(0f, -10f), delayMillis = 30) }
+            advanceEventTime(300)
+            up()
+        }
+    }
 
     @Test
     fun aSecondFingerCancelsAShapeEvenBeforeThePinchMoves() = runDesktopComposeUiTest(width = 1400, height = 900) {
