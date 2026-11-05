@@ -8,8 +8,12 @@ if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne 'X64
     throw 'The Windows package currently supports x64 only.'
 }
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+$projectVersion = $Version
 if (-not $Version) {
-    $Version = (Select-String -Path "$root/gradle.properties" -Pattern '^version=(.+)$').Matches.Groups[1].Value
+    $projectVersion = (Select-String -Path "$root/gradle.properties" -Pattern '^version=(.+)$').Matches.Groups[1].Value
+    # As nativePackageVersion in desktopApp/build.gradle.kts: a development version installs under
+    # its numeric part and the app still reports the full version. An explicit -Version stays strict.
+    $Version = ($projectVersion -split '[-+]', 2)[0]
 }
 if ($Version -notmatch '^(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,4})$') {
     throw 'MSI versions must be MAJOR.MINOR.BUILD (numeric, without a prerelease suffix).'
@@ -27,7 +31,7 @@ foreach ($tool in @('candle.exe', 'light.exe')) {
 $env:WIX_PATH = Split-Path (Get-Command candle.exe).Source -Parent
 Push-Location $root
 try {
-    & ./gradlew.bat :desktopApp:packageReleaseMsi "-Pversion=$Version" --console=plain
+    & ./gradlew.bat :desktopApp:packageReleaseMsi "-Pversion=$projectVersion" --console=plain
     if ($LASTEXITCODE -ne 0) { throw "MSI build failed ($LASTEXITCODE)." }
     $source = Join-Path $root "desktopApp/build/compose/binaries/main-release/msi/Vive Notes-$Version.msi"
     if (-not (Test-Path $source)) { throw "MSI output is missing: $source" }

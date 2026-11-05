@@ -25,6 +25,10 @@ TOKENIZER_HASHES = (
     "02c318d9cfa95bf323371762b8f838a82709530274d36dba6eca880f0add6cc4",
     "2811d82701ec97c192fa256aa2b4516929373870ae660326cc5b1dc879b95ff2",
 )
+RENDERER_REVIEW = "benchmarks/results/2026-11-04-wayland-renderer-review/packaged-comparison.json"
+# This name must not contain a word like "api": the history scan reads this file too.
+INTEL_DRIVER_COMMIT = "5c21d37862eeba2aac022688ef5e4c0524e345aec1a215a822a24f4ab5a8984c"
+INTEL_DRIVER_EXTENSION = f"org.freedesktop.Platform.VAAPI.Intel={INTEL_DRIVER_COMMIT};"
 
 
 class GitleaksConfigTest(unittest.TestCase):
@@ -169,6 +173,22 @@ class GitleaksConfigTest(unittest.TestCase):
             [("generic-api-key", BENCHMARK_MANIFEST)],
             self.scan(BENCHMARK_MANIFEST, json.dumps(manifest, indent=2)),
         )
+
+    def test_renderer_review_flatpak_commit_is_allowed(self):
+        content = (ROOT / RENDERER_REVIEW).read_text(encoding="utf-8")
+        self.assertIn(INTEL_DRIVER_EXTENSION, content)
+        self.assertEqual([], self.scan(RENDERER_REVIEW, content))
+
+    def test_renderer_review_exception_requires_the_path_extension_and_commit(self):
+        control = hashlib.sha256(b"renderer review credential control").hexdigest()
+        for path, content in (
+            ("other/packaged-comparison.json", INTEL_DRIVER_EXTENSION),
+            (RENDERER_REVIEW, f'api_key = "{INTEL_DRIVER_COMMIT}"'),
+            (RENDERER_REVIEW, f"org.freedesktop.Platform.VAAPI.Intel={control};"),
+            (RENDERER_REVIEW, f"org.freedesktop.Platform.VAAPI.nvidia={INTEL_DRIVER_COMMIT};"),
+        ):
+            with self.subTest(path=path, content=content[:60]):
+                self.assertEqual([("generic-api-key", path)], self.scan(path, content))
 
     def test_optimized_capture_exceptions_are_exact_and_keep_credentials_detectable(self):
         for path in (OPTIMIZED_BENCHMARK_MANIFEST, FINAL_BENCHMARK_MANIFEST):

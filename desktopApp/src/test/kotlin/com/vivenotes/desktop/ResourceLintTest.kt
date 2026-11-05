@@ -68,6 +68,25 @@ class ResourceLintTest {
     }
 
     @Test
+    fun acceptsJvmPropertyKeysButStillChecksTheirDefaultsAndOtherCopies() {
+        val defaults = "<resources><string name=\"close\">Close</string></resources>"
+        val key = "vivenotes.ink.viewportRendering"
+        val (status, output) = lint(defaults, """val mode = System.getProperty("$key")""")
+        assertEquals(0, status, output)
+
+        val (rejected, problems) = lint(defaults, """
+            val mode = System.getProperty("vivenotes.ink.other", "Visible fallback")
+            Text("$key")
+            val copy = "$key"
+        """.trimIndent())
+        assertEquals(1, rejected)
+        assertTrue(problems.contains("Hardcoded UI text: Visible fallback"), problems)
+        assertTrue(problems.contains("Example.kt:2: Hardcoded UI text: $key"), problems)
+        assertTrue(problems.contains("Example.kt:3: Hardcoded UI text: $key"), problems)
+        assertTrue(problems.contains("Resource lint failed: 3 problem(s)."), problems)
+    }
+
+    @Test
     fun rejectsReferencesWithoutResourcesButIgnoresReferencesInComments() {
         val (status, output) = lint("<resources><string name=\"close\">Close</string></resources>",
             "Text(Strings.missing)\nText(\"\${Strings.missing_template}\")\n// Text(Strings.ignored)")

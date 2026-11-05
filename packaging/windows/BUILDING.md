@@ -17,7 +17,9 @@ directly. The wrapper sets this automatically so Compose uses the installed WiX 
 It copies the
 installer to `desktopApp/build/windows/ViveNotes-0.1.0-x64.msi` with a SHA-256 file.
 Use `build.ps1 -Version 0.1.1` for another version. MSI accepts only numeric
-`MAJOR.MINOR.BUILD`, bounded by `255.255.65535`; prerelease tags are rejected.
+`MAJOR.MINOR.BUILD`, bounded by `255.255.65535`; `-Version` rejects prerelease tags. Without
+`-Version`, a development version such as `1.0.2-dev.0` builds `ViveNotes-1.0.2-x64.msi`, and the
+installed app still reports the full version and does not offer updates.
 Clean older MSI files from that output directory or pass `smoke-test.ps1 -Msi <path>`.
 
 The installer uses the existing app artwork, installs per user, creates Start menu and

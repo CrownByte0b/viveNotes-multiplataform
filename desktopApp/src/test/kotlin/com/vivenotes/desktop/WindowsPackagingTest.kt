@@ -118,6 +118,54 @@ class WindowsPackagingTest {
         assertTrue(build.contains("\"\$msi.sha256\""))
     }
 
+    @Test
+    fun developmentVersionsBuildANumericInstallerWhileExplicitVersionsStayStrict() {
+        // build.ps1 refuses to run elsewhere. Gradle is faked: this checks the script's version
+        // handling, and windows-msi.yml goes on to build and install a real MSI.
+        assumeTrue(System.getProperty("os.name").startsWith("Windows"))
+        val root = File(System.getProperty("vivenotes.test.projectRoot"))
+        val fixture = temp.newFolder("msi")
+        val script = File(root, "packaging/windows/build.ps1")
+            .copyTo(File(fixture, "packaging/windows/build.ps1"))
+        File(fixture, "gradle.properties").writeText("version=1.0.2-dev.0\n")
+        File(fixture, "gradlew.bat").writeText("""
+            @echo off
+            echo %*>gradle-arguments.txt
+            mkdir "desktopApp\build\compose\binaries\main-release\msi" 2>nul
+            echo installer>"desktopApp\build\compose\binaries\main-release\msi\Vive Notes-1.0.2.msi"
+        """.trimIndent().replace("\n", "\r\n"))
+        val wix = File(fixture, "wix").apply { File(this, "bin").mkdirs() }
+        for (tool in listOf("candle.exe", "light.exe")) {
+            File(System.getenv("SystemRoot"), "System32/cmd.exe").copyTo(File(wix, "bin/$tool"))
+        }
+        val output = File(fixture, "build.log")
+        fun build(vararg arguments: String): Int {
+            val process = ProcessBuilder(listOf("pwsh", "-NoProfile", "-File", script.path) + arguments)
+                .directory(fixture).redirectErrorStream(true).redirectOutput(output)
+                .apply { environment()["WIX"] = wix.path }.start()
+            if (!process.waitFor(60, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                throw AssertionError("build.ps1 timed out:\n${output.readText()}")
+            }
+            return process.exitValue()
+        }
+
+        assertEquals(0, build(), output.readText())
+        assertTrue(File(fixture, "gradle-arguments.txt").readText().contains("-Pversion=1.0.2-dev.0 "),
+            "The app keeps reporting its development version")
+        val installers = File(fixture, "desktopApp/build/windows")
+        assertTrue(File(installers, "ViveNotes-1.0.2-x64.msi").isFile, output.readText())
+        assertTrue(File(installers, "ViveNotes-1.0.2-x64.msi.sha256").readText().endsWith("  ViveNotes-1.0.2-x64.msi\r\n"))
+
+        assertEquals(0, build("-Version", "1.0.2"), output.readText())
+        assertTrue(File(fixture, "gradle-arguments.txt").readText().contains("-Pversion=1.0.2 "))
+
+        for (rejected in listOf("1.0.2-dev.0", "1.0.2-rc.1", "1.0.2+build")) {
+            assertTrue(build("-Version", rejected) != 0, "A release version must be numeric: $rejected")
+            assertTrue(output.readText().contains("MSI versions must be"), output.readText())
+        }
+    }
+
     private fun runGradle(fixture: File, init: File): Int {
         val command = listOf(File(System.getProperty("vivenotes.test.gradleHome"), "bin/gradle").path,
             ":desktopApp:prepareWindowsResources", "--rerun-tasks", "--offline", "--console=plain",

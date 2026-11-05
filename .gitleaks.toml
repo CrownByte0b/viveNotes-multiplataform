@@ -1,5 +1,6 @@
 # gitleaks reads this from the repository root. It keeps every built-in rule and only excuses
-# fake sync-test credentials, published tokenizer checksums, and pinned benchmark source hashes.
+# fake sync-test credentials, published tokenizer checksums, pinned benchmark source hashes, and a
+# captured Flatpak runtime commit.
 [extend]
 useDefault = true
 
@@ -62,4 +63,14 @@ regexes = [
   '''^\s*"shared/src/commonMain/kotlin/com/vivenotes/ui/keyboard/ShortcutKeys\.kt":\s*"1f714c574bc297930e253cc280fa8a2ff67c30c5404c73132252d185cb0b7752",?\s*$''',
   '''^\s*"shared/src/commonMain/kotlin/com/vivenotes/workspace/KeyBindings\.kt":\s*"cfff839e98c37803607c8ac5ff2246858fa5663ffac960a3528ff7abf9e69601",?\s*$''',
   '''^\s*"shared/src/jvmMain/kotlin/com/vivenotes/ai/FormulaTokenizerDecoder\.kt":\s*"1149ebfe992c2ce7c3851a21f0d7cccbd8b068f2438777cf72c7f652e6423f70",?\s*$''',
+]
+
+[[allowlists]]
+description = "Public Flathub commit of the Intel VA-API driver in the 2026-11-04 renderer review's flatpak-info capture"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^benchmarks/results/2026-11-04-wayland-renderer-review/packaged-comparison\.json$''']
+regexTarget = "match"
+regexes = [
+  '''^org\.freedesktop\.Platform\.VAAPI\.Intel=5c21d37862eeba2aac022688ef5e4c0524e345aec1a215a822a24f4ab5a8984c;$''',
 ]

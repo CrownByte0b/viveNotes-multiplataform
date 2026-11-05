@@ -149,6 +149,7 @@ class ResourceLint {
             if (context.matches(".*\\b(?:log|logger|debugLog)\\.(?:event|failure)\\(.*")) continue;
             if (context.contains("PopupTooltipScope(") || context.contains("LocalTooltipDismissals.current.register(") || context.contains("registerPopup(") || context.contains("popupOpened(") || context.contains("register(kind")) continue;
             var before = source.substring(start, token.start);
+            if (before.matches(".*\\bSystem\\.getProperty\\(\\s*$")) continue;
             boolean visibleCall = before.matches(".*\\b(?:Text|TooltipIconButton|HoverTooltip|RibbonCommand|ToolKit|ReferenceToolKit)\\(\\s*$")
                 || before.matches(".*\\b(?:contentDescription|title|label|message)\\s*=\\s*$");
             if ((text.matches("[A-Z_]+") && !visibleCall) || text.matches("(?:https?://|application/|image/).*")) continue;
