@@ -1,6 +1,7 @@
 package com.vivenotes.desktop.rendering;
 
 import com.vivenotes.diagnostics.DebugLog;
+import com.vivenotes.rendering.InkRenderContext;
 import java.awt.*;
 import java.awt.event.HierarchyEvent;
 import java.awt.event.HierarchyListener;
@@ -95,7 +96,9 @@ final class WaylandRenderer implements SwingRenderer {
                 canvas.clipRect(org.jetbrains.skia.Rect.Companion.makeLTRB((float)(visible.x * scale),
                         (float)(visible.y * scale), (float)((visible.x + visible.width) * scale),
                         (float)((visible.y + visible.height) * scale)));
-                delegate.onRender(canvas, next.width, next.height, System.nanoTime());
+                try (AutoCloseable inkFrame = InkRenderContext.openGpuFrame()) {
+                    delegate.onRender(canvas, next.width, next.height, System.nanoTime());
+                }
             } finally { canvas.restoreToCount(saved); }
             context.flushAndSubmit(surface, false);
             WaylandRendering.rendered(layer, surface);

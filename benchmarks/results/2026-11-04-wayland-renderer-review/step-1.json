@@ -1,0 +1,1085 @@
+{
+  "schema": "vive-egl-step-1/1",
+  "status": "baseline_complete",
+  "sourceCommit": "bd0ccd65fce9c71031f0a200e737a0cc93338044",
+  "scope": "Repeatable native EGL baseline; historical five-fork scrolling plus fresh sparse, representative and dense interaction checks. Default ink rendering remains raster.",
+  "workloads": [
+    {
+      "capture": "/home/mal0/.cache/vive-egl/baseline-sparse-1",
+      "captureSha256": "f9e395a2ddfa81cf78bef9726ed8f5dd05bac9c2d7a89d739b40164eff8a0b16",
+      "runtimeModulesSha256": "6b90cf35f4adde104a4caf992967f8637d26100c26984eaa0ec388cac345e7a4",
+      "sourceInventorySha256": "1fbb14cc70f95d674fbe33cc51de8d78aadbb000738aa8866cb08bfa450affa5",
+      "harness": [
+        {
+          "file": "Fixture.kt",
+          "sha256": "5e05e501709ab3d2053c7729f213756fb20bc4851242cbf298840f3850e86d77"
+        },
+        {
+          "file": "ScrollProbe.java",
+          "sha256": "edad23e91a7b9b0c040ae318edcddc7bd801322eb4cd7f0e20ea2a38f8a42361"
+        },
+        {
+          "file": "InteractionProbe.java",
+          "sha256": "f6879f222af36fdf601ebf1d2254cab514d05e3f2b91047db0b3b307c2868695"
+        },
+        {
+          "file": "capture.py",
+          "sha256": "262c7c4d129b117e18ff00e1179955cb8029e5b8e6fba784754114c751832076"
+        },
+        {
+          "file": "desktop_runtime.py",
+          "sha256": "1733f15c391e3d8a6b6b6f466d0de0d713c21bef7b0514ad7585d563d1de8408"
+        }
+      ],
+      "projectArtifacts": [
+        {
+          "name": "main",
+          "sha256": "46564b80ffd49c68476cbc8d93d3f5a69e2b71f29eba4b45680b96c0eaa47a7f",
+          "kind": "directory",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/desktopApp/build/classes/java/main"
+        },
+        {
+          "name": "main",
+          "sha256": "f17474532b5d7c5da22d049334e33af8d7d3083193d79a33af813cbb1fbdff2a",
+          "kind": "directory",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/desktopApp/build/classes/kotlin/main"
+        },
+        {
+          "name": "main",
+          "sha256": "be39be54f5ff9080eeb3305a4f694c34365947cb45df4c431757ea785692947a",
+          "kind": "directory",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/desktopApp/build/resources/main"
+        },
+        {
+          "name": "shared-jvm-1.0.2.jar",
+          "sha256": "96ac33ca42df53137f28fb6252e7dbe47e136108c3225714581cfd7a497fc793",
+          "kind": "file",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/shared/build/libs/shared-jvm-1.0.2.jar"
+        }
+      ],
+      "rawFiles": [
+        {
+          "path": "fork-1-raster/fixture.json",
+          "sha256": "d852201f23ba2c8454e13930620f223a8a381f5f7ecc24773a40a3f1285c9d39"
+        },
+        {
+          "path": "fork-1-raster/raw.json",
+          "sha256": "67d991c85ca53c25c54e1a16b3ef639c5832a3b35c74a1459dd39b13c0397359"
+        },
+        {
+          "path": "fork-1-raster/scroll.jfr",
+          "sha256": "a43332cf1ea21b3e7ed2a5422f48f29bfbbd56fae1b60e6eee6981267c8ced3a"
+        }
+      ],
+      "report": {
+        "schema": "vive-egl-scroll-summary/2",
+        "toolkit": "sun.awt.wl.WLToolkit",
+        "gpu": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "javaRuntime": "25.0.4.1+1-b635.75",
+        "trace": false,
+        "logicalSize": [
+          720,
+          670
+        ],
+        "variant": "raster",
+        "awtScale": 2.0,
+        "interactions": {
+          "zoomBefore": 1.0,
+          "zoomPeak": 1.21,
+          "zoomAfter": 1.0,
+          "persistedPenStrokes": 2,
+          "remainingAuthoredStrokes": 0,
+          "resizeHonored": true,
+          "resizeReusedContext": true,
+          "popupSurfaces": 1,
+          "popupClosed": true
+        },
+        "bufferSizes": [
+          [
+            664,
+            904
+          ],
+          [
+            1440,
+            1340
+          ],
+          [
+            1600,
+            1260
+          ]
+        ],
+        "scroll": [
+          0.0,
+          6876.0,
+          0.0
+        ],
+        "queueNanos": {
+          "count": 180,
+          "median": 9058144,
+          "p95": 18427794,
+          "sum": 1623355243
+        },
+        "scheduledToDispatchNanos": {
+          "count": 180,
+          "median": 9119715,
+          "p95": 18508455,
+          "sum": 1638312214
+        },
+        "producerLatenessNanos": {
+          "count": 180,
+          "median": 69904,
+          "p95": 156346,
+          "sum": 14956971
+        },
+        "dispatchNanos": {
+          "count": 180,
+          "median": 1477508,
+          "p95": 2322928,
+          "sum": 267154981
+        },
+        "activeCpuNanos": 6940000000,
+        "phases": [
+          {
+            "name": "idle",
+            "startNanos": 818210871238,
+            "endNanos": 819760506771,
+            "cpuNanos": 550000000,
+            "submittedFrames": 0,
+            "memoryBefore": {
+              "rssBytes": 462524416,
+              "highWaterRssBytes": 462524416,
+              "heapUsedBytes": 78318512
+            },
+            "memoryAfter": {
+              "rssBytes": 468070400,
+              "highWaterRssBytes": 468070400,
+              "heapUsedBytes": 81464240
+            }
+          },
+          {
+            "name": "scroll_down",
+            "startNanos": 819773301252,
+            "endNanos": 822028197768,
+            "cpuNanos": 3620000000,
+            "submittedFrames": 77,
+            "memoryBefore": {
+              "rssBytes": 468713472,
+              "highWaterRssBytes": 468713472,
+              "heapUsedBytes": 82512816
+            },
+            "memoryAfter": {
+              "rssBytes": 479842304,
+              "highWaterRssBytes": 479842304,
+              "heapUsedBytes": 90901424
+            }
+          },
+          {
+            "name": "scroll_up",
+            "startNanos": 822041776919,
+            "endNanos": 824283949303,
+            "cpuNanos": 3320000000,
+            "submittedFrames": 69,
+            "memoryBefore": {
+              "rssBytes": 480296960,
+              "highWaterRssBytes": 480296960,
+              "heapUsedBytes": 90901424
+            },
+            "memoryAfter": {
+              "rssBytes": 492539904,
+              "highWaterRssBytes": 492539904,
+              "heapUsedBytes": 99290032
+            }
+          },
+          {
+            "name": "zoom",
+            "startNanos": 824298013517,
+            "endNanos": 825773217535,
+            "cpuNanos": 480000000,
+            "submittedFrames": 6,
+            "memoryBefore": {
+              "rssBytes": 493056000,
+              "highWaterRssBytes": 493056000,
+              "heapUsedBytes": 100338608
+            },
+            "memoryAfter": {
+              "rssBytes": 509444096,
+              "highWaterRssBytes": 509444096,
+              "heapUsedBytes": 101387184
+            }
+          },
+          {
+            "name": "pen",
+            "startNanos": 825781245279,
+            "endNanos": 826922270750,
+            "cpuNanos": 1330000000,
+            "submittedFrames": 38,
+            "memoryBefore": {
+              "rssBytes": 509833216,
+              "highWaterRssBytes": 509833216,
+              "heapUsedBytes": 102435760
+            },
+            "memoryAfter": {
+              "rssBytes": 524947456,
+              "highWaterRssBytes": 524947456,
+              "heapUsedBytes": 107678640
+            }
+          },
+          {
+            "name": "erase",
+            "startNanos": 826925407298,
+            "endNanos": 828120261447,
+            "cpuNanos": 1610000000,
+            "submittedFrames": 64,
+            "memoryBefore": {
+              "rssBytes": 525062144,
+              "highWaterRssBytes": 525062144,
+              "heapUsedBytes": 107678640
+            },
+            "memoryAfter": {
+              "rssBytes": 531763200,
+              "highWaterRssBytes": 531763200,
+              "heapUsedBytes": 111872944
+            }
+          },
+          {
+            "name": "resize",
+            "startNanos": 828124337316,
+            "endNanos": 829343304594,
+            "cpuNanos": 2410000000,
+            "submittedFrames": 60,
+            "memoryBefore": {
+              "rssBytes": 531947520,
+              "highWaterRssBytes": 531947520,
+              "heapUsedBytes": 111872944
+            },
+            "memoryAfter": {
+              "rssBytes": 586936320,
+              "highWaterRssBytes": 586936320,
+              "heapUsedBytes": 144378800
+            }
+          },
+          {
+            "name": "popup",
+            "startNanos": 829348350960,
+            "endNanos": 830369299442,
+            "cpuNanos": 1680000000,
+            "submittedFrames": 15,
+            "memoryBefore": {
+              "rssBytes": 587124736,
+              "highWaterRssBytes": 587124736,
+              "heapUsedBytes": 144378800
+            },
+            "memoryAfter": {
+              "rssBytes": 512573440,
+              "highWaterRssBytes": 606818304,
+              "heapUsedBytes": 53087056
+            }
+          },
+          {
+            "name": "idle_final",
+            "startNanos": 830375645168,
+            "endNanos": 831376275594,
+            "cpuNanos": 80000000,
+            "submittedFrames": 0,
+            "memoryBefore": {
+              "rssBytes": 513011712,
+              "highWaterRssBytes": 606818304,
+              "heapUsedBytes": 54135632
+            },
+            "memoryAfter": {
+              "rssBytes": 514588672,
+              "highWaterRssBytes": 606818304,
+              "heapUsedBytes": 54135632
+            }
+          }
+        ],
+        "drawCompletionIntervalsNanos": {
+          "scroll_down": {
+            "count": 76,
+            "median": 19243479,
+            "p95": 25918489,
+            "sum": 1473704728
+          },
+          "scroll_up": {
+            "count": 68,
+            "median": 17620128,
+            "p95": 24379248,
+            "sum": 1206683325
+          }
+        },
+        "limits": [
+          "Synthetic AWT wheel delivery, not native pointer/pen/Robot coverage or physical input latency.",
+          "Draw completions precede EGL swap; submitted frames are not compositor presentations or displayed FPS.",
+          "JFR, the timestamp observer and uncontrolled desktop load perturb execution.",
+          "GPU timings and presentation feedback are not collected; CPU/queue changes do not prove equivalent displayed cadence."
+        ],
+        "fork": 1,
+        "fixture": {
+          "schema": "vive-egl-fixture/1",
+          "strokes": 42,
+          "columns": 2,
+          "pointsPerStroke": 24,
+          "sha256": "51d497145cc7d489466b89f7fe2790ea42c9afbcea567c72a66134b3b1ff9291"
+        }
+      }
+    },
+    {
+      "capture": "/home/mal0/.cache/vive-egl/baseline-interactions-4",
+      "captureSha256": "ee0971dbd67fd02324ad310a8f6358619438c5432f56e2c8add9c64bffb38a17",
+      "runtimeModulesSha256": "6b90cf35f4adde104a4caf992967f8637d26100c26984eaa0ec388cac345e7a4",
+      "sourceInventorySha256": "1fbb14cc70f95d674fbe33cc51de8d78aadbb000738aa8866cb08bfa450affa5",
+      "harness": [
+        {
+          "file": "Fixture.kt",
+          "sha256": "5e05e501709ab3d2053c7729f213756fb20bc4851242cbf298840f3850e86d77"
+        },
+        {
+          "file": "ScrollProbe.java",
+          "sha256": "edad23e91a7b9b0c040ae318edcddc7bd801322eb4cd7f0e20ea2a38f8a42361"
+        },
+        {
+          "file": "InteractionProbe.java",
+          "sha256": "f6879f222af36fdf601ebf1d2254cab514d05e3f2b91047db0b3b307c2868695"
+        },
+        {
+          "file": "capture.py",
+          "sha256": "262c7c4d129b117e18ff00e1179955cb8029e5b8e6fba784754114c751832076"
+        },
+        {
+          "file": "desktop_runtime.py",
+          "sha256": "1733f15c391e3d8a6b6b6f466d0de0d713c21bef7b0514ad7585d563d1de8408"
+        }
+      ],
+      "projectArtifacts": [
+        {
+          "name": "main",
+          "sha256": "46564b80ffd49c68476cbc8d93d3f5a69e2b71f29eba4b45680b96c0eaa47a7f",
+          "kind": "directory",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/desktopApp/build/classes/java/main"
+        },
+        {
+          "name": "main",
+          "sha256": "f17474532b5d7c5da22d049334e33af8d7d3083193d79a33af813cbb1fbdff2a",
+          "kind": "directory",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/desktopApp/build/classes/kotlin/main"
+        },
+        {
+          "name": "main",
+          "sha256": "be39be54f5ff9080eeb3305a4f694c34365947cb45df4c431757ea785692947a",
+          "kind": "directory",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/desktopApp/build/resources/main"
+        },
+        {
+          "name": "shared-jvm-1.0.2.jar",
+          "sha256": "96ac33ca42df53137f28fb6252e7dbe47e136108c3225714581cfd7a497fc793",
+          "kind": "file",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/shared/build/libs/shared-jvm-1.0.2.jar"
+        }
+      ],
+      "rawFiles": [
+        {
+          "path": "fork-1-raster/fixture.json",
+          "sha256": "053c48bdc259da9b935db4b3fd018ac95c06ebcca24b57fc2c5e05b2d5f0f54c"
+        },
+        {
+          "path": "fork-1-raster/raw.json",
+          "sha256": "67eae575a3b61b16048e5b42cfe297bf3ac68013f6ab1475654f752a3f814d1f"
+        },
+        {
+          "path": "fork-1-raster/scroll.jfr",
+          "sha256": "eecbd0461c7094ba6a25f0f8c2ee19d31e1fd6154e1f625cedef4ff808e1e77a"
+        }
+      ],
+      "report": {
+        "schema": "vive-egl-scroll-summary/2",
+        "toolkit": "sun.awt.wl.WLToolkit",
+        "gpu": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "javaRuntime": "25.0.4.1+1-b635.75",
+        "trace": true,
+        "logicalSize": [
+          720,
+          670
+        ],
+        "variant": "raster",
+        "awtScale": 2.0,
+        "interactions": {
+          "zoomBefore": 1.0,
+          "zoomPeak": 1.21,
+          "zoomAfter": 1.0,
+          "persistedPenStrokes": 2,
+          "remainingAuthoredStrokes": 0,
+          "resizeHonored": true,
+          "resizeReusedContext": true,
+          "popupSurfaces": 1,
+          "popupClosed": true
+        },
+        "bufferSizes": [
+          [
+            664,
+            904
+          ],
+          [
+            1440,
+            1340
+          ],
+          [
+            1600,
+            1260
+          ]
+        ],
+        "scroll": [
+          0.0,
+          7981.0,
+          0.0
+        ],
+        "queueNanos": {
+          "count": 180,
+          "median": 11667363,
+          "p95": 23524074,
+          "sum": 2196406969
+        },
+        "scheduledToDispatchNanos": {
+          "count": 180,
+          "median": 11828883,
+          "p95": 23587401,
+          "sum": 2209819306
+        },
+        "producerLatenessNanos": {
+          "count": 180,
+          "median": 64760,
+          "p95": 142205,
+          "sum": 13412337
+        },
+        "dispatchNanos": {
+          "count": 180,
+          "median": 1588626,
+          "p95": 2734015,
+          "sum": 292980638
+        },
+        "activeCpuNanos": 7160000000,
+        "phases": [
+          {
+            "name": "idle",
+            "startNanos": 737415861114,
+            "endNanos": 738970567121,
+            "cpuNanos": 360000000,
+            "submittedFrames": 0,
+            "memoryBefore": {
+              "rssBytes": 468668416,
+              "highWaterRssBytes": 468668416,
+              "heapUsedBytes": 86891248
+            },
+            "memoryAfter": {
+              "rssBytes": 473640960,
+              "highWaterRssBytes": 473640960,
+              "heapUsedBytes": 90036976
+            }
+          },
+          {
+            "name": "scroll_down",
+            "startNanos": 738983864004,
+            "endNanos": 741232038656,
+            "cpuNanos": 3430000000,
+            "submittedFrames": 65,
+            "memoryBefore": {
+              "rssBytes": 474300416,
+              "highWaterRssBytes": 474300416,
+              "heapUsedBytes": 90036976
+            },
+            "memoryAfter": {
+              "rssBytes": 492429312,
+              "highWaterRssBytes": 492429312,
+              "heapUsedBytes": 99474160
+            }
+          },
+          {
+            "name": "scroll_up",
+            "startNanos": 741244221599,
+            "endNanos": 743486499221,
+            "cpuNanos": 3730000000,
+            "submittedFrames": 66,
+            "memoryBefore": {
+              "rssBytes": 492810240,
+              "highWaterRssBytes": 492810240,
+              "heapUsedBytes": 99474160
+            },
+            "memoryAfter": {
+              "rssBytes": 514793472,
+              "highWaterRssBytes": 514793472,
+              "heapUsedBytes": 107862768
+            }
+          },
+          {
+            "name": "zoom",
+            "startNanos": 743500094861,
+            "endNanos": 744977281054,
+            "cpuNanos": 410000000,
+            "submittedFrames": 6,
+            "memoryBefore": {
+              "rssBytes": 515260416,
+              "highWaterRssBytes": 515260416,
+              "heapUsedBytes": 108911344
+            },
+            "memoryAfter": {
+              "rssBytes": 531427328,
+              "highWaterRssBytes": 531427328,
+              "heapUsedBytes": 111008496
+            }
+          },
+          {
+            "name": "pen",
+            "startNanos": 744986235542,
+            "endNanos": 746137485542,
+            "cpuNanos": 1240000000,
+            "submittedFrames": 37,
+            "memoryBefore": {
+              "rssBytes": 531591168,
+              "highWaterRssBytes": 531591168,
+              "heapUsedBytes": 111008496
+            },
+            "memoryAfter": {
+              "rssBytes": 546656256,
+              "highWaterRssBytes": 546656256,
+              "heapUsedBytes": 116251376
+            }
+          },
+          {
+            "name": "erase",
+            "startNanos": 746140823810,
+            "endNanos": 747388170065,
+            "cpuNanos": 1580000000,
+            "submittedFrames": 64,
+            "memoryBefore": {
+              "rssBytes": 546779136,
+              "highWaterRssBytes": 546779136,
+              "heapUsedBytes": 116251376
+            },
+            "memoryAfter": {
+              "rssBytes": 554323968,
+              "highWaterRssBytes": 554323968,
+              "heapUsedBytes": 121494256
+            }
+          },
+          {
+            "name": "resize",
+            "startNanos": 747393827557,
+            "endNanos": 748620178496,
+            "cpuNanos": 2840000000,
+            "submittedFrames": 50,
+            "memoryBefore": {
+              "rssBytes": 554508288,
+              "highWaterRssBytes": 554508288,
+              "heapUsedBytes": 121494256
+            },
+            "memoryAfter": {
+              "rssBytes": 507867136,
+              "highWaterRssBytes": 584691712,
+              "heapUsedBytes": 47259872
+            }
+          },
+          {
+            "name": "popup",
+            "startNanos": 748624903038,
+            "endNanos": 749636755847,
+            "cpuNanos": 1360000000,
+            "submittedFrames": 15,
+            "memoryBefore": {
+              "rssBytes": 508059648,
+              "highWaterRssBytes": 584691712,
+              "heapUsedBytes": 47259872
+            },
+            "memoryAfter": {
+              "rssBytes": 529625088,
+              "highWaterRssBytes": 584691712,
+              "heapUsedBytes": 62988512
+            }
+          },
+          {
+            "name": "idle_final",
+            "startNanos": 749643178078,
+            "endNanos": 750644062715,
+            "cpuNanos": 50000000,
+            "submittedFrames": 0,
+            "memoryBefore": {
+              "rssBytes": 530010112,
+              "highWaterRssBytes": 584691712,
+              "heapUsedBytes": 62988512
+            },
+            "memoryAfter": {
+              "rssBytes": 530128896,
+              "highWaterRssBytes": 584691712,
+              "heapUsedBytes": 64037088
+            }
+          }
+        ],
+        "drawCompletionIntervalsNanos": {
+          "scroll_down": {
+            "count": 64,
+            "median": 24629403,
+            "p95": 32341634,
+            "sum": 1525948765
+          },
+          "scroll_up": {
+            "count": 65,
+            "median": 22331328,
+            "p95": 26783013,
+            "sum": 1377819572
+          }
+        },
+        "limits": [
+          "Synthetic AWT wheel delivery, not native pointer/pen/Robot coverage or physical input latency.",
+          "Draw completions precede EGL swap; submitted frames are not compositor presentations or displayed FPS.",
+          "JFR, the timestamp observer and uncontrolled desktop load perturb execution.",
+          "GPU timings and presentation feedback are not collected; CPU/queue changes do not prove equivalent displayed cadence."
+        ],
+        "fork": 1,
+        "fixture": {
+          "schema": "vive-egl-fixture/1",
+          "strokes": 419,
+          "columns": 12,
+          "pointsPerStroke": 24,
+          "sha256": "64beaa7db1420ef954dd1af3f24a0b9b85180f8bb20fddbc2044859acf63cece"
+        },
+        "scrollMethodElapsedMs": {
+          "com/vivenotes/desktop/rendering/WaylandRenderer::peer": {
+            "count": 131,
+            "median": 0.128882,
+            "p95": 0.181977,
+            "sum": 19.324641
+          },
+          "com/vivenotes/ui/canvas/SegmentedInkRasterCache::draw": {
+            "count": 128,
+            "median": 7.594115,
+            "p95": 9.890856999999999,
+            "sum": 772.718102
+          },
+          "androidx/compose/ui/scene/ComposeSceneMediator::onRender": {
+            "count": 131,
+            "median": 12.271442,
+            "p95": 17.637408,
+            "sum": 1516.179104
+          },
+          "com/vivenotes/desktop/rendering/WaylandRendering::restack": {
+            "count": 131,
+            "median": 0.027087999999999997,
+            "p95": 0.07459700000000001,
+            "sum": 4.364154
+          },
+          "com/vivenotes/desktop/rendering/WaylandRenderer::redraw": {
+            "count": 131,
+            "median": 13.951291,
+            "p95": 19.429697,
+            "sum": 1744.121423
+          }
+        }
+      }
+    },
+    {
+      "capture": "/home/mal0/.cache/vive-egl/baseline-dense-1",
+      "captureSha256": "edbde67d68973b358b8d909ec435ff71672582997b73b816e32cd12f9b63054b",
+      "runtimeModulesSha256": "6b90cf35f4adde104a4caf992967f8637d26100c26984eaa0ec388cac345e7a4",
+      "sourceInventorySha256": "1fbb14cc70f95d674fbe33cc51de8d78aadbb000738aa8866cb08bfa450affa5",
+      "harness": [
+        {
+          "file": "Fixture.kt",
+          "sha256": "5e05e501709ab3d2053c7729f213756fb20bc4851242cbf298840f3850e86d77"
+        },
+        {
+          "file": "ScrollProbe.java",
+          "sha256": "edad23e91a7b9b0c040ae318edcddc7bd801322eb4cd7f0e20ea2a38f8a42361"
+        },
+        {
+          "file": "InteractionProbe.java",
+          "sha256": "f6879f222af36fdf601ebf1d2254cab514d05e3f2b91047db0b3b307c2868695"
+        },
+        {
+          "file": "capture.py",
+          "sha256": "262c7c4d129b117e18ff00e1179955cb8029e5b8e6fba784754114c751832076"
+        },
+        {
+          "file": "desktop_runtime.py",
+          "sha256": "1733f15c391e3d8a6b6b6f466d0de0d713c21bef7b0514ad7585d563d1de8408"
+        }
+      ],
+      "projectArtifacts": [
+        {
+          "name": "main",
+          "sha256": "46564b80ffd49c68476cbc8d93d3f5a69e2b71f29eba4b45680b96c0eaa47a7f",
+          "kind": "directory",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/desktopApp/build/classes/java/main"
+        },
+        {
+          "name": "main",
+          "sha256": "f17474532b5d7c5da22d049334e33af8d7d3083193d79a33af813cbb1fbdff2a",
+          "kind": "directory",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/desktopApp/build/classes/kotlin/main"
+        },
+        {
+          "name": "main",
+          "sha256": "be39be54f5ff9080eeb3305a4f694c34365947cb45df4c431757ea785692947a",
+          "kind": "directory",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/desktopApp/build/resources/main"
+        },
+        {
+          "name": "shared-jvm-1.0.2.jar",
+          "sha256": "96ac33ca42df53137f28fb6252e7dbe47e136108c3225714581cfd7a497fc793",
+          "kind": "file",
+          "projectArtifact": true,
+          "path": "/home/mal0/repos/viveHub/multiplataform-vive/shared/build/libs/shared-jvm-1.0.2.jar"
+        }
+      ],
+      "rawFiles": [
+        {
+          "path": "fork-1-raster/fixture.json",
+          "sha256": "dbff5c520ec19e4f99d8ab09139abe678fb7e9923707080f6f6633246bfbd6d1"
+        },
+        {
+          "path": "fork-1-raster/raw.json",
+          "sha256": "10e01ec64edd9c7da1cbef54969dc461edd106dc240107677a76065be459edf8"
+        },
+        {
+          "path": "fork-1-raster/scroll.jfr",
+          "sha256": "cdf93cb85a44642ec34fef97ab4cfd1ad8e0e43ea838568b96ff9fb938df4d44"
+        }
+      ],
+      "report": {
+        "schema": "vive-egl-scroll-summary/2",
+        "toolkit": "sun.awt.wl.WLToolkit",
+        "gpu": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "javaRuntime": "25.0.4.1+1-b635.75",
+        "trace": true,
+        "logicalSize": [
+          720,
+          670
+        ],
+        "variant": "raster",
+        "awtScale": 2.0,
+        "interactions": {
+          "zoomBefore": 1.0,
+          "zoomPeak": 1.21,
+          "zoomAfter": 1.0,
+          "persistedPenStrokes": 2,
+          "remainingAuthoredStrokes": 0,
+          "resizeHonored": true,
+          "resizeReusedContext": true,
+          "popupSurfaces": 1,
+          "popupClosed": true
+        },
+        "bufferSizes": [
+          [
+            664,
+            904
+          ],
+          [
+            1440,
+            1340
+          ],
+          [
+            1600,
+            1260
+          ]
+        ],
+        "scroll": [
+          0.0,
+          8539.0,
+          0.0
+        ],
+        "queueNanos": {
+          "count": 180,
+          "median": 43597183,
+          "p95": 84262264,
+          "sum": 7794972240
+        },
+        "scheduledToDispatchNanos": {
+          "count": 180,
+          "median": 43679778,
+          "p95": 84467365,
+          "sum": 7885037737
+        },
+        "producerLatenessNanos": {
+          "count": 180,
+          "median": 76356,
+          "p95": 175962,
+          "sum": 90065497
+        },
+        "dispatchNanos": {
+          "count": 180,
+          "median": 581133,
+          "p95": 2195689,
+          "sum": 164611016
+        },
+        "activeCpuNanos": 6550000000,
+        "phases": [
+          {
+            "name": "idle",
+            "startNanos": 875723163144,
+            "endNanos": 877277854016,
+            "cpuNanos": 660000000,
+            "submittedFrames": 0,
+            "memoryBefore": {
+              "rssBytes": 630558720,
+              "highWaterRssBytes": 630558720,
+              "heapUsedBytes": 162911600
+            },
+            "memoryAfter": {
+              "rssBytes": 632745984,
+              "highWaterRssBytes": 637128704,
+              "heapUsedBytes": 166057328
+            }
+          },
+          {
+            "name": "scroll_down",
+            "startNanos": 877294704638,
+            "endNanos": 879586955130,
+            "cpuNanos": 3880000000,
+            "submittedFrames": 18,
+            "memoryBefore": {
+              "rssBytes": 633384960,
+              "highWaterRssBytes": 637128704,
+              "heapUsedBytes": 166057328
+            },
+            "memoryAfter": {
+              "rssBytes": 694530048,
+              "highWaterRssBytes": 694530048,
+              "heapUsedBytes": 188077424
+            }
+          },
+          {
+            "name": "scroll_up",
+            "startNanos": 879602724954,
+            "endNanos": 881909866365,
+            "cpuNanos": 2670000000,
+            "submittedFrames": 21,
+            "memoryBefore": {
+              "rssBytes": 694960128,
+              "highWaterRssBytes": 694960128,
+              "heapUsedBytes": 188077424
+            },
+            "memoryAfter": {
+              "rssBytes": 732073984,
+              "highWaterRssBytes": 732073984,
+              "heapUsedBytes": 83170592
+            }
+          },
+          {
+            "name": "zoom",
+            "startNanos": 881927445394,
+            "endNanos": 883398687751,
+            "cpuNanos": 470000000,
+            "submittedFrames": 6,
+            "memoryBefore": {
+              "rssBytes": 732155904,
+              "highWaterRssBytes": 732155904,
+              "heapUsedBytes": 83170592
+            },
+            "memoryAfter": {
+              "rssBytes": 746180608,
+              "highWaterRssBytes": 746180608,
+              "heapUsedBytes": 86316320
+            }
+          },
+          {
+            "name": "pen",
+            "startNanos": 883409922303,
+            "endNanos": 884583809499,
+            "cpuNanos": 2420000000,
+            "submittedFrames": 37,
+            "memoryBefore": {
+              "rssBytes": 746668032,
+              "highWaterRssBytes": 746668032,
+              "heapUsedBytes": 86316320
+            },
+            "memoryAfter": {
+              "rssBytes": 770166784,
+              "highWaterRssBytes": 770166784,
+              "heapUsedBytes": 96802080
+            }
+          },
+          {
+            "name": "erase",
+            "startNanos": 884586965233,
+            "endNanos": 885745505756,
+            "cpuNanos": 1980000000,
+            "submittedFrames": 59,
+            "memoryBefore": {
+              "rssBytes": 770166784,
+              "highWaterRssBytes": 770166784,
+              "heapUsedBytes": 96802080
+            },
+            "memoryAfter": {
+              "rssBytes": 773160960,
+              "highWaterRssBytes": 773160960,
+              "heapUsedBytes": 112530720
+            }
+          },
+          {
+            "name": "resize",
+            "startNanos": 885750411666,
+            "endNanos": 887008246476,
+            "cpuNanos": 2450000000,
+            "submittedFrames": 40,
+            "memoryBefore": {
+              "rssBytes": 773173248,
+              "highWaterRssBytes": 773173248,
+              "heapUsedBytes": 113579296
+            },
+            "memoryAfter": {
+              "rssBytes": 808198144,
+              "highWaterRssBytes": 808198144,
+              "heapUsedBytes": 146085152
+            }
+          },
+          {
+            "name": "popup",
+            "startNanos": 887011642522,
+            "endNanos": 888044139740,
+            "cpuNanos": 2110000000,
+            "submittedFrames": 15,
+            "memoryBefore": {
+              "rssBytes": 808202240,
+              "highWaterRssBytes": 808202240,
+              "heapUsedBytes": 147133728
+            },
+            "memoryAfter": {
+              "rssBytes": 820350976,
+              "highWaterRssBytes": 830865408,
+              "heapUsedBytes": 96468992
+            }
+          },
+          {
+            "name": "idle_final",
+            "startNanos": 888050291433,
+            "endNanos": 889051320864,
+            "cpuNanos": 10000000,
+            "submittedFrames": 0,
+            "memoryBefore": {
+              "rssBytes": 820383744,
+              "highWaterRssBytes": 830865408,
+              "heapUsedBytes": 96468992
+            },
+            "memoryAfter": {
+              "rssBytes": 820424704,
+              "highWaterRssBytes": 830865408,
+              "heapUsedBytes": 96468992
+            }
+          }
+        ],
+        "drawCompletionIntervalsNanos": {
+          "scroll_down": {
+            "count": 17,
+            "median": 84750364,
+            "p95": 113836875,
+            "sum": 1441751892
+          },
+          "scroll_up": {
+            "count": 20,
+            "median": 76257585,
+            "p95": 91165898,
+            "sum": 1505924814
+          }
+        },
+        "limits": [
+          "Synthetic AWT wheel delivery, not native pointer/pen/Robot coverage or physical input latency.",
+          "Draw completions precede EGL swap; submitted frames are not compositor presentations or displayed FPS.",
+          "JFR, the timestamp observer and uncontrolled desktop load perturb execution.",
+          "GPU timings and presentation feedback are not collected; CPU/queue changes do not prove equivalent displayed cadence."
+        ],
+        "fork": 1,
+        "fixture": {
+          "schema": "vive-egl-fixture/1",
+          "strokes": 10000,
+          "columns": 200,
+          "pointsPerStroke": 64,
+          "sha256": "b88d5780f4641d212c2523543054a9577fad431fd384c8ab1f74a8f127ea8719"
+        },
+        "scrollMethodElapsedMs": {
+          "com/vivenotes/desktop/rendering/WaylandRenderer::peer": {
+            "count": 39,
+            "median": 0.121802,
+            "p95": 0.211754,
+            "sum": 5.065635
+          },
+          "com/vivenotes/ui/canvas/SegmentedInkRasterCache::draw": {
+            "count": 39,
+            "median": 58.913605000000004,
+            "p95": 88.87373799999999,
+            "sum": 2315.8665730000002
+          },
+          "androidx/compose/ui/scene/ComposeSceneMediator::onRender": {
+            "count": 39,
+            "median": 66.08816300000001,
+            "p95": 100.065643,
+            "sum": 2596.069072
+          },
+          "com/vivenotes/desktop/rendering/WaylandRendering::restack": {
+            "count": 39,
+            "median": 0.026747999999999997,
+            "p95": 0.055541,
+            "sum": 1.174003
+          },
+          "com/vivenotes/desktop/rendering/WaylandRenderer::redraw": {
+            "count": 39,
+            "median": 67.547664,
+            "p95": 101.697838,
+            "sum": 2658.559159
+          }
+        }
+      }
+    }
+  ],
+  "environment": {
+    "kernel": "7.2.15-200.fc44.x86_64",
+    "waylandDisplay": "wayland-1",
+    "compositor": {
+      "command": [
+        "hyprctl",
+        "-j",
+        "version"
+      ],
+      "exitCode": 0,
+      "output": "{\n    \"branch\": \"v0.57.0\",\n    \"commit\": \"0aa6745f705f2c4b0a5004eb019ef76e5bbdb426\",\n    \"version\": \"0.57.0\",\n    \"dirty\": false,\n    \"commit_message\": \"VERSION: bump to 0.57.0\",\n    \"commit_date\": \"Wed Oct 28 10:37:05 2026\",\n    \"tag\": \"v0.57.0\",\n    \"commits\": \"7978\",\n    \"buildAquamarine\": \"0.16.0\",\n    \"buildHyprlang\": \"0.6.8\",\n    \"buildHyprutils\": \"0.14.3\",\n    \"buildHyprcursor\": \"0.1.13\",\n    \"buildHyprgraphics\": \"0.6.0\",\n    \"systemAquamarine\": \"unknown\",\n    \"systemHyprlang\": \"unknown\",\n    \"systemHyprutils\": \"unknown\",\n    \"systemHyprcursor\": \"unknown\",\n    \"systemHyprgraphics\": \"unknown\",\n    \"abiHash\": \"0aa6745f705f2c4b0a5004eb019ef76e5bbdb426_aq_0.16_hu_0.14_hg_0.6_hc_0.1_hlg_0.6\",\n    \"flags\": []\n}"
+    },
+    "monitors": {
+      "command": [
+        "hyprctl",
+        "-j",
+        "monitors"
+      ],
+      "exitCode": 0,
+      "output": "[{\n    \"id\": 0,\n    \"name\": \"eDP-1\",\n    \"description\": \"BOE 0x0947\",\n    \"make\": \"BOE\",\n    \"model\": \"0x0947\",\n    \"serial\": \"\",\n    \"width\": 1920,\n    \"height\": 1080,\n    \"physicalWidth\": 340,\n    \"physicalHeight\": 190,\n    \"refreshRate\": 60.00400,\n    \"x\": 0,\n    \"y\": 0,\n    \"activeWorkspace\": {\n        \"address\": \"1\",\n        \"id\": 1,\n        \"type\": \"normal\",\n        \"name\": \"1\"\n    },\n    \"specialWorkspace\": {\n        \"address\": \"\",\n        \"type\": \"\",\n        \"name\": \"\"\n    },\n    \"reserved\": [0, 24, 0, 0],\n    \"scale\": 1.5,\n    \"transform\": 0,\n    \"focused\": true,\n    \"dpmsStatus\": true,\n    \"vrr\": false,\n    \"solitary\": \"0\",\n    \"solitaryBlockedBy\": [\"WINDOWED\",\"CANDIDATE\"],\n    \"activelyTearing\": false,\n    \"tearingBlockedBy\": [\"NOT_TORN\",\"USER\",\"CANDIDATE\",\"HW_CURSOR\"],\n    \"directScanoutTo\": \"0\",\n    \"directScanoutBlockedBy\": [\"USER\",\"CANDIDATE\"],\n    \"disabled\": false,\n    \"currentFormat\": \"XRGB8888\",\n    \"mirrorOf\": \"none\",\n    \"availableModes\": [\"1920x1080@60.00Hz\",\"1920x1080@40.00Hz\"],\n    \"colorManagementPreset\": \"srgb\",\n    \"sdrBrightness\": 1,\n    \"sdrSaturation\": 1,\n    \"sdrMinLuminance\": 0.2,\n    \"sdrMaxLuminance\": 80,\n    \"hardwareCursorsInUse\": true,\n    \"hardwareDetails\": {\n        \"backend\": \"drm\",\n        \"hdr\": false,\n        \"chroma\": true,\n        \"bt2020\": false,\n        \"vrrCapable\": false\n    }\n}]"
+    },
+    "mesaPackages": {
+      "command": [
+        "rpm",
+        "-q",
+        "mesa-dri-drivers",
+        "mesa-libEGL"
+      ],
+      "exitCode": 0,
+      "output": "mesa-dri-drivers-26.2.5-1.fc44.x86_64\nmesa-dri-drivers-26.2.5-1.fc44.i686\nmesa-libEGL-26.2.5-1.fc44.x86_64\nmesa-libEGL-26.2.5-1.fc44.i686"
+    }
+  },
+  "automatedBenchmarkChecks": {
+    "pythonContracts": 8,
+    "freshFixtureProcesses": 2,
+    "nativeCodecContract": "Object erases remove projections while preserving authored rows; originals and document remain unchanged."
+  },
+  "limits": [
+    "Performance captured only at the available real desktop compositor scale 1.5 (JBR AWT/buffer scale 2). Scale 1 and 2 headless native tests are correctness coverage only.",
+    "Historical five-fork summary is baseline-scroll.json; its original raw /tmp files were cleared by host restart. New raw captures persist outside the repository.",
+    "Fresh interaction workloads have one fork each, with tracing on representative and dense workloads; do not compare these traced values with minimally instrumented historical runs.",
+    "Method elapsed scopes nest; sums are not exclusive CPU time. No asynchronous GPU completion or compositor presentation feedback was collected.",
+    "Physical pen latency and displayed FPS are not measured. Full JVM/native regression validation and any default optimization are subsequent work."
+  ]
+}

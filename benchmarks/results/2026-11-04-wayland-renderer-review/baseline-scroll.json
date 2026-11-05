@@ -1,0 +1,202 @@
+{
+  "schema": "vive-egl-baseline-evidence/1",
+  "scope": "Historical completed five-fork scroll baseline; raw /tmp profiles cleared by host restart. See step-1.json for the completed extended baseline and persistent fresh captures.",
+  "sourceCommit": "bd0ccd65fce9c71031f0a200e737a0cc93338044",
+  "sourceIncludesExperimentalReplay": true,
+  "selectedPolicy": "raster; experimental replay disabled",
+  "runtimeModulesSha256": "6b90cf35f4adde104a4caf992967f8637d26100c26984eaa0ec388cac345e7a4",
+  "fixture": {
+    "schema": "vive-egl-fixture/1",
+    "strokes": 419,
+    "columns": 12,
+    "pointsPerStroke": 24,
+    "sha256": "64beaa7db1420ef954dd1af3f24a0b9b85180f8bb20fddbc2044859acf63cece"
+  },
+  "toolkit": "sun.awt.wl.WLToolkit",
+  "gpu": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+  "javaRuntime": "25.0.4.1+1-b635.75",
+  "logicalSize": [
+    1254,
+    670
+  ],
+  "bufferSizes": [
+    [
+      2508,
+      1340
+    ]
+  ],
+  "rawCapture": "/tmp/vive-egl-replay-layer-paired-2",
+  "baselineForks": [
+    {
+      "fork": 1,
+      "queueMedianMs": 11.698124,
+      "queueP95Ms": 24.337841,
+      "scrollCpuSeconds": 6.98,
+      "drawIntervals": {
+        "scroll_down": {
+          "count": 65,
+          "median": 24743162,
+          "p95": 33452577,
+          "sum": 1532663449
+        },
+        "scroll_up": {
+          "count": 66,
+          "median": 21642003,
+          "p95": 29181795,
+          "sum": 1392283458
+        }
+      },
+      "scroll": [
+        0.0,
+        8022.0,
+        0.0
+      ],
+      "submittedFrames": 133
+    },
+    {
+      "fork": 2,
+      "queueMedianMs": 13.980149,
+      "queueP95Ms": 27.942497,
+      "scrollCpuSeconds": 7.06,
+      "drawIntervals": {
+        "scroll_down": {
+          "count": 54,
+          "median": 28958399,
+          "p95": 42428228,
+          "sum": 1540299106
+        },
+        "scroll_up": {
+          "count": 60,
+          "median": 23465428,
+          "p95": 30876895,
+          "sum": 1385847125
+        }
+      },
+      "scroll": [
+        0.0,
+        7981.0,
+        0.0
+      ],
+      "submittedFrames": 116
+    },
+    {
+      "fork": 3,
+      "queueMedianMs": 9.604322,
+      "queueP95Ms": 21.829781,
+      "scrollCpuSeconds": 6.86,
+      "drawIntervals": {
+        "scroll_down": {
+          "count": 77,
+          "median": 19992160,
+          "p95": 31961017,
+          "sum": 1523826656
+        },
+        "scroll_up": {
+          "count": 77,
+          "median": 17893999,
+          "p95": 25363502,
+          "sum": 1379942702
+        }
+      },
+      "scroll": [
+        0.0,
+        8022.0,
+        0.0
+      ],
+      "submittedFrames": 156
+    },
+    {
+      "fork": 4,
+      "queueMedianMs": 12.477913,
+      "queueP95Ms": 26.525176,
+      "scrollCpuSeconds": 7.03,
+      "drawIntervals": {
+        "scroll_down": {
+          "count": 63,
+          "median": 25969554,
+          "p95": 36295091,
+          "sum": 1855453723
+        },
+        "scroll_up": {
+          "count": 64,
+          "median": 22611798,
+          "p95": 30021538,
+          "sum": 1387333404
+        }
+      },
+      "scroll": [
+        0.0,
+        7981.0,
+        0.0
+      ],
+      "submittedFrames": 129
+    },
+    {
+      "fork": 5,
+      "queueMedianMs": 12.423111,
+      "queueP95Ms": 25.614815,
+      "scrollCpuSeconds": 7.12,
+      "drawIntervals": {
+        "scroll_down": {
+          "count": 59,
+          "median": 26333030,
+          "p95": 35277968,
+          "sum": 1534825031
+        },
+        "scroll_up": {
+          "count": 61,
+          "median": 22917291,
+          "p95": 29357919,
+          "sum": 1368958432
+        }
+      },
+      "scroll": [
+        0.0,
+        7892.0,
+        0.0
+      ],
+      "submittedFrames": 122
+    }
+  ],
+  "medianOfForkQueueP95Ms": 25.614815,
+  "medianOfForkScrollCpuSeconds": 7.03,
+  "harnessSources": [
+    {
+      "file": "Fixture.kt",
+      "sha256": "5144f706573d53ee328224359f44be2e863558e688d8b0fef9cde5489dc54014"
+    },
+    {
+      "file": "ScrollProbe.java",
+      "sha256": "2e906bd6489b876dd9e420afff21fc1d26b0cc1e07497095a98ef456fba44e16"
+    },
+    {
+      "file": "capture.py",
+      "sha256": "e2c1e451e19b4cfad99f19ef52d6e7880666203a6a005899302fad6bc9dc5137"
+    }
+  ],
+  "projectArtifacts": [
+    {
+      "name": "main",
+      "sha256": "46564b80ffd49c68476cbc8d93d3f5a69e2b71f29eba4b45680b96c0eaa47a7f"
+    },
+    {
+      "name": "main",
+      "sha256": "f17474532b5d7c5da22d049334e33af8d7d3083193d79a33af813cbb1fbdff2a"
+    },
+    {
+      "name": "main",
+      "sha256": "be39be54f5ff9080eeb3305a4f694c34365947cb45df4c431757ea785692947a"
+    },
+    {
+      "name": "shared-jvm-1.0.2.jar",
+      "sha256": "96ac33ca42df53137f28fb6252e7dbe47e136108c3225714581cfd7a497fc793"
+    }
+  ],
+  "limits": [
+    "Synthetic AWT wheel delivery, not native pointer/pen/Robot coverage or physical input latency.",
+    "Draw completions precede EGL swap; submitted frames are not compositor presentations or displayed FPS.",
+    "JFR, the timestamp observer and uncontrolled desktop load perturb execution.",
+    "GPU timings and presentation feedback are not collected; CPU/queue changes do not prove equivalent displayed cadence."
+  ],
+  "rawCaptureAvailable": false
+}

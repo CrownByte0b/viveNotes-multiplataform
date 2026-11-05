@@ -1,0 +1,228 @@
+Static inspection evidence — 2026-11-04
+No GUI application, runtime benchmark or test suite was executed by this inspection.
+HEAD: bd0ccd65fce9c71031f0a200e737a0cc93338044
+Installed Flatpak deployment: /home/mal0/.local/share/flatpak/app/net.vivenotes.ViveNotes/x86_64/devel/b758a14aae07a7fc1311c3c67f7a8c6301d281fd212bc232e16fedd1648cbc5a
+JBR: JAVA_RUNTIME_VERSION="25.0.4.1+1-b635.75"
+JBR modules SHA256: 6b90cf35f4adde104a4caf992967f8637d26100c26984eaa0ec388cac345e7a4
+Installed and inspected artifacts match: true
+Skiko AWT jar SHA256: 7bb718a195b97feca245036c2d8806e1a1433854d7d9f57e2656ceb93aa3eb9a
+Installed and inspected artifacts match: true
+
+JBR inspection: javap --system desktopApp/build/flatpak/payload/jbr -p sun.awt.wl.WLGraphicsDevice
+Superclass: java.awt.GraphicsDevice; getDisplayMode override: absent.
+
+Inherited getDisplayMode: javap --system <JBR> -p -c java.awt.GraphicsDevice
+  public java.awt.DisplayMode getDisplayMode();
+    Code:
+         0: aload_0
+         1: invokevirtual #121                // Method getDefaultConfiguration:()Ljava/awt/GraphicsConfiguration;
+         4: astore_1
+         5: aload_1
+         6: invokevirtual #124                // Method java/awt/GraphicsConfiguration.getBounds:()Ljava/awt/Rectangle;
+         9: astore_2
+        10: aload_1
+        11: invokevirtual #157                // Method java/awt/GraphicsConfiguration.getColorModel:()Ljava/awt/image/ColorModel;
+        14: astore_3
+        15: new           #161                // class java/awt/DisplayMode
+        18: dup
+        19: aload_2
+        20: getfield      #94                 // Field java/awt/Rectangle.width:I
+        23: aload_2
+        24: getfield      #100                // Field java/awt/Rectangle.height:I
+        27: aload_3
+        28: invokevirtual #163                // Method java/awt/image/ColorModel.getPixelSize:()I
+        31: iconst_0
+        32: invokespecial #168                // Method java/awt/DisplayMode."<init>":(IIII)V
+        35: areturn
+
+
+Skiko clock period: javap -p -c -classpath <skiko-awt.jar> org.jetbrains.skiko.swing.SkikoFramePacingService
+  private final long refreshPeriodNanos(java.awt.GraphicsDevice);
+    Code:
+         0: aload_1
+         1: invokevirtual #73                 // Method java/awt/GraphicsDevice.getDisplayMode:()Ljava/awt/DisplayMode;
+         4: dup
+         5: ifnull        14
+         8: invokevirtual #79                 // Method java/awt/DisplayMode.getRefreshRate:()I
+        11: goto          16
+        14: pop
+        15: iconst_0
+        16: istore_2
+        17: bipush        20
+        19: iload_2
+        20: if_icmpgt     38
+        23: iload_2
+        24: sipush        2001
+        27: if_icmpge     34
+        30: iconst_1
+        31: goto          39
+        34: iconst_0
+        35: goto          39
+        38: iconst_0
+        39: ifne          44
+        42: lconst_0
+        43: lreturn
+        44: ldc2_w        #80                 // long 1000000000l
+        47: iload_2
+        48: i2l
+        49: ldiv
+        50: lreturn
+
+
+Skiko clock selection, including forced-timer path and positive-period requirement:
+  public final org.jetbrains.skiko.swing.DisplayClock createClock$org_jetbrains_skiko_skiko(long, long, boolean);
+    Code:
+         0: nop
+         1: iload         5
+         3: ifeq          15
+         6: aload_0
+         7: lload_1
+         8: lload_3
+         9: invokespecial #33                 // Method timerOrNull:(JJ)Lorg/jetbrains/skiko/swing/DisplayClock;
+        12: goto          118
+        15: invokestatic  #39                 // Method org/jetbrains/skiko/OsArch_jvmKt.getHostOs:()Lorg/jetbrains/skiko/OS;
+        18: getstatic     #45                 // Field org/jetbrains/skiko/OS.MacOS:Lorg/jetbrains/skiko/OS;
+        21: if_acmpne     49
+        24: getstatic     #51                 // Field org/jetbrains/skiko/swing/MacDisplayLinkClock.Companion:Lorg/jetbrains/skiko/swing/MacDisplayLinkClock$Companion;
+        27: lload_1
+        28: invokevirtual #57                 // Method org/jetbrains/skiko/swing/MacDisplayLinkClock$Companion.available:(J)Z
+        31: ifeq          49
+        34: new           #47                 // class org/jetbrains/skiko/swing/MacDisplayLinkClock
+        37: dup
+        38: lload_1
+        39: lload_3
+        40: invokespecial #60                 // Method org/jetbrains/skiko/swing/MacDisplayLinkClock."<init>":(JJ)V
+        43: checkcast     #62                 // class org/jetbrains/skiko/swing/DisplayClock
+        46: goto          118
+        49: invokestatic  #39                 // Method org/jetbrains/skiko/OsArch_jvmKt.getHostOs:()Lorg/jetbrains/skiko/OS;
+        52: getstatic     #65                 // Field org/jetbrains/skiko/OS.Windows:Lorg/jetbrains/skiko/OS;
+        55: if_acmpne     73
+        58: new           #67                 // class org/jetbrains/skiko/swing/WinVBlankClock
+        61: dup
+        62: lload_1
+        63: lload_3
+        64: invokespecial #68                 // Method org/jetbrains/skiko/swing/WinVBlankClock."<init>":(JJ)V
+        67: checkcast     #62                 // class org/jetbrains/skiko/swing/DisplayClock
+        70: goto          118
+        73: invokestatic  #39                 // Method org/jetbrains/skiko/OsArch_jvmKt.getHostOs:()Lorg/jetbrains/skiko/OS;
+        76: getstatic     #71                 // Field org/jetbrains/skiko/OS.Linux:Lorg/jetbrains/skiko/OS;
+        79: if_acmpne     112
+        82: lload_3
+        83: lconst_0
+        84: lcmp
+        85: ifle          112
+        88: getstatic     #76                 // Field org/jetbrains/skiko/swing/LinuxDrmVBlankClock.Companion:Lorg/jetbrains/skiko/swing/LinuxDrmVBlankClock$Companion;
+        91: invokevirtual #81                 // Method org/jetbrains/skiko/swing/LinuxDrmVBlankClock$Companion.available:()Z
+        94: ifeq          112
+        97: new           #73                 // class org/jetbrains/skiko/swing/LinuxDrmVBlankClock
+       100: dup
+       101: lload_1
+       102: lload_3
+       103: invokespecial #82                 // Method org/jetbrains/skiko/swing/LinuxDrmVBlankClock."<init>":(JJ)V
+       106: checkcast     #62                 // class org/jetbrains/skiko/swing/DisplayClock
+       109: goto          118
+       112: aload_0
+       113: lload_1
+       114: lload_3
+       115: invokespecial #33                 // Method timerOrNull:(JJ)Lorg/jetbrains/skiko/swing/DisplayClock;
+       118: areturn
+
+  private final org.jetbrains.skiko.swing.DisplayClock timerOrNull(long, long);
+    Code:
+         0: lload_3
+         1: lconst_0
+         2: lcmp
+         3: ifle          21
+         6: new           #89                 // class org/jetbrains/skiko/swing/TimerClock
+         9: dup
+        10: lload_1
+        11: lload_3
+        12: invokespecial #90                 // Method org/jetbrains/skiko/swing/TimerClock."<init>":(JJ)V
+        15: checkcast     #62                 // class org/jetbrains/skiko/swing/DisplayClock
+        18: goto          22
+        21: aconst_null
+        22: areturn
+
+
+Renderer factory (Linux branch creates LinuxOpenGLSwingRenderer):
+Compiled from "SwingRenderer.kt"
+public final class org.jetbrains.skiko.swing.SwingRendererKt {
+  public static final org.jetbrains.skiko.swing.SwingRenderer createSwingRenderer(org.jetbrains.skiko.swing.SwingLayerProperties, org.jetbrains.skiko.SkikoRenderDelegate, org.jetbrains.skiko.GraphicsApi, org.jetbrains.skiko.SkiaLayerAnalytics);
+    Code:
+         0: aload_0
+         1: ldc           #9                  // String swingLayerProperties
+         3: invokestatic  #15                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V
+         6: aload_1
+         7: ldc           #17                 // String renderDelegate
+         9: invokestatic  #15                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V
+        12: aload_2
+        13: ldc           #19                 // String renderApi
+        15: invokestatic  #15                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V
+        18: aload_3
+        19: ldc           #21                 // String analytics
+        21: invokestatic  #15                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V
+        24: aload_2
+        25: getstatic     #27                 // Field org/jetbrains/skiko/GraphicsApi.SOFTWARE_COMPAT:Lorg/jetbrains/skiko/GraphicsApi;
+        28: if_acmpeq     38
+        31: aload_2
+        32: getstatic     #30                 // Field org/jetbrains/skiko/GraphicsApi.SOFTWARE_FAST:Lorg/jetbrains/skiko/GraphicsApi;
+        35: if_acmpne     52
+        38: new           #32                 // class org/jetbrains/skiko/swing/SoftwareSwingRenderer
+        41: dup
+        42: aload_0
+        43: aload_1
+        44: aload_3
+        45: invokespecial #36                 // Method org/jetbrains/skiko/swing/SoftwareSwingRenderer."<init>":(Lorg/jetbrains/skiko/swing/SwingLayerProperties;Lorg/jetbrains/skiko/SkikoRenderDelegate;Lorg/jetbrains/skiko/SkiaLayerAnalytics;)V
+        48: checkcast     #38                 // class org/jetbrains/skiko/swing/SwingRenderer
+        51: areturn
+        52: invokestatic  #44                 // Method org/jetbrains/skiko/OsArch_jvmKt.getHostOs:()Lorg/jetbrains/skiko/OS;
+        55: getstatic     #50                 // Field org/jetbrains/skiko/swing/SwingRendererKt$WhenMappings.$EnumSwitchMapping$0:[I
+        58: swap
+        59: invokevirtual #56                 // Method org/jetbrains/skiko/OS.ordinal:()I
+        62: iaload
+        63: tableswitch   { // 1 to 3
+                       1: 88
+                       2: 104
+                       3: 120
+                 default: 136
+            }
+        88: new           #58                 // class org/jetbrains/skiko/swing/MetalSwingRenderer
+        91: dup
+        92: aload_0
+        93: aload_1
+        94: aload_3
+        95: invokespecial #59                 // Method org/jetbrains/skiko/swing/MetalSwingRenderer."<init>":(Lorg/jetbrains/skiko/swing/SwingLayerProperties;Lorg/jetbrains/skiko/SkikoRenderDelegate;Lorg/jetbrains/skiko/SkiaLayerAnalytics;)V
+        98: checkcast     #38                 // class org/jetbrains/skiko/swing/SwingRenderer
+       101: goto          149
+       104: new           #61                 // class org/jetbrains/skiko/swing/Direct3DSwingRenderer
+       107: dup
+       108: aload_0
+       109: aload_1
+       110: aload_3
+       111: invokespecial #62                 // Method org/jetbrains/skiko/swing/Direct3DSwingRenderer."<init>":(Lorg/jetbrains/skiko/swing/SwingLayerProperties;Lorg/jetbrains/skiko/SkikoRenderDelegate;Lorg/jetbrains/skiko/SkiaLayerAnalytics;)V
+       114: checkcast     #38                 // class org/jetbrains/skiko/swing/SwingRenderer
+       117: goto          149
+       120: new           #64                 // class org/jetbrains/skiko/swing/LinuxOpenGLSwingRenderer
+       123: dup
+       124: aload_0
+       125: aload_1
+       126: aload_3
+       127: invokespecial #65                 // Method org/jetbrains/skiko/swing/LinuxOpenGLSwingRenderer."<init>":(Lorg/jetbrains/skiko/swing/SwingLayerProperties;Lorg/jetbrains/skiko/SkikoRenderDelegate;Lorg/jetbrains/skiko/SkiaLayerAnalytics;)V
+       130: checkcast     #38                 // class org/jetbrains/skiko/swing/SwingRenderer
+       133: goto          149
+       136: new           #32                 // class org/jetbrains/skiko/swing/SoftwareSwingRenderer
+       139: dup
+       140: aload_0
+       141: aload_1
+       142: aload_3
+       143: invokespecial #36                 // Method org/jetbrains/skiko/swing/SoftwareSwingRenderer."<init>":(Lorg/jetbrains/skiko/swing/SwingLayerProperties;Lorg/jetbrains/skiko/SkikoRenderDelegate;Lorg/jetbrains/skiko/SkiaLayerAnalytics;)V
+       146: checkcast     #38                 // class org/jetbrains/skiko/swing/SwingRenderer
+       149: areturn
+}
+
+
+Existing low-level Vulkan bindings:
+  public final org.jetbrains.skia.DirectContext makeVulkan(long, long, long, long, int, long, long, int, org.jetbrains.skia.VulkanMemoryAllocator);
+  public static org.jetbrains.skia.DirectContext makeVulkan$default(org.jetbrains.skia.DirectContext$Companion, long, long, long, long, int, long, long, int, org.jetbrains.skia.VulkanMemoryAllocator, int, java.lang.Object);
+  public final org.jetbrains.skia.BackendRenderTarget makeVulkan(int, int, long, int, int, int, int, int, int);
+Graphite/Dawn context/recorder class-name matches in this AWT jar: 0

@@ -1,0 +1,838 @@
+{
+  "schema": "vive-egl-packaged-replay-evidence/1",
+  "capture": "/home/mal0/.cache/vive-egl/packaged-typical-paired-2",
+  "captureSha256": "b482e7560923b1364348555764d88f0d326ca8cd0585805f60acd4e083d5e804",
+  "artifact": {
+    "bundle": "/home/mal0/repos/viveHub/multiplataform-vive/desktopApp/build/flatpak/ViveNotes-1.0.2-x86_64.flatpak",
+    "bundleSha256": "6613a92c95ed1abe2c673d93a15d00b53ed015c850a2d2c46f9aec19340cf20e",
+    "commit": "c34e8f8007034a4ececc799a5555a960a15f09e089c1bed7f2ab66073ba0d3c0",
+    "metadataSha256": "0e2911944e20a44eb40aba92c3524ab60714c57456fe68ee5464cfa9a0cfab76",
+    "javaModulesSha256": "6b90cf35f4adde104a4caf992967f8637d26100c26984eaa0ec388cac345e7a4",
+    "jars": [
+      {
+        "name": "0514f5d5c14de3b4-navigationevent-compose-desktop-1.1.0.jar",
+        "sha256": "0514f5d5c14de3b422c48a4eaf1d9dd2ce265041339e4c51ce30db8da1690874"
+      },
+      {
+        "name": "09f75a4a8d763cee-lifecycle-runtime-desktop-2.11.0.jar",
+        "sha256": "09f75a4a8d763cee5d6af36f422139a0205d3f6df2e2c5288cae42836f0b36ea"
+      },
+      {
+        "name": "0bd569af2b06e21c-ratex-native-linux-aarch64-0.1.15.jar",
+        "sha256": "0bd569af2b06e21cb461a7e37aff2cbe06d1f398589ce3017059398e896401ea"
+      },
+      {
+        "name": "0f3d045c5fd7e130-savedstate-compose-desktop-1.3.6.jar",
+        "sha256": "0f3d045c5fd7e1301ab6c38cd0778067b0484cf39acac1233be71a723a6a8075"
+      },
+      {
+        "name": "123ea3187b497c54-pdfbox-io-3.0.3.jar",
+        "sha256": "123ea3187b497c54e661d50c3c867479bf77668ff450e50710c658f2bb4687ba"
+      },
+      {
+        "name": "151232ae38c69533-batik-gvt-1.20.jar",
+        "sha256": "151232ae38c69533c3329b4a8cef2d8ab1f931f2b403ec15e5fa7eb6d4154e24"
+      },
+      {
+        "name": "17039f8f4847426a-ui-desktop-1.13.0-beta01.jar",
+        "sha256": "17039f8f4847426ae15e95c54064518513e65a3773d404a7b5f0cca8cef76578"
+      },
+      {
+        "name": "175c349266ccbb6a-lifecycle-viewmodel-desktop-2.11.0.jar",
+        "sha256": "175c349266ccbb6a2036615725b7066ee3f3319665c98af42206ab3a582a43c3"
+      },
+      {
+        "name": "176980b90e793487-shared-jvm-1.0.2.jar",
+        "sha256": "176980b90e7934871384978a1a9a62c042c219cfd3ad2177d881408ffed5b326"
+      },
+      {
+        "name": "18aed0065bc9e361-ui-unit-desktop-1.13.0-beta01.jar",
+        "sha256": "18aed0065bc9e36100cd98a713ac9547994e334fb7e0016f46631d854bd3d015"
+      },
+      {
+        "name": "18b805d3520411e8-byteink-compose-0.1.0-SNAPSHOT.jar",
+        "sha256": "18b805d3520411e8ee4bab09a8aa551335cb5591c3285bd87cd34d6592e254a6"
+      },
+      {
+        "name": "199fca7f028ed3b3-batik-bridge-1.20.jar",
+        "sha256": "199fca7f028ed3b39eb6a6016294876fd1de2b4b5ac6a17581b6697d8fdd598e"
+      },
+      {
+        "name": "1b4c58125c7b3693-lifecycle-viewmodel-compose-desktop-2.11.0.jar",
+        "sha256": "1b4c58125c7b3693444f40c8ab76881d17fa74726860c24872a3dec3e0fad34b"
+      },
+      {
+        "name": "1cd126545a318af4-ink-strokes-jvm-1.1.0-alpha06.jar",
+        "sha256": "1cd126545a318af442f0c957b4766445965cb6970540f4d315ce055f98369b60"
+      },
+      {
+        "name": "1d7d20d7826a2cc6-navigationevent-compose-desktop-1.1.1.jar",
+        "sha256": "1d7d20d7826a2cc63ace9862cddd8a7085a11a3ea2cff258c28b3d58e57f143b"
+      },
+      {
+        "name": "1f4c7f9a349c84a9-runtime-desktop-1.13.0-beta01.jar",
+        "sha256": "1f4c7f9a349c84a9c93d42b6149c867aa3141367c5b583b8430b0720e33e14c5"
+      },
+      {
+        "name": "1f573c6df4461098-material3-desktop-1.13.0-beta01.jar",
+        "sha256": "1f573c6df44610982454a78dfee073adf700d231cf48d64d5265fbc0eb896da3"
+      },
+      {
+        "name": "1fad6e6be7557781-jspecify-1.0.0.jar",
+        "sha256": "1fad6e6be7557781e4d33729d49ae1cdc8fdda6fe477bb0cc68ce351eafdfbab"
+      },
+      {
+        "name": "2029c1fcfc6dfe0a-datastore-core-jvm-1.3.0.jar",
+        "sha256": "2029c1fcfc6dfe0acc244bcfe10b05e33a2915b6384431b4fc3f0005ec73a915"
+      },
+      {
+        "name": "24835324992e80e3-ui-util-desktop-1.13.0-beta01.jar",
+        "sha256": "24835324992e80e395d44844ab3c04cab48ca8a6fec132f3de18096d94db6e8c"
+      },
+      {
+        "name": "24c8e3544b4c039c-batik-shared-resources-1.20.jar",
+        "sha256": "24c8e3544b4c039c3742f1ddaf582e9fabba60c672731d5995de3c3dd62919c9"
+      },
+      {
+        "name": "2b7a1185dc43c09c-material-desktop-1.13.0-beta01.jar",
+        "sha256": "2b7a1185dc43c09c25438c636201abfd483ddd4ae1cff6ec81c51c148f51f7c0"
+      },
+      {
+        "name": "2ce764d4d632c6ec-batik-xml-1.20.jar",
+        "sha256": "2ce764d4d632c6ec147ac8f88c84eda0af1c3d6f6427927906ab8b1cbbb88da5"
+      },
+      {
+        "name": "2e8fabd49660ca72-ui-geometry-desktop-1.13.0-beta01.jar",
+        "sha256": "2e8fabd49660ca72835679b6227cc3257cb2ccb4d3a611e1749ce00eda3992bb"
+      },
+      {
+        "name": "326a8331cd84682c-byteink-kit-0.1.0-SNAPSHOT.jar",
+        "sha256": "326a8331cd84682c230418fa874c034b6cebddce8467dd1c9d62dc38178be8d8"
+      },
+      {
+        "name": "38384ad114f3231a-lifecycle-viewmodel-desktop-2.11.0.jar",
+        "sha256": "38384ad114f3231a5bfe04608c2c514747574fff3e347a7266e12e6ad35a6a1c"
+      },
+      {
+        "name": "391ddcd0e8c491cb-material-ripple-desktop-1.13.0-beta01.jar",
+        "sha256": "391ddcd0e8c491cbeda6bce00423a96583818cde3df0f988405c037c55b84a74"
+      },
+      {
+        "name": "39576ec46b83412f-atomicfu-jvm-0.28.0.jar",
+        "sha256": "39576ec46b83412ff7a2909d24cccbba90400e91f9aa67b250309bc0872ecf52"
+      },
+      {
+        "name": "3a98aa310e53756c-batik-awt-util-1.20.jar",
+        "sha256": "3a98aa310e53756c16853f20ae9b9663388fe55714e0a9ba680900d72429a8ee"
+      },
+      {
+        "name": "3b13dcc3e1573047-okio-jvm-3.17.0.jar",
+        "sha256": "3b13dcc3e1573047c2d507fc4f7fcb0bb0cbcd9d395da21d20e09406e2cd6a73"
+      },
+      {
+        "name": "3b8b98657c9aff3b-kotlinx-datetime-jvm-0.7.1.jar",
+        "sha256": "3b8b98657c9aff3be7f6b4b575e9f3fb9a3a1f452a801da0f438901734acdade"
+      },
+      {
+        "name": "3e5b56c54c826dbc-lifecycle-runtime-desktop-2.11.0.jar",
+        "sha256": "3e5b56c54c826dbc2a8d8162af4d020840dbd3e742b8be3bf78546afdc2f7376"
+      },
+      {
+        "name": "43da49b9520b1ba4-foundation-layout-desktop-1.13.0-beta01.jar",
+        "sha256": "43da49b9520b1ba4b6f4b608e2ff68e2dddfeee8721fa1c4972f448a12a8fc4b"
+      },
+      {
+        "name": "479b7c13f8b4102a-ratex-native-linux-x86-64-0.1.15.jar",
+        "sha256": "479b7c13f8b4102a40b1f566d4582efb5ed766247fa8235bcb70e9716d894a96"
+      },
+      {
+        "name": "4aa4ca48f3dfd30b-commons-io-2.17.0.jar",
+        "sha256": "4aa4ca48f3dfd30b78220b7881d8cb93eac4093ec94361b6befa9487998a550b"
+      },
+      {
+        "name": "4c92508d4bd3b9ca-navigationevent-desktop-1.1.1.jar",
+        "sha256": "4c92508d4bd3b9cafb2785e8211057d39ed8465b529660223864a19625cedb5b"
+      },
+      {
+        "name": "4c94a5fa98b838a3-lifecycle-runtime-compose-desktop-2.11.0.jar",
+        "sha256": "4c94a5fa98b838a34b84eecb0fca5b291b417ab3af8518862b488f85868a2195"
+      },
+      {
+        "name": "4cd87c956d6f522e-batik-util-1.20.jar",
+        "sha256": "4cd87c956d6f522ebb67fd165252f8391e8c184c50559f7d7dc3ff95cc491e3c"
+      },
+      {
+        "name": "4fb141dd8ef6b058-jna-5.19.1.jar",
+        "sha256": "4fb141dd8ef6b0585ffceea4bc49602fbc6312fa977e2c488794ea3e6aafecae"
+      },
+      {
+        "name": "50250413b91dd139-library-desktop-1.13.0-beta01.jar",
+        "sha256": "50250413b91dd1393d9562e4578c66c08bf7802d54bb815bdc5bf0274a9b639e"
+      },
+      {
+        "name": "50a826ef0d1bd27f-lifecycle-common-jvm-2.11.0.jar",
+        "sha256": "50a826ef0d1bd27ff384e4dd9d147bd1f343cc78d044f7b32a7ec6ce9b3fd2ba"
+      },
+      {
+        "name": "527dc27e554110ec-fop-core-2.12.jar",
+        "sha256": "527dc27e554110ec3528815ee21e85b28a7721e8198ad48795d00fe0031e5f9b"
+      },
+      {
+        "name": "528f62670ac244cd-animation-desktop-1.13.0-beta01.jar",
+        "sha256": "528f62670ac244cd73677bc7bc499b185a6c4fe67358c4b40e5ce0699a94c2a0"
+      },
+      {
+        "name": "53b050b80e666228-sqlite-jvm-2.6.2.jar",
+        "sha256": "53b050b80e666228a12a0ae72d49531b3d69615ba8fb62733f697f8fdc7fd6f3"
+      },
+      {
+        "name": "54cbdc3e6d477078-datastore-core-okio-jvm-1.3.0.jar",
+        "sha256": "54cbdc3e6d477078a2f1dba43b6328870dfee23cc356da5aa1b2271151cc29a4"
+      },
+      {
+        "name": "55830da67bb21ca6-runtime-saveable-desktop-1.13.0-beta01.jar",
+        "sha256": "55830da67bb21ca67669deb75da337b5eb597198f7fc4c3095daa0bce3fa6c3a"
+      },
+      {
+        "name": "5813734d596bff43-animation-core-desktop-1.13.0-beta01.jar",
+        "sha256": "5813734d596bff434ce2d4350afed30870d708a423e9871e0bf63e48491e4344"
+      },
+      {
+        "name": "58198c6c979a400f-savedstate-desktop-1.5.0.jar",
+        "sha256": "58198c6c979a400fc7831f1ca51d8caa972ca0b1fbe3df5e469b53cf552332b5"
+      },
+      {
+        "name": "5828f96c09d886f9-commons-logging-1.3.3.jar",
+        "sha256": "5828f96c09d886f9b1a0993c7804b27cf4fcec8534517164f5137ac8b67ea9b9"
+      },
+      {
+        "name": "59226809f449e340-datastore-preferences-external-protobuf-1.3.0.jar",
+        "sha256": "59226809f449e3409058da98df384a18d24316443e4a1d657e63771b5fd87e36"
+      },
+      {
+        "name": "59d909068ab88e6f-batik-ext-1.20.jar",
+        "sha256": "59d909068ab88e6f4ab7285b63b21acd3c1632ee45846b2546a32f42b2963bcb"
+      },
+      {
+        "name": "5dbf963e5be555b6-lifecycle-viewmodel-savedstate-desktop-2.11.0.jar",
+        "sha256": "5dbf963e5be555b61ce47e18f8dfa82fad3b5c0e79cbeed7c9dca6c556f53847"
+      },
+      {
+        "name": "5ed4afca649f0633-library-jvm-0.1.15.jar",
+        "sha256": "5ed4afca649f06337d327e9b555a663fe2539b7efc64eb50d797c099f766df34"
+      },
+      {
+        "name": "63fa8dbffb635fa4-ui-text-desktop-1.13.0-beta01.jar",
+        "sha256": "63fa8dbffb635fa43236a06e16357f698dec4e8be2ba60a3e316dce6b4a82dbf"
+      },
+      {
+        "name": "65308a06b1c00ee1-core-common-2.2.0.jar",
+        "sha256": "65308a06b1c00ee186cb9e19321383f043b993813f1522c47f4a3e3303bdba41"
+      },
+      {
+        "name": "65690c3f39b04a14-fontbox-3.0.3.jar",
+        "sha256": "65690c3f39b04a14d12c17f4998c15186ce877d3e2ec222c708577e3cc028030"
+      },
+      {
+        "name": "65704f62745c1dc5-batik-css-1.20.jar",
+        "sha256": "65704f62745c1dc508a0ddeb33e4e2da397cd66f34375607b849c8ee898e4aee"
+      },
+      {
+        "name": "66601299ad8eebb6-ui-skiko-desktop-1.13.0-beta01.jar",
+        "sha256": "66601299ad8eebb65d9677281a877f3e2edf3989600ffdcf0d5ac0279409be8a"
+      },
+      {
+        "name": "66e831ce38c7f143-skiko-awt-runtime-all-0.156.0.jar",
+        "sha256": "66e831ce38c7f143257791e9407b499776b26abb6e0a442b8817d649fb273089"
+      },
+      {
+        "name": "67be8f2949943826-savedstate-compose-desktop-1.5.0.jar",
+        "sha256": "67be8f2949943826f652c2b5b6910a1af0872f1457e59445ab227c99023ff42b"
+      },
+      {
+        "name": "6912cea4bff94e71-batik-script-1.20.jar",
+        "sha256": "6912cea4bff94e71239cc6d253a1731773bd218dd8e468c468b0246438293882"
+      },
+      {
+        "name": "6fae5082f9a722f7-batik-dom-1.20.jar",
+        "sha256": "6fae5082f9a722f7e336f2736a0faabacf1bafccd288984a8bafa6f35075e0ba"
+      },
+      {
+        "name": "7b0f19724082cbfc-annotations-23.0.0.jar",
+        "sha256": "7b0f19724082cbfcbc66e5abea2b9bc92cf08a1ea11e191933ed43801eb3cd05"
+      },
+      {
+        "name": "7bb718a195b97fec-skiko-awt-0.156.0.jar",
+        "sha256": "7bb718a195b97feca245036c2d8806e1a1433854d7d9f57e2656ceb93aa3eb9a"
+      },
+      {
+        "name": "7bdca5d4fb5eeb89-runtime-retain-desktop-1.13.0-beta01.jar",
+        "sha256": "7bdca5d4fb5eeb8940ef2105da33a3e50624e4a1460e27f78b04cd9d98261f28"
+      },
+      {
+        "name": "7e37284e33b5b304-jbr-api-1.9.0.jar",
+        "sha256": "7e37284e33b5b304ee6174dcaa92db949b257cc4c8991ca865e7daf5113d8279"
+      },
+      {
+        "name": "7f658fe952b56176-kotlinx-coroutines-swing-1.11.0.jar",
+        "sha256": "7f658fe952b56176111faad8ac275268904608915d6c79374fa0c80fb288fb60"
+      },
+      {
+        "name": "839fcec147704611-collection-jvm-1.6.0.jar",
+        "sha256": "839fcec147704611a222159fa84e3e062f68eee80caa549ddd1222d5210a13df"
+      },
+      {
+        "name": "854b4fae9b520237-onnxruntime-1.31.1.jar",
+        "sha256": "854b4fae9b5202371eb8cd978d2e872eafb75664ef2db2f3c91f2b095b518b62"
+      },
+      {
+        "name": "85be03f2f47e0800-xmlgraphics-commons-2.12.jar",
+        "sha256": "85be03f2f47e08007130db9efbcc587afd3ae08dd13c704ecf472dd88867e061"
+      },
+      {
+        "name": "86eb2e283e4c6fe5-ratex-native-windows-x86-64-0.1.15.jar",
+        "sha256": "86eb2e283e4c6fe54804e627e91e779d9efdb541c226d00eb0d48f85c0cd08f2"
+      },
+      {
+        "name": "879eb73e46cb6325-kotlinx-serialization-json-jvm-1.12.0.jar",
+        "sha256": "879eb73e46cb63253ab0fa7cca4448f5c96bca1a16ff377abcb71ebab60e0631"
+      },
+      {
+        "name": "8892e8a5bcaec488-kotlinx-serialization-cbor-jvm-1.12.0.jar",
+        "sha256": "8892e8a5bcaec488b75c2a3aa4674995c08d616f8ca0028c0bce57d27ef4c573"
+      },
+      {
+        "name": "8d7a4d3812cae2e3-graphics-shapes-desktop-1.1.0.jar",
+        "sha256": "8d7a4d3812cae2e3ef8272e97f6e9917ae45931f17cf1391f0246a92c955d9f4"
+      },
+      {
+        "name": "8f01ac4be301a98d-ui-tooling-preview-desktop-1.13.0-beta01.jar",
+        "sha256": "8f01ac4be301a98db5c4a2399801cda0f719ca344db6f33c6592bea20192c54d"
+      },
+      {
+        "name": "9030abd0720d3bba-batik-i18n-1.20.jar",
+        "sha256": "9030abd0720d3bbab46b0af27f8867f1919dc74cabe8255ae9865e79b288ba5e"
+      },
+      {
+        "name": "9e3c5b17c993b10b-runtime-saveable-desktop-1.13.0-beta01.jar",
+        "sha256": "9e3c5b17c993b10bc082c277c5074b632e57701cbec2ea8b8aac6a98896bf7aa"
+      },
+      {
+        "name": "9e5c979d85ec9e2b-batik-codec-1.20.jar",
+        "sha256": "9e5c979d85ec9e2b3c98d8acbfde627a22c5797c009f79998829e13f439eca39"
+      },
+      {
+        "name": "a130db2fb3d28a13-ink-geometry-jvm-1.1.0-alpha06.jar",
+        "sha256": "a130db2fb3d28a1393767313dc83da2fff33cfe120f84ff002c35b585a75db8b"
+      },
+      {
+        "name": "a19f5a495f63dbb9-ui-backhandler-desktop-1.13.0-beta01.jar",
+        "sha256": "a19f5a495f63dbb9506213b17d829ff668ea26e16687b9d99d1b0d6a77351b55"
+      },
+      {
+        "name": "a5c47749feb627ce-batik-svg-dom-1.20.jar",
+        "sha256": "a5c47749feb627ce4def49190e7c7286634ef04b0e5b4520b130ca62f3f13a9e"
+      },
+      {
+        "name": "a663faadbf224bdc-byteink-core-0.1.0-SNAPSHOT.jar",
+        "sha256": "a663faadbf224bdc40f777b06c3aec9d3199d72e2fc7a3c8277fac0bd7fb8dbc"
+      },
+      {
+        "name": "a83b827cc17fd6b4-annotation-jvm-1.11.0.jar",
+        "sha256": "a83b827cc17fd6b41c7bf5e7a2a2b40a0895b00b3e30fdfdb820b49dc7b667f3"
+      },
+      {
+        "name": "a840968176645684-xml-apis-1.4.01.jar",
+        "sha256": "a840968176645684bb01aed376e067ab39614885f9eee44abe35a5f20ebe7fad"
+      },
+      {
+        "name": "b1df7bacbd4f1ccb-batik-transcoder-1.20.jar",
+        "sha256": "b1df7bacbd4f1ccb0419acf7aa3b1902c60b4d0ec00534425145a47907280a35"
+      },
+      {
+        "name": "b2801744cf647aff-ink-nativeloader-jvm-1.1.0-alpha06-byteink.4.jar",
+        "sha256": "b2801744cf647aff425c4070c9cd5c7c715a981148ff7d837cb7e2d1c420e3f9"
+      },
+      {
+        "name": "b320c93bc97cbe75-room-runtime-jvm-2.8.5.jar",
+        "sha256": "b320c93bc97cbe75a997eb2107aaacd6964c0411c8a5873f0128fbabbee03fbc"
+      },
+      {
+        "name": "b34e4050e3e60bb1-runtime-desktop-1.13.0-beta01.jar",
+        "sha256": "b34e4050e3e60bb12851d72eca7e8c36f1557acd183de7681cbadd74f289c1f5"
+      },
+      {
+        "name": "b44ae28c255709eb-lifecycle-viewmodel-compose-desktop-2.11.0.jar",
+        "sha256": "b44ae28c255709eba43719179ab5a4a27b7a8d2075e20030e2e265211f320a0f"
+      },
+      {
+        "name": "b853b0ce2a7ce235-batik-constants-1.20.jar",
+        "sha256": "b853b0ce2a7ce235eebf5197bd15ca40bf9c7ffc9a698e382fd47ce7c36e258e"
+      },
+      {
+        "name": "bcfddcac76159058-kotlinx-serialization-core-jvm-1.12.0.jar",
+        "sha256": "bcfddcac76159058ba0953af05938c17111d238cd41be7191874656454d62f1a"
+      },
+      {
+        "name": "bd8250210584cb65-kotlin-stdlib-2.4.21.jar",
+        "sha256": "bd8250210584cb659847dce9cda660f8e9906e5def7fbebcea93dc6dcb6a88a3"
+      },
+      {
+        "name": "c7ffce2d75c68afa-ink-storage-jvm-1.1.0-alpha06.jar",
+        "sha256": "c7ffce2d75c68afa3fb4ba075e71a5070503e9b27915cb4345e8ef67f48225a7"
+      },
+      {
+        "name": "ca21720ce7f370cb-lifecycle-viewmodel-savedstate-desktop-2.11.0.jar",
+        "sha256": "ca21720ce7f370cb21cabb5329b959eda624107ec06282e3bdc92582917b1d27"
+      },
+      {
+        "name": "cacfd834fda3e9f8-fop-util-2.12.jar",
+        "sha256": "cacfd834fda3e9f8af6d12b0b35d5b4175e3e1929595d1f8169a86b1042c1791"
+      },
+      {
+        "name": "ccf74d60d6d48ab7-desktop-jvm-1.13.0-beta01.jar",
+        "sha256": "ccf74d60d6d48ab7d89eca28cf287aecc405e9d536bec877c76e4163799a4f50"
+      },
+      {
+        "name": "ce07be419b3febad-material3-ripple-desktop-1.13.0-beta01.jar",
+        "sha256": "ce07be419b3febad91b489d1da929821f097ff48e7e84d6c9f692360146e3dbd"
+      },
+      {
+        "name": "d0751492aab9e3d8-batik-extension-1.20.jar",
+        "sha256": "d0751492aab9e3d8baea85a8cca599d39d933d0ca1fde86b6fd2d393c1f530b7"
+      },
+      {
+        "name": "d0b4887dc34d57de-xml-apis-ext-1.3.04.jar",
+        "sha256": "d0b4887dc34d57de49074a58affad439a013d0baffa1a8034f8ef2a5ea191646"
+      },
+      {
+        "name": "d1d75aa01dffbb4d-kotlinx-coroutines-core-jvm-1.11.0.jar",
+        "sha256": "d1d75aa01dffbb4d1c520e67e4c4e7f5f6174718e7cb4632412503f2f0e604fa"
+      },
+      {
+        "name": "d5336753ea4d5881-lifecycle-runtime-compose-desktop-2.11.0.jar",
+        "sha256": "d5336753ea4d5881ccfb8b0613e034eb241f0d8b4349536df1cd0ec86cf63664"
+      },
+      {
+        "name": "d5afbc509919492d-runtime-annotation-jvm-1.13.0-beta01.jar",
+        "sha256": "d5afbc509919492ddfbb7dddd480a0fbcb5ed1e641a2c3fb52d17d1789921b89"
+      },
+      {
+        "name": "dc7b4e1a75a790f2-room-common-jvm-2.8.5.jar",
+        "sha256": "dc7b4e1a75a790f29c97afd5516b8bf8002d9b6e83e295bc569b33566f3b1ec0"
+      },
+      {
+        "name": "dcc7a13558f43a97-datastore-preferences-proto-1.3.0.jar",
+        "sha256": "dcc7a13558f43a9742aefcf2ece90b44f12c0f6c873d19f0b64460198e2d4eed"
+      },
+      {
+        "name": "dee25871c8bb55b2-foundation-desktop-1.13.0-beta01.jar",
+        "sha256": "dee25871c8bb55b25525145ac6dbd1e43c082bf87bb1225aba7dda86eeda828a"
+      },
+      {
+        "name": "desktopApp-1.0.2.jar",
+        "sha256": "ff3ea7ff1c1d360395f47f7d6bde30a3569fa879e418db36ac4ca4e90d2cee16"
+      },
+      {
+        "name": "e221638a3e6a1f76-batik-anim-1.20.jar",
+        "sha256": "e221638a3e6a1f76a96c50ce0fdfb27341199e53385e9ad5dcfe935342a04141"
+      },
+      {
+        "name": "e61efb0647288b48-sqlite-bundled-jvm-2.6.2.jar",
+        "sha256": "e61efb0647288b486e595950724cc53c4f15eeeca03ce2184751d02de3cfaa17"
+      },
+      {
+        "name": "e6a66e67b9f63a0f-lifecycle-common-jvm-2.11.0.jar",
+        "sha256": "e6a66e67b9f63a0fb6344f165c1d872376e5fe6d235bffb138af45122cf452a9"
+      },
+      {
+        "name": "e7e5997ecfb6b02d-ink-brush-jvm-1.1.0-alpha06.jar",
+        "sha256": "e7e5997ecfb6b02d7a55ff6b72f98eef2390fade8d19fc22969c0029a88f030d"
+      },
+      {
+        "name": "f07735f0407ff1c3-ui-graphics-desktop-1.13.0-beta01.jar",
+        "sha256": "f07735f0407ff1c320b0c470b86a64f7367b3edc3c1b69e4eda5e53134102bd3"
+      },
+      {
+        "name": "f6f014fbd165a61c-datastore-preferences-core-jvm-1.3.0.jar",
+        "sha256": "f6f014fbd165a61c8e4c896a56694c5f26e98b68c1993fe32f515a585008f6ab"
+      },
+      {
+        "name": "f9674631515863c6-fop-events-2.12.jar",
+        "sha256": "f9674631515863c6e85572e687542f0201a8092a83a6f6ba3633a45022e59029"
+      },
+      {
+        "name": "fa0ce75dcf4c682a-batik-svggen-1.20.jar",
+        "sha256": "fa0ce75dcf4c682ad2a347b9d2767263e58d0cc4e6c1961b1e55b0e413a9a875"
+      },
+      {
+        "name": "fff6626db0398d08-batik-parser-1.20.jar",
+        "sha256": "fff6626db0398d0842ffe5c24cab0475f289f00bbbad5f6859dc5b34dc3f2730"
+      }
+    ]
+  },
+  "runtimeInfoObservedAfterCapture": "[Application]\nname=net.vivenotes.ViveNotes\nruntime=runtime/org.freedesktop.Platform/x86_64/26.08\n\n[Instance]\ninstance-id=186241734\napp-path=/home/mal0/.cache/vive-egl/packaged-final-artifact-1/app/files\nruntime-path=/var/lib/flatpak/runtime/org.freedesktop.Platform/x86_64/26.08/df26daaf9d07610b4a72cc4585566194051275ac68396597b06474396f66427c/files\nruntime-commit=df26daaf9d07610b4a72cc4585566194051275ac68396597b06474396f66427c\nruntime-extensions=org.freedesktop.Platform.GL.default=5aec1b8281d53c91bdac451eb577ec5331ca0e34d89cf0dcc8dba2360171eae6;org.freedesktop.Platform.Locale=66128243811b3893feeb70861f2876109be40e0c86f911dc9a64dc4f982ee35e;org.freedesktop.Platform.VAAPI.Intel=5c21d37862eeba2aac022688ef5e4c0524e345aec1a215a822a24f4ab5a8984c;org.freedesktop.Platform.codecs-extra=2b9f95bc563d70b2530abecba6773b37e7d4785c9cf668301ae91a2782585280;org.freedesktop.Platform.GL.default=4d87aeea9f59d46e1d7189c0c7b5c6ab608ef6400ac0960f4561adb9933241ff\narch=x86_64\nflatpak-version=1.18.4\nsession-bus-proxy=true\nsystem-bus-proxy=true\nbuild=true\ndevel=true\n\n[Context]\nshared=ipc;\nsockets=wayland;\ndevices=dri;\nfilesystems=/home/mal0/.cache/vive-egl/packaged-typical-paired-2;\nunset-environment=DISPLAY;\n\n[Environment]\nXDG_DATA_HOME=/home/mal0/.cache/vive-egl/packaged-typical-paired-2/fork-1-raster/data\nXDG_CONFIG_HOME=/home/mal0/.cache/vive-egl/packaged-typical-paired-2/fork-1-raster/config\nALSA_CONFIG_PATH=/usr/share/alsa/alsa-flatpak.conf\nXDG_CACHE_HOME=/home/mal0/.cache/vive-egl/packaged-typical-paired-2/fork-1-raster/cache\nGI_TYPELIB_PATH=/app/lib/girepository-1.0\nWAYLAND_DISPLAY=wayland-1\nPYTHONUSERBASE=/var/data/python\n__EGL_EXTERNAL_PLATFORM_CONFIG_DIRS=/etc/egl/egl_external_platform.d:/usr/lib/x86_64-linux-gnu/GL/egl/egl_external_platform.d:/usr/share/egl/egl_external_platform.d\nXDG_SESSION_TYPE=wayland\nGST_PLUGIN_SYSTEM_PATH=/app/lib/gstreamer-1.0:/usr/lib/extensions/gstreamer-1.0:/usr/lib/x86_64-linux-gnu/codecs-extra/lib/gstreamer-1.0:/usr/lib/x86_64-linux-gnu/gstreamer-1.0\nXDG_DATA_DIRS=/app/share:/usr/share:/usr/share/runtime/share:/run/host/user-share:/run/host/share\nALSA_CONFIG_DIR=/usr/share/alsa\nDISPLAY=\n",
+  "fixture": {
+    "schema": "vive-egl-fixture/1",
+    "strokes": 419,
+    "columns": 12,
+    "pointsPerStroke": 24,
+    "sha256": "5a4b003fb99c0ad1c188100e32aafe72922f55616af1904afa7b71d637c73e5e"
+  },
+  "toolkit": "sun.awt.wl.WLToolkit",
+  "gpu": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+  "javaRuntime": "25.0.4.1+1-b635.75",
+  "logicalSize": [
+    720,
+    670
+  ],
+  "scrollBufferSizes": [
+    [
+      1440,
+      1340
+    ]
+  ],
+  "pairedScrollP95ImprovementPercent": [
+    51.485794663417735,
+    49.268883751893945,
+    40.359498812731786,
+    49.013631680115274,
+    47.20914878155709
+  ],
+  "summary": {
+    "raster": {
+      "scrollQueueP95Ms": {
+        "count": 5,
+        "median": 35.98176,
+        "min": 35.368994,
+        "max": 41.335557
+      },
+      "scrollCpuSeconds": {
+        "count": 5,
+        "median": 6.28,
+        "min": 6.21,
+        "max": 6.35
+      },
+      "penQueueP95Ms": {
+        "count": 5,
+        "median": 17.382956,
+        "min": 10.549801,
+        "max": 18.792797
+      },
+      "eraseQueueP95Ms": {
+        "count": 5,
+        "median": 13.79487,
+        "min": 11.980675,
+        "max": 14.716622
+      },
+      "peakProcessRssMiB": {
+        "count": 5,
+        "median": 560.484375,
+        "min": 560.0859375,
+        "max": 570.04296875
+      },
+      "submittedScrollFrames": {
+        "count": 5,
+        "median": 170,
+        "min": 160,
+        "max": 174
+      }
+    },
+    "moving": {
+      "scrollQueueP95Ms": {
+        "count": 5,
+        "median": 20.053617,
+        "min": 18.170301,
+        "max": 21.459702
+      },
+      "scrollCpuSeconds": {
+        "count": 5,
+        "median": 7.49,
+        "min": 7.44,
+        "max": 7.91
+      },
+      "penQueueP95Ms": {
+        "count": 5,
+        "median": 10.033184,
+        "min": 8.020464,
+        "max": 19.843726
+      },
+      "eraseQueueP95Ms": {
+        "count": 5,
+        "median": 15.098267,
+        "min": 13.607586,
+        "max": 19.486732
+      },
+      "peakProcessRssMiB": {
+        "count": 5,
+        "median": 571.078125,
+        "min": 560.67578125,
+        "max": 589.73046875
+      },
+      "submittedScrollFrames": {
+        "count": 5,
+        "median": 274,
+        "min": 266,
+        "max": 286
+      }
+    }
+  },
+  "forks": [
+    {
+      "fork": 1,
+      "variant": "raster",
+      "queueP95Ms": 41.335557,
+      "scrollCpuSeconds": 6.28,
+      "appLocation": "file:/app/lib/desktopApp-1.0.2.jar",
+      "interactions": {
+        "zoomBefore": 1.0,
+        "zoomPeak": 1.21,
+        "zoomAfter": 1.0,
+        "pointerPeriodNanos": 16000000,
+        "expectedPenStrokes": 2,
+        "persistedPenStrokes": 2,
+        "remainingAuthoredStrokes": 0,
+        "resizeHonored": true,
+        "resizeReusedContext": true,
+        "popupSurfaces": 1,
+        "popupClosed": true
+      },
+      "scroll": [
+        0.0,
+        8022.0,
+        0.0
+      ]
+    },
+    {
+      "fork": 1,
+      "variant": "moving",
+      "queueP95Ms": 20.053617,
+      "scrollCpuSeconds": 7.7,
+      "appLocation": "file:/app/lib/desktopApp-1.0.2.jar",
+      "interactions": {
+        "zoomBefore": 1.0,
+        "zoomPeak": 1.21,
+        "zoomAfter": 1.0,
+        "pointerPeriodNanos": 16000000,
+        "expectedPenStrokes": 2,
+        "persistedPenStrokes": 2,
+        "remainingAuthoredStrokes": 0,
+        "resizeHonored": true,
+        "resizeReusedContext": true,
+        "popupSurfaces": 1,
+        "popupClosed": true
+      },
+      "scroll": [
+        0.0,
+        8022.0,
+        0.0
+      ]
+    },
+    {
+      "fork": 2,
+      "variant": "moving",
+      "queueP95Ms": 18.170301,
+      "scrollCpuSeconds": 7.49,
+      "appLocation": "file:/app/lib/desktopApp-1.0.2.jar",
+      "interactions": {
+        "zoomBefore": 1.0,
+        "zoomPeak": 1.21,
+        "zoomAfter": 1.0,
+        "pointerPeriodNanos": 16000000,
+        "expectedPenStrokes": 2,
+        "persistedPenStrokes": 2,
+        "remainingAuthoredStrokes": 0,
+        "resizeHonored": true,
+        "resizeReusedContext": true,
+        "popupSurfaces": 1,
+        "popupClosed": true
+      },
+      "scroll": [
+        0.0,
+        8022.0,
+        0.0
+      ]
+    },
+    {
+      "fork": 2,
+      "variant": "raster",
+      "queueP95Ms": 35.816876,
+      "scrollCpuSeconds": 6.32,
+      "appLocation": "file:/app/lib/desktopApp-1.0.2.jar",
+      "interactions": {
+        "zoomBefore": 1.0,
+        "zoomPeak": 1.21,
+        "zoomAfter": 1.0,
+        "pointerPeriodNanos": 16000000,
+        "expectedPenStrokes": 2,
+        "persistedPenStrokes": 2,
+        "remainingAuthoredStrokes": 0,
+        "resizeHonored": true,
+        "resizeReusedContext": true,
+        "popupSurfaces": 1,
+        "popupClosed": true
+      },
+      "scroll": [
+        0.0,
+        8022.0,
+        0.0
+      ]
+    },
+    {
+      "fork": 3,
+      "variant": "raster",
+      "queueP95Ms": 35.98176,
+      "scrollCpuSeconds": 6.21,
+      "appLocation": "file:/app/lib/desktopApp-1.0.2.jar",
+      "interactions": {
+        "zoomBefore": 1.0,
+        "zoomPeak": 1.21,
+        "zoomAfter": 1.0,
+        "pointerPeriodNanos": 16000000,
+        "expectedPenStrokes": 2,
+        "persistedPenStrokes": 2,
+        "remainingAuthoredStrokes": 0,
+        "resizeHonored": true,
+        "resizeReusedContext": true,
+        "popupSurfaces": 1,
+        "popupClosed": true
+      },
+      "scroll": [
+        0.0,
+        7892.0,
+        0.0
+      ]
+    },
+    {
+      "fork": 3,
+      "variant": "moving",
+      "queueP95Ms": 21.459702,
+      "scrollCpuSeconds": 7.48,
+      "appLocation": "file:/app/lib/desktopApp-1.0.2.jar",
+      "interactions": {
+        "zoomBefore": 1.0,
+        "zoomPeak": 1.21,
+        "zoomAfter": 1.0,
+        "pointerPeriodNanos": 16000000,
+        "expectedPenStrokes": 2,
+        "persistedPenStrokes": 2,
+        "remainingAuthoredStrokes": 0,
+        "resizeHonored": true,
+        "resizeReusedContext": true,
+        "popupSurfaces": 1,
+        "popupClosed": true
+      },
+      "scroll": [
+        0.0,
+        8022.0,
+        0.0
+      ]
+    },
+    {
+      "fork": 4,
+      "variant": "moving",
+      "queueP95Ms": 20.238682,
+      "scrollCpuSeconds": 7.44,
+      "appLocation": "file:/app/lib/desktopApp-1.0.2.jar",
+      "interactions": {
+        "zoomBefore": 1.0,
+        "zoomPeak": 1.21,
+        "zoomAfter": 1.0,
+        "pointerPeriodNanos": 16000000,
+        "expectedPenStrokes": 2,
+        "persistedPenStrokes": 2,
+        "remainingAuthoredStrokes": 0,
+        "resizeHonored": true,
+        "resizeReusedContext": true,
+        "popupSurfaces": 1,
+        "popupClosed": true
+      },
+      "scroll": [
+        0.0,
+        8022.0,
+        0.0
+      ]
+    },
+    {
+      "fork": 4,
+      "variant": "raster",
+      "queueP95Ms": 39.6943,
+      "scrollCpuSeconds": 6.35,
+      "appLocation": "file:/app/lib/desktopApp-1.0.2.jar",
+      "interactions": {
+        "zoomBefore": 1.0,
+        "zoomPeak": 1.21,
+        "zoomAfter": 1.0,
+        "pointerPeriodNanos": 16000000,
+        "expectedPenStrokes": 2,
+        "persistedPenStrokes": 2,
+        "remainingAuthoredStrokes": 0,
+        "resizeHonored": true,
+        "resizeReusedContext": true,
+        "popupSurfaces": 1,
+        "popupClosed": true
+      },
+      "scroll": [
+        0.0,
+        7993.0,
+        0.0
+      ]
+    },
+    {
+      "fork": 5,
+      "variant": "raster",
+      "queueP95Ms": 35.368994,
+      "scrollCpuSeconds": 6.23,
+      "appLocation": "file:/app/lib/desktopApp-1.0.2.jar",
+      "interactions": {
+        "zoomBefore": 1.0,
+        "zoomPeak": 1.21,
+        "zoomAfter": 1.0,
+        "pointerPeriodNanos": 16000000,
+        "expectedPenStrokes": 2,
+        "persistedPenStrokes": 2,
+        "remainingAuthoredStrokes": 0,
+        "resizeHonored": true,
+        "resizeReusedContext": true,
+        "popupSurfaces": 1,
+        "popupClosed": true
+      },
+      "scroll": [
+        0.0,
+        8022.0,
+        0.0
+      ]
+    },
+    {
+      "fork": 5,
+      "variant": "moving",
+      "queueP95Ms": 18.671593,
+      "scrollCpuSeconds": 7.91,
+      "appLocation": "file:/app/lib/desktopApp-1.0.2.jar",
+      "interactions": {
+        "zoomBefore": 1.0,
+        "zoomPeak": 1.21,
+        "zoomAfter": 1.0,
+        "pointerPeriodNanos": 16000000,
+        "expectedPenStrokes": 2,
+        "persistedPenStrokes": 2,
+        "remainingAuthoredStrokes": 0,
+        "resizeHonored": true,
+        "resizeReusedContext": true,
+        "popupSurfaces": 1,
+        "popupClosed": true
+      },
+      "scroll": [
+        0.0,
+        8112.0,
+        0.0
+      ]
+    }
+  ],
+  "scope": "Imported and checked out the actual exported bundle into a new owned OSTree repository; flatpak build --runtime --readonly; app classes only from /app/lib. Installed app/profile unchanged.",
+  "limits": [
+    "Five pairs on one Intel/Hyprland machine at physical scale 1.5 and JBR buffer scale 2.",
+    "Synthetic AWT events and draw/submission timestamps; not displayed FPS, physical pen latency or energy use.",
+    "The first packaged attempt failed before GUI startup because flatpak build did not forward Wayland/session variables; excluded. Launcher now forwards both with regression coverage."
+  ]
+}

@@ -10,6 +10,7 @@ import androidx.ink.geometry.MutableAffineTransform
 import com.vivenotes.byteink.compose.InkPathRenderer
 import com.vivenotes.byteink.compose.InkScene
 import com.vivenotes.byteink.compose.InkSceneStroke
+import com.vivenotes.rendering.InkRenderContext
 import org.jetbrains.skia.BlendMode
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.Paint
@@ -38,12 +39,28 @@ internal data class InkViewportRasterWork(
     val capacityEvictions: Long,
     val retainedViews: Int,
     val retainedPixelBytes: Long,
+    val directDraws: Long,
 )
+
+internal enum class InkViewportRendering {
+    RASTER, DIRECT, MOVING;
+
+    companion object {
+        fun configured(): InkViewportRendering = fromProperty(System.getProperty("vivenotes.ink.viewportRendering"))
+
+        internal fun fromProperty(value: String?): InkViewportRendering = when (value) {
+            "direct" -> DIRECT
+            null, "moving" -> MOVING
+            else -> RASTER
+        }
+    }
+}
 
 /** Exact recent physical views; content changes keep only the view being updated. */
 internal class SegmentedInkRasterCache(
     private val maxViews: Int = 4,
     private val pixelBudgetBytes: Long = 64L * 1024 * 1024,
+    private val rendering: InkViewportRendering = InkViewportRendering.configured(),
 ) : AutoCloseable {
     init { require(maxViews >= 0 && pixelBudgetBytes >= 0) }
     private data class View(val viewport: Rect, val transform: ImmutableAffineTransform, val scale: Float)
@@ -53,6 +70,7 @@ internal class SegmentedInkRasterCache(
     private var currentPixelBytes = 0L
     private var image: Image? = null
     private var view: View? = null
+    private var lastRequestedView: View? = null
     private var layers: List<InkSceneLayer> = emptyList()
     private var renderer: InkPathRenderer? = null
     private var rendererVersion = 0L
@@ -67,6 +85,7 @@ internal class SegmentedInkRasterCache(
     private var allocatedPixels = 0L
     private var updatedPixels = 0L
     private var capacityEvictions = 0L
+    private var directDraws = 0L
     var rasterBuildCount = 0L
         private set
     var lastDrawn = 0
@@ -114,12 +133,31 @@ internal class SegmentedInkRasterCache(
         val requested = View(viewport, transform, scale)
         fun sameLayer(first: InkSceneLayer, second: InkSceneLayer): Boolean =
             first.scene === second.scene && first.excluded.size == second.excluded.size && first.excluded.all { it in second.excluded }
+        val sameContent = this.renderer === renderer && rendererVersion == renderer.renderVersion &&
+            (layers === next || layers.size == next.size && layers.indices.all { sameLayer(layers[it], next[it]) })
+        val moving = lastRequestedView != null && lastRequestedView != requested
+        val replay = rendering == InkViewportRendering.DIRECT ||
+            rendering == InkViewportRendering.MOVING && InkRenderContext.canReplay && moving && sameContent &&
+            !(image != null && view == requested || previousViews.containsKey(requested))
+        if (rendering == InkViewportRendering.DIRECT) clearCache()
+        lastRequestedView = requested
         requests++
         lastDrawn = 0
         lastUpdatedPixels = 0L
+        if (replay) {
+            directDraws++
+            val destination = canvas.skiaCanvas
+            val checkpoint = destination.saveLayer(viewport.left, viewport.top, viewport.right, viewport.bottom, null)
+            try {
+                destination.clipRect(viewport.left, viewport.top, viewport.right, viewport.bottom, false)
+                lastDrawn = next.sumOf { layer ->
+                    layer.scene.draw(canvas, renderer, transform, drawingViewport, layer.excluded)
+                }
+                vectors += lastDrawn
+                return lastDrawn
+            } finally { destination.restoreToCount(checkpoint) }
+        }
         val cacheable = maxViews > 0 && bytes <= pixelBudgetBytes
-        val sameContent = this.renderer === renderer && rendererVersion == renderer.renderVersion &&
-            (layers === next || layers.size == next.size && layers.indices.all { sameLayer(layers[it], next[it]) })
         if (!sameContent) clearPreviousViews()
         if (!cacheable) clearCache()
         else {
@@ -241,7 +279,7 @@ internal class SegmentedInkRasterCache(
     }
 
     fun work() = InkViewportRasterWork(requests, hits, fullBuilds, appendBuilds, dirtyBuildCount,
-        vectors, allocatedPixels, updatedPixels, capacityEvictions, retainedViews, retainedPixelBytes)
+        vectors, allocatedPixels, updatedPixels, capacityEvictions, retainedViews, retainedPixelBytes, directDraws)
 
     private fun clearPreviousViews() {
         previousViews.values.forEach { it.image.close() }
@@ -263,6 +301,7 @@ internal class SegmentedInkRasterCache(
         clearCurrentView()
         layers = emptyList()
         renderer = null
+        lastRequestedView = null
     }
 
     override fun close() { clearCache(); closed = true }

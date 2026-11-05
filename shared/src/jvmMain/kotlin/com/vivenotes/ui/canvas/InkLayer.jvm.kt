@@ -359,9 +359,8 @@ internal actual fun PlatformInkLayer(
             if (cache.rasterBuildCount != before) finishedDrawn += drawn
         }
         if (additionsLayer.scene.strokes.isEmpty()) additionsCache.clearCache()
-        val beforeStable = rasterCache.rasterBuildCount
         val stableDrawn = rasterCache.draw(drawContext.canvas, stableLayers, renderer, viewport, transform, zoom)
-        if (rasterCache.rasterBuildCount != beforeStable) finishedDrawn += stableDrawn
+        finishedDrawn += stableDrawn
         background(additionsCache, additionsLayer.scene, additionsLayer.excluded)
         movingStrokes.forEach { projection ->
             drawInk(renderer, projection.stroke,

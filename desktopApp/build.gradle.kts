@@ -301,6 +301,7 @@ tasks.register<Test>("nativeWaylandTest") {
         systemProperty("vivenotes.test.waylandScreenshotDir", it)
     }
     filter.includeTestsMatching("com.vivenotes.desktop.rendering.NativeWaylandRenderingTest")
+    filter.includeTestsMatching("com.vivenotes.desktop.rendering.NativeInkReplayTest")
     filter.includeTestsMatching("com.vivenotes.desktop.touch.NativeWaylandInputTest")
     filter.includeTestsMatching("com.vivenotes.desktop.ToolkitPopupKeyboardContractTest")
     mustRunAfter(sharedUiSuite)
