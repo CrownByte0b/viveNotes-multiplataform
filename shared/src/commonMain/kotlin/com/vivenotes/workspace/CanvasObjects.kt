@@ -69,6 +69,9 @@ fun Outline.movedBy(dx: Float, dy: Float): Outline = when (this) {
     is Outline.Text, is Outline.Ink -> this
 }
 
+/** A text box with nothing written in it: provisional, so it is discarded when left. */
+fun Outline.Text.isUnwritten(): Boolean = blocks.isNotEmpty() && blocks.all { it.text.isBlank() }
+
 /**
  * The strip Android reserves above and left of every table's grid for its column and row handles.
  * A table's `(x, y)` is the corner of this box, so its grid starts this far in (`TableContainer`).

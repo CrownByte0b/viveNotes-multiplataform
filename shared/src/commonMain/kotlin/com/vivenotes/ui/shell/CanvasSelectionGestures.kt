@@ -63,6 +63,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
     measuredTextHeights: Map<String, Float>,
     toPage: (Offset) -> Offset,
     hitsContent: (Offset, WorkspaceState) -> Boolean,
+    emptyTextBoxAt: (Offset, WorkspaceState) -> String?,
     hitsSelectedTransform: (Offset, WorkspaceState) -> Boolean,
     hitsSelectionToolbar: (Offset, WorkspaceState, Float) -> Boolean,
     currentSelectInk: (InkSelection) -> Unit,
@@ -73,6 +74,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
     currentSelectObjects: (Float, Float, Float, Float) -> Unit,
     currentDrawObject: (Float, Float) -> Unit,
     currentCreate: (Float, Float) -> Unit,
+    currentPlaceEmptyTextBox: (String, Float, Float) -> Unit,
     currentClearCanvasFocus: () -> Unit,
     canPaste: () -> Boolean,
 ) {
@@ -143,6 +145,10 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
             waitForUpOrCancellation(pass = PointerEventPass.Initial)
             return@awaitEachGesture
         }
+        // The Text tool's press in an unwritten box, which shows only its caret: a press on the page
+        // to anyone looking, so it is kept from the box's field.
+        val emptyBox = if (currentState.textToolArmed && start.y >= titleFloor) emptyTextBoxAt(start, currentState) else null
+        if (emptyBox != null) down.consume()
         val inkHit = if (start.y >= titleFloor && !onObjectToolbar && !currentState.objectLassoArmed &&
             !currentState.textToolArmed && !currentState.shapeToolArmed && currentState.drawPlacement == null && !hitsSelectedTransform(start, currentState))
             currentState.selectedPage?.ink?.let { ink -> ink.geometry?.selectAt(ink, start.x, start.y) }
@@ -241,7 +247,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
             // selection the button acts on. Asked of the press rather than the release
             // because the press has finished dispatching by now, while this release may
             // reach the page before or after the button, depending on scheduling.
-            val handled = down.isConsumed
+            val handled = down.isConsumed && emptyBox == null
             val point = toPage(last.position)
             val x = point.x
             val y = point.y
@@ -255,10 +261,13 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
             if (!handled && insideGroup) {
                 focusManager.clearFocus()
                 canvasFocusRequester.requestFocus()
-            } else if (!handled && !hitsContent(point, currentState) && y >= titleFloor) {
+            } else if (!handled && (emptyBox != null || !hitsContent(point, currentState)) && y >= titleFloor) {
                 tapCandidate = true
-                focusManager.clearFocus()
-                canvasFocusRequester.requestFocus()
+                // A box the caret only moves within keeps the keyboard.
+                if (emptyBox == null) {
+                    focusManager.clearFocus()
+                    canvasFocusRequester.requestFocus()
+                }
                 // Beside a sheet that bounds the page there is nowhere to put anything.
                 val style = currentState.selectedPage?.document?.style
                 val placeable = style != null && currentExtent?.canPlaceAt(style, x, y) == true
@@ -270,7 +279,9 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
                     pastePoint = null
                     if (currentState.drawPlacement == DrawPlacementTool.Table || currentState.drawPlacement == DrawPlacementTool.Equation) {
                         if (placeable) currentDrawObject(x, y)
-                    } else if (currentState.textToolArmed && placeable) currentCreate(x, y)
+                    } else if (currentState.textToolArmed && placeable) {
+                        if (emptyBox != null) currentPlaceEmptyTextBox(emptyBox, x, y) else currentCreate(x, y)
+                    }
                     else currentClearCanvasFocus()
                 }
             }

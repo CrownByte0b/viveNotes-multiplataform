@@ -611,9 +611,6 @@ data class WorkspaceState(
             .discardEmptyTextHistory(setOf(id))
     }
 
-    private fun Outline.Text.isUnwritten(): Boolean =
-        blocks.isNotEmpty() && blocks.all { it.text.isBlank() }
-
     fun createTextBox(x: Float, y: Float): WorkspaceState {
         val page = editablePage
         if (!textToolArmed || page == null || y < page.document.style.titleFloor) return this
@@ -646,6 +643,22 @@ data class WorkspaceState(
             undo = undo.dropLast(1)
         }
         return copy(structuralUndo = undo, structuralRedo = structuralRedo.withoutIds())
+    }
+
+    /**
+     * The Text tool's click on an unwritten box. Only the box's caret shows, so to the user that is a
+     * click on the page: the caret goes there, taking the box with it. It stays the same box, with
+     * nothing new to undo, and an armed font or size stays armed if it was already being edited.
+     */
+    fun placeEmptyTextBox(id: String, x: Float, y: Float): WorkspaceState {
+        val page = editablePage
+        if (!textToolArmed || page == null || y < page.document.style.titleFloor) return this
+        val box = page.document.outlines.firstOrNull { it.id == id } as? Outline.Text ?: return this
+        if (!box.isUnwritten()) return this
+        val placed = editOutlines(recordHistory = false, refreshPreview = false) { outlines ->
+            outlines.map { if (it.id == id) box.copy(x = x.coerceAtLeast(0f), y = y) else it }
+        }
+        return if (focusedTextOutlineId == id) placed else placed.focusTextBox(id)
     }
 
     fun moveTextBox(id: String, dx: Float, dy: Float, recordHistory: Boolean = true): WorkspaceState = editOutlines(recordHistory, refreshPreview = false) { outlines ->

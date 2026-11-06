@@ -108,6 +108,7 @@ import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.isUnwritten
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
 
@@ -229,7 +230,9 @@ internal fun CanvasTextBoxes(
     }
     var composed = 0
     var background = 0
-    textOutlines.forEachIndexed { index, outline ->
+    // An unwritten box shows nothing, so it lies under the rest rather than take their clicks.
+    val drawOrder = remember(textOutlines) { textOutlines.withIndex().sortedBy { !it.value.isUnwritten() } }
+    drawOrder.forEach { (index, outline) ->
         key(outline.id) {
             val focused = state.focusedTextOutlineId == outline.id
             val measureKey = requests.getValue(outline.id)
@@ -396,11 +399,12 @@ private fun CanvasTextBox(
     val y = outline.y.coerceAtLeast(0f).dp
     val renderedHeight = (measuredTextHeights[outline.id]
         ?: maxOf(outline.minHeight, 150f)).dp
-    val showChrome = focused && outline.blocks.any { it.runs.any { run -> run.plainText.isNotEmpty() } }
+    val showChrome = focused && !outline.isUnwritten()
     val currentResize by rememberUpdatedState(onResizeTextBox)
     val hovered by remember(hoveredTextBox, outline.id) { derivedStateOf { hoveredTextBox.value == outline.id } }
     val showMoveBar = moveBar.shows(hovered)
-    val activeFrame = focused || lassoSelected
+    // Until it has content a box is only its caret; one about to be discarded shows no frame.
+    val activeFrame = showChrome || lassoSelected
     if (showSelectionToolkit) {
         Surface(
             color = MaterialTheme.colorScheme.primaryContainer,

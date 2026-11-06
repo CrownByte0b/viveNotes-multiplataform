@@ -35,8 +35,7 @@ import com.vivenotes.ui.canvas.LocalObjectGrab
 import com.vivenotes.ui.canvas.detectObjectDrag
 import com.vivenotes.ui.icons.NavigationSymbols
 import com.vivenotes.workspace.WorkspaceState
-import com.vivenotes.workspace.primeHeight
-import com.vivenotes.workspace.primeWidth
+import com.vivenotes.workspace.isUnwritten
 
 /** The move bar's thickness in page dp: thin against a box, thick enough for a mouse to land on. */
 internal const val TEXT_BOX_MOVE_BAR_DP = 16f
@@ -51,7 +50,7 @@ internal enum class TextBoxMoveBarMode { Hidden, OnHover, Always }
 internal fun WorkspaceState.textBoxMoveBarMode(box: Outline.Text): TextBoxMoveBarMode = when {
     selectedPage?.editable != true || selectedInk != null || inkTool != null -> TextBoxMoveBarMode.Hidden
     box.id in selectedTextOutlineIds -> TextBoxMoveBarMode.Always
-    box.blocks.none { block -> block.runs.any { it.plainText.isNotEmpty() } } -> TextBoxMoveBarMode.Hidden
+    box.isUnwritten() -> TextBoxMoveBarMode.Hidden
     focusedTextOutlineId == box.id -> TextBoxMoveBarMode.Always
     textToolArmed || shapeToolArmed || objectLassoArmed || drawPlacement != null -> TextBoxMoveBarMode.Hidden
     else -> TextBoxMoveBarMode.OnHover
@@ -78,20 +77,10 @@ internal fun Outline.Text.moveBarContains(point: Offset): Boolean {
  * everything, or else the topmost with its body there. None behind a Prime Object, drawn over text.
  */
 internal fun WorkspaceState.textBoxUnderMouse(point: Offset, hovered: String?, heights: Map<String, Float>): String? {
-    val outlines = selectedPage?.document?.outlines ?: return null
-    val boxes = outlines.filterIsInstance<Outline.Text>()
+    val boxes = selectedPage?.document?.outlines.orEmpty().filterIsInstance<Outline.Text>()
     boxes.firstOrNull { it.moveBarContains(point) && textBoxMoveBarMode(it).shows(it.id == hovered) }?.let { return it.id }
-    val coveredByObject = outlines.any { outline ->
-        outline !is Outline.Text && point.x in outline.x..(outline.x + outline.primeWidth()) &&
-            point.y in outline.y..(outline.y + (heights[outline.id] ?: outline.primeHeight()))
-    }
-    if (coveredByObject) return null
-    return boxes.lastOrNull { box ->
-        val left = box.x.coerceAtLeast(0f)
-        val top = box.y.coerceAtLeast(0f)
-        point.x in left..(left + box.width.coerceIn(120f, 2000f)) &&
-            point.y in top..(top + (heights[box.id] ?: maxOf(150f, box.minHeight)))
-    }?.id
+    if (objectCovers(point, heights)) return null
+    return boxes.lastOrNull { !it.isUnwritten() && it.bodyContains(point, heights) }?.id
 }
 
 /**

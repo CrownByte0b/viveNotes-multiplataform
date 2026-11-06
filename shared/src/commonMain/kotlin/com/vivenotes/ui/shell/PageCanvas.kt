@@ -124,6 +124,7 @@ import com.vivenotes.workspace.RulerKind
 import com.vivenotes.workspace.TableEdit
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.isPrimeObject
+import com.vivenotes.workspace.isUnwritten
 import com.vivenotes.workspace.movedBy
 import com.vivenotes.workspace.primeHeight
 import com.vivenotes.workspace.primeWidth
@@ -170,6 +171,7 @@ internal fun PageCanvas(
     onCreateShape: (Float, Float, Float, Float) -> Unit,
     onStraightenStroke: (StraightLine, InkPenSettings) -> Unit = { _, _ -> },
     onCreateTextBox: (Float, Float) -> Unit,
+    onPlaceEmptyTextBox: (String, Float, Float) -> Unit,
     onMoveTextBox: (String, Float, Float, Boolean) -> Unit,
     onMoveSelection: (Float, Float, Boolean) -> Unit,
     onResizeTextBox: (String, Float?, Float?, Boolean) -> Unit,
@@ -269,6 +271,7 @@ internal fun PageCanvas(
     ApplyCanvasCursorWhilePressed(heldCursor)
     val canvasPointer = remember { CanvasPointer() }
     val currentCreate by rememberUpdatedState(onCreateTextBox)
+    val currentPlaceEmptyTextBox by rememberUpdatedState(onPlaceEmptyTextBox)
     val currentCreateShape by rememberUpdatedState(onCreateShape)
     val currentClearCanvasFocus by rememberUpdatedState(onClearCanvasFocus)
     val currentPaste by rememberUpdatedState(onPasteCanvas)
@@ -504,8 +507,9 @@ internal fun PageCanvas(
         snapshot.selectedPage?.document?.outlines?.any { outline ->
             val height = if (outline is Outline.Text) measuredTextHeights[outline.id]
                 ?: maxOf(150f, outline.minHeight) else measuredTextHeights[outline.id] ?: outline.primeHeight()
-            val focusedText = outline is Outline.Text && snapshot.focusedTextOutlineId == outline.id
-            val margin = if (focusedText) 16f else 0f
+            // Room for the resize handle, which an unwritten box does not have.
+            val margin = if (outline is Outline.Text && snapshot.focusedTextOutlineId == outline.id &&
+                !outline.isUnwritten()) 16f else 0f
             val chromeTop = if (outline is Outline.Text && showsMoveBar(outline, snapshot)) TEXT_BOX_MOVE_BAR_DP
                 else if (outline.id in snapshot.selectedObjectIds) 52f else 0f
             point.x >= outline.x - margin && point.x <= outline.x + outline.primeWidth() + margin &&
@@ -701,6 +705,7 @@ internal fun PageCanvas(
                     measuredTextHeights = measuredTextHeights,
                     toPage = ::toPage,
                     hitsContent = ::hitsContent,
+                    emptyTextBoxAt = { point, snapshot -> snapshot.emptyTextBoxAt(point, measuredTextHeights) },
                     hitsSelectedTransform = ::hitsSelectedTransform,
                     hitsSelectionToolbar = ::hitsSelectionToolbar,
                     currentSelectInk = { currentSelectInk(it) },
@@ -711,6 +716,7 @@ internal fun PageCanvas(
                     currentSelectObjects = { l, t, r, b -> currentSelectObjects(l, t, r, b) },
                     currentDrawObject = { x, y -> currentDrawObject(x, y) },
                     currentCreate = { x, y -> currentCreate(x, y) },
+                    currentPlaceEmptyTextBox = { id, x, y -> currentPlaceEmptyTextBox(id, x, y) },
                     currentClearCanvasFocus = { currentClearCanvasFocus() },
                     canPaste = { canvasClipboard.canPaste() },
                 )

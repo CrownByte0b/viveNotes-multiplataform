@@ -146,6 +146,11 @@ internal fun WorkspacePage(
             onStateChange { it.createTextBox(x, y) }
             if (focusMoves) requestEditorFocus()
         },
+        onPlaceEmptyTextBox = { id, x, y ->
+            val focusMoves = state.focusedTextOutlineId != id
+            onStateChange { it.placeEmptyTextBox(id, x, y) }
+            if (focusMoves) requestEditorFocus()
+        },
         onMoveTextBox = { id, dx, dy, history -> onStateChange { it.moveTextBox(id, dx, dy, history) } },
         onMoveSelection = { dx, dy, history -> onStateChange { it.moveSelectedObjects(dx, dy, history) } },
         onResizeTextBox = { id, width, height, history ->
