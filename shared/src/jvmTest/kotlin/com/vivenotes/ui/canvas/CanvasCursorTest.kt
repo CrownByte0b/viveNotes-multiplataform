@@ -271,7 +271,7 @@ class CanvasCursorTest {
     fun draggingATextBoxByItsGripShowsGrabbing() = withWorkspace { host ->
         val box = Outline.Text(id = "box", x = 200f, y = 300f, blocks = listOf(Block.of("Drag me")))
         host.update(workspace(listOf(box)).focusTextBox(box.id))
-        val grip = host.point(host.bounds(WorkspaceTestTags.textGrip(box.id)).center)
+        val grip = host.point(host.bounds(WorkspaceTestTags.textMoveBar(box.id)).center)
         host.mouse(MouseEvent.MOUSE_ENTERED, grip)
         host.mouse(MouseEvent.MOUSE_MOVED, grip)
         host.mouse(MouseEvent.MOUSE_PRESSED, grip)
@@ -286,6 +286,33 @@ class CanvasCursorTest {
             host.state.value.selectedPage!!.document.outlines.single().x.takeIf { it > box.x }
         }
         assertTrue(moved > box.x)
+    }
+
+    /** Real window events: the bar comes up over a box nobody is editing, and survives being crossed onto. */
+    @Test
+    fun aBarRevealedByHoverCanBeReachedAndDragged() = withWorkspace { host ->
+        val box = Outline.Text(id = "box", x = 200f, y = 300f, blocks = listOf(Block.of("Drag me")))
+        host.update(workspace(listOf(box)))
+        val body = host.point(host.bounds(WorkspaceTestTags.textBox(box.id)).center)
+        host.mouse(MouseEvent.MOUSE_ENTERED, body)
+        host.mouse(MouseEvent.MOUSE_MOVED, body)
+        val bar = host.point(host.bounds(WorkspaceTestTags.textMoveBar(box.id)).center)
+        host.mouse(MouseEvent.MOUSE_MOVED, Point(bar.x, bar.y + 12))
+        host.mouse(MouseEvent.MOUSE_MOVED, bar)
+        Thread.sleep(200)
+        val stillThere = host.point(host.bounds(WorkspaceTestTags.textMoveBar(box.id)).center)
+        assertEquals(bar, stillThere, "the bar stayed up with the mouse on it")
+        host.mouse(MouseEvent.MOUSE_PRESSED, bar)
+        for (step in 1..3) {
+            host.mouse(MouseEvent.MOUSE_DRAGGED, Point(bar.x + step * 15, bar.y + step * 10))
+            host.awaitCursor(grabbing, "bar drag step $step")
+        }
+        host.mouse(MouseEvent.MOUSE_RELEASED, Point(bar.x + 45, bar.y + 30))
+        val moved = waitFor("the box moved") {
+            host.state.value.selectedPage!!.document.outlines.single().x.takeIf { it > box.x }
+        }
+        assertTrue(moved > box.x)
+        assertEquals(null, host.state.value.focusedTextOutlineId, "moving a box does not start editing it")
     }
 
     /** A link in a box nobody is editing reads as a link: the hand over its text and its icon. */

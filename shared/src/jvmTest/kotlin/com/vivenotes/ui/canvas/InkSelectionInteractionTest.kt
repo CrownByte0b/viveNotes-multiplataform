@@ -227,7 +227,7 @@ class InkSelectionInteractionTest {
             moveTo(Offset(0f, 360f), delayMillis = 20); moveTo(Offset(0f, 170f), delayMillis = 20); release()
         }
         onNodeWithTag(INK_SELECTION_FRAME_TAG).assertIsDisplayed()
-        onNodeWithTag(WorkspaceTestTags.textGrip(text.id)).assertDoesNotExist()
+        onNodeWithTag(WorkspaceTestTags.textMoveBar(text.id)).assertDoesNotExist()
         onNodeWithTag(WorkspaceTestTags.textResizeHandle(text.id)).assertDoesNotExist()
         onNodeWithTag(INK_SELECTION_FRAME_TAG).performMouseInput {
             updatePointerTo(center); press(); moveBy(Offset(20f, 15f), delayMillis = 40)
@@ -242,6 +242,29 @@ class InkSelectionInteractionTest {
             assertEquals(text.x + move.dxDp, state.value.selectedPage!!.document.outlines.single().x)
             assertEquals(text.y + move.dyDp, state.value.selectedPage!!.document.outlines.single().y)
             assertEquals(1, state.value.structuralUndo.size)
+        }
+    }
+
+    /** A stroke beneath a text box's bar must not take the press: the bar is what the mouse sees there. */
+    @Test
+    fun aPressOnATextBoxBarOverInkMovesTheBoxAndLeavesTheInk() = runDesktopComposeUiTest(width = 1500, height = 900) {
+        val text = Outline.Text(id = "over-ink", x = 20f, y = 208f, width = 200f, blocks = listOf(Block.of("Over a stroke")))
+        val initial = workspace()
+        val state = mutableStateOf(initial.updatePage(initial.selectedPageId) { it.copy(document = PageDoc(outlines = listOf(text))) })
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
+
+        onNodeWithTag(WorkspaceTestTags.textBox(text.id)).performMouseInput { moveTo(Offset(100f, 60f)) }
+        onNodeWithTag(WorkspaceTestTags.textMoveBar(text.id)).performMouseInput {
+            // The bar's top is y 193, so this is the page's (40, 200), on the stroke.
+            moveTo(Offset(20f, 7f))
+            press()
+            moveBy(Offset(30f, 20f))
+            release()
+        }
+        runOnIdle {
+            assertNull(state.value.selectedInk, "the stroke was left alone")
+            assertTrue(state.value.pendingInkEdits.isEmpty())
+            assertTrue(state.value.selectedPage!!.document.outlines.single().x > text.x, "the box moved")
         }
     }
 

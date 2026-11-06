@@ -39,6 +39,7 @@ internal class CanvasInteractionState(
     val panPointerState: MutableState<Offset>,
     val titleValueState: MutableState<TextFieldValue>,
     val keyboardTextBoxState: MutableState<String?>,
+    val hoveredTextBoxState: MutableState<String?>,
     val textMenuState: MutableState<TextMenuRequest?>,
     val heldTableAxisState: MutableState<TableAxis?>,
     val reachedXState: MutableIntState,
@@ -60,6 +61,7 @@ internal class CanvasInteractionState(
     var panPointer by panPointerState
     var titleValue by titleValueState
     var keyboardTextBox by keyboardTextBoxState
+    var hoveredTextBox by hoveredTextBoxState
     var textMenu by textMenuState
     var heldTableAxis by heldTableAxisState
     var reachedX by reachedXState
@@ -85,6 +87,7 @@ internal fun rememberCanvasInteractionState(page: PageSummary?, state: Workspace
     val panPointerState = remember(page?.id) { mutableStateOf(Offset.Zero) }
     val titleValueState = remember(page?.id) { mutableStateOf(TextFieldValue(page?.title.orEmpty())) }
     val keyboardTextBoxState = remember(page?.id) { mutableStateOf<String?>(null) }
+    val hoveredTextBoxState = remember(page?.id) { mutableStateOf<String?>(null) }
     val textMenuState = remember(page?.id) { mutableStateOf<TextMenuRequest?>(null) }
     val heldTableAxisState = remember(page?.id) { mutableStateOf<TableAxis?>(null) }
     val reachedXState = remember(page?.id) { mutableIntStateOf(0) }
@@ -107,6 +110,7 @@ internal fun rememberCanvasInteractionState(page: PageSummary?, state: Workspace
         panPointerState,
         titleValueState,
         keyboardTextBoxState,
+        hoveredTextBoxState,
         textMenuState,
         heldTableAxisState,
         reachedXState,

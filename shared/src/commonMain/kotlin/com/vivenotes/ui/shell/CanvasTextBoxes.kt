@@ -19,7 +19,6 @@ import com.vivenotes.ui.components.BoundTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -85,7 +84,6 @@ import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.LinkTarget
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.canvas.CtrlState
-import com.vivenotes.ui.canvas.LocalObjectGrab
 import com.vivenotes.ui.canvas.PreviewLayout
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.TextBoxPreviews
@@ -97,7 +95,6 @@ import com.vivenotes.ui.canvas.TextContextMenu
 import com.vivenotes.ui.canvas.TextMenuRequest
 import com.vivenotes.ui.canvas.asAnnotatedString
 import com.vivenotes.ui.canvas.caretAt
-import com.vivenotes.ui.canvas.detectObjectDrag
 import com.vivenotes.ui.canvas.drawBlockDecorations
 import com.vivenotes.ui.canvas.linkAtPoint
 import com.vivenotes.ui.canvas.linkSpanAtPoint
@@ -135,6 +132,7 @@ internal fun CanvasTextBoxes(
     previewLayouts: MutableMap<String, PreviewLayout>,
     menuState: MutableState<TextMenuRequest?>,
     keyboardFocusState: MutableState<String?>,
+    hoveredTextBox: State<String?>,
     richColors: RichTextColors,
     palette: CanvasPalette,
     thumbnails: VideoThumbnailSource?,
@@ -182,7 +180,7 @@ internal fun CanvasTextBoxes(
             ?.let { id to it }
     }.toMap()
     val pinned = state.selectedTextOutlineIds + listOfNotNull(state.focusedTextOutlineId, searchTarget,
-        menuState.value?.outlineId, keyboardFocusState.value)
+        menuState.value?.outlineId, keyboardFocusState.value, hoveredTextBox.value)
     val currentOutlines by rememberUpdatedState(textOutlines)
     val currentWindow by rememberUpdatedState(visible)
     val currentPinned by rememberUpdatedState(pinned)
@@ -249,7 +247,7 @@ internal fun CanvasTextBoxes(
                     outline = outline, index = index, focused = focused, lassoSelected = selected,
                     showSelectionToolkit = selected && state.selectedInk == null && state.selectedObjectIds.isEmpty() &&
                         outline.id == state.selectedTextOutlineIds.firstOrNull(),
-                    inkSelected = state.selectedInk != null,
+                    moveBar = state.textBoxMoveBarMode(outline),
                     selection = if (focused) state.editorSelection else TextSelection(0),
                     typingMarks = if (focused) state.typingMarks else emptySet(),
                     composition = if (focused) state.editorComposition else null,
@@ -281,6 +279,7 @@ internal fun CanvasTextBoxes(
                     previewLayouts = previewLayouts,
                     menuState = menuState,
                     keyboardFocusState = keyboardFocusState,
+                    hoveredTextBox = hoveredTextBox,
                     richColors = richColors,
                     palette = palette,
                     thumbnails = thumbnails,
@@ -323,7 +322,7 @@ private fun CanvasTextBox(
     focused: Boolean,
     lassoSelected: Boolean,
     showSelectionToolkit: Boolean,
-    inkSelected: Boolean,
+    moveBar: TextBoxMoveBarMode,
     selection: TextSelection,
     typingMarks: Set<Mark>,
     composition: TextSelection?,
@@ -335,6 +334,7 @@ private fun CanvasTextBox(
     previewLayouts: MutableMap<String, PreviewLayout>,
     menuState: MutableState<TextMenuRequest?>,
     keyboardFocusState: MutableState<String?>,
+    hoveredTextBox: State<String?>,
     richColors: RichTextColors,
     palette: CanvasPalette,
     thumbnails: VideoThumbnailSource?,
@@ -361,7 +361,6 @@ private fun CanvasTextBox(
     val density = LocalDensity.current
     val uriHandler = LocalUriHandler.current
     val textMeasurer = rememberTextMeasurer()
-    val currentMoveSelection by rememberUpdatedState(onMoveSelection)
     val currentEditTextAt by rememberUpdatedState(onEditTextAt)
     val currentToggleTodo by rememberUpdatedState(onToggleTodo)
     val currentTextShortcut by rememberUpdatedState(onTextShortcut)
@@ -398,9 +397,10 @@ private fun CanvasTextBox(
     val renderedHeight = (measuredTextHeights[outline.id]
         ?: maxOf(outline.minHeight, 150f)).dp
     val showChrome = focused && outline.blocks.any { it.runs.any { run -> run.plainText.isNotEmpty() } }
-    val currentMove by rememberUpdatedState(onMoveTextBox)
     val currentResize by rememberUpdatedState(onResizeTextBox)
-    val grab = LocalObjectGrab.current
+    val hovered by remember(hoveredTextBox, outline.id) { derivedStateOf { hoveredTextBox.value == outline.id } }
+    val showMoveBar = moveBar.shows(hovered)
+    val activeFrame = focused || lassoSelected
     if (showSelectionToolkit) {
         Surface(
             color = MaterialTheme.colorScheme.primaryContainer,
@@ -423,34 +423,13 @@ private fun CanvasTextBox(
             }
         }
     }
-    if ((showChrome || lassoSelected) && !inkSelected) {
-        Box(
-            modifier = Modifier.offset(x, (y - 32.dp).coerceAtLeast(0.dp))
-                .size(48.dp, 32.dp)
-                .testTag(WorkspaceTestTags.textGrip(outline.id))
-                .semantics { contentDescription = Strings.move_text_box }
-                .pointerInput(outline.id, lassoSelected) {
-                    var firstChange = true
-                    detectObjectDrag(grab,
-                        onDragStart = { firstChange = true },
-                        onDrag = { change, drag ->
-                            change.consume()
-                            val dx = with(density) { drag.x.toDp().value }
-                            val dy = with(density) { drag.y.toDp().value }
-                            if (lassoSelected) currentMoveSelection(dx, dy, firstChange)
-                            else currentMove(outline.id, dx, dy, firstChange)
-                            firstChange = false
-                        },
-                    )
-                },
-        ) {
-            Box(Modifier.align(Alignment.Center).size(40.dp, 16.dp)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small),
-                contentAlignment = Alignment.Center) {
-                Text("⋮⋮", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+    if (showMoveBar) {
+        TextBoxMoveBar(outline,
+            border = if (activeFrame) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+            onMove = { dx, dy, firstChange ->
+                if (lassoSelected) onMoveSelection(dx, dy, firstChange)
+                else onMoveTextBox(outline.id, dx, dy, firstChange)
+            })
     }
     Box(
         modifier = Modifier.offset(x, y).width(width)
@@ -494,9 +473,12 @@ private fun CanvasTextBox(
             }
             .testTag(WorkspaceTestTags.textBox(outline.id)),
     ) {
-        if (focused || lassoSelected) Box(Modifier.matchParentSize()
-            .border(1.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
+        val frameShape = if (showMoveBar) textBoxUnderBarShape() else MaterialTheme.shapes.small
+        if (activeFrame) Box(Modifier.matchParentSize()
+            .border(1.dp, MaterialTheme.colorScheme.primary, frameShape)
             .testTag(WorkspaceTestTags.textBoxOutline(outline.id)))
+        else if (showMoveBar) Box(Modifier.matchParentSize()
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, frameShape))
         val styledText = richText?.asAnnotatedString(richColors) ?: buildAnnotatedString {}
         val menuSelection = textMenu?.takeIf { it.outlineId == outline.id }?.selection
             ?.takeUnless { it.collapsed }

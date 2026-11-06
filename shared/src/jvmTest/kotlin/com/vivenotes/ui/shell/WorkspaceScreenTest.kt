@@ -664,11 +664,11 @@ class WorkspaceScreenTest {
             val id = initial.focusedTextOutline!!.id
             setWorkspace(initial = initial)
 
-            onNodeWithTag(WorkspaceTestTags.textGrip(id)).assertDoesNotExist()
+            onNodeWithTag(WorkspaceTestTags.textMoveBar(id)).assertDoesNotExist()
             onNodeWithTag(WorkspaceTestTags.textResizeHandle(id)).assertDoesNotExist()
             onNodeWithTag(WorkspaceTestTags.textBox(id) + "-editor")
                 .performTextReplacement("A new note")
-            onNodeWithTag(WorkspaceTestTags.textGrip(id)).assertExists()
+            onNodeWithTag(WorkspaceTestTags.textMoveBar(id)).assertExists()
             onNodeWithTag(WorkspaceTestTags.textResizeHandle(id)).assertExists()
         }
 
@@ -845,7 +845,7 @@ class WorkspaceScreenTest {
                 release()
             }
             runOnIdle { assertEquals(setOf(firstId, secondId), observed.selectedTextOutlineIds) }
-            onNodeWithTag(WorkspaceTestTags.textGrip(firstId)).performMouseInput {
+            onNodeWithTag(WorkspaceTestTags.textMoveBar(firstId)).performMouseInput {
                 moveTo(Offset(40f, 12f))
                 press()
                 moveTo(Offset(90f, 42f))
@@ -923,7 +923,7 @@ class WorkspaceScreenTest {
         }
 
     @Test
-    fun textGripMovesBeforeReleaseAndRecordsOneUndoStep() =
+    fun textMoveBarMovesBeforeReleaseAndRecordsOneUndoStep() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             val initial = WorkspaceState.demo().focusBody()
             val id = initial.focusedTextOutlineId!!
@@ -931,7 +931,7 @@ class WorkspaceScreenTest {
             var observed = initial
             setWorkspace(initial = initial) { observed = it }
 
-            onNodeWithTag(WorkspaceTestTags.textGrip(id)).performMouseInput {
+            onNodeWithTag(WorkspaceTestTags.textMoveBar(id)).performMouseInput {
                 moveTo(Offset(45f, 12f))
                 press()
                 moveTo(Offset(85f, 24f))
@@ -941,11 +941,11 @@ class WorkspaceScreenTest {
                 assertEquals(initial.structuralUndo.size + 1, observed.structuralUndo.size)
             }
             val firstX = observed.bodyTextOutline!!.x
-            onNodeWithTag(WorkspaceTestTags.textGrip(id)).performMouseInput {
+            onNodeWithTag(WorkspaceTestTags.textMoveBar(id)).performMouseInput {
                 moveTo(Offset(100f, 32f))
             }
             runOnIdle { assertTrue(observed.bodyTextOutline!!.x > firstX) }
-            onNodeWithTag(WorkspaceTestTags.textGrip(id)).performMouseInput { release() }
+            onNodeWithTag(WorkspaceTestTags.textMoveBar(id)).performMouseInput { release() }
             runOnIdle {
                 assertEquals(initial.structuralUndo.size + 1, observed.structuralUndo.size)
                 assertEquals(startX, observed.undoStructure().bodyTextOutline!!.x)
@@ -980,18 +980,22 @@ class WorkspaceScreenTest {
         }
 
     @Test
-    fun textMoveGripIsCompactAndUsesTheDarkSurfaceColour() =
+    fun textMoveBarSpansTheBoxThinlyAndUsesTheDarkSurfaceColour() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             val initial = WorkspaceState.demo().focusBody()
             val id = initial.focusedTextOutlineId!!
             setWorkspace(initial = initial)
 
-            val grip = onNodeWithTag(WorkspaceTestTags.textGrip(id))
-            val bounds = grip.getUnclippedBoundsInRoot()
-            assertEquals(48.dp, bounds.right - bounds.left)
-            val pixels = grip.captureToImage().toPixelMap()
+            val bar = onNodeWithTag(WorkspaceTestTags.textMoveBar(id))
+            val bounds = bar.getUnclippedBoundsInRoot()
+            val box = onNodeWithTag(WorkspaceTestTags.textBox(id)).getUnclippedBoundsInRoot()
+            assertEquals(box.right - box.left, bounds.right - bounds.left)
+            assertEquals(box.left, bounds.left)
+            assertEquals(16.dp, bounds.bottom - bounds.top)
+            assertEquals(box.top + 1.dp, bounds.bottom, "the bar's bottom border lies on the box's top border")
+            val pixels = bar.captureToImage().toPixelMap()
             val surface = pixels[pixels.width / 6, pixels.height / 3]
-            assertTrue(surface.luminance() < 0.3f, "grip surface is too bright: $surface")
+            assertTrue(surface.luminance() < 0.3f, "bar surface is too bright: $surface")
         }
 
     @Test

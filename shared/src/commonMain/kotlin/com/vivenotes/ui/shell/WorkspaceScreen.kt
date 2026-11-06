@@ -102,7 +102,7 @@ object WorkspaceTestTags {
     fun groupCorner(corner: Int): String = "workspace-group-corner-$corner"
     fun textBox(id: String): String = "workspace-text-box-$id"
     fun textBoxOutline(id: String): String = "workspace-text-box-outline-$id"
-    fun textGrip(id: String): String = "workspace-text-grip-$id"
+    fun textMoveBar(id: String): String = "workspace-text-move-bar-$id"
     fun textResizeHandle(id: String): String = "workspace-text-resize-$id"
 
     fun ribbonTab(tab: RibbonTab): String = "workspace-ribbon-${tab.name}"

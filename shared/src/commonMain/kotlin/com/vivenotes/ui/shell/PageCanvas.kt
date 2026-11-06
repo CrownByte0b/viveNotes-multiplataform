@@ -496,6 +496,9 @@ internal fun PageCanvas(
         }
     }
 
+    fun showsMoveBar(box: Outline.Text, snapshot: WorkspaceState): Boolean =
+        snapshot.textBoxMoveBarMode(box).shows(hovered = interaction.hoveredTextBox == box.id)
+
     fun hitsContent(point: Offset, snapshot: WorkspaceState): Boolean =
         snapshot.selectedPage?.ink?.let { ink -> ink.geometry?.selectAt(ink, point.x, point.y) != null } == true ||
         snapshot.selectedPage?.document?.outlines?.any { outline ->
@@ -503,7 +506,8 @@ internal fun PageCanvas(
                 ?: maxOf(150f, outline.minHeight) else measuredTextHeights[outline.id] ?: outline.primeHeight()
             val focusedText = outline is Outline.Text && snapshot.focusedTextOutlineId == outline.id
             val margin = if (focusedText) 16f else 0f
-            val chromeTop = if (focusedText) 32f else if (outline.id in snapshot.selectedObjectIds) 52f else 0f
+            val chromeTop = if (outline is Outline.Text && showsMoveBar(outline, snapshot)) TEXT_BOX_MOVE_BAR_DP
+                else if (outline.id in snapshot.selectedObjectIds) 52f else 0f
             point.x >= outline.x - margin && point.x <= outline.x + outline.primeWidth() + margin &&
                 point.y >= outline.y - chromeTop &&
                 point.y <= outline.y + height + margin
@@ -520,10 +524,8 @@ internal fun PageCanvas(
                 Offset(group.left - 6f, group.top - 6f), Offset(group.right + 6f, group.top - 6f),
                 Offset(group.left - 6f, group.bottom + 6f), Offset(group.right + 6f, group.bottom + 6f),
             ).any { (point - it).getDistance() <= 14f }
-        val textGrip = outlines.filterIsInstance<Outline.Text>().any { text ->
-            text.id in snapshot.selectedTextOutlineIds &&
-                point.x in text.x..(text.x + 48f) &&
-                point.y in (text.y - 32f).coerceAtLeast(0f)..text.y
+        val moveBar = outlines.any { text ->
+            text is Outline.Text && text.moveBarContains(point) && showsMoveBar(text, snapshot)
         }
         val primeBounds = outlines.any { outline ->
             val margin = if (outline is Outline.Shape && outline.segments.isNotEmpty())
@@ -533,7 +535,7 @@ internal fun PageCanvas(
                 point.x in (outline.x - margin)..(outline.x + outline.primeWidth() + margin) &&
                 point.y in (outline.y - margin)..(outline.y + height + margin)
         }
-        return groupBody || groupCorner || textGrip || primeBounds
+        return groupBody || groupCorner || moveBar || primeBounds
     }
 
     /** The selected objects' toolbar, which sits just above their frame. */
@@ -614,6 +616,9 @@ internal fun PageCanvas(
                 overrideDescendants = heldCursor != null)
             // Where the mouse is, for the badge beside it that shows what a click will insert.
             .followPointer(canvasPointer)
+            .followTextBoxHover(page?.id, interaction.hoveredTextBoxState) { position ->
+                currentState.textBoxUnderMouse(toPage(position), interaction.hoveredTextBox, measuredTextHeights)
+            }
             // Ahead of the page's own handlers: on the initial pass, the first modifier is asked first.
             // Keyed by the placement it writes, which is new for each page and each time the ruler is
             // shown: a handler started earlier would keep moving the placement of a ruler now gone.
@@ -780,6 +785,7 @@ internal fun PageCanvas(
                         previewLayouts = previewLayouts,
                         menuState = interaction.textMenuState,
                         keyboardFocusState = interaction.keyboardTextBoxState,
+                        hoveredTextBox = interaction.hoveredTextBoxState,
                         richColors = richColors,
                         palette = palette,
                         thumbnails = thumbnails,

@@ -43,6 +43,8 @@ class WindowsPackagingTest {
                     def p = gradle.rootProject.project(':desktopApp')
                     def dist = p.extensions.getByName('compose').desktop.application.nativeDistributions
                     assert dist.packageName == 'Vive Notes'
+                    assert p.version.toString() == '1.0.2-dev.0'
+                    assert dist.packageVersion == '1.0.2'
                     assert dist.includeAllModules
                     assert dist.targetFormats.collect { it.toString() }.contains('Msi')
                     assert dist.windows.perUserInstall
@@ -169,7 +171,7 @@ class WindowsPackagingTest {
     private fun runGradle(fixture: File, init: File): Int {
         val command = listOf(File(System.getProperty("vivenotes.test.gradleHome"), "bin/gradle").path,
             ":desktopApp:prepareWindowsResources", "--rerun-tasks", "--offline", "--console=plain",
-            "--no-configuration-cache", "--init-script", init.path, "--gradle-user-home",
+            "-Pversion=1.0.2-dev.0", "--no-configuration-cache", "--init-script", init.path, "--gradle-user-home",
             System.getProperty("vivenotes.test.gradleUserHome"))
         val log = File(fixture, "probe.log")
         val process = ProcessBuilder(command).directory(fixture).redirectErrorStream(true).redirectOutput(log)
