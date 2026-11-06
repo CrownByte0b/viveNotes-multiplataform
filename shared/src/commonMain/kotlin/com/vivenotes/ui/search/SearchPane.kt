@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -21,6 +22,9 @@ import com.vivenotes.model.search.ContentKind
 import com.vivenotes.model.search.snippetOf
 import com.vivenotes.search.*
 import com.vivenotes.ui.components.TooltipIconButton
+import com.vivenotes.ui.icons.DocumentSymbols
+import com.vivenotes.ui.icons.DrawSymbols
+import com.vivenotes.ui.icons.SettingsSymbols
 import com.vivenotes.ui.icons.ViewSymbols
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -135,21 +139,29 @@ fun SearchPane(
                         val snippet = snippetOf(hit.unit.text, hit.spans)
                         val emphasis = MaterialTheme.colorScheme.primary
                         Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainer) {
-                            Column(Modifier.fillMaxWidth().clickable { onHit(hit) }
-                                .testTag(SearchTags.hit(hit)).padding(10.dp)) {
-                                Text(buildAnnotatedString {
-                                    append(snippet.text)
-                                    snippet.spans.forEach { addStyle(SpanStyle(color = emphasis,
-                                        fontWeight = FontWeight.Bold), it.start, it.end) }
-                                }, style = MaterialTheme.typography.bodyMedium)
-                                Text(when (hit.unit.kind) {
-                                    ContentKind.Title -> Strings.page_title
-                                    ContentKind.Ink -> Strings.handwriting
-                                    ContentKind.Image -> Strings.picture_text
-                                    ContentKind.Cell -> Strings.table_cell
-                                    ContentKind.Text -> Strings.text_box
-                                }, style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(Modifier.fillMaxWidth().clickable { onHit(hit) }
+                                .testTag(SearchTags.hit(hit)).padding(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                hitMarker(hit.unit.kind)?.let { marker ->
+                                    Icon(marker.symbol, contentDescription = marker.description,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 2.dp).size(14.dp))
+                                }
+                                Column {
+                                    Text(buildAnnotatedString {
+                                        append(snippet.text)
+                                        snippet.spans.forEach { addStyle(SpanStyle(color = emphasis,
+                                            fontWeight = FontWeight.Bold), it.start, it.end) }
+                                    }, style = MaterialTheme.typography.bodyMedium)
+                                    Text(when (hit.unit.kind) {
+                                        ContentKind.Title -> Strings.page_title
+                                        ContentKind.Ink -> Strings.handwriting
+                                        ContentKind.Image -> Strings.picture_text
+                                        ContentKind.Cell -> Strings.table_cell
+                                        ContentKind.Text -> Strings.text_box
+                                    }, style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
@@ -157,4 +169,14 @@ fun SearchPane(
             }
         }
     }
+}
+
+internal class HitMarker(val symbol: ImageVector, val description: String)
+
+/** The icon beside a hit, as on Android's search panel: tables, pictures and handwriting; none for typed text. */
+internal fun hitMarker(kind: ContentKind): HitMarker? = when (kind) {
+    ContentKind.Cell -> HitMarker(DrawSymbols.Table, Strings.content_hit_in_table)
+    ContentKind.Image -> HitMarker(DocumentSymbols.Image, Strings.content_hit_from_picture)
+    ContentKind.Ink -> HitMarker(SettingsSymbols.Stylus, Strings.content_hit_from_handwriting)
+    ContentKind.Title, ContentKind.Text -> null
 }

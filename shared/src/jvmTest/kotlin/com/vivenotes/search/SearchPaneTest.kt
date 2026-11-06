@@ -14,8 +14,12 @@ import com.vivenotes.model.*
 import com.vivenotes.model.search.*
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.components.assertIsIndeterminateWavyBar
+import com.vivenotes.ui.icons.DocumentSymbols
+import com.vivenotes.ui.icons.DrawSymbols
+import com.vivenotes.ui.icons.SettingsSymbols
 import com.vivenotes.ui.search.SearchPane
 import com.vivenotes.ui.search.SearchTags
+import com.vivenotes.ui.search.hitMarker
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.ui.theme.ViveNotesTheme
@@ -172,6 +176,44 @@ class SearchPaneTest {
             onNodeWithTag(SearchTags.InkHighlight).assertDoesNotExist()
             mainClock.autoAdvance = true
         }
+
+    /** Android's ContentPanel HitRow: same symbols, and typed text and titles carry none. */
+    @Test fun hitMarkersMatchAndroidForEveryKind() {
+        assertSame(DrawSymbols.Table, hitMarker(ContentKind.Cell)?.symbol)
+        assertSame(DocumentSymbols.Image, hitMarker(ContentKind.Image)?.symbol)
+        assertSame(SettingsSymbols.Stylus, hitMarker(ContentKind.Ink)?.symbol)
+        assertEquals("In a table", hitMarker(ContentKind.Cell)?.description)
+        assertEquals("Read from a picture", hitMarker(ContentKind.Image)?.description)
+        assertEquals("Read from handwriting", hitMarker(ContentKind.Ink)?.description)
+        assertNull(hitMarker(ContentKind.Text))
+        assertNull(hitMarker(ContentKind.Title))
+    }
+
+    @Test fun eachHitShowsTheSmallIconOfWhereItWasFound() = runDesktopComposeUiTest(width = 800, height = 800) {
+        fun hit(kind: ContentKind, id: String) = ContentHit(ContentUnit(pageId = "p", sectionId = "s",
+            kind = kind, boxId = id, blockIndex = 0, text = "needle $id"), score = 100, spans = listOf(MatchSpan(0, 6)))
+        val text = hit(ContentKind.Text, "text")
+        val title = hit(ContentKind.Title, "title")
+        val cell = hit(ContentKind.Cell, "cell")
+        val picture = hit(ContentKind.Image, "picture")
+        val ink = hit(ContentKind.Ink, "ink")
+        val service = object : ContentSearchService {
+            override fun search(request: SearchRequest) = flowOf(SearchResults(pages = listOf(
+                SearchPageResults("p", "Page", "Section", listOf(text, title, cell, picture, ink)))))
+        }
+        setContent { ViveNotesTheme {
+            SearchPane(service, SearchRequest("n", "needle", null, "s", "", null), "needle", {}, {}, {})
+        } }
+        waitUntil(timeoutMillis = 10_000) { onAllNodesWithTag(SearchTags.hit(ink)).fetchSemanticsNodes().isNotEmpty() }
+        listOf(cell to "In a table", picture to "Read from a picture", ink to "Read from handwriting").forEach { (hit, name) ->
+            onNodeWithTag(SearchTags.hit(hit)).assertContentDescriptionEquals(name)
+            onNode(hasContentDescription(name), useUnmergedTree = true)
+                .assertIsDisplayed().assertWidthIsEqualTo(14.dp).assertHeightIsEqualTo(14.dp)
+        }
+        listOf(text, title).forEach {
+            onNodeWithTag(SearchTags.hit(it)).assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+        }
+    }
 
     @Test fun handwritingProgressAndFailureHaveAWorkingRetryControl() = runDesktopComposeUiTest(width = 800, height = 800) {
         val progress = MutableStateFlow(SearchResults(searching = true, inkDone = 1, inkTotal = 3))

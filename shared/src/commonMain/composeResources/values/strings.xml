@@ -485,6 +485,9 @@
     <string name="picture_text">Picture text</string>
     <string name="table_cell">Table cell</string>
     <string name="text_box">Text box</string>
+    <string name="content_hit_in_table">In a table</string>
+    <string name="content_hit_from_picture">Read from a picture</string>
+    <string name="content_hit_from_handwriting">Read from handwriting</string>
     <string name="hide_notebook_navigation">Hide notebook navigation</string>
     <string name="show_notebook_navigation">Show notebook navigation</string>
     <string name="resize_notebook_panel">Resize notebook panel</string>
