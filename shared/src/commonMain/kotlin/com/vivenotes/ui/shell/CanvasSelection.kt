@@ -181,6 +181,7 @@ internal fun CanvasObjectToolkit(
     onColorObjects: (Int, Boolean) -> Unit,
     onTableEdit: (TableEdit) -> Unit,
     onReleaseTable: () -> Unit,
+    graphActions: GraphToolkitActions? = null,
     onEquationChange: (com.vivenotes.workspace.PendingDrawEquation) -> Unit,
     onShapeLineType: (LineType) -> Unit,
     onShapeWidth: (Int) -> Unit,
@@ -217,6 +218,7 @@ internal fun CanvasObjectToolkit(
                                 colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
                             is Outline.Table -> Color(com.vivenotes.data.automaticColorOr(
                                 colorSource.borderArgb, colorSource.borderFollowsTheme, shapeInk.toArgb()))
+                            is Outline.Graph -> colorSource.colorArgb?.let(::Color) ?: Color(0xFF3B82F6)
                             is Outline.Equation -> colorSource.colorArgb?.let(::Color) ?: shapeInk
                             else -> Color.Black
                         }
@@ -246,6 +248,9 @@ internal fun CanvasObjectToolkit(
                     if (selected is Outline.Shape && state.selectedObjectIds.size == 1 &&
                         state.selectedTextOutlineIds.isEmpty()) {
                         ShapeObjectTools(selected, onShapeLineType, onShapeWidth, onShapeFill)
+                    }
+                    graphActions?.let { actions ->
+                        GraphActions(state.selectedPrimeObjects.filterIsInstance<Outline.Graph>(), actions)
                     }
                     state.selectedImages.takeIf { it.isNotEmpty() }?.let { images ->
                         PictureObjectTools(images.map { it.backgroundArgb }.distinct().singleOrNull(), onImageBackground)

@@ -64,6 +64,27 @@ import kotlin.test.assertTrue
 class NotebookTransferManagerTest {
 
     @Test
+    fun graphFunctionsOptionsTraceAndAreaSurviveStorageAndViveTransfer() = runBlocking {
+        val notebook = repository.createNotebook("Graphs")
+        val section = repository.createSection(notebook, "Functions")
+        val page = repository.createPage(section, "Curve")
+        val graph = Outline.Graph(id = "graph", x = 100f, y = 220f, width = 480f, height = 360f,
+            expression = "((x^2)+(-4))", latex = "t^{2}-4", variable = "t", dependent = "v",
+            originalExpression = "(x^2)", originalLatex = "t^{2}",
+            background = com.vivenotes.model.GraphBackground.Dotted,
+            mutable = true, showDerivative = true, traceX = 1.5,
+            area = com.vivenotes.model.GraphInterval(-2.0, 2.0), colorArgb = 0xffcc0000.toInt(), lockGroup = "lock")
+        val document = PageDoc(outlines = listOf(graph))
+        repository.saveDoc(page, document)
+        assertEquals(document, (repository.loadDoc(page) as PageLoad.Loaded).doc)
+        val bytes = export(notebook)
+        val destination = openDatabase("graph-import.db")
+        transfersFor(destination, storeFor(destination, "graphs"), "graphs").importNotebook(ByteArrayInputStream(bytes))
+        assertEquals(document, (NotesRepository(destination).loadDoc(page) as PageLoad.Loaded).doc)
+        assertEquals(document, com.vivenotes.model.CborDocumentCodec.decode(com.vivenotes.model.CborDocumentCodec.encode(document)))
+    }
+
+    @Test
     fun targetedExportUsesOneCommittedSnapshotWhileAnUnrelatedWriterWaits() = runBlocking {
         val selected = repository.createNotebook("Selected")
         val section = repository.createSection(selected, "Section")

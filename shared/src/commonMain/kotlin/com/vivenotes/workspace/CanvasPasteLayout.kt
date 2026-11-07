@@ -16,6 +16,7 @@ internal fun stackPastedOutlines(outlines: List<Outline>, heights: Map<String, F
             is Outline.Image -> outline.copy(y = top)
             is Outline.Shape -> outline.copy(y = top)
             is Outline.Equation -> outline.copy(y = top)
+            is Outline.Graph -> outline.copy(y = top)
             is Outline.Ink -> outline.copy(y = top)
         }
         top += height + CANVAS_PASTE_MARGIN

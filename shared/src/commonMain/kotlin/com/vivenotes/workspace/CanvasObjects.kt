@@ -17,6 +17,7 @@ internal fun Outline.recolored(argb: Int, followsTheme: Boolean = false): Outlin
     is Outline.Shape -> copy(borderArgb = argb, borderFollowsTheme = followsTheme)
     is Outline.Table -> copy(borderArgb = argb, borderFollowsTheme = followsTheme)
     is Outline.Equation -> copy(colorArgb = argb.takeUnless { followsTheme })
+    is Outline.Graph -> copy(colorArgb = argb.takeUnless { followsTheme })
     else -> this
 }
 
@@ -30,10 +31,11 @@ data class InkHistoryChange(
 
 /** An undo step: [document] is the page before it, unless [ink] or [text] says what changed instead. */
 data class StructuralSnapshot(val pageId: String, val document: com.vivenotes.model.PageDoc,
-    val ink: InkHistoryChange? = null, val text: TextHistoryChange? = null)
+    val ink: InkHistoryChange? = null, val text: TextHistoryChange? = null,
+    val coalesceKey: String? = null, val atMillis: Long = 0L)
 
 fun Outline.isPrimeObject(): Boolean = when (this) {
-    is Outline.Shape, is Outline.Table, is Outline.Equation, is Outline.Image -> true
+    is Outline.Shape, is Outline.Table, is Outline.Equation, is Outline.Image, is Outline.Graph -> true
     is Outline.Text, is Outline.Ink -> false
 }
 
@@ -45,6 +47,7 @@ fun Outline.duplicateAt(newX: Float, newY: Float): Outline = when (this) {
         moved.copy(id = newId(), lockGroup = null, segments = moved.segments.map { it.copy(id = newId()) })
     }
     is Outline.Equation -> copy(id = newId(), x = newX, y = newY, lockGroup = null)
+    is Outline.Graph -> copy(id = newId(), x = newX, y = newY, lockGroup = null)
     is Outline.Image -> copy(id = newId(), x = newX, y = newY, lockGroup = null)
     is Outline.Table -> copy(id = newId(), x = newX, y = newY, lockGroup = null,
         rows = rows.map { row -> row.copy(id = newId(), cells = row.cells.map { cell ->
@@ -57,6 +60,7 @@ fun Outline.withLockGroup(group: String?): Outline = when (this) {
     is Outline.Shape -> copy(lockGroup = group)
     is Outline.Table -> copy(lockGroup = group)
     is Outline.Equation -> copy(lockGroup = group)
+    is Outline.Graph -> copy(lockGroup = group)
     is Outline.Image -> copy(lockGroup = group)
     is Outline.Text, is Outline.Ink -> this
 }
@@ -65,6 +69,7 @@ fun Outline.movedBy(dx: Float, dy: Float): Outline = when (this) {
     is Outline.Shape -> translated(dx, dy)
     is Outline.Table -> translated(dx, dy)
     is Outline.Equation -> translated(dx, dy)
+    is Outline.Graph -> translated(dx, dy)
     is Outline.Image -> translated(dx, dy)
     is Outline.Text, is Outline.Ink -> this
 }
@@ -85,6 +90,7 @@ fun Outline.primeHeight(): Float = when (this) {
     is Outline.Shape -> height
     is Outline.Table -> TABLE_GUTTER + height
     is Outline.Equation -> height
+    is Outline.Graph -> height
     is Outline.Image -> height
     is Outline.Text -> minHeight
     is Outline.Ink -> height

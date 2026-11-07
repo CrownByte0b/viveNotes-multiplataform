@@ -17,6 +17,7 @@ internal class PdfDrawContent(outlines: List<Outline>, val groups: List<PdfGroup
     val texts = outlines.filterIsInstance<Outline.Text>()
     val shapes = outlines.filterIsInstance<Outline.Shape>()
     val equations = outlines.filterIsInstance<Outline.Equation>()
+    val graphs = outlines.filterIsInstance<Outline.Graph>()
     val pictures = outlines.filterIsInstance<Outline.Image>()
     val tables = outlines.filterIsInstance<Outline.Table>()
 }

@@ -75,6 +75,11 @@ internal fun CanvasPrimeObjects(
     shapeInk: Color,
     pictures: PictureLibrary?,
     pictureAssets: Map<String, PictureAsset>,
+    paperColor: Color,
+    graphRewrites: Map<String, GraphRewritePreview>,
+    onMutateGraph: (Outline.Graph, com.vivenotes.graph.GraphDrag) -> Unit,
+    onTraceGraph: (String, Double) -> Unit,
+    onGraphArea: (String, com.vivenotes.model.GraphInterval) -> Unit,
     editorFocusRequester: FocusRequester,
     canvasFocusRequester: FocusRequester,
     onMoveObject: (String, Float, Float, Boolean) -> Unit,
@@ -140,13 +145,14 @@ internal fun CanvasPrimeObjects(
             is Outline.Shape -> outline.kind.label
             is Outline.Table -> Strings.table
             is Outline.Equation -> Strings.equation_value(outline.latex)
+            is Outline.Graph -> Strings.graph_object
             is Outline.Image -> Strings.picture
             else -> Strings.object_label
         }
         // A picture sits on the page itself, so its transparent parts show the paper;
         // only a picture that cannot be drawn gets a plate (see PictureContent).
         val drawnPicture = outline is Outline.Image && pictures != null
-        val drawnObject = drawnPicture || drawnShape || outline is Outline.Table || outline is Outline.Equation
+        val drawnObject = drawnPicture || drawnShape || outline is Outline.Table || outline is Outline.Equation || outline is Outline.Graph
         Surface(
             color = if (drawnObject) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,
             shape = MaterialTheme.shapes.small,
@@ -190,6 +196,15 @@ internal fun CanvasPrimeObjects(
                     TableContent(outline, tableRows, shapeInk, state, richColors, editorFocusRequester,
                         onFocusTextBox, onBodyChange, onTextShortcut, heldTable?.takeIf { it.tableId == outline.id },
                         MaterialTheme.colorScheme.primary.copy(alpha = .22f))
+                } else if (outline is Outline.Graph) {
+                    com.vivenotes.ui.canvas.GraphContent(outline,
+                        selected = selected && groupBounds == null && state.selectedInk == null && state.selectedTextOutlineIds.isEmpty(),
+                        interactive = state.selectedPage?.editable == true && !state.notebookTransfer.running && !state.filePane.busy &&
+                            state.inkTool == null && !state.objectLassoArmed && !state.shapeToolArmed && !state.textToolArmed && state.drawPlacement == null,
+                        paper = paperColor, ink = shapeInk, accent = MaterialTheme.colorScheme.primary,
+                        pending = graphRewrites[outline.id]?.takeIf { it.from == outline }?.drag,
+                        onMutate = onMutateGraph, onTrace = { onTraceGraph(outline.id, it) },
+                        onArea = { onGraphArea(outline.id, it) }, modifier = Modifier.fillMaxSize())
                 } else if (outline is Outline.Equation) {
                     EquationContent(outline.latex, outline.colorArgb?.let(::Color) ?: shapeInk, Modifier.fillMaxSize(), stretch = true)
                 } else if (outline is Outline.Shape && drawnShape) {

@@ -320,6 +320,15 @@ class PageMeasurer(
             )
         }
 
+        doc.outlines.filterIsInstance<Outline.Graph>().forEach { graph ->
+            coroutineContext.ensureActive()
+            if (loadDrawingAssets && graph.showEquation && graph.latex.isNotBlank()) try {
+                equations[graph.id] = PdfEquation.create("${graph.dependent} = ${graph.latex}", EQUATION_BASE_DP, colors.textArgb)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { }
+            atoms += PdfAtom(graph.id, InkBounds(graph.x, graph.y, graph.x + graph.width, graph.y + graph.height), outlineId = graph.id)
+        }
+
         doc.outlines.filterIsInstance<Outline.Image>().forEach { image ->
             coroutineContext.ensureActive()
             val store = attachments
@@ -406,6 +415,13 @@ class PageMeasurer(
             if (equation.id !in page.drawingEquations) try {
                 page.drawingEquations[equation.id] = PdfEquation.create(equation.latex, EQUATION_BASE_DP,
                     equation.colorArgb ?: page.colors.textArgb)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { }
+        }
+        for (graph in page.allContent.graphs) {
+            coroutineContext.ensureActive()
+            if (graph.showEquation && graph.latex.isNotBlank() && graph.id !in page.drawingEquations) try {
+                page.drawingEquations[graph.id] = PdfEquation.create("${graph.dependent} = ${graph.latex}", EQUATION_BASE_DP, page.colors.textArgb)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { }
         }

@@ -19,6 +19,8 @@ import com.vivenotes.ui.ribbon.view.PaperSizePane
 import com.vivenotes.ui.ribbon.view.ViewActions
 import com.vivenotes.ui.ribbon.view.viewActions
 import com.vivenotes.ui.search.SearchPane
+import com.vivenotes.workspace.insertGraph
+import androidx.compose.ui.geometry.Rect
 import com.vivenotes.workspace.EditorDefaults
 import com.vivenotes.workspace.FileActions
 import com.vivenotes.workspace.InputSettings
@@ -50,6 +52,7 @@ internal fun WorkspaceDockedPane(
     drawMath: DrawMath?,
     inkMath: InkMathRequest?,
     mathSource: String,
+    canvasOrigin: CanvasOrigin,
     inkMathValid: Boolean,
     developmentBuild: Boolean,
     debugLog: DebugLog,
@@ -101,10 +104,21 @@ internal fun WorkspaceDockedPane(
             }
             DockedPane.Math -> drawMath?.let { math ->
                 val request = inkMath
+                val origin = canvasOrigin.read()
+                val pageId = state.selectedPageId
+                val anchor = request?.selection?.bounds?.let { Rect(it.left, it.top, it.right, it.bottom) }
+                val place: ((com.vivenotes.math.MathGraph) -> Unit)? = if (state.selectedPage?.editable != true ||
+                    state.notebookTransfer.running || state.filePane.busy) null else { graph ->
+                    onStateChange { current ->
+                        if (current.selectedPageId != pageId) current else current.insertGraph(graph, anchor, origin)
+                    }
+                    debugLog.event("graph") { "placed on page" }
+                    onCloseInkMath()
+                }
                 if (request == null) MathPane(mathSource, math, showInterpretation = developmentBuild,
-                    log = debugLog, onClose = onClosePane)
+                    log = debugLog, onPlaceGraph = place, onClose = onClosePane)
                 else if (inkMathValid) InkMathPane(request, math, showInterpretation = developmentBuild,
-                    log = debugLog, onClose = onCloseInkMath)
+                    log = debugLog, onPlaceGraph = place, onClose = onCloseInkMath)
             }
             DockedPane.Models -> ModelsPane(aiModels, onClose = onClosePane)
         }

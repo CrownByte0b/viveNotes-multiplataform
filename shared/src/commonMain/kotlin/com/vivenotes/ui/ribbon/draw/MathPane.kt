@@ -43,7 +43,7 @@ private class MathPaneState(initial: String) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun MathPane(initial: String, math: DrawMath, showInterpretation: Boolean = false,
-                      log: DebugLog = remember { DebugLog() }, onClose: () -> Unit) {
+                      log: DebugLog = remember { DebugLog() }, onPlaceGraph: ((MathGraph) -> Unit)? = null, onClose: () -> Unit) {
     val state = remember(initial, math) { MathPaneState(initial) }
     var decimal by remember { mutableStateOf(false) }
     val clipboard = rememberTextClipboard()
@@ -143,7 +143,16 @@ internal fun MathPane(initial: String, math: DrawMath, showInterpretation: Boole
                 }
                 answer.message?.takeIf(String::isNotBlank)?.let { Text(MathText.translate(it), style = MaterialTheme.typography.bodySmall) }
                 answer.error?.let { MathError(it) }
-                answer.graph?.let { graph -> MathGraphPlot(graph) }
+                answer.graph?.let { graph ->
+                    MathGraphPlot(graph)
+                    if (onPlaceGraph != null && graph.expression?.let(com.vivenotes.graph.GraphExpression::parse) != null) {
+                        MathPanelButton(onClick = { onPlaceGraph(graph) }, modifier = Modifier.testTag("draw-math-place-graph")) {
+                            Icon(com.vivenotes.ui.icons.GraphSymbols.AddChart, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(Strings.recognition_place_graph)
+                        }
+                    }
+                }
             }
         }
     }

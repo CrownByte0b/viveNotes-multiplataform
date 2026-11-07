@@ -105,7 +105,7 @@ fun PageDoc.contentUnits(pageId: String, sectionId: String, title: String): List
                     )
                 }
             }
-            is Outline.Equation, is Outline.Image, is Outline.Ink, is Outline.Shape -> Unit
+            is Outline.Graph, is Outline.Equation, is Outline.Image, is Outline.Ink, is Outline.Shape -> Unit
         }
     }
     return units

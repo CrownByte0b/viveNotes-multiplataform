@@ -200,6 +200,7 @@ data class WorkspaceState(
     val typingRun: TypingRun? = null,
     /** Why the last read or write of notes storage failed, until one succeeds again. */
     val storageError: String? = null,
+    val graphError: String? = null,
     /** The File tab's `.vive` export or import, while it runs and until its result is dismissed. */
     val notebookTransfer: NotebookTransferState = NotebookTransferState(),
     val filePane: FilePaneState = FilePaneState(),
@@ -759,7 +760,7 @@ data class WorkspaceState(
         )
     }
 
-    private fun editOutlines(recordHistory: Boolean = true, refreshPreview: Boolean = true,
+    internal fun editOutlines(recordHistory: Boolean = true, refreshPreview: Boolean = true,
                              transform: (List<Outline>) -> List<Outline>): WorkspaceState {
         val page = editablePage ?: return this
         val next = transform(page.document.outlines)
@@ -996,6 +997,7 @@ data class WorkspaceState(
                 is Outline.Shape -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
                 is Outline.Table -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
                 is Outline.Equation -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
+                is Outline.Graph -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
                 is Outline.Image -> outline.scaledAbout(anchorX, anchorY, scaleX, scaleY)
                 is Outline.Text, is Outline.Ink -> outline
             }

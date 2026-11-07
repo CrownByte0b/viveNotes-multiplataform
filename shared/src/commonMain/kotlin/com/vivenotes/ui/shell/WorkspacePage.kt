@@ -23,6 +23,12 @@ import com.vivenotes.model.search.ContentHit
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.drop.rememberFileDropHandlers
 import com.vivenotes.ui.ribbon.document.LinkEditorRequest
+import com.vivenotes.workspace.updateGraphs
+import com.vivenotes.workspace.fitGraphs
+import com.vivenotes.workspace.zoomGraphs
+import com.vivenotes.ui.ribbon.draw.GraphToolkitActions
+import com.vivenotes.ui.ribbon.draw.GraphMutations
+import com.vivenotes.ui.ribbon.draw.DrawMath
 import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.WorkspaceState
@@ -60,6 +66,7 @@ internal fun WorkspacePage(
     modifier: Modifier,
     requestEditorFocus: () -> Unit,
     formulaReady: Boolean,
+    drawMath: DrawMath?,
     onInkMath: (InkSelection) -> Unit,
     applyEditorCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
     onLinkRequest: (LinkEditorRequest) -> Unit,
@@ -68,6 +75,15 @@ internal fun WorkspacePage(
     val latestState by rememberUpdatedState(state)
     val latestOnStateChange by rememberUpdatedState(onStateChange)
     val selectionScope = rememberCoroutineScope()
+    val graphMutations = remember(drawMath, selectionScope) { drawMath?.let { math ->
+        GraphMutations(math.engine, selectionScope, { latestState }, { latestOnStateChange(it) }, debugLog)
+    } }
+    val graphActions = GraphToolkitActions(
+        update = { change -> onStateChange { it.updateGraphs(it.selectedObjectIds, change) }; debugLog.event("graph") { "options updated" } },
+        zoom = { factor -> onStateChange { it.zoomGraphs(it.selectedObjectIds, factor) }; debugLog.event("graph") { "window zoomed" } },
+        fit = { onStateChange { it.fitGraphs(it.selectedObjectIds) }; debugLog.event("graph") { "window fitted" } },
+        reset = { onStateChange { it.updateGraphs(it.selectedObjectIds) { graph -> graph.reset() } }; debugLog.event("graph") { "function reset" } },
+    )
     val density = LocalDensity.current
     val selectionWorker = remember(selectionScope) { CanvasSelectionWorker(selectionScope) }
     val selectionContext = CanvasSelectionContext(state.selectedPageId, state.objectLassoArmed,
@@ -190,6 +206,11 @@ internal fun WorkspacePage(
             edit.logLine?.let { line -> debugLog.event("table") { line } }
             onStateChange { it.editTable(edit) }
         },
+        graphActions = graphActions,
+        graphRewrites = graphMutations?.pending.orEmpty(),
+        onMutateGraph = { graph, drag -> graphMutations?.mutate(graph, drag) },
+        onTraceGraph = { id, x -> onStateChange { it.updateGraphs(setOf(id)) { graph -> graph.copy(traceX = x) } }; debugLog.event("graph") { "tracer moved" } },
+        onGraphArea = { id, area -> onStateChange { it.updateGraphs(setOf(id)) { graph -> graph.copy(area = area) } }; debugLog.event("graph") { "area bound moved" } },
         onEquationChange = { equation -> onStateChange { it.updateSelectedEquation(equation.latex, equation.width, equation.height) } },
         onImageBackground = { argb -> onStateChange { it.setSelectedImageBackground(argb) } },
         onSelectObjectsInLasso = { path, heights ->

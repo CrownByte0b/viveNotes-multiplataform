@@ -134,6 +134,7 @@ fun pagePreview(doc: PageDoc): String {
             is Outline.Text -> blocks(outline.blocks)
             is Outline.Table -> outline.rows.any { row -> row.cells.any { blocks(it.blocks) } }
             is Outline.Equation -> append(outline.latex) || append("\n")
+            is Outline.Graph -> append(outline.latex.ifBlank { outline.expression }) || append("\n")
             else -> false
         }
         if (done) return line.toString()

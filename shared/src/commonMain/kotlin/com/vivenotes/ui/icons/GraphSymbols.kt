@@ -1,0 +1,131 @@
+package com.vivenotes.ui.icons
+
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.graphics.vector.group
+import androidx.compose.ui.unit.dp
+
+/** Official Material Symbols Rounded paths from Android. */
+object GraphSymbols {
+    val DragPan: ImageVector by lazy {
+        ImageVector.Builder("DragPan", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M440-440H235l44 43q12 12 12 29t-12 29q-12 12-29 12t-29-12L108-452q-6-6-8.5-13T97-480q0-8 2.5-15t8.5-13l113-113q12-12 28.5-12t28.5 12q12 12 12 28.5T278-564l-44 44h206v-206l-45 45q-12 12-28 11.5T339-682q-12-12-12-28.5t12-28.5l113-113q6-6 13-8.5t15-2.5q8 0 15 2.5t13 8.5l114 114q12 12 12 28t-12 28q-12 12-28.5 12T565-682l-45-44v206h205l-44-43q-12-12-12-29t12-29q12-12 29-12t29 12l113 113q6 6 8.5 13t2.5 15q0 8-2.5 15t-8.5 13L738-338q-12 12-28 11.5T682-339q-12-12-12-28.5t12-28.5l44-44H520v205l43-44q12-12 29-12t29 12q12 12 12 29t-12 29L508-108q-6 6-13 8.5T480-97q-8 0-15-2.5t-13-8.5L338-222q-12-12-11.5-28.5T339-279q12-12 28.5-12t28.5 12l44 45v-206Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val Tune: ImageVector by lazy {
+        ImageVector.Builder("Tune", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M451.5-131.5Q440-143 440-160v-160q0-17 11.5-28.5T480-360q17 0 28.5 11.5T520-320v40h280q17 0 28.5 11.5T840-240q0 17-11.5 28.5T800-200H520v40q0 17-11.5 28.5T480-120q-17 0-28.5-11.5ZM160-200q-17 0-28.5-11.5T120-240q0-17 11.5-28.5T160-280h160q17 0 28.5 11.5T360-240q0 17-11.5 28.5T320-200H160Zm131.5-171.5Q280-383 280-400v-40H160q-17 0-28.5-11.5T120-480q0-17 11.5-28.5T160-520h120v-40q0-17 11.5-28.5T320-600q17 0 28.5 11.5T360-560v160q0 17-11.5 28.5T320-360q-17 0-28.5-11.5ZM480-440q-17 0-28.5-11.5T440-480q0-17 11.5-28.5T480-520h320q17 0 28.5 11.5T840-480q0 17-11.5 28.5T800-440H480Zm131.5-171.5Q600-623 600-640v-160q0-17 11.5-28.5T640-840q17 0 28.5 11.5T680-800v40h120q17 0 28.5 11.5T840-720q0 17-11.5 28.5T800-680H680v40q0 17-11.5 28.5T640-600q-17 0-28.5-11.5ZM160-680q-17 0-28.5-11.5T120-720q0-17 11.5-28.5T160-760h320q17 0 28.5 11.5T520-720q0 17-11.5 28.5T480-680H160Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val GridOff: ImageVector by lazy {
+        ImageVector.Builder("GridOff", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M333-200v-133H200v133h133Zm214 0v-100l-33-33H413v133h134Zm80 0Zm116-133Zm-410-80v-101l-33-33H200v134h133Zm80 0Zm347 0v-134H627v99l35 35h98ZM529-547Zm-329-80Zm347 0v-133H413v98l35 35h99Zm213 0v-133H627v133h133ZM316-760Zm524 525L235-840h525q33 0 56.5 23.5T840-760v525ZM200-120q-33 0-56.5-23.5T120-200v-640l720 720H200Zm591 64L56-792q-11-11-11.5-27.5T56-848q11-11 28-11t28 11l736 736q12 12 11.5 28T847-56q-12 11-28 11.5T791-56Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val BackgroundGridSmall: ImageVector by lazy {
+        ImageVector.Builder("BackgroundGridSmall", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M200-200h80v-80h-80v80Zm160 0h80v-80h-80v80Zm160 0h80v-80h-80v80Zm160 0h80v-80h-80v80ZM200-680h80v-80h-80v80Zm0 160h80v-80h-80v80Zm0 160h80v-80h-80v80Zm160-320h80v-80h-80v80Zm0 160h80v-80h-80v80Zm0 160h80v-80h-80v80Zm160-320h80v-80h-80v80Zm0 160h80v-80h-80v80Zm0 160h80v-80h-80v80Zm160-320h80v-80h-80v80Zm0 160h80v-80h-80v80Zm0 160h80v-80h-80v80ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val BackgroundDotSmall: ImageVector by lazy {
+        ImageVector.Builder("BackgroundDotSmall", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M342.5-257.5Q360-275 360-300t-17.5-42.5Q325-360 300-360t-42.5 17.5Q240-325 240-300t17.5 42.5Q275-240 300-240t42.5-17.5Zm0-360Q360-635 360-660t-17.5-42.5Q325-720 300-720t-42.5 17.5Q240-685 240-660t17.5 42.5Q275-600 300-600t42.5-17.5Zm0 180Q360-455 360-480t-17.5-42.5Q325-540 300-540t-42.5 17.5Q240-505 240-480t17.5 42.5Q275-420 300-420t42.5-17.5Zm360 180Q720-275 720-300t-17.5-42.5Q685-360 660-360t-42.5 17.5Q600-325 600-300t17.5 42.5Q635-240 660-240t42.5-17.5Zm0-360Q720-635 720-660t-17.5-42.5Q685-720 660-720t-42.5 17.5Q600-685 600-660t17.5 42.5Q635-600 660-600t42.5-17.5ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm0-560v560-560Zm502.5 322.5Q720-455 720-480t-17.5-42.5Q685-540 660-540t-42.5 17.5Q600-505 600-480t17.5 42.5Q635-420 660-420t42.5-17.5Zm-180-180Q540-635 540-660t-17.5-42.5Q505-720 480-720t-42.5 17.5Q420-685 420-660t17.5 42.5Q455-600 480-600t42.5-17.5Zm0 360Q540-275 540-300t-17.5-42.5Q505-360 480-360t-42.5 17.5Q420-325 420-300t17.5 42.5Q455-240 480-240t42.5-17.5Zm0-180Q540-455 540-480t-17.5-42.5Q505-540 480-540t-42.5 17.5Q420-505 420-480t17.5 42.5Q455-420 480-420t42.5-17.5Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val Label: ImageVector by lazy {
+        ImageVector.Builder("Label", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h440q19 0 36 8.5t28 23.5l180 240q16 21 16 48t-16 48L664-192q-11 15-28 23.5t-36 8.5H160Zm0-80h440l180-240-180-240H160v480Zm310-240Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val TrendingUp: ImageVector by lazy {
+        ImageVector.Builder("TrendingUp", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M108-255q-12-12-11.5-28.5T108-311l211-214q23-23 57-23t57 23l103 104 208-206h-64q-17 0-28.5-11.5T640-667q0-17 11.5-28.5T680-707h160q17 0 28.5 11.5T880-667v160q0 17-11.5 28.5T840-467q-17 0-28.5-11.5T800-507v-64L593-364q-23 23-57 23t-57-23L376-467 164-255q-11 11-28 11t-28-11Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val FitScreen: ImageVector by lazy {
+        ImageVector.Builder("FitScreen", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M800-640v-80h-80q-17 0-28.5-11.5T680-760q0-17 11.5-28.5T720-800h80q33 0 56.5 23.5T880-720v80q0 17-11.5 28.5T840-600q-17 0-28.5-11.5T800-640Zm-720 0v-80q0-33 23.5-56.5T160-800h80q17 0 28.5 11.5T280-760q0 17-11.5 28.5T240-720h-80v80q0 17-11.5 28.5T120-600q-17 0-28.5-11.5T80-640Zm720 480h-80q-17 0-28.5-11.5T680-200q0-17 11.5-28.5T720-240h80v-80q0-17 11.5-28.5T840-360q17 0 28.5 11.5T880-320v80q0 33-23.5 56.5T800-160Zm-640 0q-33 0-56.5-23.5T80-240v-80q0-17 11.5-28.5T120-360q17 0 28.5 11.5T160-320v80h80q17 0 28.5 11.5T280-200q0 17-11.5 28.5T240-160h-80Zm80-240v-160q0-33 23.5-56.5T320-640h320q33 0 56.5 23.5T720-560v160q0 33-23.5 56.5T640-320H320q-33 0-56.5-23.5T240-400Zm80 0h320v-160H320v160Zm0 0v-160 160Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val LineAxis: ImageVector by lazy {
+        ImageVector.Builder("LineAxis", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("m110-290 213-213q23-23 57-23t57 23l103 103 67-76-224-207-213 213q-13 13-30 13t-30-13q-13-13-13-30t13-30l216-216q23-23 54.5-23.5T436-748l228 209 132-150q11-13 28.5-13t29.5 12q11 11 11.5 26.5T855-636L722-486l126 116q14 12 14 30t-13 31q-12 12-29 12t-30-11L666-422l-70 78q-23 26-57 27.5T480-340L380-440 170-230q-13 13-30 13t-30-13q-13-13-13-30t13-30Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val AreaChart: ImageVector by lazy {
+        ImageVector.Builder("AreaChart", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("m546-787 134 107h80q33 0 56.5 23.5T840-600v440H120v-440q0-25 22-36t42 4l96 72 151-211q20-28 54-33t61 17ZM200-520v144l120 96 160-220 280 218v-318H652L496-725 298-447l-98-73Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val AddChart: ImageVector by lazy {
+        ImageVector.Builder("AddChart", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h320q17 0 28.5 11.5T560-800q0 17-11.5 28.5T520-760H200v560h560v-320q0-17 11.5-28.5T800-560q17 0 28.5 11.5T840-520v320q0 33-23.5 56.5T760-120H200Zm91.5-428.5Q280-537 280-520v200q0 17 11.5 28.5T320-280q17 0 28.5-11.5T360-320v-200q0-17-11.5-28.5T320-560q-17 0-28.5 11.5Zm160-120Q440-657 440-640v320q0 17 11.5 28.5T480-280q17 0 28.5-11.5T520-320v-320q0-17-11.5-28.5T480-680q-17 0-28.5 11.5Zm160 240Q600-417 600-400v80q0 17 11.5 28.5T640-280q17 0 28.5-11.5T680-320v-80q0-17-11.5-28.5T640-440q-17 0-28.5 11.5ZM680-680h-40q-17 0-28.5-11.5T600-720q0-17 11.5-28.5T640-760h40v-40q0-17 11.5-28.5T720-840q17 0 28.5 11.5T760-800v40h40q17 0 28.5 11.5T840-720q0 17-11.5 28.5T800-680h-40v40q0 17-11.5 28.5T720-600q-17 0-28.5-11.5T680-640v-40ZM480-480Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val Function: ImageVector by lazy {
+        ImageVector.Builder("Function", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M221-120q-45 0-73-24t-28-64q0-32 17-51.5t43-19.5q25 0 42.5 17t17.5 41q0 5-.5 9t-1.5 9q5-1 8.5-5.5T252-221l62-339h-74q-17 0-28.5-11.5T200-600q0-17 11.5-28.5T240-640h89l21-114q7-38 37.5-62t72.5-24q44 0 72 26t28 65q0 30-17 49.5T500-680q-25 0-42.5-17T440-739q0-5 .5-9t1.5-9q-6 2-9 6t-5 12l-17 99h149q17 0 28.5 11.5T600-600q0 15-9.5 26T567-561l53 60 53-60q-14-2-23.5-13t-9.5-26q0-17 11.5-28.5T680-640h120q17 0 28.5 11.5T840-600q0 17-11.5 28.5T800-560h-22L673-440l105 120h22q17 0 28.5 11.5T840-280q0 17-11.5 28.5T800-240H680q-17 0-28.5-11.5T640-280q0-15 9.5-26t23.5-13l-53-61-53 61q14 2 23.5 13t9.5 26q0 17-11.5 28.5T560-240H440q-17 0-28.5-11.5T400-280q0-17 11.5-28.5T440-320h22l105-120-105-120h-66l-64 344q-8 45-37 70.5T221-120Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val History: ImageVector by lazy {
+        ImageVector.Builder("History", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M480-120q-126 0-223-76.5T131-392q-4-15 6-27.5t27-14.5q16-2 29 6t18 24q24 90 99 147t170 57q117 0 198.5-81.5T760-480q0-117-81.5-198.5T480-760q-69 0-129 32t-101 88h70q17 0 28.5 11.5T360-600q0 17-11.5 28.5T320-560H160q-17 0-28.5-11.5T120-600v-160q0-17 11.5-28.5T160-800q17 0 28.5 11.5T200-760v54q51-64 124.5-99T480-840q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-480q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-120Zm40-376 100 100q11 11 11 28t-11 28q-11 11-28 11t-28-11L452-452q-6-6-9-13.5t-3-15.5v-159q0-17 11.5-28.5T480-680q17 0 28.5 11.5T520-640v144Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val ZoomIn: ImageVector by lazy {
+        ImageVector.Builder("ZoomIn", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M340-540h-40q-17 0-28.5-11.5T260-580q0-17 11.5-28.5T300-620h40v-40q0-17 11.5-28.5T380-700q17 0 28.5 11.5T420-660v40h40q17 0 28.5 11.5T500-580q0 17-11.5 28.5T460-540h-40v40q0 17-11.5 28.5T380-460q-17 0-28.5-11.5T340-500v-40Zm40 220q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l224 224q11 11 11 28t-11 28q-11 11-28 11t-28-11L532-372q-30 24-69 38t-83 14Zm0-80q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val ZoomOut: ImageVector by lazy {
+        ImageVector.Builder("ZoomOut", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M320-540q-17 0-28.5-11.5T280-580q0-17 11.5-28.5T320-620h120q17 0 28.5 11.5T480-580q0 17-11.5 28.5T440-540H320Zm60 220q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l224 224q11 11 11 28t-11 28q-11 11-28 11t-28-11L532-372q-30 24-69 38t-83 14Zm0-80q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val RestartAlt: ImageVector by lazy {
+        ImageVector.Builder("RestartAlt", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("M393-132q-103-29-168-113.5T160-440q0-57 19-108.5t54-94.5q11-12 27-12.5t29 12.5q11 11 11.5 27T290-586q-24 31-37 68t-13 78q0 81 47.5 144.5T410-209q13 4 21.5 15t8.5 24q0 20-14 31.5t-33 6.5Zm174 0q-19 5-33-7t-14-32q0-12 8.5-23t21.5-15q75-24 122.5-87T720-440q0-100-70-170t-170-70h-3l16 16q11 11 11 28t-11 28q-11 11-28 11t-28-11l-84-84q-6-6-8.5-13t-2.5-15q0-8 2.5-15t8.5-13l84-84q11-11 28-11t28 11q11 11 11 28t-11 28l-16 16h3q134 0 227 93t93 227q0 109-65 194T567-132Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+    val Check: ImageVector by lazy {
+        ImageVector.Builder("Check", 24.dp, 24.dp, 960f, 960f).apply {
+            group(translationY = 960f) {
+                addPath(addPathNodes("m382-354 339-339q12-12 28-12t28 12q12 12 12 28.5T777-636L410-268q-12 12-28 12t-28-12L182-440q-12-12-11.5-28.5T183-497q12-12 28.5-12t28.5 12l142 143Z"), fill = SolidColor(Color.Black))
+            }
+        }.build()
+    }
+}

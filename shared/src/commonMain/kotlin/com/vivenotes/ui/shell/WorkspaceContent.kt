@@ -291,6 +291,7 @@ internal fun WorkspaceContent(
                 )
             }
             StorageErrorBanner(state.storageError)
+            state.graphError?.let { StatusBanner(it) }
 
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val showNotebookPane = maxWidth >= 1040.dp && state.navigationVisible && !horizontalTabs
@@ -350,6 +351,7 @@ internal fun WorkspaceContent(
                             canvasFocusRequester = canvasFocusRequester,
                             modifier = Modifier.weight(1f),
                             requestEditorFocus = { editorFocusRequest++ },
+                            drawMath = drawMath,
                             formulaReady = formulaReady,
                             onInkMath = { selection -> if (formulaReady && state.inkAndLinesSelection && state.selectedInk === selection) {
                                 inkMath = InkMathRequest(selection, state.selectedFormulaLines); openPane = DockedPane.Math } },
@@ -380,6 +382,7 @@ internal fun WorkspaceContent(
                         drawMath = drawMath,
                         inkMath = inkMath,
                         mathSource = mathSource,
+                        canvasOrigin = canvasOrigin,
                         inkMathValid = inkMathValid,
                         developmentBuild = developmentBuild,
                         debugLog = debugLog,

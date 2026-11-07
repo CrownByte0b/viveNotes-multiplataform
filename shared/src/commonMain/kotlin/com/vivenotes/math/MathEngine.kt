@@ -30,6 +30,15 @@ data class MathGraph(
     val yLabel: String,
     val xValues: List<Double>,
     val yValues: List<Double?>,
+    val expression: String? = null,
+    val functionLatex: String? = null,
+)
+
+@Serializable
+data class GraphRewrite(
+    val expression: String? = null,
+    val latex: String? = null,
+    val error: String? = null,
 )
 
 @Serializable
@@ -46,6 +55,8 @@ data class MathOperationResult(
 interface MathEngine {
     suspend fun analyze(latex: String): MathAnalysis
     suspend fun execute(latex: String, actionId: String): MathOperationResult
+    suspend fun mutateGraph(expression: String, variable: String, mutation: String): GraphRewrite =
+        GraphRewrite(error = Strings.graph_rewrite_unavailable)
 
     /**
      * Runs the first of [preferred] that applies to [latex], or returns null when none does.

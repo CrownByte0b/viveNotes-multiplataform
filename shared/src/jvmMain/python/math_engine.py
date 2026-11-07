@@ -13,6 +13,7 @@ import sympy as sp
 from sympy.core.relational import Relational
 from sympy.matrices.matrixbase import MatrixBase
 from sympy.parsing.latex import parse_latex
+from sympy.solvers.solveset import NonlinearError
 
 import degrees
 import greeks
@@ -28,8 +29,9 @@ Action = dict[str, str]
 
 #: What ``_parse`` can hand back. A matrix is **not** an ``Expr`` in SymPy — ``MatrixBase`` sits
 #: outside that hierarchy — which is exactly why so many helpers below branch on ``isinstance``.
-#: Spelling the union out makes those branches look deliberate instead of defensive.
-ParsedInput = sp.Expr | MatrixBase
+#: Spelling the union out makes those branches look deliberate instead of defensive. A system of
+#: equations is a ``Tuple`` of relations, one per written line; nothing else produces a ``Tuple``.
+ParsedInput = sp.Expr | MatrixBase | sp.Tuple
 
 MAX_SOURCE_CHARS = 1200
 MAX_EXPRESSION_NODES = 700
@@ -65,7 +67,11 @@ def analyze(source: str) -> str:
         summary, actions = _classify(expression)
         return _json(
             {
-                "normalizedLatex": sp.latex(expression),
+                "normalizedLatex": (
+                    _stacked_latex(list(expression))
+                    if isinstance(expression, sp.Tuple)
+                    else sp.latex(expression)
+                ),
                 "summary": summary,
                 "variables": _variables(expression),
                 "actions": actions,
@@ -125,7 +131,11 @@ def _parse(source: str) -> ParsedInput:
         raise MathInputError("This formula is too long to evaluate safely on this device.")
     source = _normalize_latex(source)
 
-    expression = _parse_matrix(source)
+    # The system goes first: its lines may sit in an ``array``, which _parse_matrix would otherwise
+    # take for a one-column matrix of equations.
+    expression = _parse_system(source)
+    if expression is None:
+        expression = _parse_matrix(source)
     if expression is None:
         # strict=True prevents the ANTLR backend from accepting only a valid prefix such as `x -`.
         expression = parse_latex(source, backend="antlr", strict=True)
@@ -274,6 +284,74 @@ def _split_top_level(source: str, delimiter: str) -> list[str]:
     return parts
 
 
+#: The brace drawn in front of a system, closed by TeX's empty ``\right.`` or by a matching brace.
+_SYSTEM_BRACE = re.compile(
+    r"(?:\\left\s*)?\\\{(?P<body>.*?)(?:\\right\s*(?:\.|\\\})|\\\})?", re.DOTALL
+)
+#: The environments a system's lines are set in. Only ``array`` takes a column specification, and it
+#: is restricted to column letters so it can never swallow a braced first line.
+_LINE_ENVIRONMENT = re.compile(
+    r"\\begin\{(?P<env>cases|aligned|gathered|array)\}(?:\s*\{[lcr|\s]*\})?"
+    r"(?P<body>.*?)\\end\{(?P=env)\}",
+    re.DOTALL,
+)
+#: Every relation the grammar parses. ``\le`` must not match the start of ``\left``.
+_RELATION = re.compile(r"[=<>]|\\(?:neq|leqq|leqslant|leq|le|geqq|geqslant|geq|ge)(?![A-Za-z])")
+_LINE_END_PUNCTUATION = re.compile(r"(?<!\\)[,;]\s*$")
+#: An alignment point. The grammar takes one only beside ``=``, and ``aligned`` puts it anywhere —
+#: PP-FormulaNet_plus-M starts every line with one.
+_ALIGNMENT = re.compile(r"(?<!\\)&")
+
+
+def _parse_system(source: str) -> sp.Tuple | None:
+    """Parse two or more equations written one per line, or ``None`` if ``source`` is not that.
+
+    ``parse_latex`` reads one expression and its grammar has no ``\\\\``, so before this every system
+    failed to parse. The lines may be bare, wrapped in a brace, set in a line environment, or each
+    wrapped in its own group as PP-FormulaNet writes them: ``{x - 4y = -18} \\\\ {-x + 3 = 74}``.
+    Lines without a relation are a matrix's rows, and are left to ``_parse_matrix``.
+    """
+    brace = _SYSTEM_BRACE.fullmatch(source)
+    body: str = brace.group("body").strip() if brace else source
+    environment = _LINE_ENVIRONMENT.fullmatch(body)
+    if environment:
+        body = environment.group("body")
+    elif r"\begin" in body:
+        # A ``\\`` inside some other environment, a matrix, is not a line break of this formula.
+        return None
+
+    rows: list[str] = _split_matrix_rows(body)
+    if len(rows) < 2 or not any(_RELATION.search(row) for row in rows):
+        return None
+    if len(rows) > MAX_MATRIX_EDGE:
+        raise MathInputError(f"Systems are limited to {MAX_MATRIX_EDGE} equations.")
+    lines: list[sp.Basic] = [
+        parse_latex(_system_line(row), backend="antlr", strict=True) for row in rows
+    ]
+    if not all(isinstance(line, Relational) for line in lines):
+        raise MathInputError("Every line of a system must be an equation or an inequality.")
+    return sp.Tuple(*lines)
+
+
+def _system_line(row: str) -> str:
+    """``row`` without alignment points, its trailing comma, and the one group wrapped around all
+    of it, if any."""
+    row = _LINE_END_PUNCTUATION.sub("", _ALIGNMENT.sub("", row)).strip()
+    if row.startswith("{") and row.endswith("}"):
+        depth: int = 0
+        for index, character in enumerate(row):
+            if character == "{":
+                depth += 1
+            elif character == "}":
+                depth -= 1
+                if depth == 0:
+                    # Only when this brace closes the first one: ``{a} = {b}`` keeps both groups.
+                    if index == len(row) - 1:
+                        row = _LINE_END_PUNCTUATION.sub("", row[1:-1]).strip()
+                    break
+    return row
+
+
 def _check_complexity(expression: ParsedInput) -> None:
     values: list[sp.Expr] = list(expression) if isinstance(expression, MatrixBase) else [expression]
     nodes: int = sum(1 for value in values for _ in sp.preorder_traversal(value))
@@ -326,6 +404,8 @@ def _classify(expression: ParsedInput) -> tuple[str, list[Action]]:
                 actions.append(_action("matrix_eigenvalues", "Eigenvalues"))
         actions.append(_action("matrix_nullspace", "Null space"))
         return f"Matrix · {rows} × {columns}", actions
+    if isinstance(expression, sp.Tuple):
+        return _classify_system(expression)
 
     symbols: list[sp.Symbol] = _symbols(expression)
     if isinstance(expression, sp.Integral):
@@ -372,6 +452,8 @@ def _classify(expression: ParsedInput) -> tuple[str, list[Action]]:
 def _execute(expression: ParsedInput, action_id: str) -> ResultPayload:
     if isinstance(expression, MatrixBase):
         return _execute_matrix(expression, action_id)
+    if isinstance(expression, sp.Tuple):
+        return _execute_system(expression, action_id)
 
     symbols: list[sp.Symbol] = _symbols(expression)
     if action_id == "solve":
@@ -489,6 +571,107 @@ def _linear_system(matrix: MatrixBase) -> ResultPayload:
     }
 
 
+def _classify_system(system: sp.Tuple) -> tuple[str, list[Action]]:
+    symbols: list[sp.Symbol] = _symbols(system)
+    linear: bool = _augmented_matrix(system, symbols) is not None
+    actions: list[Action] = []
+    # A linear system is cheap at any size the parser admits. A nonlinear one gets the single
+    # relation's limit, because SymPy's nonlinear solver grows quickly with the number of unknowns.
+    if symbols and len(symbols) <= (MAX_MATRIX_EDGE if linear else 3):
+        actions.append(_action("solve", "Solve"))
+    # Only while the augmented matrix still fits the matrix limit, so the result can be parsed back.
+    if linear and len(symbols) < MAX_MATRIX_EDGE:
+        actions.append(_action("system_matrix", "Convert to matrix"))
+    relations: str = (
+        "equations" if all(isinstance(line, sp.Equality) for line in system) else "relations"
+    )
+    return f"System · {len(system)} {relations}", actions
+
+
+def _execute_system(system: sp.Tuple, action_id: str) -> ResultPayload:
+    symbols: list[sp.Symbol] = _symbols(system)
+    if action_id == "solve":
+        return _solve_system(system, symbols)
+    if action_id == "system_matrix":
+        return _system_matrix(system, symbols)
+    raise MathInputError("That operation is not supported.")
+
+
+def _augmented_matrix(system: sp.Tuple, symbols: list[sp.Symbol]) -> MatrixBase | None:
+    """``[A | b]`` for a system of equations linear in ``symbols``, else ``None``."""
+    if not symbols or not all(isinstance(line, sp.Equality) for line in system):
+        return None
+    try:
+        coefficients, constants = sp.linear_eq_to_matrix(list(system), symbols)
+    except NonlinearError:
+        return None
+    return coefficients.row_join(constants)
+
+
+def _system_matrix(system: sp.Tuple, symbols: list[sp.Symbol]) -> ResultPayload:
+    """The augmented matrix of a linear system: what ``matrix_linear_system`` reads back.
+
+    Constants move to the right first, so ``-x + 3 = 74`` is the row ``[-1, 0, 71]``. The columns are
+    named in the message because their order is SymPy's sort, not the order on the page. Only a
+    square system comes back through Convert to linear as these same equations; with fewer equations
+    than unknowns the matrix is not ``n × (n+1)`` and would be read as coefficients.
+    """
+    matrix: MatrixBase | None = _augmented_matrix(system, symbols)
+    if matrix is None:
+        raise MathInputError("Only a linear system of equations can be written as a matrix.")
+    names: str = ", ".join(_plain_name(symbol) for symbol in symbols)
+    return _latex_result(
+        "Augmented matrix", matrix, f"Columns {names}, then the constants on the right."
+    )
+
+
+def _solve_system(system: sp.Tuple, symbols: list[sp.Symbol]) -> ResultPayload:
+    """Every line at once, with a single solution written one unknown per line.
+
+    SymPy answers ``[{x: -71, y: -53/4}]``; ``x = -71`` above ``y = -\\frac{53}{4}`` is how the answer
+    is written by hand. Several solutions — a line crossing a circle — keep SymPy's list, where
+    stacking would run them together.
+    """
+    equations: bool = all(isinstance(line, sp.Equality) for line in system)
+    if equations and system.has(sp.Abs):
+        solutions = _solve_over_reals(system, symbols)
+    else:
+        solutions = sp.solve(list(system), symbols, dict=True)
+    if not isinstance(solutions, list):
+        # Inequalities in one unknown come back as the condition they confine it to.
+        return _latex_result("Solutions", solutions)
+    if not solutions:
+        message: str = (
+            "These equations contradict each other, so there is no solution."
+            if _augmented_matrix(system, symbols) is not None
+            else "No symbolic solution was found."
+        )
+        return _latex_result("Solutions", solutions, message)
+    if len(solutions) > 1:
+        return _latex_result("Solutions", solutions)
+
+    solution: dict[sp.Symbol, sp.Expr] = solutions[0]
+    solved: list[sp.Symbol] = [symbol for symbol in symbols if symbol in solution]
+    free: list[str] = [_plain_name(symbol) for symbol in symbols if symbol not in solution]
+    exact: str = _stacked_latex(
+        [sp.Eq(symbol, solution[symbol], evaluate=False) for symbol in solved]
+    )
+    decimal: str = _stacked_latex(
+        [sp.Eq(symbol, _numeric(solution[symbol]), evaluate=False) for symbol in solved]
+    )
+    return {
+        "title": "Solution",
+        "latex": exact,
+        "message": f"{', '.join(free)} can take any value." if free else None,
+        "decimal": decimal if decimal != exact else None,
+    }
+
+
+def _plain_name(symbol: sp.Symbol) -> str:
+    """``symbol`` as a message names it. Messages are plain text, where ``x_{1}`` reads as ``x_1``."""
+    return str(symbol).replace("{", "").replace("}", "")
+
+
 def _unknown_names(count: int, matrix: MatrixBase) -> list[str]:
     """Name the unknowns without colliding with symbols the matrix already contains.
 
@@ -509,7 +692,7 @@ def _unknown_names(count: int, matrix: MatrixBase) -> list[str]:
     return [f"v_{{{index + 1}}}" for index in range(count)]
 
 
-def _stacked_latex(equations: list[sp.Equality]) -> str:
+def _stacked_latex(equations: list[Relational]) -> str:
     """One equation per line.
 
     ``\\begin{matrix}`` rather than ``cases`` or ``aligned`` on purpose: it is the one multi-line
@@ -606,9 +789,10 @@ def _solve_result(expression: ParsedInput, symbols: list[sp.Symbol]) -> ResultPa
 
 
 def _solve_over_reals(
-    equation: sp.Equality, symbols: list[sp.Symbol]
+    equation: sp.Equality | sp.Tuple, symbols: list[sp.Symbol]
 ) -> list[dict[sp.Symbol, sp.Expr]]:
-    """Solve ``equation`` as if every unknown were real, keyed by the original symbols.
+    """Solve ``equation``, or a system of them, as if every unknown were real, keyed by the
+    original symbols.
 
     ``parse_latex`` makes every unknown complex, and over the complex numbers ``|x - 3| = 5`` is a
     circle, so SymPy refuses it outright instead of answering ``x = -2`` and ``x = 8``. A written
@@ -856,13 +1040,296 @@ def _graph_result(expression: ParsedInput) -> ResultPayload:
 
     if not any(value is not None for value in y_values):
         raise MathInputError("No real graph values were found between −10 and 10.")
-    return {
-        "title": "Graph",
-        "latex": sp.latex(graph_expression),
-        "graph": {
-            "xLabel": str(variable),
-            "yLabel": dependent_label,
-            "xValues": x_values,
-            "yValues": y_values,
-        },
+    graph: dict[str, Any] = {
+        "xLabel": str(variable),
+        "yLabel": dependent_label,
+        "xValues": x_values,
+        "yValues": y_values,
     }
+    # Only a function the canvas can evaluate without Python can be placed on the page. Anything
+    # else still previews here; it just offers no Place button.
+    try:
+        source: str = graph_source(graph_expression, variable)
+        graph["expression"] = source
+        # Printed from the grammar read back, not from the parse: that is the function the canvas
+        # will draw, and SymPy prints an unevaluated ``log(x, 10)`` with its base dropped.
+        graph["functionLatex"] = graph_latex(_GraphParser(source).parse(), str(variable))
+    except MathInputError:
+        pass
+    return {"title": "Graph", "latex": sp.latex(graph_expression), "graph": graph}
+
+
+# --- Graph objects ----------------------------------------------------------------------------
+#
+# A graph placed on the page stores its function in a small closed grammar rather than as LaTeX,
+# because the canvas evaluates it thousands of times a frame while a point is dragged and cannot call
+# Python to do so. The grammar is numbers, the variable written as ``x`` whatever it was called,
+# ``+ - * / ^``, parentheses, ``pi``, ``E`` and the function names in ``_GRAPH_FUNCTIONS``. The Kotlin
+# twin is ``graph/GraphExpression.kt``; the two must accept exactly the same language.
+#
+# Read back with a parser of its own rather than ``sympify``: the string comes out of a synced
+# document, and ``sympify`` evaluates Python.
+
+#: SymPy function class → grammar name. ``ln`` is the natural logarithm, as ``log`` is in SymPy.
+_GRAPH_FUNCTIONS: dict[type, str] = {
+    sp.sin: "sin",
+    sp.cos: "cos",
+    sp.tan: "tan",
+    sp.cot: "cot",
+    sp.sec: "sec",
+    sp.csc: "csc",
+    sp.asin: "asin",
+    sp.acos: "acos",
+    sp.atan: "atan",
+    sp.sinh: "sinh",
+    sp.cosh: "cosh",
+    sp.tanh: "tanh",
+    sp.exp: "exp",
+    sp.log: "ln",
+    sp.Abs: "abs",
+    sp.floor: "floor",
+    sp.ceiling: "ceil",
+    sp.sign: "sign",
+}
+_GRAPH_NAMES: dict[str, type] = {name: function for function, name in _GRAPH_FUNCTIONS.items()}
+_GRAPH_SYMBOL: sp.Symbol = sp.Symbol("x")
+MAX_GRAPH_SOURCE_CHARS = 4000
+
+
+def graph_source(expression: sp.Expr, variable: sp.Symbol) -> str:
+    """``expression`` in the graph grammar, with ``variable`` written as ``x``.
+
+    Every compound child is parenthesized, so precedence never has to be agreed between the two
+    languages — only the grammar.
+    """
+    if expression.has(sp.I):
+        raise MathInputError("A graph with complex values cannot be placed on the page.")
+    source: str = _graph_node(expression, variable)
+    if len(source) > MAX_GRAPH_SOURCE_CHARS:
+        raise MathInputError("This function is too long to place on the page.")
+    return source
+
+
+def _graph_node(node: sp.Basic, variable: sp.Symbol) -> str:
+    if node == variable:
+        return "x"
+    if node is sp.pi:
+        return "pi"
+    if node is sp.E:
+        return "E"
+    if isinstance(node, sp.Integer):
+        return str(int(node)) if node >= 0 else f"({int(node)})"
+    if isinstance(node, sp.Rational):
+        return f"({int(node.p)}/{int(node.q)})"
+    if isinstance(node, sp.Float):
+        value: float = float(node)
+        if not math.isfinite(value):
+            raise MathInputError("This function has no finite value to draw.")
+        return repr(value) if value >= 0 else f"({repr(value)})"
+    if isinstance(node, sp.Add):
+        return "(" + "+".join(_graph_node(term, variable) for term in node.args) + ")"
+    if isinstance(node, sp.Mul):
+        return "(" + "*".join(_graph_node(factor, variable) for factor in node.args) + ")"
+    if isinstance(node, sp.Pow):
+        base, exponent = node.args
+        if exponent == sp.Rational(1, 2):
+            return f"sqrt({_graph_node(base, variable)})"
+        return f"({_graph_node(base, variable)}^{_graph_node(exponent, variable)})"
+    if isinstance(node, sp.log) and len(node.args) == 2:
+        # ``parse_latex`` keeps ``\\ln x`` as an unevaluated ``log(x, E)`` and ``\\log_{b}`` as
+        # ``log(x, b)``; both are a natural logarithm, divided by the base's when there is one.
+        argument, base = node.args
+        if base is sp.E:
+            return f"ln({_graph_node(argument, variable)})"
+        return f"(ln({_graph_node(argument, variable)})/ln({_graph_node(base, variable)}))"
+    if isinstance(node, sp.Function) and type(node) in _GRAPH_FUNCTIONS and len(node.args) == 1:
+        return f"{_GRAPH_FUNCTIONS[type(node)]}({_graph_node(node.args[0], variable)})"
+    raise MathInputError("This function cannot be placed on the page yet.")
+
+
+class _GraphParser:
+    """Reads the graph grammar back into SymPy, ``x`` as ``_GRAPH_SYMBOL``. Nothing is evaluated."""
+
+    _TOKEN = re.compile(r"\s*(?:(?P<number>\d+(?:\.\d*)?(?:[eE][-+]?\d+)?)|(?P<name>[A-Za-z]+)|(?P<op>[-+*/^(),]))")
+
+    def __init__(self, source: str) -> None:
+        if len(source) > MAX_GRAPH_SOURCE_CHARS:
+            raise MathInputError("This function is too long to edit.")
+        self.tokens: list[tuple[str, str]] = self._tokenize(source)
+        self.index: int = 0
+
+    def _tokenize(self, source: str) -> list[tuple[str, str]]:
+        tokens: list[tuple[str, str]] = []
+        position: int = 0
+        while position < len(source):
+            if source[position:].strip() == "":
+                break
+            match = self._TOKEN.match(source, position)
+            if match is None:
+                raise MathInputError("The stored function is not readable.")
+            kind: str = match.lastgroup or ""
+            tokens.append((kind, match.group(kind)))
+            position = match.end()
+        return tokens
+
+    def parse(self) -> sp.Expr:
+        expression: sp.Expr = self._sum()
+        if self.index != len(self.tokens):
+            raise MathInputError("The stored function is not readable.")
+        return expression
+
+    def _peek(self) -> str | None:
+        return self.tokens[self.index][1] if self.index < len(self.tokens) else None
+
+    def _take(self) -> tuple[str, str]:
+        if self.index >= len(self.tokens):
+            raise MathInputError("The stored function is not readable.")
+        token: tuple[str, str] = self.tokens[self.index]
+        self.index += 1
+        return token
+
+    def _expect(self, symbol: str) -> None:
+        if self._take()[1] != symbol:
+            raise MathInputError("The stored function is not readable.")
+
+    def _sum(self) -> sp.Expr:
+        result: sp.Expr = self._product()
+        while self._peek() in ("+", "-"):
+            operator: str = self._take()[1]
+            right: sp.Expr = self._product()
+            result = result + right if operator == "+" else result - right
+        return result
+
+    def _product(self) -> sp.Expr:
+        result: sp.Expr = self._unary()
+        while self._peek() in ("*", "/"):
+            operator: str = self._take()[1]
+            right: sp.Expr = self._unary()
+            result = result * right if operator == "*" else result / right
+        return result
+
+    def _unary(self) -> sp.Expr:
+        if self._peek() == "-":
+            self._take()
+            return -self._unary()
+        return self._power()
+
+    def _power(self) -> sp.Expr:
+        base: sp.Expr = self._atom()
+        if self._peek() == "^":
+            self._take()
+            return base ** self._unary()
+        return base
+
+    def _atom(self) -> sp.Expr:
+        kind, text = self._take()
+        if kind == "number":
+            return sp.Rational(text) if "e" not in text.lower() else sp.Float(text)
+        if text == "(":
+            inner: sp.Expr = self._sum()
+            self._expect(")")
+            return inner
+        if kind == "name":
+            if text == "x":
+                return _GRAPH_SYMBOL
+            if text == "pi":
+                return sp.pi
+            if text == "E":
+                return sp.E
+            if text == "sqrt":
+                return sp.sqrt(self._argument())
+            function: type | None = _GRAPH_NAMES.get(text)
+            if function is not None:
+                return function(self._argument())
+        raise MathInputError("The stored function is not readable.")
+
+    def _argument(self) -> sp.Expr:
+        self._expect("(")
+        argument: sp.Expr = self._sum()
+        self._expect(")")
+        return argument
+
+
+def _graph_number(text: Any) -> sp.Rational:
+    """A decimal sent by the canvas — already snapped to the grid — as the exact number it names."""
+    if not isinstance(text, str) or not re.fullmatch(r"-?\d+(?:\.\d+)?", text):
+        raise MathInputError("The dragged position is not a number.")
+    return sp.Rational(text)
+
+
+def graph_latex(expression: sp.Expr, variable: str) -> str:
+    """``expression`` as LaTeX, with the grammar's ``x`` written as the graph's own variable."""
+    return sp.latex(expression.subs(_GRAPH_SYMBOL, sp.Symbol(variable)))
+
+
+def mutate_graph(source: str, variable: str, mutation: str) -> str:
+    """Rewrite a placed graph's function after one of its points was dragged.
+
+    ``mutation`` is JSON, one of:
+
+    * ``{"kind": "shift", "h": "0.5", "k": "-2"}`` — ``f(x - h) + k``. What dragging an extremum, an
+      inflection point, the y-intercept or a non-polynomial zero does.
+    * ``{"kind": "root", "root": "1.41421356", "to": "2.5"}`` — a polynomial's root, found near
+      ``root`` among its exact roots, moved to ``to`` with its multiplicity. Every other root and the
+      leading coefficient stay where they were.
+
+    Answers ``{"expression", "latex"}`` — the new function in the graph grammar, and in LaTeX written
+    in ``variable`` — or ``{"error"}``.
+    """
+    try:
+        expression: sp.Expr = _GraphParser(source).parse()
+        request: Any = json.loads(mutation)
+        if not isinstance(request, dict):
+            raise MathInputError("That change cannot be made to this graph.")
+        kind: Any = request.get("kind")
+        if kind == "shift":
+            result: sp.Expr = _shifted(expression, _graph_number(request.get("h")), _graph_number(request.get("k")))
+        elif kind == "root":
+            result = _root_moved(expression, request.get("root"), _graph_number(request.get("to")))
+        else:
+            raise MathInputError("That change cannot be made to this graph.")
+        _check_complexity(result)
+        return _json(
+            {
+                "expression": graph_source(result, _GRAPH_SYMBOL),
+                "latex": graph_latex(result, variable if isinstance(variable, str) else "x"),
+            }
+        )
+    except Exception as error:
+        return _json({"error": _friendly_error(error)})
+
+
+def _shifted(expression: sp.Expr, h: sp.Rational, k: sp.Rational) -> sp.Expr:
+    result: sp.Expr = expression.subs(_GRAPH_SYMBOL, _GRAPH_SYMBOL - h) + k
+    # Expanded only when it is a polynomial: there it is the form a student checks against, while
+    # expanding sin(x - 1/2) would trade the shift they made for a sum of products.
+    return sp.expand(result) if result.is_polynomial(_GRAPH_SYMBOL) else result
+
+
+def _root_moved(expression: sp.Expr, near: Any, to: sp.Rational) -> sp.Expr:
+    if not expression.is_polynomial(_GRAPH_SYMBOL):
+        raise MathInputError("Only a polynomial's roots can be moved one at a time.")
+    if not isinstance(near, str):
+        raise MathInputError("The dragged root is not a number.")
+    approximate: float = float(near)
+    polynomial = sp.Poly(expression, _GRAPH_SYMBOL)
+    found: tuple[sp.Expr, int] | None = None
+    for root, multiplicity in sp.roots(polynomial).items():
+        value: complex = complex(root.evalf())
+        if abs(value.imag) > 1e-9:
+            continue
+        if abs(value.real - approximate) <= 1e-6 * (1.0 + abs(approximate)):
+            found = (root, multiplicity)
+            break
+    if found is None:
+        raise MathInputError("That root could not be found exactly, so it cannot be moved.")
+    root, multiplicity = found
+    factor: sp.Expr = (_GRAPH_SYMBOL - root) ** multiplicity
+    quotient: sp.Expr = sp.quo(expression, factor, _GRAPH_SYMBOL)
+    moved: sp.Expr = sp.expand(quotient * (_GRAPH_SYMBOL - to) ** multiplicity)
+    surds: list[sp.Expr] = [atom for atom in moved.atoms(sp.Pow) if atom.is_number]
+    if not surds:
+        return moved
+    # The roots of x³ − 2x left at ±√2 when 0 moves expand to x³ − 2x² + √2x² − 2√2x. Factored over
+    # the surds the coefficients carry, the header shows the roots instead: x(x − 2)(x + √2).
+    return sp.factor(moved, extension=surds)

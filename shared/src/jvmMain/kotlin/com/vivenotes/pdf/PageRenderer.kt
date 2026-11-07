@@ -5,6 +5,7 @@ import org.jetbrains.skia.*
 import androidx.compose.ui.graphics.asComposeCanvas
 import com.vivenotes.data.automaticColorOr
 import com.vivenotes.pdf.PdfBounds as InkBounds
+import com.vivenotes.graph.*
 import com.vivenotes.model.Outline
 import com.vivenotes.model.RuleLines
 import com.vivenotes.model.ink.LineType
@@ -28,6 +29,7 @@ import kotlin.math.floor
  */
 class PageRenderer : AutoCloseable {
 
+    private val graphPainter = GraphPainter()
     private val density = 1f
 
     private val fill = Paint().apply { isAntiAlias = true }.apply { mode = PaintMode.FILL }
@@ -37,7 +39,7 @@ class PageRenderer : AutoCloseable {
     internal var useVisibilityIndex = true
     internal var work: PdfWorkCounts? = null
     fun clearCache() = inkRenderer.clearCache()
-    override fun close() { clearCache(); fill.close(); line.close(); image.close() }
+    override fun close() { graphPainter.close(); clearCache(); fill.close(); line.close(); image.close() }
 
     /**
      * Paints [tile] onto [canvas] as a whole sheet: background, margins, and the rectangle of page
@@ -123,6 +125,23 @@ class PageRenderer : AutoCloseable {
             val shift = shiftOf(equation.id)
             if (!equation.pageRect().translated(shift.dx, shift.dy).overlaps(visible)) return@forEach
             drawEquation(canvas, equation, page, shift)
+        }
+
+        content.graphs.forEach { graph ->
+            work?.let { it.outlinesVisited++ }
+            val shift = shiftOf(graph.id)
+            val bounds = InkBounds(graph.x, graph.y, graph.x + graph.width, graph.y + graph.height)
+            if (!bounds.translated(shift.dx, shift.dy).overlaps(visible)) return@forEach
+            val function = GraphExpression.parse(graph.expression) ?: return@forEach
+            val original = graph.originalExpression?.takeIf { graph.showOriginal && graph.isMutated }
+                ?.let(GraphExpression::parse)
+            val window = graph.window()
+            graphPainter.draw(canvas,
+                GraphFrame(graph, graph.x + shift.dx, graph.y + shift.dy, graph.width, graph.height, 1f, window),
+                GraphColors(page.colors.backgroundArgb, page.colors.textArgb,
+                    graph.colorArgb ?: GraphPainter.DEFAULT_CURVE_ARGB, page.colors.accentArgb),
+                function::evaluate, original?.let { it::evaluate },
+                GraphAnalysis.pointsOfInterest(function::evaluate, window), page.equations[graph.id])
         }
 
         content.pictures.forEach { picture ->

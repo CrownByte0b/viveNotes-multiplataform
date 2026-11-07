@@ -64,6 +64,9 @@ class SympyMathEngine internal constructor(
         )
 
     /** Starts the process, imports SymPy and parses one throwaway formula — `warm_up` in the module. */
+    override suspend fun mutateGraph(expression: String, variable: String, mutation: String): GraphRewrite =
+        json.decodeFromString(call("mutate_graph", expression, variable, mutation) ?: unexpectedNull("mutate_graph"))
+
     override suspend fun warmUp() {
         try {
             call("warm_up")

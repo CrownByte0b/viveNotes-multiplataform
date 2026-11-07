@@ -21,7 +21,7 @@ internal data class InkMathRequest(val selection: InkSelection, val lines: List<
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun InkMathPane(request: InkMathRequest, math: DrawMath, showInterpretation: Boolean = false,
-                         log: DebugLog = remember { DebugLog() }, onClose: () -> Unit) {
+                         log: DebugLog = remember { DebugLog() }, onPlaceGraph: ((com.vivenotes.math.MathGraph) -> Unit)? = null, onClose: () -> Unit) {
     var source by remember(request, math) { mutableStateOf<String?>(null) }
     var error by remember(request, math) { mutableStateOf<String?>(null) }
     var attempt by remember(request, math) { mutableIntStateOf(0) }
@@ -44,7 +44,7 @@ internal fun InkMathPane(request: InkMathRequest, math: DrawMath, showInterpreta
         }
     }
     val recognized = source
-    if (recognized != null) MathPane(recognized, math, showInterpretation, log, onClose)
+    if (recognized != null) MathPane(recognized, math, showInterpretation, log, onPlaceGraph, onClose)
     else MathPaneFrame(onClose) {
         val failure = error
         if (failure == null) {
