@@ -15,13 +15,16 @@ import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.RibbonTab
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.model.GraphInterval
 import com.vivenotes.model.Outline
 import com.vivenotes.model.PageDoc
 import java.awt.Component
 import java.awt.GraphicsEnvironment
 import java.awt.KeyboardFocusManager
+import java.awt.Point
 import java.awt.Toolkit
 import java.awt.event.KeyEvent
+import java.awt.event.MouseEvent
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
 import kotlin.test.*
@@ -140,6 +143,85 @@ class ToolkitPopupKeyboardContractTest {
             waitFor("the test composition to close before disposing its Swing host") { node(panel, DrawRibbonTags.penKit(0)) == null }
             SwingUtilities.invokeAndWait { frame.dispose() }
         }
+    }
+
+    /**
+     * Real pointer events, which [click] skips: a popup layer made at the Interface density instead
+     * of the host window's still answers its semantics, while every press on it lands outside.
+     */
+    @Test
+    fun graphOptionsTakeRealClicksAtTheDefaultDisplayScale() {
+        if (GraphicsEnvironment.isHeadless()) return
+        val base = WorkspaceState.demo()
+        val graph = Outline.Graph("selected-graph", x = 250f, y = 350f, width = 480f, height = 390f,
+            expression = "((x^2)+(-4))", latex = "x^{2}-4", xMin = -5.0, xMax = 5.0, yMin = -5.0, yMax = 5.0)
+        val state = mutableStateOf(base.copy(notebooks = base.notebooks.map { notebook ->
+            notebook.copy(sections = notebook.sections.map { section ->
+                section.copy(pages = section.pages.map { page ->
+                    if (page.id == base.selectedPageId) page.copy(document = PageDoc(outlines = listOf(graph))) else page
+                })
+            })
+        }).selectObject(graph.id))
+        fun current() = state.value.selectedPage!!.document.outlines.single() as Outline.Graph
+        requireWaylandPopupLayers()
+        lateinit var frame: JFrame
+        lateinit var panel: ComposePanel
+        lateinit var host: PopupLayerHost
+        SwingUtilities.invokeAndWait {
+            frame = JFrame("Graph options pointer contract")
+            panel = createPanel()
+            host = PopupLayerHost(panel, DebugLog())
+            panel.windowContainer = host
+            frame.contentPane.add(host)
+            frame.setSize(1600, 1100)
+            frame.isVisible = true
+            panel.setContent {
+                ViveNotesTheme(darkTheme = true) {
+                    WorkspaceScreen(state.value, { state.value = it(state.value) }, interfaceSettings = InterfaceSettings())
+                }
+            }
+        }
+        try {
+            pointerClick(panel, host, "object-tooltip-graph-options")
+            pointerClick(panel, host, "object-tooltip-graph-trace")
+            waitFor("a real click on Trace and tangent") { current().traceX != null }
+            pointerClick(panel, host, "object-tooltip-graph-area")
+            waitFor("a real click on Area under the curve") { current().area != null }
+            assertEquals(GraphInterval(-2.0, 2.0), current().area)
+        } finally {
+            onEdt { panel.setContent { } }
+            waitFor("the graph composition to close") { node(panel, "object-tooltip-graph-options") == null }
+            SwingUtilities.invokeAndWait { frame.dispose() }
+        }
+    }
+
+    /**
+     * Moves, presses and releases over [tag] as AWT delivers it: to the component under that spot.
+     * Position and size, because `boundsInWindow` reads as empty on a popup layer once it has settled.
+     */
+    private fun pointerClick(panel: ComposePanel, host: PopupLayerHost, tag: String) {
+        lateinit var target: Component
+        lateinit var at: Point
+        waitFor("layout of $tag") {
+            val found = node(panel, tag) ?: return@waitFor false
+            if (found.size.width <= 0 || found.size.height <= 0) return@waitFor false
+            val scale = host.graphicsConfiguration.defaultTransform.scaleX.toFloat()
+            val spot = Point(((found.positionInWindow.x + found.size.width / 2f) / scale).toInt(),
+                ((found.positionInWindow.y + found.size.height / 2f) / scale).toInt())
+            target = SwingUtilities.getDeepestComponentAt(host, spot.x, spot.y)
+            at = SwingUtilities.convertPoint(host, spot, target)
+            true
+        }
+        fun send(id: Int) {
+            val button = if (id == MouseEvent.MOUSE_MOVED) MouseEvent.NOBUTTON else MouseEvent.BUTTON1
+            val held = if (id == MouseEvent.MOUSE_PRESSED) MouseEvent.BUTTON1_DOWN_MASK else 0
+            onEdt { target.dispatchEvent(MouseEvent(target, id, System.currentTimeMillis(), held, at.x, at.y,
+                if (button == MouseEvent.BUTTON1) 1 else 0, false, button)) }
+            Thread.sleep(60)
+        }
+        send(MouseEvent.MOUSE_MOVED)
+        send(MouseEvent.MOUSE_PRESSED)
+        send(MouseEvent.MOUSE_RELEASED)
     }
 
     private fun createPanel(): ComposePanel {

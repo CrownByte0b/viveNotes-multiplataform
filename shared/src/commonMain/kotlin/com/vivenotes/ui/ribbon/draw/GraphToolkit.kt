@@ -3,7 +3,6 @@ package com.vivenotes.ui.ribbon.draw
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -36,6 +35,7 @@ import com.vivenotes.graph.GraphTangent
 import com.vivenotes.graph.window
 import com.vivenotes.model.GraphBackground
 import com.vivenotes.model.Outline
+import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.icons.GraphSymbols
 
 internal object GraphToolkitTags {
@@ -105,7 +105,7 @@ internal fun RowScope.GraphActions(graphs: List<Outline.Graph>, actions: GraphTo
         ) {
             Icon(GraphSymbols.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        ScaledDropdownMenu(open, { open = false }) {
             val background = graphs.map { it.background }.distinct().singleOrNull()
             BackgroundItem(GraphBackground.None, Strings.graph_background_none, GraphSymbols.GridOff, background) {
                 actions.update { graph -> graph.copy(background = GraphBackground.None) }
