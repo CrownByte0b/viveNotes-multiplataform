@@ -127,7 +127,7 @@ class CanvasVideoMeasurementTest {
                 text("near", 130f, listOf(Block.of("Near"))),
                 text("missing", 4000f, listOf(Block.of("https://youtu.be/${videoId(0)}"))),
                 text("failed", 4400f, listOf(Block.of("https://youtu.be/${videoId(1)}"))),
-                text("formula", 4800f, listOf(Block.of("Area is \$x^2\$"))),
+                text("formula", 4800f, listOf(Block.of("Area is \\(x^2\\)"))),
             )))
             setContent { ViveNotesTheme { WorkspaceScreen(state, { state = it(state) }, thumbnails = source) } }
             waitUntil(timeoutMillis = 5_000) { calls.get() == 2 }

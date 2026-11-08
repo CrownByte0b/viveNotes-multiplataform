@@ -107,7 +107,7 @@ class TextBoxEditingTest {
     /** A click on a preview edits where it was clicked, not at the box's first character. */
     @Test
     fun clickingAPreviewStartsEditingWhereClicked() = runDesktopComposeUiTest(width = 1400, height = 900) {
-        val state = page(Block.of("Area is \$x\$ here."), Block.of("second line"), Block.of("third line"))
+        val state = page(Block.of("Area is \\(x\\) here."), Block.of("second line"), Block.of("third line"))
         var observed = state
         setWorkspace(state) { observed = it }
 
@@ -120,7 +120,7 @@ class TextBoxEditingTest {
             assertEquals(state.boxId(), observed.focusedTextOutlineId)
             val caret = observed.editorSelection
             assertTrue(caret.collapsed)
-            val thirdLine = "Area is \$x\$ here.\nsecond line\n".length
+            val thirdLine = "Area is \\(x\\) here.\nsecond line\n".length
             assertTrue(caret.start in thirdLine..thirdLine + 10, "the caret is on the line clicked: $caret")
         }
         onNodeWithTag(WorkspaceTestTags.BodyEditor).assertIsFocused()

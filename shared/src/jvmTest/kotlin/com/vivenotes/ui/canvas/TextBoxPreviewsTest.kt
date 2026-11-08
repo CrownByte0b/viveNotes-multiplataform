@@ -81,14 +81,35 @@ class TextBoxPreviewsTest {
     @Test
     fun latexPreviewIsVisibleAndOpensItsSourceForEditing() = runDesktopComposeUiTest {
         var edits = 0
-        val source = AnnotatedString("Area is \$\\frac{a}{b}\$.")
+        val source = AnnotatedString("Area is \\(\\frac{a}{b}\\).")
         setContent {
             TextBoxPreviews(source, TextStyle(fontSize = 15.sp), Color.Black, 300f,
                 thumbnails = null, onEdit = { edits++ }, onOpenVideo = {})
         }
         onNodeWithTag("text-box-preview").assertIsDisplayed().performClick()
         assertEquals(1, edits)
-        assertEquals("Area is \$\\frac{a}{b}\$.", source.text)
+        assertEquals("Area is \\(\\frac{a}{b}\\).", source.text)
+    }
+
+    /**
+     * A lone `$…$` is text, as on Android since `9f707e0`: prices and shell variables pair up too
+     * easily to be read as math. `$$…$$`, `\(…\)` and `\[…\]` still render.
+     */
+    @Test
+    fun singleDollarsStayTextWhileTheOtherDelimitersRender() = runDesktopComposeUiTest {
+        val shown = mutableMapOf<String, Boolean>()
+        val sources = listOf("Area is \$x^2\$ here.", "It costs \$5 and \$7 today.", "Area is \\(x^2\\) here.",
+            "Area is \$\$x^2\$\$ here.", "Area is \\[x^2\\] here.")
+        setContent {
+            Column {
+                sources.forEach { source ->
+                    shown[source] = TextBoxPreviews(AnnotatedString(source), TextStyle(fontSize = 15.sp), Color.Black, 300f,
+                        thumbnails = null, onEdit = {}, onOpenVideo = {})
+                }
+            }
+        }
+        waitForIdle()
+        assertEquals(listOf(false, false, true, true, true), sources.map { shown[it] })
     }
 
     @Test
@@ -97,7 +118,7 @@ class TextBoxPreviewsTest {
         setContent {
             ViveNotesTheme {
                 Column {
-                    TextBoxPreviews(AnnotatedString("Area is \$x^2\$ by now."), TextStyle(fontSize = 15.sp),
+                    TextBoxPreviews(AnnotatedString("Area is \\(x^2\\) by now."), TextStyle(fontSize = 15.sp),
                         Color.Black, 300f, thumbnails = null, onEdit = { edits++ }, onOpenVideo = {})
                     Box(Modifier.size(80.dp).background(Color.White).testTag("ripple-control").clickable {})
                 }
@@ -152,7 +173,7 @@ class TextBoxPreviewsTest {
 
     @Test
     fun aPlaceholderNeverOverlapsAnyParagraphStyleBoundary() = runDesktopComposeUiTest {
-        val text = "A \$x^2\$ Z"
+        val text = "A \\(x^2\\) Z"
         setContent {
             Column {
                 (1 until text.length).forEach { boundary ->

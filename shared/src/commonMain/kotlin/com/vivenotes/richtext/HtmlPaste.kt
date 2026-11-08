@@ -100,7 +100,7 @@ private class HtmlPaste(private val textMarks: Set<Mark>) {
             }
             "img" -> {
                 // Wikipedia draws a formula as a picture whose alternative text is its LaTeX.
-                attributes["alt"]?.trim()?.takeIf { it.startsWith("{\\displaystyle") }?.let { text("\$$it\$", preserveText = true) }
+                attributes["alt"]?.trim()?.takeIf { it.startsWith("{\\displaystyle") }?.let { text(inlineMath(it), preserveText = true) }
                 return
             }
         }
@@ -125,6 +125,12 @@ private class HtmlPaste(private val textMarks: Set<Mark>) {
         if (name == "annotation" && attributes["encoding"]?.lowercase() == "application/x-tex") element.tex = StringBuilder()
     }
 
+    /**
+     * A pasted formula as inline LaTeX the text box renders: `\(…\)`. Not `$…$`, which the editor
+     * leaves as text (prices and shell variables pair up too easily to be read as math).
+     */
+    private fun inlineMath(latex: String): String = "\\($latex\\)"
+
     private fun endTag(name: String) {
         val at = open.indexOfLast { it.name == name }
         if (at < 0) return
@@ -136,7 +142,7 @@ private class HtmlPaste(private val textMarks: Set<Mark>) {
             // The formula a KaTeX or MathJax page shows, in the source it gives screen readers.
             open.lastOrNull { it.name == "math" }?.formula = tex.toString().trim()
         }
-        if (element.name == "math") element.formula?.takeIf { it.isNotEmpty() }?.let { text("\$$it\$", preserveText = true) }
+        if (element.name == "math") element.formula?.takeIf { it.isNotEmpty() }?.let { text(inlineMath(it), preserveText = true) }
         if (element.block) boundary(element.bottom)
     }
 

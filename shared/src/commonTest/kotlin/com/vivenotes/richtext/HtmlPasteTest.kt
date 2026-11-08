@@ -261,20 +261,25 @@ class HtmlPasteTest {
         assertEquals(listOf("shown"), pastedHtmlBlocks(html)!!.map { it.text })
     }
 
-    /** Wikipedia draws formulas as pictures with LaTeX for alternative text; KaTeX keeps it in MathML. */
+    /**
+     * Wikipedia draws formulas as pictures with LaTeX for alternative text; KaTeX keeps it in MathML.
+     * Either arrives as `\(…\)`, which still renders: a lone `$…$` is left as text by the editor.
+     */
     @Test
     fun formulasArriveAsTheirLatex() {
         val wikipedia = "<p>The slope <span class=\"mwe-math-element\"><span class=\"mwe-math-mathml-inline\" style=\"display: none;\">" +
             "<math><semantics><mrow><mi>m</mi></mrow><annotation encoding=\"application/x-tex\">{\\displaystyle m}</annotation>" +
             "</semantics></math></span><img src=\"https://wikimedia.org/api/rest_v1/media/math/render/svg/0a07d98b\" " +
             "alt=\"{\\displaystyle m}\"></span> is constant.</p>"
-        assertEquals("The slope \${\\displaystyle m}\$ is constant.", pastedHtmlBlocks(wikipedia)!!.single().text)
+        assertEquals("The slope \\({\\displaystyle m}\\) is constant.", pastedHtmlBlocks(wikipedia)!!.single().text)
 
         val katex = "<p>so <span class=\"katex\"><span class=\"katex-mathml\"><math xmlns=\"http://www.w3.org/1998/Math/MathML\">" +
             "<semantics><mrow><msup><mi>x</mi><mn>2</mn></msup></mrow><annotation encoding=\"application/x-tex\">x^2</annotation>" +
             "</semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"mord mathnormal\">x</span>" +
             "<span class=\"msupsub\">2</span></span></span> grows</p>"
-        assertEquals("so \$x^2\$ grows", pastedHtmlBlocks(katex)!!.single().text)
+        val pasted = pastedHtmlBlocks(katex)!!.single().text
+        assertEquals("so \\(x^2\\) grows", pasted)
+        assertEquals(listOf("x^2"), findAutoEquationCandidates(pasted).map { it.latex })
     }
 
     @Test

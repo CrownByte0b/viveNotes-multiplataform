@@ -253,7 +253,7 @@ class WorkspaceScreenTest {
     @Test
     fun latexPreviewOnAStoredTextBoxRevealsTheEditableSource() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
-            val latex = "Area is \$\\frac{a}{b}\$."
+            val latex = "Area is \\(\\frac{a}{b}\\)."
             setWorkspace(initial = WorkspaceState.demo().updateSelectedPage(body = latex).clearCanvasFocus())
 
             onNodeWithTag("text-box-preview").assertIsDisplayed().performClick()
