@@ -39,7 +39,8 @@ def _versions() -> str:
 _CALLS: dict[str, tuple[Callable[..., Any], int, int | None]] = {
     "analyze": (math_engine.analyze, 1, 1),
     "execute": (math_engine.execute, 2, 2),
-    "mutate_graph": (math_engine.mutate_graph, 3, 3),
+    # The fourth, the slider letters as JSON, is optional in math_engine: a graph without sliders.
+    "mutate_graph": (math_engine.mutate_graph, 3, 4),
     "calculate": (math_engine.calculate, 1, None),
     "warm_up": (math_engine.warm_up, 0, 0),
     "versions": (_versions, 0, 0),

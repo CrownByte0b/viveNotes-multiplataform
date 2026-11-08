@@ -1,5 +1,6 @@
 package com.vivenotes.ui.ribbon.draw
 
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toPixelMap
@@ -32,10 +33,14 @@ class GraphUiTest {
     }
     private class Math : DrawMath {
         var supported = true
+        var parameters = false
         override val engine = object : MathEngine {
             override suspend fun analyze(latex: String) = MathAnalysis(actions = listOf(MathAction("simplify", "Simplify"), MathAction("graph", "Graph")))
             override suspend fun execute(latex: String, actionId: String) = if (actionId == "graph")
-                MathOperationResult(title = "Graph", graph = MathGraph("x", "y", listOf(-2.0, 0.0, 2.0), listOf(0.0, -4.0, 0.0),
+                MathOperationResult(title = "Graph", graph = if (parameters) MathGraph("x", "y", listOf(-2.0, 0.0, 2.0), listOf(4.0, 0.0, 4.0),
+                    "((\$0*(x^2))+\$1)", "a x^{2} + \\omega",
+                    listOf(GraphParameter("a", "a", 1.0), GraphParameter("omega", "ω", 0.0)))
+                    else MathGraph("x", "y", listOf(-2.0, 0.0, 2.0), listOf(0.0, -4.0, 0.0),
                     if (supported) "((x^2)+(-4))" else null, "x^{2}-4"))
                 else MathOperationResult(latex = "x^{2}-4")
         }
@@ -64,6 +69,104 @@ class GraphUiTest {
         runOnIdle {
             assertEquals("((x^2)+(-4))", graph.expression)
             assertFalse(state.value.objectLassoArmed)
+            assertEquals(before, state.value.undoStructure().selectedPage!!.document)
+        }
+    }
+
+    private fun equationPage(): MutableState<WorkspaceState> {
+        val equation = Outline.Equation(id = "eq", x = 120f, y = 160f, width = 160f, height = 48f, latex = "y=x^2-4")
+        val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
+        return mutableStateOf(base.updatePage(base.selectedPageId) { it.copy(document = PageDoc(outlines = listOf(equation))) }
+            .selectObject(equation.id))
+    }
+
+    /** Typed formulas reach the pane with no formula model; a graph placed from there lands below them. */
+    @Test
+    fun anEquationsMathButtonOpensItInTheMathPaneAndItsGraphLandsBelowIt() = runDesktopComposeUiTest(width = 1500, height = 1000) {
+        val state = equationPage()
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }, drawMath = Math()) } }
+
+        onNodeWithTag(EquationToolkitTags.MATH).assertIsDisplayed().performClick()
+        onNodeWithTag(MathPaneTags.Source).assert(hasText("y=x^2-4"))
+        mainClock.advanceTimeBy(300)
+        onNodeWithTag(MathPaneTags.action("graph")).performClick()
+        onNodeWithTag("draw-math-place-graph").performScrollTo().performClick()
+
+        runOnIdle {
+            val graph = state.value.selectedPrimeObjects.single() as Outline.Graph
+            assertEquals(120f, graph.x)
+            assertEquals(160f + 48f + 24f, graph.y)
+            // The pane held a copy: the equation is as it was.
+            assertEquals("y=x^2-4", state.value.selectedPage!!.document.outlines.filterIsInstance<Outline.Equation>().single().latex)
+        }
+        onNodeWithTag(MathPaneTags.Source).assertDoesNotExist()
+    }
+
+    @Test
+    fun anEquationsGraphButtonPlacesItsGraphBelowItAsOneUndo() = runDesktopComposeUiTest(width = 1500, height = 1000) {
+        val state = equationPage()
+        val before = state.value.selectedPage!!.document
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }, drawMath = Math()) } }
+
+        waitUntil(timeoutMillis = 5000) { onAllNodesWithTag(EquationToolkitTags.GRAPH).fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag(EquationToolkitTags.GRAPH).performClick()
+
+        runOnIdle {
+            val graph = state.value.selectedPrimeObjects.single() as Outline.Graph
+            assertEquals("((x^2)+(-4))", graph.expression)
+            assertEquals(160f + 48f + 24f, graph.y)
+            assertEquals(before, state.value.undoStructure().selectedPage!!.document)
+        }
+    }
+
+    @Test
+    fun withoutAnEngineAnEquationHasNeitherMathNorGraph() = runDesktopComposeUiTest(width = 1500, height = 1000) {
+        val state = equationPage()
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
+        onNodeWithTag(EquationToolkitTags.EDIT).assertIsDisplayed()
+        onNodeWithTag(EquationToolkitTags.MATH).assertDoesNotExist()
+        onNodeWithTag(EquationToolkitTags.GRAPH).assertDoesNotExist()
+    }
+
+    /** The preview is one setting of the sliders the placed graph will have; the pane says which. */
+    @Test
+    fun aFormulaWithSlidersSaysWhereItWasDrawnAndArrivesWithThem() = runDesktopComposeUiTest(width = 900, height = 1000) {
+        val math = Math().apply { parameters = true }
+        var placed: MathGraph? = null
+        setContent { ViveNotesTheme { MathPane("y=a x^2", math, onPlaceGraph = { placed = it }) {} } }
+        mainClock.advanceTimeBy(300)
+        onNodeWithTag(MathPaneTags.action("graph")).performClick()
+        onNodeWithTag(MathPaneTags.GraphParameters).performScrollTo()
+            .assert(hasText("Drawn at a = 1.0, ω = 0.0. Each gets a slider once placed."))
+        onNodeWithTag("draw-math-place-graph").performScrollTo().performClick()
+        assertEquals(listOf("a", "omega"), placed?.parameters?.map { it.symbol })
+    }
+
+    /** The Sliders dialog belongs to the window; its answer is one Undo step. */
+    @Test
+    fun theSlidersDialogFromTheOptionsMenuSetsARangeAsOneUndo() = runDesktopComposeUiTest(width = 1500, height = 1000) {
+        val graph = Outline.Graph("graph", x = 100f, y = 200f, width = 480f, height = 260f + 2 * 36f,
+            expression = "((\$0*(x^2))+\$1)", latex = "a x^{2} + \\omega", xMin = -5.0, xMax = 5.0, yMin = -5.0, yMax = 5.0,
+            parameters = listOf(GraphParameter("a", "a", 1.0), GraphParameter("omega", "ω", 0.0)))
+        val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)
+        val state = mutableStateOf(base.updatePage(base.selectedPageId) { it.copy(document = PageDoc(outlines = listOf(graph))) }.selectObject(graph.id))
+        val before = state.value.selectedPage!!.document
+        setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }, drawMath = Math()) } }
+
+        onNodeWithTag(GraphToolkitTags.OPTIONS).performClick()
+        onNodeWithTag(GraphToolkitTags.SLIDERS).performClick()
+        onNodeWithTag(GraphSlidersDialogTags.field(1, SliderField.Min)).performTextReplacement("0")
+        onNodeWithTag(GraphSlidersDialogTags.field(1, SliderField.Step)).performTextReplacement("20")
+        onNodeWithTag(GraphSlidersDialogTags.APPLY).assertIsNotEnabled()
+        onNodeWithTag(GraphSlidersDialogTags.field(1, SliderField.Step)).performTextReplacement("0.5")
+        onNodeWithTag(GraphSlidersDialogTags.field(1, SliderField.Value)).performTextReplacement("−3,7")
+        onNodeWithTag(GraphSlidersDialogTags.APPLY).performClick()
+
+        onNodeWithTag(GraphSlidersDialogTags.DIALOG).assertDoesNotExist()
+        runOnIdle {
+            val omega = (state.value.selectedPrimeObjects.single() as Outline.Graph).parameters[1]
+            // Pulled into the new range, then onto its steps.
+            assertEquals(0.0, omega.min); assertEquals(0.5, omega.step); assertEquals(0.0, omega.value)
             assertEquals(before, state.value.undoStructure().selectedPage!!.document)
         }
     }

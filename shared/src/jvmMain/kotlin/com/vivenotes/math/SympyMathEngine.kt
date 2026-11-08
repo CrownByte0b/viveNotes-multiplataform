@@ -12,6 +12,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -64,8 +65,15 @@ class SympyMathEngine internal constructor(
         )
 
     /** Starts the process, imports SymPy and parses one throwaway formula — `warm_up` in the module. */
-    override suspend fun mutateGraph(expression: String, variable: String, mutation: String): GraphRewrite =
-        json.decodeFromString(call("mutate_graph", expression, variable, mutation) ?: unexpectedNull("mutate_graph"))
+    override suspend fun mutateGraph(
+        expression: String,
+        variable: String,
+        mutation: String,
+        parameters: List<String>,
+    ): GraphRewrite {
+        val names = kotlinx.serialization.json.JsonArray(parameters.map(::JsonPrimitive)).toString()
+        return json.decodeFromString(call("mutate_graph", expression, variable, mutation, names) ?: unexpectedNull("mutate_graph"))
+    }
 
     override suspend fun warmUp() {
         try {

@@ -5,10 +5,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.vivenotes.graph.GraphDrag
 import com.vivenotes.model.GraphInterval
+import com.vivenotes.model.GraphParameter
 import com.vivenotes.model.Outline
 
 @Composable
 internal actual fun GraphDrawing(
     graph: Outline.Graph, paper: Color, ink: Color, accent: Color,
-    drag: GraphDrag?, traceX: Double?, area: GraphInterval?, selected: Boolean, modifier: Modifier,
+    drag: GraphDrag?, traceX: Double?, area: GraphInterval?, selected: Boolean,
+    parameters: List<GraphParameter>, playing: Int?, pressedSlider: Int?, modifier: Modifier,
 ) { /* Graph painting is a desktop service, like ink authoring. */ }

@@ -16,11 +16,14 @@ actual class GraphDecimal private constructor(private val value: BigDecimal) : C
     actual fun scaleByPowerOfTen(exponent: Int): GraphDecimal = GraphDecimal(value.scaleByPowerOfTen(exponent))
     actual fun stripTrailingZeros(): GraphDecimal = GraphDecimal(value.stripTrailingZeros())
     actual fun rounded(places: Int): GraphDecimal = GraphDecimal(value.setScale(places, RoundingMode.HALF_UP))
+    actual fun roundedHalfEven(places: Int): GraphDecimal = GraphDecimal(value.setScale(places, RoundingMode.HALF_EVEN))
+    actual fun scale(): Int = value.scale()
     actual override fun compareTo(other: GraphDecimal): Int = value.compareTo(other.value)
 
     actual companion object {
         actual val ZERO: GraphDecimal = GraphDecimal(BigDecimal.ZERO)
         actual val ONE: GraphDecimal = GraphDecimal(BigDecimal.ONE)
         actual fun valueOf(value: Long): GraphDecimal = GraphDecimal(BigDecimal.valueOf(value))
+        actual fun valueOf(value: Double): GraphDecimal = GraphDecimal(BigDecimal.valueOf(value))
     }
 }

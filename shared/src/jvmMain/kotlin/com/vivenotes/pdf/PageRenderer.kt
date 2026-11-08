@@ -132,9 +132,8 @@ class PageRenderer : AutoCloseable {
             val shift = shiftOf(graph.id)
             val bounds = InkBounds(graph.x, graph.y, graph.x + graph.width, graph.y + graph.height)
             if (!bounds.translated(shift.dx, shift.dy).overlaps(visible)) return@forEach
-            val function = GraphExpression.parse(graph.expression) ?: return@forEach
-            val original = graph.originalExpression?.takeIf { graph.showOriginal && graph.isMutated }
-                ?.let(GraphExpression::parse)
+            val function = graph.function() ?: return@forEach
+            val original = graph.takeIf { it.showOriginal && it.isMutated }?.originalFunction()
             val window = graph.window()
             graphPainter.draw(canvas,
                 GraphFrame(graph, graph.x + shift.dx, graph.y + shift.dy, graph.width, graph.height, 1f, window),

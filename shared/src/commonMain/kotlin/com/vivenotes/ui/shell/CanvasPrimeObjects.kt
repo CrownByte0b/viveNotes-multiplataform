@@ -93,6 +93,10 @@ internal fun CanvasPrimeObjects(
     heldTable: TableAxis?,
     onHoldTable: (TableAxis?) -> Unit,
     onTableEdit: (TableEdit) -> Unit,
+    /** A graph's slider released, paused or set by assistive technology: graph, slider, raw value. */
+    onGraphParameter: (String, Int, Double) -> Unit = { _, _, _ -> },
+    /** A slider's name clicked: the graph whose Sliders dialog opens. */
+    onEditGraphSliders: (String) -> Unit = {},
 ) {
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
@@ -204,7 +208,9 @@ internal fun CanvasPrimeObjects(
                         paper = paperColor, ink = shapeInk, accent = MaterialTheme.colorScheme.primary,
                         pending = graphRewrites[outline.id]?.takeIf { it.from == outline }?.drag,
                         onMutate = onMutateGraph, onTrace = { onTraceGraph(outline.id, it) },
-                        onArea = { onGraphArea(outline.id, it) }, modifier = Modifier.fillMaxSize())
+                        onArea = { onGraphArea(outline.id, it) }, modifier = Modifier.fillMaxSize(),
+                        onParameter = { index, value -> onGraphParameter(outline.id, index, value) },
+                        onEditSliders = { onEditGraphSliders(outline.id) })
                 } else if (outline is Outline.Equation) {
                     EquationContent(outline.latex, outline.colorArgb?.let(::Color) ?: shapeInk, Modifier.fillMaxSize(), stretch = true)
                 } else if (outline is Outline.Shape && drawnShape) {

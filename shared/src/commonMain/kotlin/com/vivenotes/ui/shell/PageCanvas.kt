@@ -95,6 +95,7 @@ import com.vivenotes.ui.canvas.PageExtent
 import com.vivenotes.ui.canvas.PreviewLayout
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.RulerLayer
+import com.vivenotes.ui.canvas.LaserLayer
 import com.vivenotes.ui.canvas.TextCaretKeys
 import com.vivenotes.ui.canvas.TextClipboardActions
 import com.vivenotes.ui.canvas.CanvasClipboardActions
@@ -119,6 +120,7 @@ import com.vivenotes.ui.drop.rememberPageFileDrop
 import com.vivenotes.ui.ribbon.draw.*
 import com.vivenotes.workspace.CanvasViewport
 import com.vivenotes.workspace.InkPenSettings
+import com.vivenotes.workspace.InkTool
 import com.vivenotes.workspace.PageContent
 import com.vivenotes.workspace.RulerKind
 import com.vivenotes.workspace.TableEdit
@@ -199,6 +201,11 @@ internal fun PageCanvas(
     onMutateGraph: (Outline.Graph, com.vivenotes.graph.GraphDrag) -> Unit = { _, _ -> },
     onTraceGraph: (String, Double) -> Unit = { _, _ -> },
     onGraphArea: (String, com.vivenotes.model.GraphInterval) -> Unit = { _, _ -> },
+    onGraphParameter: (String, Int, Double) -> Unit = { _, _, _ -> },
+    onEditGraphSliders: (String) -> Unit = {},
+    graphableFormulas: GraphableFormulas = GraphableFormulas.None,
+    onGraphEquation: (Outline.Equation) -> Unit = {},
+    onOpenEquationInMath: ((Outline.Equation) -> Unit)? = null,
     onEquationChange: (com.vivenotes.workspace.PendingDrawEquation) -> Unit = {},
     onImageBackground: (Int?) -> Unit = {},
     onToggleTodo: (outlineId: String, blockId: String) -> Unit,
@@ -843,6 +850,8 @@ internal fun PageCanvas(
                         onMutateGraph = onMutateGraph,
                         onTraceGraph = onTraceGraph,
                         onGraphArea = onGraphArea,
+                        onGraphParameter = onGraphParameter,
+                        onEditGraphSliders = onEditGraphSliders,
                         editorFocusRequester = editorFocusRequester,
                         canvasFocusRequester = canvasFocusRequester,
                         onMoveObject = onMoveObject,
@@ -854,9 +863,9 @@ internal fun PageCanvas(
                         onMoveShapeEnd = onMoveShapeEnd,
                         onMoveShapeArm = onMoveShapeArm
                     )
+                    val inkEnabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy
                     InkLayer(page.ink, canvasSize, shapeInk, visibleWindow, page.id,
-                        state.inkTool.takeIf { page.editable && page.inkReady &&
-                            !state.notebookTransfer.running && !state.filePane.busy }, page.document.style.titleFloor, onInkEdit, zoom,
+                        state.inkTool.takeIf { inkEnabled && it != InkTool.Laser }, page.document.style.titleFloor, onInkEdit, zoom,
                         state.eraserMode, state.inkSettings, state.selectedInk, interaction.inkDragOffset, state.activePenIndex, ruler, onStraightenStroke)
                     interaction.searchInkBounds?.let { bounds ->
                         Box(Modifier.offset(bounds.left.dp, bounds.top.dp)
@@ -866,6 +875,8 @@ internal fun PageCanvas(
                             .testTag(com.vivenotes.ui.search.SearchTags.InkHighlight))
                     }
                     ruler?.let { RulerLayer(it, canvasSize, palette.ink, zoom) { value -> interaction.rulerPlacement = value } }
+                    // Light rather than an object: it lands on the ruler as readily as on the page.
+                    LaserLayer(canvasSize, zoom, active = inkEnabled && state.inkTool == InkTool.Laser)
                     state.selectedInk?.let { selectedInk ->
                         if (groupBounds != null) InkSelectionFrame(selectedInk, groupBounds, interaction.inkDragOffset,
                             enabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy && !interaction.inkMoveBusy,
@@ -892,6 +903,9 @@ internal fun PageCanvas(
                         onReleaseTable = { interaction.heldTableAxis = null },
                         onEquationChange = onEquationChange,
                         graphActions = graphActions,
+                        graphableFormulas = graphableFormulas,
+                        onGraphEquation = onGraphEquation,
+                        onOpenEquationInMath = onOpenEquationInMath,
                         onShapeLineType = onShapeLineType,
                         onShapeWidth = onShapeWidth,
                         onShapeFill = onShapeFill,

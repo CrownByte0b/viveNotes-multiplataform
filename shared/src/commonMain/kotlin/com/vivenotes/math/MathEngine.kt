@@ -1,6 +1,7 @@
 package com.vivenotes.math
 
 import com.vivenotes.localization.Strings
+import com.vivenotes.model.GraphParameter
 import kotlinx.serialization.Serializable
 
 /*
@@ -32,6 +33,11 @@ data class MathGraph(
     val yValues: List<Double?>,
     val expression: String? = null,
     val functionLatex: String? = null,
+    /**
+     * The formula's other letters, each a slider once placed, at the values the preview was drawn
+     * with: the `$0`, `$1`… of [expression], in order.
+     */
+    val parameters: List<GraphParameter> = emptyList(),
 )
 
 @Serializable
@@ -55,8 +61,17 @@ data class MathOperationResult(
 interface MathEngine {
     suspend fun analyze(latex: String): MathAnalysis
     suspend fun execute(latex: String, actionId: String): MathOperationResult
-    suspend fun mutateGraph(expression: String, variable: String, mutation: String): GraphRewrite =
-        GraphRewrite(error = Strings.graph_rewrite_unavailable)
+    /**
+     * Rewrites a placed graph's function exactly after one of its points was dragged. [mutation] is
+     * the JSON `GraphDrag.request` writes; [parameters] are the graph's slider letters in order —
+     * SymPy's names, what `$0`, `$1`… are printed as.
+     */
+    suspend fun mutateGraph(
+        expression: String,
+        variable: String,
+        mutation: String,
+        parameters: List<String> = emptyList(),
+    ): GraphRewrite = GraphRewrite(error = Strings.graph_rewrite_unavailable)
 
     /**
      * Runs the first of [preferred] that applies to [latex], or returns null when none does.

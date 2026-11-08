@@ -145,6 +145,16 @@ internal fun MathPane(initial: String, math: DrawMath, showInterpretation: Boole
                 answer.error?.let { MathError(it) }
                 answer.graph?.let { graph ->
                     MathGraphPlot(graph)
+                    // The preview is one setting of the sliders the placed graph will have; say which.
+                    if (graph.parameters.isNotEmpty()) {
+                        Text(
+                            Strings.recognition_graph_parameters(
+                                graph.parameters.joinToString(", ") { com.vivenotes.graph.GraphSliders.text(it) }),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp).testTag(MathPaneTags.GraphParameters),
+                        )
+                    }
                     if (onPlaceGraph != null && graph.expression?.let(com.vivenotes.graph.GraphExpression::parse) != null) {
                         MathPanelButton(onClick = { onPlaceGraph(graph) }, modifier = Modifier.testTag("draw-math-place-graph")) {
                             Icon(com.vivenotes.ui.icons.GraphSymbols.AddChart, contentDescription = null, modifier = Modifier.size(18.dp))

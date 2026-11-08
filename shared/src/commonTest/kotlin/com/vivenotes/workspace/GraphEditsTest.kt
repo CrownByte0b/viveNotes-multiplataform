@@ -98,4 +98,49 @@ class GraphEditsTest {
         val edited = twice.updateGraphs(ids) { it.copy(showLabels = false) }
         assertEquals(edited.structuralUndo.size + 1, edited.zoomGraphs(ids, .75, atMillis = 1300).structuralUndo.size)
     }
+
+    private val wave = MathGraph("t", "y", emptyList(), emptyList(), "(\$0*sin(((\$1*x)+\$2)))", "A \\sin{\\left(\\omega t + \\phi \\right)}",
+        parameters = listOf(GraphParameter("A", "A", 1.0), GraphParameter("omega", "ω", 1.0), GraphParameter("phi", "φ", 0.0)))
+
+    /** A formula with sliders arrives taller by their band and fitted at their values, so its plot matches. */
+    @Test
+    fun aFormulaWithSlidersArrivesWithThemAndTallerByTheirBand() {
+        val graph = WorkspaceState.demo().insertGraph(wave).graph()
+        assertEquals(wave.parameters, graph.parameters)
+        assertEquals(Outline.Graph.DEFAULT_HEIGHT + 3 * com.vivenotes.graph.GraphFrame.SLIDER_ROW_DP, graph.height)
+        // Fitted to sin(t), A and ω at 1: a window of a few units, not the NaN an unbound parameter gives.
+        assertTrue(graph.yMin < -1 && graph.yMax > 1 && graph.yMax < 10, "${graph.yMin}..${graph.yMax}")
+        // Unbound, the function is undrawable; bound, it is the parent function.
+        assertTrue(GraphExpression.parse(graph.expression)!!.evaluate(1.0).isNaN())
+    }
+
+    @Test
+    fun aSliderSetsOneSnappedValueAsOneUndoStepAndAnUnchangedOneIsNoEdit() {
+        val placed = WorkspaceState.demo().insertGraph(wave)
+        val id = placed.graph().id
+        val set = placed.setGraphParameter(id, 1, 2.2999999)
+        assertEquals(2.3, set.graph().parameters[1].value)
+        assertEquals(placed.structuralUndo.size + 1, set.structuralUndo.size)
+        assertEquals(placed.graph(), set.undoStructure().graph())
+        assertSame(set, set.setGraphParameter(id, 1, 2.31))
+        assertSame(set, set.setGraphParameter(id, 9, 1.0))
+    }
+
+    @Test
+    fun theSlidersDialogSetsRangesButCannotRenameOrReorderTheLetters() {
+        val placed = WorkspaceState.demo().insertGraph(wave)
+        val graph = placed.graph()
+        assertSame(placed, placed.setGraphSliders(graph.id, graph.parameters.reversed()))
+        val widened = placed.setGraphSliders(graph.id, graph.parameters.map { it.copy(max = 100.0, step = 1.0, value = 42.4) })
+        assertEquals(listOf(42.0, 42.0, 42.0), widened.graph().parameters.map { it.value })
+        assertEquals(placed.structuralUndo.size + 1, widened.structuralUndo.size)
+    }
+
+    @Test
+    fun fittingAGraphWithSlidersUsesTheirValues() {
+        val placed = WorkspaceState.demo().insertGraph(wave)
+        val id = placed.graph().id
+        val tall = placed.setGraphParameter(id, 0, 8.0).fitGraphs(setOf(id)).graph()
+        assertTrue(tall.yMax > 8 && tall.yMin < -8, "${tall.yMin}..${tall.yMax}")
+    }
 }

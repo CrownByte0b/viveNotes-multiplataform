@@ -391,7 +391,8 @@ private suspend fun PointerInputScope.awaitEachInkGesture(block: suspend AwaitPo
     awaitPointerEventScope { while (true) block() }
 }
 
-private suspend fun AwaitPointerEventScope.awaitInkDown(): PointerInputChange {
+/** The next ink-starting down: a pen first, else a mouse or a finger while no pen is pressed. */
+internal suspend fun AwaitPointerEventScope.awaitInkDown(): PointerInputChange {
     while (true) {
         val event = awaitPointerEvent()
         val downs = event.changes.filter { it.changedToDown() }

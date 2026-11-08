@@ -37,6 +37,7 @@ import com.vivenotes.ai.AiModels
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.model.Outline
 import com.vivenotes.model.search.ContentHit
 import com.vivenotes.model.search.ContentKind
 import com.vivenotes.richtext.TextSelection
@@ -58,6 +59,7 @@ import com.vivenotes.ui.ribbon.document.PictureDialog
 import com.vivenotes.ui.ribbon.draw.*
 import com.vivenotes.ui.ribbon.view.viewActions
 import com.vivenotes.workspace.EditorDefaults
+import com.vivenotes.workspace.setGraphSliders
 import com.vivenotes.workspace.FileActions
 import com.vivenotes.workspace.FilePane
 import com.vivenotes.workspace.InkSettings
@@ -140,7 +142,11 @@ internal fun WorkspaceContent(
     var tabTextSelection by remember { mutableStateOf<Pair<String, TextSelection>?>(null) }
     var calculatorOpen by remember { mutableStateOf(false) }
     var mathSource by remember { mutableStateOf("") }
+    /** Where a graph placed from a typed formula lands below: the equation it was opened from. */
+    var mathAnchor by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var inkMath by remember { mutableStateOf<InkMathRequest?>(null) }
+    /** The graph whose Sliders dialog is open — from a slider's name, or the graph's options menu. */
+    var graphSliders by remember(state.selectedPageId) { mutableStateOf<String?>(null) }
     val formulaReady = aiModels?.state?.collectAsState()?.value?.formulaReady == true && drawMath != null
     val inkMathValid = inkMath?.let { request ->
         state.inkAndLinesSelection && state.selectedInk === request.selection &&
@@ -356,7 +362,19 @@ internal fun WorkspaceContent(
                             onInkMath = { selection -> if (formulaReady && state.inkAndLinesSelection && state.selectedInk === selection) {
                                 inkMath = InkMathRequest(selection, state.selectedFormulaLines); openPane = DockedPane.Math } },
                             applyEditorCommand = ::applyEditorCommand,
-                            onLinkRequest = { linkEditor = it }
+                            onLinkRequest = { linkEditor = it },
+                            onEditGraphSliders = { graphSliders = it },
+                            // The formula in the pane as if read off ink; a graph placed from there
+                            // lands below the equation. The pane holds a copy — editing it there
+                            // leaves the equation on the page as it was.
+                            onOpenEquationInMath = { equation ->
+                                inkMath = null
+                                mathSource = equation.latex
+                                mathAnchor = androidx.compose.ui.geometry.Rect(equation.x, equation.y,
+                                    equation.x + equation.width, equation.y + equation.height)
+                                openPane = DockedPane.Math
+                                debugLog.event("math") { "equation opened in pane" }
+                            },
                         )
                     }
                     WorkspaceDockedPane(
@@ -382,6 +400,7 @@ internal fun WorkspaceContent(
                         drawMath = drawMath,
                         inkMath = inkMath,
                         mathSource = mathSource,
+                        mathAnchor = mathAnchor,
                         canvasOrigin = canvasOrigin,
                         inkMathValid = inkMathValid,
                         developmentBuild = developmentBuild,
@@ -396,7 +415,7 @@ internal fun WorkspaceContent(
         if (calculatorOpen && formulaReady && drawMath != null) FloatingCalculator(state.inkSettings,
             state.activePenIndex.takeIf { state.inkTool == com.vivenotes.workspace.InkTool.Pen } ?: 0,
             input.drawWithFinger, drawMath, onOpenInPanel = { source ->
-                inkMath = null; mathSource = source; openPane = DockedPane.Math
+                inkMath = null; mathSource = source; mathAnchor = null; openPane = DockedPane.Math
             },
             onClose = { calculatorOpen = false }, modifier = Modifier.padding(end = when (openPane) {
                 DockedPane.Math -> MathPaneWidth
@@ -423,6 +442,18 @@ internal fun WorkspaceContent(
             confirmResetShortcuts = confirmResetShortcuts,
             onDismissReset = { confirmResetShortcuts = false }
         )
+        graphSliders?.let { id -> state.selectedPage?.document?.outlines?.firstOrNull { it.id == id } as? Outline.Graph }
+            ?.let { graph ->
+                GraphSlidersDialog(
+                    parameters = graph.parameters,
+                    onDismiss = { graphSliders = null },
+                    onApply = { changed ->
+                        onStateChange { it.setGraphSliders(graph.id, changed) }
+                        debugLog.event("graph") { "sliders edited" }
+                        graphSliders = null
+                    },
+                )
+            }
 
     }
 }

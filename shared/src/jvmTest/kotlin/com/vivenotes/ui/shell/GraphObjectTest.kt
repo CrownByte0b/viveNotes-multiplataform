@@ -20,6 +20,16 @@ import androidx.compose.ui.platform.testTag
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.ribbon.draw.GraphToolkitActions
 import com.vivenotes.ui.ribbon.draw.GraphToolkitTags
+import com.vivenotes.ui.ribbon.draw.EquationToolkitTags
+import com.vivenotes.ui.ribbon.draw.GraphSlidersDialog
+import com.vivenotes.ui.ribbon.draw.GraphSlidersDialogTags
+import com.vivenotes.ui.ribbon.draw.GraphableFormulas
+import com.vivenotes.ui.ribbon.draw.SliderField
+import com.vivenotes.ui.canvas.GraphSliderTags
+import com.vivenotes.model.GraphParameter
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextReplacement
 import com.vivenotes.workspace.*
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.down
@@ -56,6 +66,11 @@ class GraphObjectTest {
     private fun scene(block: () -> Unit) = runDesktopComposeUiTest(width = 900, height = 900) { compose = this; block() }
 
     private val graphs = mutableStateOf(emptyList<Outline.Graph>())
+    private val equations = mutableStateOf(emptyList<Outline.Equation>())
+    private val slidersOf = mutableStateOf<String?>(null)
+    private var graphable: GraphableFormulas = GraphableFormulas.None
+    private var graphed = mutableListOf<Outline.Equation>()
+    private var opened = mutableListOf<Outline.Equation>()
     private var moved: Pair<Float, Float>? = null
     private var mutated: Pair<String, GraphDrag>? = null
     private lateinit var density: Density
@@ -85,6 +100,20 @@ class GraphObjectTest {
     private fun pageX(x: Double): Float = (40 + (x + 5) * 32).toFloat()
     private fun pageY(y: Double): Float = (170 - y * 26).toFloat()
 
+    /**
+     * A sin(ωx), A and ω at 1: the parabola's box and plot with the two slider rows under it, so the
+     * plot keeps its arithmetic. Row i is centred at 318 + 36i; every track runs from 146 to 319.
+     */
+    private fun wave() = parabola(mutable = false).copy(
+        expression = "(\$0*sin((\$1*x)))",
+        latex = "A \\sin{\\left(\\omega x \\right)}",
+        height = 260f + 2 * 36f,
+        parameters = listOf(GraphParameter("A", "A", 1.0), GraphParameter("omega", "ω", 1.0)),
+    )
+
+    private fun sliderX(value: Double): Float = (146 + (value + 10) / 20 * 173).toFloat()
+    private fun sliderY(index: Int): Float = 318f + 36f * index
+
     private fun setPage(vararg page: Outline.Graph) {
         graphs.value = page.toList()
         moved = null
@@ -94,7 +123,7 @@ class GraphObjectTest {
             ViveNotesTheme {
                 val base = workspace.value
                 val state = base.updatePage(base.selectedPageId) { it.copy(document = com.vivenotes.model.PageDoc(
-                    style = PageStyle(hideTitle = true), outlines = graphs.value)) }
+                    style = PageStyle(hideTitle = true), outlines = graphs.value + equations.value)) }
                 val current = rememberUpdatedState(state)
                 val focus = remember { FocusRequester() }
                 fun update(change: (Outline.Graph) -> Outline.Graph) {
@@ -103,7 +132,7 @@ class GraphObjectTest {
                 Box(Modifier.fillMaxSize().focusRequester(focus).focusable().testTag("graph-layer")) {
                     CanvasPrimeObjects(
                         viewport = { Rect(0f, 0f, 900f, 900f) }, state = state, workspaceState = current,
-                        displayedOutlines = graphs.value, groupBounds = null,
+                        displayedOutlines = graphs.value + equations.value, groupBounds = null,
                         measuredTextHeights = remember { mutableMapOf() },
                         richColors = RichTextColors(Color.Blue, Color.Blue, Color.Gray), shapeInk = Color.Black,
                         pictures = null, pictureAssets = emptyMap(), paperColor = Color.White,
@@ -117,13 +146,26 @@ class GraphObjectTest {
                         onResizeObjects = { _, _, _, _, _ -> }, onFocusTextBox = {},
                         onBodyChange = { _, _ -> }, onTextShortcut = { false },
                         onMoveShapeEnd = { _, _, _, _, _ -> }, onMoveShapeArm = { _, _, _, _ -> },
-                        heldTable = null, onHoldTable = {}, onTableEdit = {})
+                        heldTable = null, onHoldTable = {}, onTableEdit = {},
+                        onGraphParameter = { id, index, value ->
+                            update { if (it.id == id) it.withParameterValue(index, value) else it }
+                        },
+                        onEditGraphSliders = { slidersOf.value = it })
                     CanvasObjectToolkit(state, null, emptyMap(), Color.Black, null,
                         onColorObjects = { _, _ -> }, onTableEdit = {}, onReleaseTable = {},
                         graphActions = GraphToolkitActions(
-                            update = { change -> update(change) }, zoom = {}, fit = {}, reset = {}),
+                            update = { change -> update(change) }, zoom = {}, fit = {}, reset = {},
+                            editSliders = { slidersOf.value = state.selectedObjectIds.singleOrNull() }),
                         onEquationChange = {}, onShapeLineType = {}, onShapeWidth = {}, onShapeFill = {},
-                        onImageBackground = {}, onCopyObjects = {}, onToggleObjectLock = {}, onDeleteObjects = {})
+                        onImageBackground = {}, onCopyObjects = {}, onToggleObjectLock = {}, onDeleteObjects = {},
+                        graphableFormulas = graphable, onGraphEquation = { graphed += it },
+                        onOpenEquationInMath = { opened += it })
+                    slidersOf.value?.let { id -> graphs.value.firstOrNull { it.id == id } }?.let { graph ->
+                        GraphSlidersDialog(graph.parameters, onDismiss = { slidersOf.value = null }, onApply = { changed ->
+                            update { if (it.id == graph.id) it.withParameters(changed) else it }
+                            slidersOf.value = null
+                        })
+                    }
                 }
             }
         }
@@ -295,5 +337,131 @@ class GraphObjectTest {
 
         assertTrue("the root did not move", mutated?.second is GraphDrag.Root)
         assertEquals(GraphInterval(-2.0, 2.0), graphs.value.single().area)
+    }
+
+    @Test
+    fun aSelectedGraphsSliderIsDraggedAndWrittenOnTheLift() = scene {
+        // Locked: a slider, like the tracer, is not a move.
+        setPage(wave().copy(lockGroup = "lock"))
+        tapPage(100f, 80f)
+
+        dragPage(sliderX(1.0), sliderY(0), sliderX(5.0), sliderY(0) + 6f)
+
+        assertNull("the graph moved", moved)
+        val parameters = graphs.value.single().parameters
+        assertEquals(5.0, parameters[0].value, 0.15)
+        assertEquals("ω was moved too", 1.0, parameters[1].value, 0.0)
+    }
+
+    @Test
+    fun anUnselectedGraphsSliderIsJustPartOfTheBox() = scene {
+        setPage(wave())
+
+        dragPage(sliderX(1.0), sliderY(0), sliderX(5.0), sliderY(0))
+
+        assertNotNull("a drag on an unselected graph did not move it", moved)
+        assertEquals(1.0, graphs.value.single().parameters[0].value, 0.0)
+    }
+
+    @Test
+    fun assistiveTechnologySetsASlider() = scene {
+        setPage(wave())
+        tapPage(100f, 80f)
+
+        compose.onNodeWithTag(GraphSliderTags.slider(1))
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(2.54f) }
+        compose.waitForIdle()
+
+        assertEquals(2.5, graphs.value.single().parameters[1].value, 0.0)
+    }
+
+    @Test
+    fun playSweepsASliderAndPauseWritesWhereItStopped() = scene {
+        setPage(wave())
+        tapPage(100f, 80f)
+
+        // A sweep asks for frames until it is paused, so the page never idles meanwhile: the clock is
+        // driven by hand from here on.
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag(GraphSliderTags.play(0)).performClick()
+        compose.mainClock.advanceTimeBy(800)
+        // Nothing is written while it plays.
+        assertEquals(1.0, graphs.value.single().parameters[0].value, 0.0)
+        compose.onNodeWithTag(GraphSliderTags.play(0)).performClick()
+        compose.mainClock.advanceTimeBy(100)
+
+        val swept = graphs.value.single().parameters[0].value
+        assertTrue("play did not move A: $swept", swept > 1.0)
+    }
+
+    @Test
+    fun aSlidersNameOpensTheDialogWhichSetsItsRange() = scene {
+        setPage(wave())
+        tapPage(100f, 80f)
+
+        tapPage(70f, sliderY(0))
+        compose.onNodeWithTag(GraphSlidersDialogTags.DIALOG).assertIsDisplayed()
+
+        compose.onNodeWithTag(GraphSlidersDialogTags.field(0, SliderField.Max)).performTextReplacement("20")
+        compose.onNodeWithTag(GraphSlidersDialogTags.field(0, SliderField.Value)).performTextReplacement("15")
+        compose.onNodeWithTag(GraphSlidersDialogTags.APPLY).performClick()
+        compose.waitForIdle()
+
+        val a = graphs.value.single().parameters[0]
+        assertEquals(20.0, a.max, 0.0)
+        assertEquals(15.0, a.value, 0.0)
+    }
+
+    @Test
+    fun theOptionsMenuOpensTheSliders() = scene {
+        setPage(wave())
+        tapPage(100f, 80f)
+
+        compose.onNodeWithTag(GraphToolkitTags.OPTIONS).performClick()
+        compose.onNodeWithTag(GraphToolkitTags.SLIDERS).performClick()
+
+        compose.onNodeWithTag(GraphSlidersDialogTags.DIALOG).assertIsDisplayed()
+    }
+
+    /** One equation on the page; [canGraph] is what the engine would answer about it. */
+    private fun setEquationPage(canGraph: Boolean) {
+        graphable = object : GraphableFormulas {
+            override fun known(latex: String): Boolean? = null
+            override suspend fun check(latex: String): Boolean = canGraph
+        }
+        graphed = mutableListOf()
+        opened = mutableListOf()
+        equations.value = listOf(Outline.Equation(id = "eq", x = 40f, y = 40f, width = 160f, height = 48f, latex = "y=x^2-4"))
+        setPage()
+        tapPage(120f, 64f)
+    }
+
+    @Test
+    fun aGraphableEquationsToolkitGraphsIt() = scene {
+        setEquationPage(canGraph = true)
+
+        compose.onNodeWithTag(EquationToolkitTags.GRAPH).assertIsDisplayed().performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf("eq"), graphed.map { it.id })
+    }
+
+    @Test
+    fun anEquationThatCannotBeGraphedHasNoGraphButton() = scene {
+        setEquationPage(canGraph = false)
+
+        compose.onNodeWithTag(EquationToolkitTags.EDIT).assertIsDisplayed()
+        compose.onNodeWithTag(EquationToolkitTags.GRAPH).assertDoesNotExist()
+    }
+
+    @Test
+    fun theEquationsMathButtonOpensItInTheMathPane() = scene {
+        // Graphable or not, a formula can always go to the pane.
+        setEquationPage(canGraph = false)
+
+        compose.onNodeWithTag(EquationToolkitTags.MATH).assertIsDisplayed().performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf("y=x^2-4"), opened.map { it.latex })
     }
 }

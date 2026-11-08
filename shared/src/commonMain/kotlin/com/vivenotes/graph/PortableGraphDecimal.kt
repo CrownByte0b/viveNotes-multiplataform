@@ -23,14 +23,19 @@ class PortableGraphDecimal private constructor(private val coefficient: Long, pr
         while (value % 10 == 0L) { value /= 10; power++ }
         return PortableGraphDecimal(value, power)
     }
-    fun rounded(places: Int): PortableGraphDecimal {
+    fun rounded(places: Int): PortableGraphDecimal = rounded(places, halfEven = false)
+    fun roundedHalfEven(places: Int): PortableGraphDecimal = rounded(places, halfEven = true)
+    fun scale(): Int = -exponent
+    private fun rounded(places: Int, halfEven: Boolean): PortableGraphDecimal {
         val shift = -places - exponent
         if (shift <= 0) return this
         if (shift > 18) return ZERO
         var divisor = 1L
         repeat(shift) { divisor *= 10 }
-        val rounded = coefficient / divisor + if (abs(coefficient % divisor) >= divisor / 2) signum() else 0
-        return PortableGraphDecimal(rounded, -places)
+        val quotient = coefficient / divisor
+        val remainder = abs(coefficient % divisor) * 2
+        val up = remainder > divisor || remainder == divisor && (!halfEven || quotient % 2 != 0L)
+        return PortableGraphDecimal(quotient + if (up) signum() else 0, -places)
     }
     fun toPlainString(): String {
         val number = stripTrailingZeros()
@@ -50,6 +55,7 @@ class PortableGraphDecimal private constructor(private val coefficient: Long, pr
         val ZERO = PortableGraphDecimal(0, 0)
         val ONE = PortableGraphDecimal(1, 0)
         fun valueOf(value: Long): PortableGraphDecimal = PortableGraphDecimal(value, 0)
+        fun valueOf(value: Double): PortableGraphDecimal = PortableGraphDecimal(value)
         private fun parse(value: String): Pair<Long, Int> {
             val parts = value.lowercase().split('e')
             val decimal = parts[0]

@@ -131,6 +131,56 @@ class CanvasTouchTest {
         runOnIdle { assertEquals(1, observed.pendingInkEdits.size) }
     }
 
+    /** The bargain every other tool strikes: a finger that may not draw moves the page instead. */
+    @Test
+    fun withTheLaserArmedADisallowedFingerPansRatherThanPointing() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = withShape().selectInkTool(InkTool.Laser)
+        setCanvas(observed, onState = { observed = it })
+        val start = bounds(WorkspaceTestTags.primeObject(SHAPE)).top.value
+        val history = observed.structuralUndo.size
+
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+            down(Offset(700f, 600f))
+            repeat(8) { moveBy(Offset(0f, -10f), delayMillis = 30) }
+            advanceEventTime(300)
+            up()
+        }
+
+        assertEquals(80f, start - bounds(WorkspaceTestTags.primeObject(SHAPE)).top.value, 1f)
+        runOnIdle {
+            assertTrue(observed.pendingInkEdits.isEmpty(), "the finger wrote")
+            assertEquals(history, observed.structuralUndo.size)
+        }
+    }
+
+    /** And one that may draw points, which must not also scroll, write or erase anything. */
+    @Test
+    fun withTheLaserArmedAFingerThatMayDrawPointsWithoutPanningOrMarking() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = withShape().selectInkTool(InkTool.Laser)
+        setCanvas(observed, input = InputSettings(drawWithFinger = true), onState = { observed = it })
+        val start = bounds(WorkspaceTestTags.primeObject(SHAPE)).top.value
+        val history = observed.structuralUndo.size
+        val document = observed.selectedPage!!.document
+
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+            down(Offset(700f, 600f))
+            repeat(8) { moveBy(Offset(0f, -10f), delayMillis = 30) }
+            up()
+        }
+        // The mouse points as well, and lays nothing down either.
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+            moveTo(Offset(600f, 500f)); press(); moveTo(Offset(700f, 520f)); release()
+        }
+
+        assertEquals(start, bounds(WorkspaceTestTags.primeObject(SHAPE)).top.value, 0.5f, "pointing scrolled the page")
+        runOnIdle {
+            assertTrue(observed.pendingInkEdits.isEmpty(), "the laser laid down ink")
+            assertEquals(history, observed.structuralUndo.size, "the laser left a history step")
+            assertEquals(document, observed.selectedPage!!.document)
+            assertEquals(InkTool.Laser, observed.inkTool)
+        }
+    }
+
     @Test
     fun withAPenArmedTwoQuickFingerTapsOfferPaste() = runDesktopComposeUiTest(width = 1400, height = 900) {
         val copied = withShape().selectObject(SHAPE).copySelectedObjects()

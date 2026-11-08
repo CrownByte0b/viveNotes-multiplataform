@@ -131,6 +131,14 @@ class SympyMathEngineProcessTest {
             assertEquals("Wrong number of arguments.", exchange("""{"id":5,"call":"execute","args":["x"]}""", "error"))
             assertEquals("The request is not JSON.", exchange("print('hi')", "error"))
             assertEquals("The request has no id.", exchange("""{"call":"analyze","args":["x"]}""", "error"))
+            // mutate_graph takes the slider letters as an optional fourth string, and nothing past it.
+            val shift = """{\"kind\":\"shift\",\"h\":\"1\",\"k\":\"0\"}"""
+            assertTrue(exchange("""{"id":7,"call":"mutate_graph","args":["(x^2)","x","$shift"]}""", "result")
+                .orEmpty().contains("expression"))
+            val withSlider = exchange("""{"id":8,"call":"mutate_graph","args":["(${'$'}0*(x^2))","x","$shift","[\"a\"]"]}""", "result")
+            assertTrue(withSlider, withSlider.orEmpty().contains("a \\\\left(x - 1\\\\right)^{2}"))
+            assertEquals("Wrong number of arguments.",
+                exchange("""{"id":9,"call":"mutate_graph","args":["(x^2)","x","$shift","[]","more"]}""", "error"))
             // Still serving after all of that.
             assertTrue(exchange("""{"id":6,"call":"analyze","args":["x+1"]}""", "result").orEmpty().contains("Expression"))
 

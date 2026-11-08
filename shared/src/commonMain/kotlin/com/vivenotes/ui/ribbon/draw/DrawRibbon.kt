@@ -35,6 +35,7 @@ object DrawRibbonTags {
     fun icon(tool: String) = "$tool-icon"
     const val HighlighterTool = "workspace-highlighter-tool"
     const val HighlighterKit = "draw-highlighter-kit"
+    const val LaserTool = "draw-laser"
     const val EraserTool = "workspace-eraser-tool"
     const val EraserModePicker = "workspace-eraser-mode"
     fun eraserMode(mode: EraserMode) = "workspace-eraser-mode-${mode.name}"
@@ -86,6 +87,11 @@ internal fun DrawRibbon(
             tip = DrawSymbols.HighlighterTip, inkColor = Color(state.inkSettings.highlighter.colorArgb).copy(alpha = 1f)) {
             ScaledDropdownMenu(kit == DrawRibbonTags.HighlighterKit, { kit = null }) { HighlighterKit(state.inkSettings, ::settings) }
         }
+        // The last of the things held like a pen, and the one that lays nothing down. A plain
+        // button, like Insert Space: it leaves nothing behind to configure, so clicking it again
+        // opens no settings.
+        RibbonIcon(DrawSymbols.StylusLaserPointer, Strings.laser_pointer, state.inkTool == InkTool.Laser,
+            enabled, DrawRibbonTags.LaserTool) { kit = null; onStateChange { it.selectInkTool(InkTool.Laser) } }
         SplitTool(Strings.eraser, DrawSymbols.Eraser, state.inkTool == InkTool.Eraser,
             enabled, DrawRibbonTags.EraserTool, DrawRibbonTags.EraserModePicker,
             onClick = { ink(InkTool.Eraser, pane = DrawRibbonTags.EraserModePicker) },

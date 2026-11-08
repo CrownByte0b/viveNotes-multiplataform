@@ -52,6 +52,7 @@ internal fun WorkspaceDockedPane(
     drawMath: DrawMath?,
     inkMath: InkMathRequest?,
     mathSource: String,
+    mathAnchor: Rect? = null,
     canvasOrigin: CanvasOrigin,
     inkMathValid: Boolean,
     developmentBuild: Boolean,
@@ -106,7 +107,8 @@ internal fun WorkspaceDockedPane(
                 val request = inkMath
                 val origin = canvasOrigin.read()
                 val pageId = state.selectedPageId
-                val anchor = request?.selection?.bounds?.let { Rect(it.left, it.top, it.right, it.bottom) }
+                val anchor = if (request != null) request.selection.bounds.let { Rect(it.left, it.top, it.right, it.bottom) }
+                    else mathAnchor
                 val place: ((com.vivenotes.math.MathGraph) -> Unit)? = if (state.selectedPage?.editable != true ||
                     state.notebookTransfer.running || state.filePane.busy) null else { graph ->
                     onStateChange { current ->

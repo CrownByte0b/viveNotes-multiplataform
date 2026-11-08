@@ -26,8 +26,11 @@ import com.vivenotes.ui.ribbon.document.LinkEditorRequest
 import com.vivenotes.workspace.updateGraphs
 import com.vivenotes.workspace.fitGraphs
 import com.vivenotes.workspace.zoomGraphs
+import com.vivenotes.workspace.setGraphParameter
 import com.vivenotes.ui.ribbon.draw.GraphToolkitActions
 import com.vivenotes.ui.ribbon.draw.GraphMutations
+import com.vivenotes.ui.ribbon.draw.EquationGraphs
+import com.vivenotes.ui.ribbon.draw.GraphableFormulas
 import com.vivenotes.ui.ribbon.draw.DrawMath
 import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.ViewSettings
@@ -71,6 +74,10 @@ internal fun WorkspacePage(
     applyEditorCommand: ((WorkspaceState) -> WorkspaceState) -> Unit,
     onLinkRequest: (LinkEditorRequest) -> Unit,
     debugLog: DebugLog = DebugLog(),
+    /** Opens a graph's Sliders dialog, which belongs to the window. */
+    onEditGraphSliders: (String) -> Unit = {},
+    /** The equation toolkit's Math: the formula in the Math pane. Null where there is no pane. */
+    onOpenEquationInMath: ((com.vivenotes.model.Outline.Equation) -> Unit)? = null,
 ) {
     val latestState by rememberUpdatedState(state)
     val latestOnStateChange by rememberUpdatedState(onStateChange)
@@ -78,11 +85,15 @@ internal fun WorkspacePage(
     val graphMutations = remember(drawMath, selectionScope) { drawMath?.let { math ->
         GraphMutations(math.engine, selectionScope, { latestState }, { latestOnStateChange(it) }, debugLog)
     } }
+    val equationGraphs = remember(drawMath, selectionScope) { drawMath?.let { math ->
+        EquationGraphs(math.engine, selectionScope, { latestState }, { latestOnStateChange(it) }, debugLog)
+    } }
     val graphActions = GraphToolkitActions(
         update = { change -> onStateChange { it.updateGraphs(it.selectedObjectIds, change) }; debugLog.event("graph") { "options updated" } },
         zoom = { factor -> onStateChange { it.zoomGraphs(it.selectedObjectIds, factor) }; debugLog.event("graph") { "window zoomed" } },
         fit = { onStateChange { it.fitGraphs(it.selectedObjectIds) }; debugLog.event("graph") { "window fitted" } },
         reset = { onStateChange { it.updateGraphs(it.selectedObjectIds) { graph -> graph.reset() } }; debugLog.event("graph") { "function reset" } },
+        editSliders = { state.selectedObjectIds.singleOrNull()?.let(onEditGraphSliders) },
     )
     val density = LocalDensity.current
     val selectionWorker = remember(selectionScope) { CanvasSelectionWorker(selectionScope) }
@@ -211,6 +222,11 @@ internal fun WorkspacePage(
         onMutateGraph = { graph, drag -> graphMutations?.mutate(graph, drag) },
         onTraceGraph = { id, x -> onStateChange { it.updateGraphs(setOf(id)) { graph -> graph.copy(traceX = x) } }; debugLog.event("graph") { "tracer moved" } },
         onGraphArea = { id, area -> onStateChange { it.updateGraphs(setOf(id)) { graph -> graph.copy(area = area) } }; debugLog.event("graph") { "area bound moved" } },
+        onGraphParameter = { id, index, value -> onStateChange { it.setGraphParameter(id, index, value) }; debugLog.event("graph") { "slider set" } },
+        onEditGraphSliders = onEditGraphSliders,
+        graphableFormulas = equationGraphs ?: GraphableFormulas.None,
+        onGraphEquation = { equation -> equationGraphs?.graph(equation) },
+        onOpenEquationInMath = onOpenEquationInMath.takeIf { drawMath != null },
         onEquationChange = { equation -> onStateChange { it.updateSelectedEquation(equation.latex, equation.width, equation.height) } },
         onImageBackground = { argb -> onStateChange { it.setSelectedImageBackground(argb) } },
         onSelectObjectsInLasso = { path, heights ->

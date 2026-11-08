@@ -55,6 +55,39 @@ class GraphPdfTest {
         } finally { exporter.release(); db.close(); directory.deleteRecursively() }
     }
 
+    /** A graph's function means nothing without its sliders' values: the export binds them, as the canvas does. */
+    @Test
+    fun aGraphWithSlidersExportsItsCurveAtTheirValues() = runBlocking {
+        val sliders = Outline.Graph("graph", x = 100f, y = 200f, height = 260f + 36f,
+            expression = "((\$0*(x^2))+(-4))", latex = "a x^{2} - 4", showEquation = false,
+            xMin = -5.0, xMax = 5.0, yMin = -5.0, yMax = 5.0,
+            parameters = listOf(GraphParameter("a", "a", 1.0)))
+        val doc = document.copy(outlines = listOf(sliders))
+        val directory = Files.createTempDirectory("vive-graph-sliders-pdf").toFile()
+        val db = NotesDatabase.create(File(directory, "notes.db"))
+        val repository = NotesRepository(db)
+        val exporter = PdfExporter(repository)
+        try {
+            val section = repository.createSection(repository.createNotebook("Graph"), "Functions")
+            val page = repository.createPage(section, "Sliders")
+            repository.saveDoc(page, doc)
+            val output = File(directory, "sliders.pdf")
+            exporter.write(exporter.plan(PdfExportRequest(page, section, PdfExportOptions(includeRuling = false))), output.path)
+            Loader.loadPDF(output).use { pdf ->
+                val image = PDFRenderer(pdf).renderImageWithDPI(0, 160f)
+                val curve = (0 until image.width).sumOf { x -> (0 until image.height).count { y ->
+                    val pixel = image.getRGB(x, y)
+                    (0..2).all { shift ->
+                        abs(((pixel ushr (shift * 8)) and 255) - ((GraphPainter.DEFAULT_CURVE_ARGB ushr (shift * 8)) and 255)) < 8
+                    }
+                } }
+                // The curve and the slider's active track; an unbound function would draw neither curve.
+                assertTrue(curve > 300, "curve and slider: $curve")
+            }
+            assertEquals(doc, (repository.loadDoc(page) as PageLoad.Loaded).doc)
+        } finally { exporter.release(); db.close(); directory.deleteRecursively() }
+    }
+
     @Test
     fun graphBoundsAndLazyHeadersParticipateInTilingAndIndexedRendering() = runBlocking {
         val paper = PdfPaper.of(PaperSize.A6, Orientation.Portrait)

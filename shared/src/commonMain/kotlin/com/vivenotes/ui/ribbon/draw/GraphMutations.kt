@@ -37,7 +37,7 @@ internal class GraphMutations(
         log.event("graph") { "rewrite started" }
         scope.launch {
             try {
-                val result = engine.mutateGraph(from.expression, from.variable, drag.request())
+                val result = engine.mutateGraph(from.expression, from.variable, drag.request(), from.parameters.map { it.symbol })
                 change { current ->
                     if (!current.matches(captured, from)) current
                     else if (result.error != null || result.expression == null || result.latex == null ||

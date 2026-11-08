@@ -230,6 +230,7 @@
     <!-- %1$s = index + 1 -->
     <string name="pen_value">Pen %1$s</string>
     <string name="highlighter">Highlighter</string>
+    <string name="laser_pointer">Laser pointer</string>
     <string name="eraser">Eraser</string>
     <string name="lasso">Lasso</string>
     <string name="insert_space">Insert Space</string>
@@ -1202,6 +1203,19 @@
     <string name="graph_reset">Reset function</string>
     <string name="graph_rewrite_failed">The graph could not be changed.</string>
     <string name="graph_rewrite_unavailable">This engine cannot rewrite graphs.</string>
+    <string name="tooltip_graph_equation">Graph this equation</string>
+    <string name="graph_equation_failed">This formula can't be graphed.</string>
+    <string name="graph_sliders">Sliders</string>
+    <string name="graph_sliders_edit">Edit sliders</string>
+    <string name="graph_slider_play">Play</string>
+    <string name="graph_slider_pause">Pause</string>
+    <string name="graph_slider_value">Value</string>
+    <string name="graph_slider_min">Min</string>
+    <string name="graph_slider_max">Max</string>
+    <string name="graph_slider_step">Step</string>
+    <string name="graph_slider_invalid">Min must be below max, and the step above 0 and no wider than the range.</string>
+    <!-- %1$s = each slider and the value the preview was drawn at, e.g. "A = 1.0, ω = 1.0" -->
+    <string name="recognition_graph_parameters">Drawn at %1$s. Each gets a slider once placed.</string>
     <string name="graph_object">Graph</string>
     <string name="math_engine_a_graph_with_complex_values_cannot_be_placed_on_the_page">A graph with complex values cannot be placed on the page.</string>
     <string name="math_engine_convert_to_matrix">Convert to matrix</string>

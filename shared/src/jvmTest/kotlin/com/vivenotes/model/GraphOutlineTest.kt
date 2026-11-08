@@ -21,6 +21,16 @@ class GraphOutlineTest {
         assertTrue(json, json.contains("\"t\":\"graph\""))
     }
 
+    /** Sliders survive the binary codec rows are stored in, as they do JSON (see `GraphSlidersTest`). */
+    @Test
+    fun slidersRoundTripThroughTheStorageCodec() {
+        val sliders = graph.copy(expression = "(\$0*(x^2))", parameters = listOf(
+            GraphParameter("v_{0}", "v₀", -2.5, min = -5.0, max = 5.0, step = 0.5)))
+        val doc = PageDoc(outlines = listOf(sliders))
+        assertEquals(doc, CborDocumentCodec.decode(CborDocumentCodec.encode(doc)))
+        assertEquals(PageDoc(outlines = listOf(graph)), CborDocumentCodec.decode(CborDocumentCodec.encode(PageDoc(outlines = listOf(graph)))))
+    }
+
     @Test
     fun theFirstFunctionIsKeptAcrossRewritesAndReset() {
         val once = graph.rewritten("((x^2)+(-1))", "x^{2} - 1")

@@ -190,6 +190,11 @@ internal fun CanvasObjectToolkit(
     onCopyObjects: () -> Unit,
     onToggleObjectLock: () -> Unit,
     onDeleteObjects: () -> Unit,
+    /** Which formulas can be graphed, and placing one's graph below it: the equation's Graph button. */
+    graphableFormulas: GraphableFormulas = GraphableFormulas.None,
+    onGraphEquation: (Outline.Equation) -> Unit = {},
+    /** Opens an equation in the Math pane. Null where there is no pane to open, and no button. */
+    onOpenEquationInMath: ((Outline.Equation) -> Unit)? = null,
 ) {
     if (state.selectedObjectIds.isNotEmpty() && state.selectedInk == null) {
         val selected = state.selectedPrimeObjects.firstOrNull()
@@ -243,7 +248,10 @@ internal fun CanvasObjectToolkit(
                     }
                     if (state.selectedObjectIds.size == 1 && state.selectedTextOutlineIds.isEmpty()) {
                         if (selected is Outline.Table) TableObjectTools(selected, heldTable, onTableEdit, onReleaseTable)
-                        if (selected is Outline.Equation) EquationObjectTools(selected, onEquationChange)
+                        // One formula, one graph — and one formula in the pane: several held
+                        // equations have neither a single curve nor a single source to show.
+                        if (selected is Outline.Equation) EquationObjectTools(selected, onEquationChange,
+                            graphableFormulas, onGraphEquation, onOpenEquationInMath)
                     }
                     if (selected is Outline.Shape && state.selectedObjectIds.size == 1 &&
                         state.selectedTextOutlineIds.isEmpty()) {
