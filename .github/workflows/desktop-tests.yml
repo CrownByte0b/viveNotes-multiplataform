@@ -19,9 +19,9 @@ jobs:
     env:
       # settings.gradle.kts reads ByteInk from GitHub Packages when GITHUB_ACTOR and GITHUB_TOKEN
       # are set; the registry wants a login even for public packages. Local builds keep using the
-      # 0.1.0-SNAPSHOT in ~/.m2, so bump this after publishing a new ByteInk version.
+      # 0.2.0-SNAPSHOT in ~/.m2, so bump this after publishing a new ByteInk version.
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      ORG_GRADLE_PROJECT_byteinkVersion: 0.1.0-alpha.1
+      ORG_GRADLE_PROJECT_byteinkVersion: 0.2.0
     defaults:
       run:
         shell: bash

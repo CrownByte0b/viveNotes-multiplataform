@@ -43,7 +43,7 @@ redistribution audit.
 
 `.github/workflows/windows-msi.yml` builds on `windows-2025` manually, for `v*` tags,
 and on pushes changing the Windows packaging or its Gradle configuration.
-It pins published ByteInk `0.1.0-alpha.1`, runs the full JVM suite and lint, builds the MSI,
+It pins published ByteInk `0.2.0`, runs the full JVM suite and lint, builds the MSI,
 silently installs it into build-directory storage, launches the actual installed executable
 with isolated test data, checks its window/SQLite/clean close, then uninstalls it and checks
 that notes remain. Only the isolated smoke profile suppresses first-run downloads.

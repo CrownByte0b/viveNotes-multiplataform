@@ -75,18 +75,18 @@ metadata preparation does not change the build strategy, trigger workflows or pu
 ## ByteInk version to pin
 
 The author supplied the [ByteInk package listing](https://github.com/orgs/CrownByte0b/packages?repo_name=ByteInk).
-Verified 2026-10-20: the published application dependencies are:
+Verified 2026-11-08 ([v0.2.0 release run](https://github.com/CrownByte0b/ByteInk/actions/runs/42432761723)): the published application dependencies are:
 
 ```kotlin
-implementation("com.vivenotes.byteink:byteink-compose:0.1.0-alpha.1")
-implementation("com.vivenotes.byteink:byteink-kit:0.1.0-alpha.1")
+implementation("com.vivenotes.byteink:byteink-compose:0.2.0")
+implementation("com.vivenotes.byteink:byteink-kit:0.2.0")
 ```
 
 Repository: `https://maven.pkg.github.com/crownbyte0b/byteink`.
 The existing desktop and Flatpak GitHub Actions workflows already use
-`ORG_GRADLE_PROJECT_byteinkVersion=0.1.0-alpha.1` with package-read authentication.
+`ORG_GRADLE_PROJECT_byteinkVersion=0.2.0` with package-read authentication.
 The ordinary local development default remains the explicitly chosen local Maven snapshot;
-`-PbyteinkVersion=0.1.0-alpha.1` selects this published version when credentials are configured.
+`-PbyteinkVersion=0.2.0` selects this published version when credentials are configured.
 
 ### Public source pin for Flathub
 

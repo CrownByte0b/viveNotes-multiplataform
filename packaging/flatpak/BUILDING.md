@@ -10,7 +10,7 @@ use the `devel` branch. This is a local/CI distribution path, not a Flathub subm
 Install Python 3.12+, the project's build JDK 27, Flatpak,
 `appstreamcli` and `desktop-file-validate`. Gradle must be able to resolve ByteInk
 through local Maven or authenticated GitHub Packages, as for normal desktop builds. The published
-ByteInk pin is `0.1.0-alpha.1` for both `byteink-compose` and `byteink-kit`; both GitHub workflows
+ByteInk pin is `0.2.0` for both `byteink-compose` and `byteink-kit`; both GitHub workflows
 already select it. See [SUBMISSION.md](SUBMISSION.md#byteink-version-to-pin) for the package links,
 local override and the anonymous-access limitation for Flathub.
 
