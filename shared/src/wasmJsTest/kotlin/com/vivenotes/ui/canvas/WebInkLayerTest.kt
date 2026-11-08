@@ -24,13 +24,16 @@ import com.vivenotes.data.InkEdit
 import com.vivenotes.ink.WebInkGeometry
 import com.vivenotes.ink.loadedWebInk
 import com.vivenotes.ink.strokeRow
+import com.vivenotes.data.EraserMode
 import com.vivenotes.model.ink.InkPage
+import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.workspace.InkHighlighterSettings
 import com.vivenotes.workspace.InkSettings
 import com.vivenotes.workspace.InkTool
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /** The browser preview's ink layer over the real engine, driven by mouse input. */
@@ -40,14 +43,17 @@ class WebInkLayerTest {
 
     /** Shows the layer on a 400 x 300 dp page with a 40 dp title floor; returns what it committed. */
     private suspend fun ComposeUiTest.showLayer(tool: InkTool?, settings: InkSettings = InkSettings(),
-                                               page: InkPage? = null): List<Pair<InkEdit, InkPage>> {
+                                               page: InkPage? = null, eraserMode: EraserMode = EraserMode.Normal,
+                                               selection: InkSelection? = null,
+                                               selectionOffset: Offset = Offset.Zero): List<Pair<InkEdit, InkPage>> {
         val pages = loadedWebInk()
         val edits = mutableListOf<Pair<InkEdit, InkPage>>()
         setContent {
             var current by remember { mutableStateOf(page) }
             Box {
                 WebInkLayer(pages, current, DpSize(400.dp, 300.dp), ink, "page", tool, 40f,
-                    { edit, rendered -> edits += edit to rendered; current = rendered }, settings, 0)
+                    { edit, rendered -> edits += edit to rendered; current = rendered }, settings, 0,
+                    eraserMode, selection, selectionOffset)
             }
         }
         waitForIdle()
@@ -104,6 +110,56 @@ class WebInkLayerTest {
         val row = assertIs<InkEdit.AddStroke>(edits.single().first).row
         assertEquals(listOf<Any?>(InkBrushCatalog.HIGHLIGHTER, 0x6644aa88, false, 20f, 0),
             listOf(row.brushFamily, row.colorArgb, row.colorFollowsTheme, row.sizeDp, row.stabilization))
+    }
+
+    /** A page with one stored 6 dp marker stroke from (60, 120) to (300, 140) dp. */
+    private suspend fun storedStroke(): InkPage {
+        val pages = loadedWebInk()
+        return pages.withEdits(InkPage("page", emptyList()),
+            listOf(InkEdit.AddStroke(pages.strokeRow("stored", 60f to 120f, 300f to 140f))))
+    }
+
+    /** Whether any drawn pixel lies in the band of page rows [top]..[bottom] dp. */
+    private fun ComposeUiTest.inkBetween(top: Float, bottom: Float): Boolean {
+        val pixels = onNodeWithTag(INK_LAYER_TAG).captureToImage().toPixelMap()
+        val from = (top * density.density).toInt().coerceIn(0, pixels.height - 1)
+        val to = (bottom * density.density).toInt().coerceIn(0, pixels.height - 1)
+        return (from..to).any { y -> (0 until pixels.width).any { x -> pixels[x, y].alpha > 0.5f } }
+    }
+
+    @Test
+    fun aNormalEraserDragCutsTheStrokeItCrosses() = runComposeUiTest {
+        val pages = loadedWebInk()
+        val edits = showLayer(InkTool.Eraser, page = storedStroke())
+        val d = density.density
+        drag(Offset(180f * d, 60f * d), Offset(180f * d, 220f * d))
+        val (edit, erased) = edits.single()
+        val erase = assertIs<InkEdit.PartialErase>(edit)
+        assertEquals(setOf("stored"), erase.targetIds)
+        assertEquals(EraserMode.Normal, erase.row.mode)
+        assertEquals(2, pages.pieces(erased).size, "the stroke is cut in two")
+        assertTrue(inkBetween(115f, 145f), "both pieces are still drawn")
+    }
+
+    @Test
+    fun anObjectEraserDragRemovesTheStrokeItTouches() = runComposeUiTest {
+        val pages = loadedWebInk()
+        val edits = showLayer(InkTool.Eraser, page = storedStroke(), eraserMode = EraserMode.Object)
+        val d = density.density
+        drag(Offset(180f * d, 60f * d), Offset(180f * d, 220f * d))
+        val (edit, erased) = edits.single()
+        assertEquals(EraserMode.Object, assertIs<InkEdit.PartialErase>(edit).row.mode)
+        assertEquals(emptyList(), pages.pieces(erased))
+        assertTrue(!inkBetween(0f, 299f), "nothing is drawn")
+    }
+
+    @Test
+    fun aSelectionBeingDraggedIsDrawnAtItsOffset() = runComposeUiTest {
+        val page = storedStroke()
+        val selection = assertNotNull(page.geometry!!.selectAt(page, 180f, 130f))
+        showLayer(null, page = page, selection = selection, selectionOffset = Offset(0f, 100f))
+        assertTrue(!inkBetween(110f, 150f), "the held ink has left its place")
+        assertTrue(inkBetween(210f, 250f), "and is drawn 100 dp lower")
     }
 
     @Test

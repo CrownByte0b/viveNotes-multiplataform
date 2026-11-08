@@ -209,7 +209,7 @@ internal class DesktopInkPage private constructor(
         val hit = index.at(InkPoint(x, y), reach).lastOrNull() ?: return null
         val candidates = if (hit.groupId == null) listOf(hit) else grouped(hit.groupId!!)
         val box = candidates.mapNotNull { it.pageBounds }.unionBounds() ?: return null
-        val selection = InkLassoSelection(box.selectionPath(), candidates.map { it.id }.toSet(),
+        val selection = InkLassoSelection(box.heldLassoPath(), candidates.map { it.id }.toSet(),
             candidates.map { it.projectionKey }.toSet(), box)
         return DesktopInkSelection(page, selection)
     }

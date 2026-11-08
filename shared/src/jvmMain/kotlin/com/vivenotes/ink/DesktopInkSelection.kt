@@ -13,10 +13,6 @@ import com.vivenotes.model.ink.InkSelectionBounds
 import com.vivenotes.model.ink.InkSelectionChange
 import com.vivenotes.model.newId
 
-internal fun InkBounds.selectionPath(): List<com.vivenotes.byteink.kit.InkPoint> = listOf(
-    com.vivenotes.byteink.kit.InkPoint(left, top), com.vivenotes.byteink.kit.InkPoint(right, top),
-    com.vivenotes.byteink.kit.InkPoint(right, bottom), com.vivenotes.byteink.kit.InkPoint(left, bottom))
-
 internal class DesktopInkSelection(override val page: InkPage, val held: InkLassoSelection) : InkSelection {
     override val bounds = held.bounds.let { InkSelectionBounds(it.left, it.top, it.right, it.bottom) }
     override val targetIds get() = held.targetIds
@@ -48,7 +44,7 @@ internal class DesktopInkSelection(override val page: InkPage, val held: InkLass
             val edit = InkEdit.SetStrokeGroups(ids.associateWith { groupId })
             val after = copied.after.withDesktopEdit(edit)
             val selected = after.desktopGeometry().projections.filter { it.id in ids }
-                .selectWithLasso(held.bounds.selectionPath()) ?: return null
+                .selectWithLasso(held.bounds.heldLassoPath()) ?: return null
             return InkSelectionChange(page, after,
                 listOf(InkEdit.Batch(removed.edits + copied.edits + edit)),
                 listOf(InkEdit.Batch(copied.undo + removed.undo)), DesktopInkSelection(after, selected), source = this,
@@ -66,7 +62,7 @@ internal class DesktopInkSelection(override val page: InkPage, val held: InkLass
         val undo = InkEdit.SetStrokeGroups(sources.associate { it.id to it.groupId })
         val after = page.withDesktopEdit(edit)
         return InkSelectionChange(page, after, listOf(edit), listOf(undo),
-            DesktopInkSelection(after, held.copy(path = held.bounds.selectionPath())), source = this)
+            DesktopInkSelection(after, held.copy(path = held.bounds.heldLassoPath())), source = this)
     }
 
     override fun copy(): InkClipboard = DesktopInkClipboard(page, held)
