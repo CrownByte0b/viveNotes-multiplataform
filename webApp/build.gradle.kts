@@ -55,6 +55,12 @@ kotlin {
 
 apply(from = rootProject.file("gradle/browser-test-page.gradle.kts"))
 
+// ByteInk's Ink engine, served at ink/ beside the Wasm bundle.
+apply(from = rootProject.file("gradle/ink-engine.gradle.kts"))
+kotlin.sourceSets.named("wasmJsMain") {
+    resources.srcDir(files(layout.buildDirectory.dir("generated/inkEngine")).builtBy("inkEngineAssets"))
+}
+
 val webBundlingTest = NodeJsExec.register(
     (kotlin.targets.getByName("js") as KotlinJsIrTarget).compilations.getByName("main"),
     "webBundlingTest",
@@ -69,6 +75,20 @@ val webBundlingTest = NodeJsExec.register(
         fragment.asFile.absolutePath)
 }
 
+val webDevServerTest = NodeJsExec.register(
+    (kotlin.targets.getByName("js") as KotlinJsIrTarget).compilations.getByName("main"),
+    "webDevServerTest",
+) {
+    group = "verification"
+    description = "Check that the dev server publishes the web app, not the checkout around it."
+    sourceMapStackTraces = false
+    inputFileProperty.set(rootProject.layout.projectDirectory.file("gradle/tests/dev-server-static.cjs"))
+    val fragment = layout.projectDirectory.file("webpack.config.d/dev-server.js")
+    inputs.file(fragment)
+    args(rootProject.layout.buildDirectory.dir("js/node_modules").get().asFile.absolutePath,
+        fragment.asFile.absolutePath)
+}
+
 tasks.named("check") {
-    dependsOn(webBundlingTest)
+    dependsOn(webBundlingTest, webDevServerTest)
 }

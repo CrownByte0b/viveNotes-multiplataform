@@ -19,8 +19,10 @@ class DesktopVersionBuildTest {
         for (path in listOf(
             "settings.gradle.kts", "build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
             "shared/build.gradle.kts", "webApp/build.gradle.kts", "desktopApp/build.gradle.kts",
-            "gradle/karma/managed-chromium.js", "gradle/browser-test-page.gradle.kts",
+            "gradle/karma/managed-chromium.js", "gradle/karma/ink-engine.js",
+            "gradle/browser-test-page.gradle.kts", "gradle/ink-engine.gradle.kts",
             "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js",
+            "gradle/tests/dev-server-static.cjs", "webApp/webpack.config.d/dev-server.js",
             "desktopApp/src/main/resources/build-info.properties",
         )) File(root, path).copyTo(File(fixture, path).apply { parentFile.mkdirs() })
         File(fixture, "gradle.properties").appendText("\nversion=1.0.0-dev.0\n")

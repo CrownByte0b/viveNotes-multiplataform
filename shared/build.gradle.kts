@@ -114,9 +114,24 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
+val byteinkVersion = providers.gradleProperty("byteinkVersion").orElse("0.2.0-SNAPSHOT").get()
+// ByteInk's Ink engine for the Wasm browser tests that draw.
+apply(from = rootProject.file("gradle/ink-engine.gradle.kts"))
+
 kotlin {
     compilerOptions {
         optIn.add("androidx.compose.material3.ExperimentalMaterial3Api")
+    }
+
+    // `ink` (inkMain/inkTest) holds what desktop and the Wasm preview share over ByteInk's
+    // portable model. Kotlin/JS has no ByteInk variant, so `js` keeps its stub ink layer.
+    applyDefaultHierarchyTemplate {
+        common {
+            group("ink") {
+                withJvm()
+                withWasmJs()
+            }
+        }
     }
 
     jvm {
@@ -147,6 +162,9 @@ kotlin {
                 providers.gradleProperty("kotlin.gradle.playwright.browsers.path").orNull?.let {
                     environment("PLAYWRIGHT_BROWSERS_PATH", it)
                 }
+                // Served at /ink/ by gradle/karma/ink-engine.js, as the web app serves it.
+                dependsOn("inkEngineAssets")
+                environment("VIVE_INK_ENGINE_DIR", layout.buildDirectory.dir("generated/inkEngine/ink").get().asFile.absolutePath)
                 useKarma {
                     useChromeHeadless()
                     useConfigDirectory(rootProject.file("gradle/karma"))
@@ -185,7 +203,6 @@ kotlin {
         jvmMain.dependencies {
             // Skiko supplies the Android renderer's vector canvas; FOP writes those paths to PDF.
             implementation("org.apache.xmlgraphics:fop-core:2.12")
-            val byteinkVersion = providers.gradleProperty("byteinkVersion").orElse("0.2.0-SNAPSHOT").get()
             implementation("com.vivenotes.byteink:byteink-compose:$byteinkVersion")
             implementation("com.vivenotes.byteink:byteink-kit:$byteinkVersion")
             implementation(libs.androidx.room.runtime)
@@ -205,8 +222,17 @@ kotlin {
             implementation(compose.desktop.currentOs)
             implementation("org.apache.pdfbox:pdfbox:3.0.8")
         }
+        // Desktop already has the model through byteink-kit; native builds gain no ByteInk module.
+        getByName("inkMain").dependencies {
+            implementation("com.vivenotes.byteink:byteink-model:$byteinkVersion")
+        }
         jsMain.dependencies {
             implementation(libs.wrappers.browser)
+        }
+        // The browser preview's engine client, common facade and Compose renderer.
+        wasmJsMain.dependencies {
+            implementation("com.vivenotes.byteink:byteink-portable:$byteinkVersion")
+            implementation("com.vivenotes.byteink:byteink-compose-wasm:$byteinkVersion")
         }
         jsTest.dependencies {
             implementation(npm("mocha", libs.versions.mocha.get()))
@@ -215,6 +241,12 @@ kotlin {
 }
 
 apply(from = rootProject.file("gradle/browser-test-page.gradle.kts"))
+
+// The browser distributions build here for checks, but the page is :webApp's. A dev server of this
+// module would only list folders, and `./gradlew wasmJsBrowserDevelopmentRun` would race it against
+// :webApp's for port 8080.
+tasks.matching { it.name in setOf("jsBrowserDevelopmentRun", "jsBrowserProductionRun",
+    "wasmJsBrowserDevelopmentRun", "wasmJsBrowserProductionRun") }.configureEach { enabled = false }
 
 dependencies {
     add("kspJvm", libs.androidx.room.compiler)

@@ -21,4 +21,4 @@ internal actual fun PlatformInkLayer(
     penIndex: Int,
     ruler: com.vivenotes.model.ink.Ruler?,
     onStraighten: (com.vivenotes.model.ink.StraightLine, com.vivenotes.workspace.InkPenSettings) -> Unit,
-) { /* Ink authoring and rendering are desktop services. */ }
+) { /* ByteInk has no Kotlin/JS build; the browser preview's ink is the Wasm target's. */ }

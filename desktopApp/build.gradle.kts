@@ -312,8 +312,10 @@ tasks.test {
     inputs.file(settingsFile)
     inputs.files(rootProject.files("build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
         "shared/build.gradle.kts", "webApp/build.gradle.kts", "desktopApp/build.gradle.kts",
-        "gradle/karma/managed-chromium.js", "gradle/browser-test-page.gradle.kts",
-        "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js"))
+        "gradle/karma/managed-chromium.js", "gradle/karma/ink-engine.js",
+        "gradle/browser-test-page.gradle.kts", "gradle/ink-engine.gradle.kts",
+        "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js",
+        "gradle/tests/dev-server-static.cjs", "webApp/webpack.config.d/dev-server.js"))
     inputs.file(rootProject.file("tools/lint/ResourceLint.java"))
     inputs.files(fileTree(rootProject.file("packaging/flatpak")))
     inputs.files(fileTree(rootProject.file("packaging/appimage")))

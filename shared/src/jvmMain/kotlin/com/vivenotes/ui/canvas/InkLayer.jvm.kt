@@ -386,23 +386,6 @@ private class InkGestureTiming {
     fun uptime(): Long = eventUptime + (System.nanoTime() - startNanos) / 1_000_000L
 }
 
-/** A resting hand does not have to lift between pen strokes, including while holding the ruler. */
-private suspend fun PointerInputScope.awaitEachInkGesture(block: suspend AwaitPointerEventScope.() -> Unit) {
-    awaitPointerEventScope { while (true) block() }
-}
-
-/** The next ink-starting down: a pen first, else a mouse or a finger while no pen is pressed. */
-internal suspend fun AwaitPointerEventScope.awaitInkDown(): PointerInputChange {
-    while (true) {
-        val event = awaitPointerEvent()
-        val downs = event.changes.filter { it.changedToDown() }
-        downs.firstOrNull { it.type == PointerType.Stylus || it.type == PointerType.Eraser }?.let { return it }
-        downs.firstOrNull { it.type == PointerType.Mouse ||
-            event.changes.none { change -> change.pressed && (change.type == PointerType.Stylus || change.type == PointerType.Eraser) }
-        }?.let { return it }
-    }
-}
-
 private fun PointerInputChange.inkSample(
     point: Offset = position, uptime: Long = uptimeMillis, includePressure: Boolean = true,
 ): InkPointerSample {
@@ -412,9 +395,7 @@ private fun PointerInputChange.inkSample(
         PointerType.Stylus, PointerType.Eraser -> InputToolType.STYLUS
         else -> InputToolType.UNKNOWN
     }
-    val measuredPressure = pressure.takeIf { includePressure && inputTool == InputToolType.STYLUS &&
-        it.isFinite() && it in 0f..1f }
-    return InkPointerSample(point.x, point.y, uptime, inputTool, measuredPressure)
+    return InkPointerSample(point.x, point.y, uptime, inputTool, measuredPenPressure(includePressure))
 }
 
 private class HoldCandidate(val hold: StraightenHold, val commit: (com.vivenotes.model.ink.StraightLine) -> Unit)

@@ -5,5 +5,5 @@ import androidx.compose.ui.unit.DpSize
 
 @Composable
 internal actual fun LaserLayer(canvasSize: DpSize, zoom: Float, active: Boolean) {
-    /* The laser's trace is Ink's, a desktop service like ink authoring. */
+    /* The laser is desktop-only for now; see memory/web-ink.md. */
 }

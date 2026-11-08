@@ -1,7 +1,6 @@
 package com.vivenotes.graph
 
 import kotlin.math.abs
-import kotlin.math.pow
 
 /** Decimal grid arithmetic for the dormant browser targets. JVM uses BigDecimal unchanged. */
 class PortableGraphDecimal private constructor(private val coefficient: Long, private val exponent: Int) : Comparable<PortableGraphDecimal> {
@@ -9,7 +8,17 @@ class PortableGraphDecimal private constructor(private val coefficient: Long, pr
     constructor(value: Double) : this(parse(value.toString()))
     constructor(value: Int) : this(value.toLong(), 0)
     constructor(value: String) : this(parse(value))
-    fun toDouble(): Double = coefficient * 10.0.pow(exponent)
+    /**
+     * The double nearest this decimal, as `BigDecimal.toDouble` gives it: `2.3`, not the
+     * `2.3000000000000003` that `23 * 0.1` makes. Within 2^53 and 10^22 both operands are exact,
+     * so one IEEE multiplication or division rounds correctly; beyond them the decimal is parsed.
+     */
+    fun toDouble(): Double = when {
+        coefficient == 0L -> 0.0
+        abs(coefficient) > EXACT_INTEGER || abs(exponent) >= EXACT_POWERS.size -> "${coefficient}e$exponent".toDouble()
+        exponent >= 0 -> coefficient.toDouble() * EXACT_POWERS[exponent]
+        else -> coefficient.toDouble() / EXACT_POWERS[-exponent]
+    }
     fun signum(): Int = coefficient.compareTo(0)
     fun negate(): PortableGraphDecimal = PortableGraphDecimal(-coefficient, exponent)
     fun multiply(other: PortableGraphDecimal): PortableGraphDecimal =
@@ -54,6 +63,12 @@ class PortableGraphDecimal private constructor(private val coefficient: Long, pr
     companion object {
         val ZERO = PortableGraphDecimal(0, 0)
         val ONE = PortableGraphDecimal(1, 0)
+        private const val EXACT_INTEGER = 1L shl 53
+        /** 10^0 .. 10^22, every one an exact double (built by exact multiplication, not pow). */
+        private val EXACT_POWERS = DoubleArray(23).also { powers ->
+            powers[0] = 1.0
+            for (index in 1 until powers.size) powers[index] = powers[index - 1] * 10.0
+        }
         fun valueOf(value: Long): PortableGraphDecimal = PortableGraphDecimal(value, 0)
         fun valueOf(value: Double): PortableGraphDecimal = PortableGraphDecimal(value)
         private fun parse(value: String): Pair<Long, Int> {

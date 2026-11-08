@@ -12,8 +12,8 @@ import kotlin.test.assertTrue
 class WebBuildConfigurationTest {
     @get:Rule val temp = TemporaryFolder()
 
-    @Test
-    fun rootBuildAssemblesWebAndRunsPortableTestsWithManagedBrowsersAndEnoughCompilerMemory() {
+    /** The build files copied into a temporary checkout, reached through an alias where possible. */
+    private fun copiedApp(): File {
         val project = File(System.getProperty("vivenotes.test.projectRoot"))
         val directory = temp.newFolder("app")
         // Gradle canonicalizes project directories. Exercise an alias locally too; Windows
@@ -23,11 +23,40 @@ class WebBuildConfigurationTest {
         for (path in listOf(
             "settings.gradle.kts", "build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml",
             "shared/build.gradle.kts", "webApp/build.gradle.kts", "desktopApp/build.gradle.kts",
-            "gradle/karma/managed-chromium.js", "gradle/browser-test-page.gradle.kts",
+            "gradle/karma/managed-chromium.js", "gradle/karma/ink-engine.js",
+            "gradle/browser-test-page.gradle.kts", "gradle/ink-engine.gradle.kts",
             "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js",
+            "gradle/tests/dev-server-static.cjs", "webApp/webpack.config.d/dev-server.js",
         )) {
             File(project, path).copyTo(File(fixture, path).apply { parentFile.mkdirs() })
         }
+        return fixture
+    }
+
+    @Test
+    fun onlyTheWebAppStartsADevServer() {
+        val fixture = copiedApp()
+        val init = File(temp.root, "runs.gradle").apply {
+            writeText("""
+                gradle.taskGraph.whenReady { graph ->
+                    gradle.rootProject.file('run-report.txt').text =
+                        graph.allTasks.collect { "task|" + it.path + "|" + it.enabled }.join('\n')
+                }
+            """.trimIndent())
+        }
+        runGradle(fixture, "wasmJsBrowserDevelopmentRun", "jsBrowserDevelopmentRun", "wasmJsBrowserProductionRun",
+            "jsBrowserProductionRun", "--dry-run", "--init-script", init.path, offline = false)
+        val report = File(fixture, "run-report.txt").readLines()
+        for (target in listOf("js", "wasmJs")) for (mode in listOf("Development", "Production")) {
+            // A second server would only list folders, the checkout root among them, and race for port 8080.
+            assertTrue("task|:shared:${target}Browser${mode}Run|false" in report, report.toString())
+            assertTrue("task|:webApp:${target}Browser${mode}Run|true" in report, report.toString())
+        }
+    }
+
+    @Test
+    fun rootBuildAssemblesWebAndRunsPortableTestsWithManagedBrowsersAndEnoughCompilerMemory() {
+        val fixture = copiedApp()
         val init = File(temp.root, "probe.gradle").apply {
             writeText("""
                 gradle.taskGraph.whenReady { graph ->
@@ -72,6 +101,7 @@ class WebBuildConfigurationTest {
         assertTrue("task|:shared:compileTestKotlinJs|true" in report)
         assertTrue("task|:shared:compileTestKotlinWasmJs|true" in report)
         assertTrue("task|:webApp:webBundlingTest|true" in report)
+        assertTrue("task|:webApp:webDevServerTest|true" in report, "the dev server's publication check runs in build")
         val heaps = report.filter { it.startsWith("heap|") }
         assertEquals(4, heaps.size)
         for (heap in heaps) {

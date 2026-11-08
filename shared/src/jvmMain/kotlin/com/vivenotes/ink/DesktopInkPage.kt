@@ -8,8 +8,6 @@ import com.vivenotes.byteink.kit.*
 import com.vivenotes.byteink.kit.InkPoint
 import com.vivenotes.data.InkEdit
 import com.vivenotes.data.db.InkStrokeEntity
-import com.vivenotes.data.db.InkEraseWithTargets
-import com.vivenotes.data.db.InkMoveWithTargets
 import com.vivenotes.model.ink.*
 import java.util.Collections
 
@@ -376,24 +374,6 @@ internal class DesktopInkQueries(private val page: DesktopInkPage) {
         return InkLassoSelection(path, selected.mapTo(LinkedHashSet()) { it.id },
             selected.mapTo(LinkedHashSet()) { it.projectionKey }, bounds)
     }
-}
-
-internal fun InkStrokeEntity.toByteInk() = StoredInkStroke(id, pageId, seq, brushFamily,
-    brushVersion, sizeDp, colorArgb, colorFollowsTheme, epsilon, stabilization, minX, minY,
-    maxX, maxY, points, enc, createdAt, groupId, deletedAt)
-
-internal fun StoredInkStroke.toEntity() = InkStrokeEntity(id, pageId, seq, brushFamily,
-    brushVersion, sizeDp, colorArgb, colorFollowsTheme, epsilon, stabilization, minX, minY,
-    maxX, maxY, points, enc, createdAt, groupId, deletedAt)
-
-internal fun InkEraseWithTargets.toByteInk(): StoredInkErase = erase.let { row ->
-    StoredInkErase(row.id, row.pageId, row.mode.name, row.sizeDp, row.points, row.enc,
-        row.createdAt, row.deletedAt, targets.map { it.strokeId })
-}
-
-internal fun InkMoveWithTargets.toByteInk(): StoredInkMove = move.let { row ->
-    StoredInkMove(row.id, row.pageId, row.dxDp, row.dyDp, row.scaleX, row.scaleY, row.anchorX,
-        row.anchorY, row.points, row.enc, row.createdAt, row.deletedAt, targets.map { it.strokeId })
 }
 
 /** Also supports portable synthetic pages used by previews and shared UI tests. */
