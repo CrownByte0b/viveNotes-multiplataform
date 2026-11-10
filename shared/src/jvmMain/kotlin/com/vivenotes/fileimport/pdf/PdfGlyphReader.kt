@@ -87,35 +87,36 @@ internal class PdfGlyphReader(private val pageIndex: Int) : PDFTextStripper() {
     /**
      * The box around [position]'s ink, in page points from the top left of the page as drawn.
      *
-     * A glyph's outline is in the font's 1000-unit square; the text rendering matrix takes that to the
-     * page's own space and [toDisplay] to the drawn page. A Type 3 glyph has only the box its
-     * procedure declares, and a glyph with no outline at all — a missing one — has the box its advance
-     * and the font's height give it, which is all there is to go on.
+     * A glyph's outline is in its font's own units and the font matrix takes it to text space, as
+     * PDFBox's renderer draws it: 1000 to the em for most fonts, but 2048 for a TrueType face such as
+     * Liberation Sans or Arial standing in for a Type 1 font the file does not embed. The text
+     * rendering matrix then takes it to the page's own space and [toDisplay] to the drawn page. A
+     * Type 3 glyph has only the box its procedure declares, and a glyph with no outline at all — a
+     * missing one — has the box its advance and the font's height give it, which is all there is to
+     * go on.
      */
     private fun inkBox(position: TextPosition): PdfRect? {
         val font = position.font
         val code = position.characterCodes?.firstOrNull() ?: return null
         val transform = AffineTransform(toDisplay).apply { concatenate(position.textMatrix.createAffineTransform()) }
-        val glyph: Rectangle2D? = runCatching {
-            when (font) {
+        val ink: Rectangle2D? = runCatching {
+            val outline: Rectangle2D? = when (font) {
                 is PDType3Font -> font.getCharProc(code)?.glyphBBox?.let { box ->
-                    transform.concatenate(font.fontMatrix.createAffineTransform())
                     Rectangle2D.Float(box.lowerLeftX, box.lowerLeftY, box.width, box.height)
                 }
-                is PDVectorFont -> font.getNormalizedPath(code).bounds2D.takeUnless { it.isEmpty }?.also {
-                    transform.scale(1.0 / 1000.0, 1.0 / 1000.0)
-                }
+                is PDVectorFont -> font.getNormalizedPath(code).bounds2D.takeUnless { it.isEmpty }
                 else -> null
             }
+            outline?.let {
+                transform.concatenate(font.fontMatrix.createAffineTransform())
+                transform.createTransformedShape(it).bounds2D
+            }
         }.getOrNull()
-        val bounds = if (glyph != null) {
-            transform.createTransformedShape(glyph).bounds2D
-        } else {
-            // What PDFBox's own text positions say, turned with the page: the advance, and the font's
-            // height above the baseline.
-            Rectangle2D.Float(position.x, position.y - position.height, position.width, position.height)
+        // Without an outline, what PDFBox's own text positions say, turned with the page: the advance,
+        // and the font's height above the baseline.
+        val bounds = ink
+            ?: Rectangle2D.Float(position.x, position.y - position.height, position.width, position.height)
                 .takeUnless { it.isEmpty } ?: return null
-        }
         return PdfRect(bounds.minX.toFloat(), bounds.minY.toFloat(), bounds.maxX.toFloat(), bounds.maxY.toFloat())
     }
 

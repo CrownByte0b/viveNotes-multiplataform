@@ -9,6 +9,7 @@ import org.jetbrains.skia.FontStyle
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.ImageInfo
 import org.jetbrains.skia.Paint
+import org.jetbrains.skia.Typeface
 
 /*
  * Pictures for recognition tests: what Android's instrumented tests build with `Bitmap.setPixel` and
@@ -31,11 +32,16 @@ internal fun imageOf(width: Int, height: Int, argb: (x: Int, y: Int) -> Int): Im
     return Image.makeRaster(ImageInfo(width, height, ColorType.BGRA_8888, ColorAlphaType.UNPREMUL), bytes, width * 4)
 }
 
+/**
+ * The face [textImage] draws with: the system's sans-serif, or Skia's default face where the font
+ * manager has no family by that name — Windows' DirectWrite knows none.
+ */
+internal fun textTypeface(): Typeface? =
+    FontMgr.default.matchFamilyStyle("sans-serif", FontStyle.NORMAL) ?: FontMgr.default.legacyMakeTypeface("", FontStyle.NORMAL)
+
 /** Black text on white: each line drawn at its own baseline, as Android's fixtures draw them. */
 internal fun textImage(width: Int, height: Int, textSize: Float, lines: List<Triple<String, Float, Float>>): Image {
-    val typeface = FontMgr.default.matchFamilyStyle("sans-serif", FontStyle.NORMAL)
-        ?: FontMgr.default.legacyMakeTypeface("", FontStyle.NORMAL)
-    val font = Font(typeface, textSize)
+    val font = Font(textTypeface(), textSize)
     val paint = Paint().apply {
         color = Color.BLACK
         isAntiAlias = true
