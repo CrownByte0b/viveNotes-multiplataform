@@ -1,11 +1,20 @@
 package com.vivenotes.ui.ribbon.file
 
 import com.vivenotes.localization.Strings
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.vivenotes.ui.components.ScaledDropdownMenu
+import com.vivenotes.ui.icons.NavigationSymbols
+import com.vivenotes.ui.icons.ViewSymbols
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,7 +39,11 @@ import com.vivenotes.workspace.FilePane
 object FileRibbonTags {
     const val ExportPdf = "file-export-pdf"
     const val ExportNotebook = "file-export-notebook"
+
+    /** The Import button, whose menu holds [ImportNotebook] and [ImportFile]. */
+    const val Import = "file-import"
     const val ImportNotebook = "file-import-notebook"
+    const val ImportFile = "file-import-file"
     const val TransferDialog = "file-transfer-dialog"
     const val TransferBackdrop = "file-transfer-backdrop"
     const val TransferOk = "file-transfer-ok"
@@ -56,6 +69,8 @@ internal fun FileRibbon(
     onCloseNotebook: () -> Unit,
     onDeleteNotebook: () -> Unit,
     onExportPdf: () -> Unit = {},
+    /** Import ▸ File: a document's pages onto the open page. */
+    onImportFile: () -> Unit = {},
 ) {
     val accent = ribbonStyle.accent
     val neutral = ribbonStyle.normalText
@@ -86,15 +101,62 @@ internal fun FileRibbon(
             enabled = actions != null && notebookOpen && !transferRunning,
             modifier = Modifier.testTag(FileRibbonTags.ExportNotebook),
         ) { TwoToneIcon(exportIcon) }
-        RibbonCommand(
-            label = Strings.import,
-            onClick = { actions?.importNotebook() },
+        ImportButton(
             enabled = actions != null && !transferRunning,
-            modifier = Modifier.testTag(FileRibbonTags.ImportNotebook),
-        ) { TwoToneIcon(importIcon) }
+            fileAvailable = actions?.fileImporter != null && pageOpen,
+            icon = importIcon,
+            onImportNotebook = { actions?.importNotebook() },
+            onImportFile = onImportFile,
+        )
         RibbonDivider()
         FileCommand(Strings.delete_notebook, deleteIcon, FileRibbonTags.DeleteNotebook,
             actions != null && notebookOpen && !transferRunning, twoTone = true, onClick = onDeleteNotebook)
+    }
+}
+
+/**
+ * Bringing something in: a notebook, which is always possible, or a file's pages, which need an open
+ * page to land on. Android's `ImportButton`.
+ */
+@Composable
+private fun ImportButton(
+    enabled: Boolean,
+    fileAvailable: Boolean,
+    icon: ImageVector,
+    onImportNotebook: () -> Unit,
+    onImportFile: () -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        RibbonCommand(
+            label = Strings.import,
+            onClick = { open = true },
+            active = open,
+            enabled = enabled,
+            dropdown = true,
+            modifier = Modifier.testTag(FileRibbonTags.Import),
+        ) { TwoToneIcon(icon) }
+        ScaledDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(Strings.import_file_notebook) },
+                leadingIcon = { Icon(NavigationSymbols.Book, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                onClick = {
+                    open = false
+                    onImportNotebook()
+                },
+                modifier = Modifier.testTag(FileRibbonTags.ImportNotebook),
+            )
+            DropdownMenuItem(
+                text = { Text(Strings.import_file_file) },
+                leadingIcon = { Icon(ViewSymbols.Article, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                enabled = fileAvailable,
+                onClick = {
+                    open = false
+                    onImportFile()
+                },
+                modifier = Modifier.testTag(FileRibbonTags.ImportFile),
+            )
+        }
     }
 }
 

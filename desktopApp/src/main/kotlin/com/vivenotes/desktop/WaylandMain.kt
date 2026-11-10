@@ -49,7 +49,7 @@ internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: De
         frame.setLocation(monitor.workArea.x + (monitor.workArea.width - initialSize.width) / 2,
             monitor.workArea.y + (monitor.workArea.height - initialSize.height) / 2)
         frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame), notes.notebookFiles(frame),
-            notes.pdfExporter(frame), log, profile, onDarkThemeChange = { titleBar.dark = it }))
+            notes.pdfExporter(frame), notes.fileImporter(frame), log, profile, onDarkThemeChange = { titleBar.dark = it }))
         frame.isVisible = true
         DesktopTouch.attachPointers(frame, log)
         // The panel makes its drop target as it is shown.
@@ -66,7 +66,8 @@ internal fun requireNativeWaylandToolkit(toolkitClassName: String) {
 /** The Compose panel inside the [PopupLayerHost] its popups open in. */
 @OptIn(ExperimentalComposeUiApi::class)
 private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, notebookFiles: NotebookFiles,
-                                 pdfExporter: com.vivenotes.pdf.PdfExportService, log: DebugLog,
+                                 pdfExporter: com.vivenotes.pdf.PdfExportService,
+                                 fileImporter: com.vivenotes.fileimport.FileImportService, log: DebugLog,
                                  profile: DesktopProfile, onDarkThemeChange: (Boolean) -> Unit): PopupLayerHost {
     val panel = waylandComposePanel(log)
     val host = PopupLayerHost(panel, log)
@@ -88,6 +89,7 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
             inputSettings = notes.inputSettings, onInputSettingsChange = notes::updateInputSettings,
             notebookFiles = notebookFiles, thumbnails = notes.thumbnails,
             pdfExporter = pdfExporter,
+            fileImporter = fileImporter,
             onEditorDefaultsChange = notes::updateEditorDefaults,
             onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
             accountHost = notes.sync?.accountHost,

@@ -359,8 +359,13 @@ class WorkspaceSession(
     }
 
     /** The File tab's `.vive` commands, over one window's file dialogs. */
-    fun fileActions(files: NotebookFiles, exporter: com.vivenotes.pdf.PdfExportService? = null): FileActions = object : FileActions {
+    fun fileActions(
+        files: NotebookFiles,
+        exporter: com.vivenotes.pdf.PdfExportService? = null,
+        importer: com.vivenotes.fileimport.FileImportService? = null,
+    ): FileActions = object : FileActions {
         override val pdfExporter = exporter
+        override val fileImporter = importer
         override suspend fun preparePdfExport() {
             flush()
             if (openPageHasUnsavedChanges()) {

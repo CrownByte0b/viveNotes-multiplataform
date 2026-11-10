@@ -10,9 +10,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Color
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
+import org.jetbrains.skia.ImageInfo
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
@@ -142,6 +146,59 @@ class AttachmentStore(
      */
     suspend fun import(bytes: ByteArray): ImportedPicture? = withContext(io) {
         val encoded = reencode(bytes) ?: return@withContext null
+        store(encoded)
+    }
+
+    /**
+     * Stores a picture this app drew rather than one it was given — a page of an imported document.
+     *
+     * Lossless, unlike everything else that comes in here: a page is black text on white, which lossy
+     * WebP smears and lossless packs smaller anyway (Android's `WEBP_LOSSLESS`, written by
+     * [LosslessWebp]). The importer draws it at the size the store keeps; anything larger is shrunk to
+     * [MAX_DIMENSION], since a `.vive` file refuses a picture past it. The caller keeps [bitmap].
+     */
+    suspend fun importDrawn(bitmap: Bitmap): ImportedPicture? = withContext(io) {
+        if (bitmap.width < 1 || bitmap.height < 1) return@withContext null
+        val longest = maxOf(bitmap.width, bitmap.height)
+        val fitted = if (longest <= MAX_DIMENSION) bitmap else shrunk(bitmap, MAX_DIMENSION.toFloat() / longest)
+        try {
+            val width = fitted.width
+            val height = fitted.height
+            val info = ImageInfo(width, height, ColorType.BGRA_8888, ColorAlphaType.UNPREMUL)
+            val raw = fitted.readPixels(info, width * 4, 0, 0) ?: return@withContext null
+            val argb = IntArray(width * height) { index ->
+                val at = index * 4
+                ((raw[at + 3].toInt() and 0xFF) shl 24) or ((raw[at + 2].toInt() and 0xFF) shl 16) or
+                    ((raw[at + 1].toInt() and 0xFF) shl 8) or (raw[at].toInt() and 0xFF)
+            }
+            store(Encoded(LosslessWebp.encode(width, height, argb), width, height))
+        } finally {
+            if (fitted !== bitmap) fitted.close()
+        }
+    }
+
+    private fun shrunk(bitmap: Bitmap, scale: Float): Bitmap {
+        val width = (bitmap.width * scale).toInt().coerceIn(1, MAX_DIMENSION)
+        val height = (bitmap.height * scale).toInt().coerceIn(1, MAX_DIMENSION)
+        val out = Bitmap()
+        out.allocN32Pixels(width, height, false)
+        Image.makeFromBitmap(bitmap).use { source ->
+            org.jetbrains.skia.Canvas(out).use { canvas ->
+                canvas.clear(Color.TRANSPARENT)
+                canvas.drawImageRect(
+                    source,
+                    Rect.makeWH(bitmap.width.toFloat(), bitmap.height.toFloat()),
+                    Rect.makeWH(width.toFloat(), height.toFloat()),
+                    SamplingMode.MITCHELL,
+                    null,
+                    true,
+                )
+            }
+        }
+        return out
+    }
+
+    private suspend fun store(encoded: Encoded): ImportedPicture {
         val id = encoded.bytes.sha256()
         val file = File(directory, id)
         // Content-addressed: a file already there is already these bytes, and rewriting it could
@@ -169,7 +226,7 @@ class AttachmentStore(
             )
             attachments.retain(id)
         }
-        ImportedPicture(id, encoded.width, encoded.height)
+        return ImportedPicture(id, encoded.width, encoded.height)
     }
 
     /** The stored bytes of [id], or null when there is no such file. */

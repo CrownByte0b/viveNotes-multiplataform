@@ -84,6 +84,8 @@ fun App(
     debugLog: DebugLog = remember { DebugLog() },
     developmentBuild: Boolean = false,
     pdfExporter: com.vivenotes.pdf.PdfExportService? = null,
+    /** File ▸ Import ▸ File's reader of other apps' documents; without it the command is unavailable. */
+    fileImporter: com.vivenotes.fileimport.FileImportService? = null,
     /** The system clipboard's HTML, for pasting another app's formatting; without it, its text comes plain. */
     clipboardHtml: ClipboardHtml? = null,
     /** Told whether the app shows its dark look, as it changes, for the window frame around it. */
@@ -92,8 +94,8 @@ fun App(
     updates: AppUpdates? = null,
 ) {
     val state by session.state.collectAsState()
-    val fileActions = remember(session, notebookFiles, pdfExporter) {
-        notebookFiles?.let { session.fileActions(it, pdfExporter) }
+    val fileActions = remember(session, notebookFiles, pdfExporter, fileImporter) {
+        notebookFiles?.let { session.fileActions(it, pdfExporter, fileImporter) }
     }
     val systemDarkTheme = isSystemInDarkTheme()
     val darkTheme = interfaceSettings.darkTheme ?: systemDarkTheme

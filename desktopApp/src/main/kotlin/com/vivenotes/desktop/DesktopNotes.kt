@@ -36,6 +36,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.awt.Frame
+import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -69,6 +70,8 @@ internal class DesktopNotes(
     /** The math engine's Python and SymPy: the package's own, or installed by uv at launch. */
     val mathRuntime: MathEngineRuntime? = null,
     private val inkStore: InkSettingsFile? = null,
+    /** Scratch space for this profile: where Import ▸ File stages the document it reads. */
+    private val cacheDirectory: File = File(System.getProperty("java.io.tmpdir"), "vivenotes-cache"),
 ) {
     private val drawMathDelegate = lazy {
         if (aiModels != null && mathRuntime != null) com.vivenotes.ai.DesktopDrawMath(aiModels, mathRuntime.engine, log) else null
@@ -194,6 +197,20 @@ internal class DesktopNotes(
         chooseOpen = { directory -> chooseNotebookSource(owner, directory) },
     )
 
+    /** Import ▸ File for a window: its file chooser opens over [owner], in the folder the last one ended in. */
+    fun fileImporter(owner: Frame?): com.vivenotes.fileimport.FileImportService {
+        var directory: File? = null
+        return com.vivenotes.fileimport.FileImporter(cacheDirectory, chooseFile = {
+            try {
+                withContext(FlatpakFileDialogs.dispatcher) { chooseImportDocument(owner, directory) }
+                    ?.also { directory = it.absoluteFile.parentFile }
+                    ?.path
+            } finally {
+                owner?.repaint()
+            }
+        }, log = log)
+    }
+
     fun pdfExporter(owner: Frame?): com.vivenotes.pdf.PdfExportService = DesktopPdfExport(
         com.vivenotes.pdf.PdfExporter(library.repository, library.attachments, log = log),
         chooseSave = { name, directory -> choosePdfDestination(owner, name, directory) },
@@ -279,7 +296,8 @@ internal class DesktopNotes(
                 sync = DesktopSync(library, profile, DesktopSyncIdentity.current(profile, DesktopBuildInfo.version), log),
                 aiModels = AiModelStore(File(directories.data, AiModelStore.DIRECTORY),
                     AiSettingsFile(File(directories.config, "ai.properties")), log = log, autoDownload = true),
-                mathRuntime = BundledMathRuntime.forThisApp(File(directories.data, UvMathRuntime.DIRECTORY), log))
+                mathRuntime = BundledMathRuntime.forThisApp(File(directories.data, UvMathRuntime.DIRECTORY), log),
+                cacheDirectory = directories.cache)
         }
     }
 }

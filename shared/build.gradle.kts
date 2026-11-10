@@ -210,6 +210,9 @@ kotlin {
             // The sync account record, in the same Preferences file format Android keeps it in.
             implementation(libs.androidx.datastore.preferences.core)
             implementation(libs.onnxruntime)
+            // File ▸ Import ▸ File: what Android's platform PdfRenderer does there — drawing a PDF's
+            // pages, and saying which character is where.
+            implementation("org.apache.pdfbox:pdfbox:3.0.8")
             runtimeOnly("io.github.darriousliu:ratex-native-linux-x86-64:0.1.15")
             runtimeOnly("io.github.darriousliu:ratex-native-linux-aarch64:0.1.15")
             runtimeOnly("io.github.darriousliu:ratex-native-windows-x86-64:0.1.15")
@@ -220,7 +223,6 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(compose.desktop.currentOs)
-            implementation("org.apache.pdfbox:pdfbox:3.0.8")
         }
         // Desktop already has the model through byteink-kit; native builds gain no ByteInk module.
         getByName("inkMain").dependencies {

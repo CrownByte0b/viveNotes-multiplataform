@@ -298,6 +298,52 @@ class AttachmentStoreTest {
         assertEquals(1L, store.arrivals.value)
     }
 
+    /** A page of an imported document: kept as Android keeps it, lossless WebP at its own size. */
+    @Test
+    fun aDrawnPageIsStoredLosslessAtItsOwnSize() = runBlocking {
+        val page = drawnPage(600, 776)
+        val imported = assertNotNull(store.importDrawn(page))
+
+        assertEquals(ImportedPicture(imported.attachmentId, 600, 776), imported)
+        val stored = File(directory, imported.attachmentId).readBytes()
+        assertEquals(imported.attachmentId, stored.sha256())
+        assertEquals("VP8L", stored.decodeToString(12, 16), "lossless, as Android's WEBP_LOSSLESS")
+        val row = assertNotNull(db.attachmentDao().byId(imported.attachmentId))
+        assertEquals(AttachmentStore.MIME_TYPE, row.mimeType)
+        assertEquals(600 to 776, row.pixelWidth to row.pixelHeight)
+        assertEquals(1, row.refCount)
+        // Every pixel comes back as drawn.
+        Image.makeFromEncoded(stored).use { decoded ->
+            val back = Bitmap().apply { allocN32Pixels(600, 776, true) }
+            assertTrue(decoded.readPixels(back, 0, 0))
+            for ((x, y) in listOf(0 to 0, 40 to 52, 300 to 388, 599 to 775, 123 to 456)) {
+                assertEquals(page.getColor(x, y), back.getColor(x, y), "pixel $x, $y")
+            }
+        }
+    }
+
+    /** Past what the store keeps on a side, a drawing is shrunk to fit: a `.vive` file refuses anything larger. */
+    @Test
+    fun aDrawnPageLargerThanTheStoreKeepsIsShrunkToFit() = runBlocking {
+        val imported = assertNotNull(store.importDrawn(drawnPage(1583, 2049)))
+
+        assertTrue(imported.pixelHeight <= AttachmentStore.MAX_DIMENSION && imported.pixelWidth <= AttachmentStore.MAX_DIMENSION)
+        assertEquals(2048, imported.pixelHeight)
+        val row = assertNotNull(db.attachmentDao().byId(imported.attachmentId))
+        assertEquals(imported.pixelWidth to imported.pixelHeight, row.pixelWidth to row.pixelHeight)
+        assertEquals("VP8L", File(directory, imported.attachmentId).readBytes().decodeToString(12, 16))
+    }
+
+    private fun drawnPage(width: Int, height: Int): Bitmap = Bitmap().also { bitmap ->
+        bitmap.allocN32Pixels(width, height, true)
+        org.jetbrains.skia.Canvas(bitmap).use { canvas ->
+            canvas.clear(Color.WHITE)
+            val ink = Paint().apply { color = Color.makeRGB(20, 20, 20) }
+            for (line in 0 until 20) canvas.drawRect(Rect.makeXYWH(40f, 40f + line * 30f, 300f + line * 7f, 12f), ink)
+            canvas.drawRect(Rect.makeXYWH(200f, 700f, 120f, 50f), Paint().apply { color = Color.makeRGB(68, 114, 196) })
+        }
+    }
+
     private fun png(width: Int, height: Int, transparentLeftHalf: Boolean = false): ByteArray =
         Surface.makeRasterN32Premul(width, height).use { surface ->
             surface.canvas.clear(Color.TRANSPARENT)

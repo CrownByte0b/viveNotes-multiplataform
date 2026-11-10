@@ -1,5 +1,7 @@
 package com.vivenotes.desktop
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asSkiaBitmap
 import com.vivenotes.localization.Strings
 import com.vivenotes.data.AttachmentStore
 import com.vivenotes.data.ImportedPicture
@@ -38,6 +40,8 @@ internal class DesktopPictures(
     }
 
     override suspend fun import(bytes: ByteArray): ImportedPicture? = store.import(bytes)
+
+    override suspend fun importDrawn(picture: ImageBitmap): ImportedPicture? = store.importDrawn(picture.asSkiaBitmap())
 
     override suspend fun bytes(attachmentId: String): ByteArray? = store.bytes(attachmentId)
 }

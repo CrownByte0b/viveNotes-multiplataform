@@ -16,6 +16,7 @@ import com.vivenotes.model.newId
 import com.vivenotes.richtext.CanvasPasteItem
 import com.vivenotes.richtext.CanvasPastePlan
 import com.vivenotes.richtext.plainPasteBlocks
+import com.vivenotes.workspace.PasteFrames
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.stackPastedOutlines
 import kotlinx.coroutines.CompletableDeferred
@@ -55,7 +56,7 @@ internal class CanvasClipboardActions(
         private set
 
     fun completeLayout(request: CanvasPasteLayoutRequest, heights: Map<String, Float>) {
-        if (pendingLayout === request) request.result.complete(stackPastedOutlines(request.outlines, heights))
+        if (pendingLayout === request) request.result.complete(PasteFrames(heights))
     }
 
     fun useInternal(): Boolean = !state().canvasClipboard.isEmpty && (source?.ownsInternalCopy() != false)
@@ -116,7 +117,7 @@ internal class CanvasClipboardActions(
             val placed = if (outlines.size < 2) outlines else {
                 val request = CanvasPasteLayoutRequest(outlines)
                 pendingLayout = request
-                request.result.await()
+                stackPastedOutlines(outlines, request.result.await().heights)
             }
             if (placed.isNotEmpty()) change { it.insertClipboardOutlines(pending.pageId, placed, pending.at.x, pending.at.y) }
             log.event("clipboard") { "canvas paste: prepared ${outlines.size} objects from ${plan.runs.size} runs, ${plan.pictures.size} pictures" }
@@ -143,6 +144,7 @@ internal class CanvasClipboardActions(
     }
 }
 
+/** A paste of several objects, waiting for the canvas to say how tall each one is drawn. */
 internal class CanvasPasteLayoutRequest(val outlines: List<Outline>) {
-    val result = CompletableDeferred<List<Outline>>()
+    val result = CompletableDeferred<PasteFrames>()
 }

@@ -396,6 +396,7 @@ class AppTest {
                 val app = showApp(library.repository, FileNotebookFiles(library.transfers, file))
                 awaitOpenPage()
                 onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.File)).performClick()
+                onNodeWithTag(FileRibbonTags.Import).performClick()
                 onNodeWithTag(FileRibbonTags.ImportNotebook).performClick()
                 waitUntil(timeoutMillis = 10_000) {
                     app.session.state.value?.let { it.notebookTransfer.message != null && it.selectedPage?.title == "Herons" } == true

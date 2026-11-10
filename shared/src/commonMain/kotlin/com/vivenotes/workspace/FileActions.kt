@@ -31,6 +31,9 @@ data class FilePaneState(
 /** What the File tab asks of whoever holds the workspace. */
 interface FileActions {
     val pdfExporter: com.vivenotes.pdf.PdfExportService? get() = null
+
+    /** Import ▸ File: other apps' documents, read and drawn by the platform. Null where it has none. */
+    val fileImporter: com.vivenotes.fileimport.FileImportService? get() = null
     suspend fun preparePdfExport() {}
     fun openPane(pane: FilePane)
     fun closePane()

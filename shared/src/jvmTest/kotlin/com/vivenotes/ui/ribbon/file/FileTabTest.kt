@@ -135,6 +135,7 @@ class FileTabTest {
         setWorkspace()
 
         onNodeWithTag(FileRibbonTags.ExportNotebook).assertIsEnabled().performClick()
+        onNodeWithTag(FileRibbonTags.Import).assertIsEnabled().performClick()
         onNodeWithTag(FileRibbonTags.ImportNotebook).assertIsEnabled().performClick()
 
         runOnIdle { assertEquals(listOf("export", "import"), calls) }
@@ -226,7 +227,7 @@ class FileTabTest {
         setWorkspace(fileActions = null)
 
         onNodeWithTag(FileRibbonTags.ExportNotebook).assertIsNotEnabled()
-        onNodeWithTag(FileRibbonTags.ImportNotebook).assertIsNotEnabled()
+        onNodeWithTag(FileRibbonTags.Import).assertIsNotEnabled()
     }
 
     /** Export writes the notebook the open section is in, so with none open there is nothing to write. */
@@ -235,7 +236,68 @@ class FileTabTest {
         setWorkspace(WorkspaceState(emptyList(), "", "", "", activeTab = RibbonTab.File))
 
         onNodeWithTag(FileRibbonTags.ExportNotebook).assertIsNotEnabled()
+        onNodeWithTag(FileRibbonTags.Import).assertIsEnabled()
+    }
+
+    /** The menu opens with nothing chosen, and the notebook half of it is always available. */
+    @Test
+    fun importingANotebookIsAlwaysAvailable() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        setWorkspace(WorkspaceState(emptyList(), "", "", "", activeTab = RibbonTab.File))
+
+        onNodeWithTag(FileRibbonTags.Import).performClick()
+        onNodeWithTag(FileRibbonTags.ImportNotebook).performClick()
+
+        runOnIdle { assertEquals(listOf("import"), calls) }
+    }
+
+    /** A file's pages have to land on a page, so that half needs one open. */
+    @Test
+    fun importingAFileNeedsAnOpenPage() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        val importer = Importer()
+        val withImporter = object : FileActions by actions { override val fileImporter = importer }
+        setWorkspace(WorkspaceState(emptyList(), "", "", "", activeTab = RibbonTab.File), fileActions = withImporter)
+
+        onNodeWithTag(FileRibbonTags.Import).performClick()
+        onNodeWithTag(FileRibbonTags.ImportFile).assertIsNotEnabled().performTouchInput { click() }
+
+        runOnIdle { assertEquals(0, importer.chosen) }
+    }
+
+    @Test
+    fun importingAFileOpensForAnOpenPage() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        val importer = Importer()
+        val withImporter = object : FileActions by actions { override val fileImporter = importer }
+        setWorkspace(fileActions = withImporter)
+
+        onNodeWithTag(FileRibbonTags.Import).performClick()
+        onNodeWithTag(FileRibbonTags.ImportFile).assertIsEnabled().performClick()
+
+        waitUntil(timeoutMillis = 5_000) { importer.chosen == 1 }
+    }
+
+    /** Without a platform importer there is no file to bring in, whatever page is open. */
+    @Test
+    fun withoutAnImporterAFileCannotBeImported() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        setWorkspace()
+
+        onNodeWithTag(FileRibbonTags.Import).performClick()
         onNodeWithTag(FileRibbonTags.ImportNotebook).assertIsEnabled()
+        onNodeWithTag(FileRibbonTags.ImportFile).assertIsNotEnabled()
+    }
+
+    /** Counts the file chooser being asked for, which says no: the window itself is tested on its own. */
+    private class Importer : com.vivenotes.fileimport.FileImportService() {
+        var chosen = 0
+        override suspend fun chooseSource(): String? {
+            chosen++
+            return null
+        }
+        override suspend fun open(source: String): com.vivenotes.fileimport.ImportedFile = error("not opened here")
+        override suspend fun preview(file: com.vivenotes.fileimport.ImportedFile, index: Int, widthPx: Int) = null
+        override suspend fun pagePicture(file: com.vivenotes.fileimport.ImportedFile, index: Int) = null
+        override suspend fun objects(file: com.vivenotes.fileimport.ImportedFile, pages: List<Int>, marks: Set<com.vivenotes.model.Mark>) =
+            emptyList<com.vivenotes.richtext.CanvasPasteItem>()
+        override fun release() = Unit
     }
 
     @Test
@@ -248,7 +310,7 @@ class FileTabTest {
         onNodeWithText("Checking and preparing the notebook…").fetchSemanticsNode()
         assertTrue(onAllNodesWithTag(FileRibbonTags.TransferOk).fetchSemanticsNodes().isEmpty())
         onNodeWithTag(FileRibbonTags.ExportNotebook).assertIsNotEnabled()
-        onNodeWithTag(FileRibbonTags.ImportNotebook).assertIsNotEnabled()
+        onNodeWithTag(FileRibbonTags.Import).assertIsNotEnabled()
         onRoot().performKeyInput { keyDown(Key.Escape); keyUp(Key.Escape) }
         onNodeWithTag(FileRibbonTags.TransferBackdrop).performClick()
         onRoot().performKeyInput { keyDown(Key.CtrlLeft); keyDown(Key.N); keyUp(Key.N); keyUp(Key.CtrlLeft) }

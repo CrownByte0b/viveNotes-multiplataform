@@ -32,6 +32,8 @@ internal fun WorkspaceRibbon(
     fileActions: FileActions?,
     onNotebookConfirmation: (String) -> Unit,
     onExportPdf: () -> Unit,
+    /** File ▸ Import ▸ File. */
+    onImportFile: () -> Unit = {},
     onShapeSettingsChange: (ShapeToolSettings) -> Unit,
     onInkSettingsChange: (InkSettings) -> Unit,
     canvasDark: Boolean,
@@ -60,7 +62,8 @@ internal fun WorkspaceRibbon(
             pageOpen = state.selectedPage != null,
             transferRunning = state.notebookTransfer.running, actions = fileActions,
             onCloseNotebook = { onNotebookConfirmation("close") },
-            onDeleteNotebook = { onNotebookConfirmation("delete") }, onExportPdf = onExportPdf)
+            onDeleteNotebook = { onNotebookConfirmation("delete") }, onExportPdf = onExportPdf,
+            onImportFile = onImportFile)
         RibbonTab.Draw -> DrawRibbon(state, onStateChange, onShapeSettingsChange, onInkSettingsChange,
             state.selectedPage?.let { if (canvasPalette(it.document.style, canvasDark).background.luminance() < .45f) Color.White else Color.Black } ?: Color.Black,
             calculatorAvailable = formulaReady, calculatorOpen = calculatorOpen, onToggleCalculator = { onToggleCalculator() })

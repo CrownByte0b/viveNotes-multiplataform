@@ -109,6 +109,7 @@ private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, l
                 inputSettings = notes.inputSettings, onInputSettingsChange = notes::updateInputSettings,
                 notebookFiles = remember(window) { notes.notebookFiles(window) }, thumbnails = notes.thumbnails,
                 pdfExporter = remember(window) { notes.pdfExporter(window) },
+                fileImporter = remember(window) { notes.fileImporter(window) },
                 onEditorDefaultsChange = notes::updateEditorDefaults,
                 onShapeSettingsChange = notes::updateShapeSettings, onInkSettingsChange = notes::updateInkSettings,
                 accountHost = notes.sync?.accountHost,

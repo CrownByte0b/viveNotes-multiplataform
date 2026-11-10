@@ -1237,4 +1237,27 @@
     <string name="math_engine_free_variables">%1$s can take any value.</string>
     <string name="image_search_match">1 search match</string>
     <string name="image_search_matches">%1$d search matches</string>
+    <!-- File ▸ Import: Android's file_import_notebook and file_import_file. -->
+    <string name="import_file_notebook">Notebook</string>
+    <string name="import_file_file">File</string>
+    <string name="import_file_title">Import file</string>
+    <string name="import_file_insert">Insert</string>
+    <!-- %1$d = pages chosen; %2$d = pages in the file, which picks the form -->
+    <plurals name="import_file_selected">
+        <item quantity="one">%1$d of %2$d page selected</item>
+        <item quantity="other">%1$d of %2$d pages selected</item>
+    </plurals>
+    <!-- %1$d = the page's number -->
+    <string name="import_file_page">Page %1$d</string>
+    <!-- %1$d = the page's number; %2$d = pages in the file -->
+    <string name="import_file_page_of">%1$d / %2$d</string>
+    <string name="import_file_as">Insert as</string>
+    <string name="import_file_as_objects">Text and tables</string>
+    <string name="import_file_as_pictures">Picture of each page</string>
+    <string name="import_file_as_info">Text and tables can be edited on the canvas. A picture shows the page as laid out here, ready to write over.</string>
+    <string name="import_file_not_word">Only Word documents (.doc, .docx), OpenDocument text (.odt), PowerPoint presentations (.pptx) and PDFs can be imported.</string>
+    <string name="import_file_password">This file is password-protected.</string>
+    <string name="import_file_too_large">This file is too large to import.</string>
+    <string name="import_file_unreadable">This file could not be read.</string>
+    <string name="import_file_insert_failed">The pages could not be placed on this page.</string>
 </resources>

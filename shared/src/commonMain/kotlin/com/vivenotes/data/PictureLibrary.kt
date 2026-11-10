@@ -29,6 +29,12 @@ interface PictureLibrary {
      */
     suspend fun import(bytes: ByteArray): ImportedPicture?
 
+    /**
+     * Stores a picture this app drew — a page of an imported document — losslessly and at its own
+     * size, as Android's `AttachmentStore.importDrawn`. Null where pictures cannot be drawn and kept.
+     */
+    suspend fun importDrawn(picture: androidx.compose.ui.graphics.ImageBitmap): ImportedPicture? = null
+
     /** The stored bytes of [attachmentId], or null when there is no such file. */
     suspend fun bytes(attachmentId: String): ByteArray?
 

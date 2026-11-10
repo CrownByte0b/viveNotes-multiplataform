@@ -120,6 +120,9 @@ internal fun WorkspaceContent(
     val canvasOrigin = remember { CanvasOrigin() }
     val keyboardPaste = remember { CanvasKeyboardPaste() }
     val canvasControl = remember { CanvasViewControl() }
+    val placement = remember { CanvasPlacement() }
+    val importRequests = remember { com.vivenotes.ui.ribbon.file.ImportFileRequests() }
+    val importScope = rememberCoroutineScope()
     var openPane by remember { mutableStateOf<DockedPane?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var searchImageHighlight by remember { mutableStateOf<com.vivenotes.model.ocr.PictureHighlight?>(null) }
@@ -289,6 +292,7 @@ internal fun WorkspaceContent(
                 fileActions = fileActions,
                 onNotebookConfirmation = { notebookConfirmation = it },
                 onExportPdf = onExportPdf,
+                onImportFile = { fileActions?.fileImporter?.let { importRequests.choose(it, importScope, debugLog) } },
                 onShapeSettingsChange = onShapeSettingsChange,
                 onInkSettingsChange = onInkSettingsChange,
                 canvasDark = canvasDark,
@@ -373,6 +377,7 @@ internal fun WorkspaceContent(
                             canvasOrigin = canvasOrigin,
                             keyboardPaste = keyboardPaste,
                             canvasControl = canvasControl,
+                            placement = placement,
                             view = view,
                             input = input,
                             canvasDark = canvasDark,
@@ -482,6 +487,13 @@ internal fun WorkspaceContent(
             confirmResetShortcuts = confirmResetShortcuts,
             onDismissReset = { confirmResetShortcuts = false }
         )
+        // Over the workspace rather than in its place: the canvas under it measures what lands.
+        val importSource = importRequests.source
+        val importer = fileActions?.fileImporter
+        if (importSource != null && importer != null) {
+            com.vivenotes.ui.ribbon.file.ImportFileWindow(importer, importSource, { currentState }, onStateChange,
+                pictures, placement, debugLog, onDismiss = importRequests::close)
+        }
         graphSliders?.let { id -> state.selectedPage?.document?.outlines?.firstOrNull { it.id == id } as? Outline.Graph }
             ?.let { graph ->
                 GraphSlidersDialog(

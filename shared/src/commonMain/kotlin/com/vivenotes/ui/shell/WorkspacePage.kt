@@ -61,6 +61,8 @@ internal fun WorkspacePage(
     canvasOrigin: CanvasOrigin,
     keyboardPaste: CanvasKeyboardPaste,
     canvasControl: CanvasViewControl,
+    /** File ▸ Import ▸ File's view of the canvas; see [CanvasPlacement]. */
+    placement: CanvasPlacement = remember { CanvasPlacement() },
     view: ViewSettings,
     input: InputSettings,
     canvasDark: Boolean,
@@ -142,6 +144,7 @@ internal fun WorkspacePage(
         keyboardPaste = keyboardPaste,
         canvasClipboard = canvasClipboard,
         canvasControl = canvasControl,
+        placement = placement,
         zoom = view.zoom,
         drawWithFinger = input.drawWithFinger,
         onZoomChange = onZoomChange,
@@ -277,6 +280,11 @@ internal fun WorkspacePage(
     )
     canvasClipboard.pendingLayout?.let { request ->
         CanvasPasteMeasurement(request, thumbnails) { canvasClipboard.completeLayout(request, it) }
+    }
+    // Measured here because only the canvas knows how its text wraps, as a paste's objects are; where
+    // the content already on the page ends is a fact only it knows too.
+    placement.pendingLayout?.let { request ->
+        CanvasPasteMeasurement(request, thumbnails) { placement.complete(request, it) }
     }
     }
 }

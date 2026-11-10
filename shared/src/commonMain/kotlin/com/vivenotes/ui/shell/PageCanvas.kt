@@ -69,6 +69,8 @@ import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.VideoThumbnailSource
 import com.vivenotes.localization.Strings
 import com.vivenotes.model.Outline
+import com.vivenotes.model.PageDoc
+import kotlinx.coroutines.withTimeoutOrNull
 import com.vivenotes.model.ink.InkSample
 import com.vivenotes.model.ink.InkSelection
 import com.vivenotes.model.ink.InkSelectionChange
@@ -153,6 +155,8 @@ internal fun PageCanvas(
     keyboardPaste: CanvasKeyboardPaste,
     canvasClipboard: CanvasClipboardActions,
     canvasControl: CanvasViewControl,
+    /** What an import placed from outside the canvas reads from it, and where it asks it to scroll. */
+    placement: CanvasPlacement = remember { CanvasPlacement() },
     zoom: Float,
     /** Settings → Hardware: a finger uses the armed drawing tool rather than moving the page. */
     drawWithFinger: Boolean,
@@ -372,6 +376,24 @@ internal fun PageCanvas(
             titleFocus.requestFocus()
         }
     }
+    // Something landed from outside the canvas — a document's pages, which go under what is already
+    // here and so usually below the window, where nothing on screen would say that they arrived. Left
+    // alone when it is already where the eye is, so importing onto a fresh page does not move the title.
+    val scrollTarget = placement.scrollTarget
+    LaunchedEffect(scrollTarget, page?.id) {
+        val target = scrollTarget ?: return@LaunchedEffect
+        if (target.pageId != page?.id) return@LaunchedEffect
+        val top = target.y * zoomState.value * density.density
+        val windowHeight = interaction.viewportPx.height
+        if (top < verticalScroll.value || top > verticalScroll.value + windowHeight * SCROLL_TARGET_COMFORTABLE) {
+            val destination = (top - with(density) { SCROLL_TARGET_MARGIN.toPx() }).roundToInt().coerceAtLeast(0)
+            // The objects arrive a frame or two before the canvas has grown to hold them, and a scroll
+            // asked for sooner stops at the page's old end.
+            withTimeoutOrNull(SCROLL_RANGE_WAIT_MS) { snapshotFlow { verticalScroll.maxValue }.first { it >= destination } }
+            verticalScroll.animateScrollTo(destination)
+        }
+        placement.onScrollTargetHandled()
+    }
     val textClipboard = TextClipboardActions(rememberTextClipboard(), onTextCommand, LocalClipboardHtml.current)
     val caretKeys = remember(page?.id) { TextCaretKeys() }
     /** Up, Down or End in the text box being edited, when [TextCaretKeys] moves the caret for it. */
@@ -480,23 +502,32 @@ internal fun PageCanvas(
     // The page's size and edge, from everything on it: whether a chosen sheet still holds the
     // content decides whether it bounds the page or is only drawn as a guide.
     val inkEdge = remember(page?.ink) { page?.ink?.contentEdge() ?: Offset.Zero }
+    /** How far down what is on [document] reaches, as drawn: text at the heights it wrapped to. */
+    fun contentBottomOf(document: PageDoc, inkBottom: Float): Float = maxOf(inkBottom, document.outlines.maxOfOrNull { outline ->
+        outline.y + if (outline is Outline.Text) measuredTextHeights[outline.id]
+            ?: maxOf(150f, outline.minHeight) else measuredTextHeights[outline.id] ?: outline.primeHeight()
+    } ?: 0f)
     val extent = page?.document?.let { document ->
         remember(document, inkEdge, measuredTextHeights) { derivedStateOf {
         PageExtent.of(
             document.style,
             contentRight = maxOf(inkEdge.x, document.outlines.maxOfOrNull { it.x + it.primeWidth() } ?: 0f),
-            contentBottom = maxOf(inkEdge.y, document.outlines.maxOfOrNull { outline ->
-                outline.y + if (outline is Outline.Text) measuredTextHeights[outline.id]
-                    ?: maxOf(150f, outline.minHeight) else measuredTextHeights[outline.id] ?: outline.primeHeight()
-            } ?: 0f),
+            contentBottom = contentBottomOf(document, inkEdge.y),
         )
         } }.value
     }
     val currentExtentState = rememberUpdatedState(extent)
     val currentExtent by currentExtentState
+    val currentInkEdge by rememberUpdatedState(inkEdge)
     SideEffect {
         canvasControl.viewportWidthDp = interaction.viewportPx.width / density.density
         canvasControl.pageWidthDp = extent?.page?.width?.value ?: 0f
+        // Read when asked, not composed: nothing on screen depends on them.
+        placement.visibleOrigin = { toPage(Offset.Zero) }
+        placement.visibleWidth = { interaction.viewportPx.width / zoomState.value / density.density }
+        placement.contentBottom = {
+            currentState.selectedPage?.takeIf { it.id == page?.id }?.document?.let { contentBottomOf(it, currentInkEdge.y) }
+        }
     }
 
     /** The canvas clipboard at page [point]; ink is laid out off the main thread, one paste at a time. */
