@@ -2,7 +2,9 @@ package com.vivenotes.search
 
 import com.vivenotes.model.PageDoc
 import com.vivenotes.model.search.ContentHit
+import com.vivenotes.model.ocr.PictureHighlight
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 data class SearchRequest(
     val notebookId: String,
@@ -39,6 +41,10 @@ data class SearchResults(
 interface ContentSearchService {
     /** Emits typed/cached results first, then adds picture and handwriting readings as workers finish. */
     fun search(request: SearchRequest): Flow<SearchResults>
+    /** Live positions for the open page; collectors stop when the Search pane closes. */
+    fun pictureHighlights(attachmentIds: Set<String>, query: String): Flow<Map<String, PictureHighlight>> = flowOf(emptyMap())
+    /** Positions of the opened result, used to scroll to its words before revealing it. */
+    suspend fun pictureHighlight(hit: ContentHit): PictureHighlight? = null
     suspend fun retryFailedImages() {}
     suspend fun retryFailedHandwriting() {}
 }

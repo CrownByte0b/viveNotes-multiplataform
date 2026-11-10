@@ -6,6 +6,8 @@ import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import ai.onnxruntime.TensorInfo
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.model.ocr.CtcDecoder
+import com.vivenotes.model.ocr.CtcReading
 import com.vivenotes.model.ocr.TextDetection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -115,7 +117,7 @@ class OnnxInkRecognitionEngine(
     private var formulaHolds = 0
 
     override suspend fun recognizeText(image: Image): TextRecognitionResult =
-        withContext(inferenceDispatcher) { readLine(image) }
+        withContext(inferenceDispatcher) { readLine(image).reading.let { TextRecognitionResult(it.text, it.confidence) } }
 
     override suspend fun recognizeFormula(image: Image): FormulaRecognitionResult =
         when (val selected = formulaEngine()) {
@@ -307,14 +309,16 @@ class OnnxInkRecognitionEngine(
                             ensureActive()
                             val quad = detected.scaled(scaleX, scaleY)
                             val strip = cropQuad(image, quad) ?: return@withPermit null
-                            val reading = try {
+                            val line = try {
                                 readLine(strip)
                             } finally {
                                 strip.close()
                             }
+                            val reading = line.reading
                             val text = reading.text.trim()
                             if (isSearchableReading(text) && reading.confidence >= MIN_LINE_CONFIDENCE) {
-                                ImageTextLine(text, reading.confidence, quad.corners)
+                                ImageTextLine(text, reading.confidence, quad.corners,
+                                    reading.edges(line.columnShare, line.lineShare).asList())
                             } else {
                                 null
                             }
@@ -379,7 +383,9 @@ class OnnxInkRecognitionEngine(
     }
 
     /** Reduce native logits before releasing the lane so queued crops retain only their text. */
-    private suspend fun readLine(image: Image): TextRecognitionResult {
+    private class LineReading(val reading: CtcReading, val columnShare: Float, val lineShare: Float)
+
+    private suspend fun readLine(image: Image): LineReading {
         val input = preprocessText(image)
         return inLane {
             val session = session(ModelKind.Text)
@@ -390,7 +396,9 @@ class OnnxInkRecognitionEngine(
             ).use { tensor ->
                 session.run(mapOf(session.inputNames.first() to tensor)).use { output ->
                     val logits = output[0] as OnnxTensor
-                    textDecoder.decode(logits, textCharacters)
+                    LineReading(textDecoder.decodeReading(logits, textCharacters),
+                        input.width.toFloat() / logits.info.shape[1].coerceAtLeast(1) / input.contentWidth,
+                        TEXT_HEIGHT.toFloat() / input.contentWidth)
                 }
             }
         }
@@ -559,7 +567,7 @@ class OnnxInkRecognitionEngine(
     }
 }
 
-internal data class TextTensor(val values: FloatArray, val width: Int)
+internal data class TextTensor(val values: FloatArray, val width: Int, val contentWidth: Int)
 
 /**
  * PaddleOCR v5/v6 line resize, BGR channel order, `[-1, 1]` normalization and zero padding.
@@ -597,7 +605,7 @@ internal fun preprocessText(image: Image): TextTensor {
             values[plane * 2 + target + x] = normalizeText(red(color))
         }
     }
-    return TextTensor(values, width)
+    return TextTensor(values, width, resizedWidth)
 }
 
 /** FormulaNet's margin crop, 384-square white pad and one-channel normalization. */
@@ -712,56 +720,31 @@ private inline fun <T> withInkCrop(image: Image, block: (Image) -> T): T {
 
 internal fun decodeCtc(logits: Array<FloatArray>, characters: List<String>): TextRecognitionResult {
     require(logits.all { it.size == characters.size }) { Strings.ocr_dictionary_does_not_match_model }
-    val result = StringBuilder()
-    var previous = 0
-    var confidence = 0f
-    var charactersRead = 0
-    logits.forEach { row ->
-        var bestIndex = 0
-        var bestScore = Float.NEGATIVE_INFINITY
-        row.forEachIndexed { index, score ->
-            if (score > bestScore) {
-                bestScore = score
-                bestIndex = index
-            }
-        }
-        if (bestIndex != 0 && bestIndex != previous) {
-            result.append(characters[bestIndex])
-            confidence += bestScore
-            charactersRead++
-        }
-        previous = bestIndex
-    }
-    return TextRecognitionResult(
-        text = result.toString(),
-        confidence = if (charactersRead == 0) 0f else confidence / charactersRead,
-    )
+    return CtcDecoder.decode(logits, characters).let { TextRecognitionResult(it.text, it.confidence) }
 }
 
 internal fun decodeCtc(logits: FloatBuffer, steps: Int, classes: Int,
-    characters: List<String>): TextRecognitionResult {
+    characters: List<String>): TextRecognitionResult =
+    decodeCtcReading(logits, steps, classes, characters).let { TextRecognitionResult(it.text, it.confidence) }
+
+internal fun decodeCtcReading(logits: FloatBuffer, steps: Int, classes: Int,
+    characters: List<String>): CtcReading {
     require(classes == characters.size) { Strings.ocr_dictionary_does_not_match_model }
     require(steps >= 0 && classes > 0 && steps.toLong() * classes == logits.remaining().toLong())
     val values = logits.asReadOnlyBuffer()
-    val result = StringBuilder()
-    var previous = 0
-    var confidence = 0f
-    var count = 0
-    repeat(steps) {
+    val indices = IntArray(steps)
+    val scores = FloatArray(steps)
+    repeat(steps) { column ->
         var best = 0
         var score = Float.NEGATIVE_INFINITY
         repeat(classes) { index ->
             val candidate = values.get()
             if (candidate > score) { best = index; score = candidate }
         }
-        if (best != 0 && best != previous) {
-            result.append(characters[best])
-            confidence += score
-            count++
-        }
-        previous = best
+        indices[column] = best
+        scores[column] = score
     }
-    return TextRecognitionResult(result.toString(), if (count == 0) 0f else confidence / count)
+    return CtcDecoder.decodeChoices(indices, scores, characters)
 }
 
 private fun normalizeText(channel: Int): Float = (channel / 255f - 0.5f) / 0.5f

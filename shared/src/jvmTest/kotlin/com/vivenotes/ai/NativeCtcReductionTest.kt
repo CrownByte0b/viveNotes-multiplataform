@@ -21,6 +21,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -30,6 +31,25 @@ class NativeCtcReductionTest {
     private val environment = OrtEnvironment.getEnvironment()
     @get:Rule
     val temporary = TemporaryFolder()
+
+    @Test
+    fun nativeAndFallbackDecodersKeepTheAndroidCharacterEdgesIncludingTrimmedSpacesAndUtf16() {
+        val characters = listOf("", "a", "🛅", " ", "b")
+        val choices = listOf(3, 0, 1, 1, 0, 2, 2, 0, 3, 0, 4, 4, 0, 3)
+        val rows = choices.map { best -> FloatArray(characters.size) { if (it == best) .9f else .01f } }.toTypedArray()
+        val expected = com.vivenotes.model.ocr.CtcDecoder.decode(rows, characters)
+        tensor(rows).use { logits ->
+            NativeCtcDecoder(environment, 1, DebugLog()).use { decoder ->
+                val actual = decoder.decodeReading(logits, characters)
+                assertEquals(expected.text, actual.text)
+                assertEquals(expected.confidence, actual.confidence)
+                assertContentEquals(expected.edges(.05f, .1f), actual.edges(.05f, .1f))
+            }
+            val fallback = decodeCtcReading(logits.floatBuffer, rows.size, characters.size, characters)
+            assertEquals(expected.text, fallback.text)
+            assertContentEquals(expected.edges(.05f, .1f), fallback.edges(.05f, .1f))
+        }
+    }
 
     @Test
     fun nativeChoicesKeepFirstTiesSpecialFloatsBlankRepeatsAndExactConfidence() {

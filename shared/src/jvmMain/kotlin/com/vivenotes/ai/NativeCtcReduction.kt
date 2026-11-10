@@ -5,6 +5,8 @@ import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtException
 import ai.onnxruntime.OrtSession
 import ai.onnxruntime.TensorInfo
+import com.vivenotes.model.ocr.CtcDecoder
+import com.vivenotes.model.ocr.CtcReading
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.localization.Strings
 import java.io.ByteArrayOutputStream
@@ -110,12 +112,15 @@ internal class NativeCtcDecoder(
     }
     private var lifetime = Lifetime()
 
-    fun decode(logits: OnnxTensor, characters: List<String>): TextRecognitionResult {
+    fun decode(logits: OnnxTensor, characters: List<String>): TextRecognitionResult =
+        decodeReading(logits, characters).let { TextRecognitionResult(it.text, it.confidence) }
+
+    fun decodeReading(logits: OnnxTensor, characters: List<String>): CtcReading {
         val shape = (logits.info as TensorInfo).shape
         require(shape.size == 3 && shape[0] == 1L && shape[1] in 0..Int.MAX_VALUE.toLong())
         require(shape[2] == characters.size.toLong()) { Strings.ocr_dictionary_does_not_match_model }
         require(characters.isNotEmpty())
-        if (shape[1] == 0L) return TextRecognitionResult("", 0f)
+        if (shape[1] == 0L) return CtcDecoder.decodeChoices(IntArray(0), FloatArray(0), characters)
         val current = synchronized(this) { lifetime.also { it.active++ } }
         try {
             val native = synchronized(current) {
@@ -134,7 +139,7 @@ internal class NativeCtcDecoder(
                 try {
                     return native.withChoices(logits) { indices, scores ->
                         require(indices.remaining().toLong() == shape[1] && scores.remaining().toLong() == shape[1])
-                        decodeCtcChoices(indices, scores, characters)
+                        decodeCtcReadingChoices(indices, scores, characters)
                     }
                 } catch (error: OrtException) {
                     synchronized(current) {
@@ -143,7 +148,7 @@ internal class NativeCtcDecoder(
                     }
                 }
             }
-            return decodeCtc(logits.floatBuffer, shape[1].toInt(), shape[2].toInt(), characters)
+            return decodeCtcReading(logits.floatBuffer, shape[1].toInt(), shape[2].toInt(), characters)
         } finally {
             val shouldRelease = synchronized(this) { --current.active == 0 && current.retired }
             if (shouldRelease) release(current)
@@ -173,26 +178,21 @@ internal class NativeCtcDecoder(
 
 internal fun decodeCtcChoices(indices: LongBuffer, scores: FloatBuffer,
     characters: List<String>): TextRecognitionResult {
+    return decodeCtcReadingChoices(indices, scores, characters).let { TextRecognitionResult(it.text, it.confidence) }
+}
+
+internal fun decodeCtcReadingChoices(indices: LongBuffer, scores: FloatBuffer,
+    characters: List<String>): CtcReading {
     require(indices.remaining() == scores.remaining())
     val choices = indices.asReadOnlyBuffer()
     val values = scores.asReadOnlyBuffer()
-    val result = StringBuilder()
-    var previous = 0
-    var confidence = 0f
-    var count = 0
-    while (choices.hasRemaining()) {
+    val selected = IntArray(choices.remaining()) {
         val choice = choices.get()
         require(choice >= 0 && choice < characters.size.toLong())
-        val best = choice.toInt()
-        val score = values.get()
-        if (best != 0 && best != previous) {
-            result.append(characters[best])
-            confidence += score
-            count++
-        }
-        previous = best
+        choice.toInt()
     }
-    return TextRecognitionResult(result.toString(), if (count == 0) 0f else confidence / count)
+    val confidence = FloatArray(values.remaining()) { values.get() }
+    return CtcDecoder.decodeChoices(selected, confidence, characters)
 }
 
 // Only writes the fixed, dependency-free graph above. It does not parse or alter external models.

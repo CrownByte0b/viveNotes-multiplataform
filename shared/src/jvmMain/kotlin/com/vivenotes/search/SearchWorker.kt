@@ -45,6 +45,7 @@ internal data class WorkerReply(
     val hits: List<ContentHit> = emptyList(),
     val text: String = "",
     val confidence: Float = 0f,
+    val imageLayout: ByteArray? = null,
     val failed: Boolean = false,
     val unreadable: Boolean = false,
     val cacheMiss: Boolean = false,
@@ -86,7 +87,8 @@ object SearchWorker {
                                         WorkerReply(text = result.text, confidence = result.confidence)
                                     } else {
                                         val result = engine!!.recognizeImageText(image)
-                                        WorkerReply(text = result.text, confidence = result.meanConfidence)
+                                        WorkerReply(text = result.text, confidence = result.meanConfidence,
+                                            imageLayout = result.layout(image.width, image.height))
                                     }
                                 }
                             }

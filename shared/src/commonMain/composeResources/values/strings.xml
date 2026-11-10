@@ -1235,4 +1235,6 @@
     <string name="math_engine_system_relations">System · %1$s relations</string>
     <string name="math_engine_systems_limited">Systems are limited to %1$s equations.</string>
     <string name="math_engine_free_variables">%1$s can take any value.</string>
+    <string name="image_search_match">1 search match</string>
+    <string name="image_search_matches">%1$d search matches</string>
 </resources>

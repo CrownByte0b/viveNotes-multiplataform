@@ -7,7 +7,7 @@ import com.vivenotes.richtext.TextSelection
 import com.vivenotes.workspace.WorkspaceState
 
 /** Revalidates the target against the current document, which may have changed since the query. */
-fun WorkspaceState.revealSearchHit(hit: ContentHit): WorkspaceState {
+fun WorkspaceState.revealSearchHit(hit: ContentHit, imageHighlight: com.vivenotes.model.ocr.PictureHighlight? = null): WorkspaceState {
     if (selectedPageId != hit.unit.pageId || selectedPage?.editable != true) return this
     return when (hit.unit.kind) {
         ContentKind.Title -> selectPointer()
@@ -19,7 +19,8 @@ fun WorkspaceState.revealSearchHit(hit: ContentHit): WorkspaceState {
             focusTextBox(outline.id).selectText(TextSelection(hit.editorStart, hit.editorEnd))
         }
         ContentKind.Ink -> selectPointer()
-        ContentKind.Image -> selectPointer().selectObject(hit.unit.boxId)
+        ContentKind.Image -> if (imageHighlight == null) selectPointer().selectObject(hit.unit.boxId)
+            else selectPointer()
         ContentKind.Cell -> selectPointer().selectObject(hit.unit.tableId ?: return this)
     }
 }

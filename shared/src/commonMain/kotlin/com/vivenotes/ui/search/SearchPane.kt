@@ -37,6 +37,7 @@ object SearchTags {
     const val Close = "search-close"
     const val Status = "search-status"
     const val InkHighlight = "search-ink-highlight"
+    fun pictureHighlight(imageId: String) = "search-picture-highlight-$imageId"
     const val Progress = "search-progress"
     fun hit(hit: ContentHit) = "search-hit-${hit.unit.pageId}-${hit.unit.boxId}-${hit.unit.blockIndex}-${hit.unit.kind}"
 }

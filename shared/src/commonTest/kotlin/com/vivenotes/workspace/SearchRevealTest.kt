@@ -42,6 +42,20 @@ class SearchRevealTest {
         assertEquals(state, state.revealSearchHit(hit.copy(unit = hit.unit.copy(pageId = "other"))))
     }
 
+    @Test fun aPlacedPictureHitClearsEditingSelectionWhileAnUnplacedOneKeepsTheFallback() {
+        val initial = WorkspaceState.demo()
+        val state = initial.updatePage(initial.selectedPageId) {
+            it.copy(document = PageDoc(outlines = listOf(Outline.Image(id = "picture", attachmentId = "sha", height = 200f))))
+        }.selectObject("picture")
+        val hit = searchContent(imageUnits(ImagePlacement(state.selectedPageId, state.selectedSectionId, "picture", "sha"),
+            listOf("total")), "total").single()
+        val highlight = com.vivenotes.model.ocr.PictureHighlights.forSpans("total",
+            com.vivenotes.model.ocr.ImageLineLayout(floatArrayOf(0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f),
+                floatArrayOf(0f, .2f, .4f, .6f, .8f, 1f)), hit.spans)!!
+        assertTrue(state.revealSearchHit(hit, highlight).selectedObjectIds.isEmpty())
+        assertEquals(setOf("picture"), state.revealSearchHit(hit).selectedObjectIds)
+    }
+
     @Test fun unicodeCaseFoldingKeepsEditorOffsets() {
         val match = FuzzyMatcher.match("istanbul", "İstanbul")!!
         assertEquals(listOf(MatchSpan(0, 8)), match.spans)

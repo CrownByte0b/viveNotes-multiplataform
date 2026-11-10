@@ -647,8 +647,8 @@ class NotebookTransferManagerTest {
                 bundle.rows("SELECT key, value FROM vive_bundle") { it.getText(0) to it.getText(1) }.toMap(),
             )
             // The exporting database's Room identity, copied as Android's exporter copies it: the
-            // shared schema's current one (version 2). Android's importer checks the table's columns.
-            assertEquals(listOf("838efa4694ec57940c0f7f9cfba1fc33"),
+            // shared schema's current one (version 4). Android's importer checks the table's columns.
+            assertEquals(listOf("73c00d77f6f44f49da269032f1afb1d9"),
                 bundle.rows("SELECT identity_hash FROM room_master_table") { it.getText(0) })
             assertEquals(listOf("ok"), bundle.rows("PRAGMA quick_check") { it.getText(0) })
         }

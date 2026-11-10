@@ -53,6 +53,9 @@ internal fun WorkspacePage(
     onStateChange: ((WorkspaceState) -> WorkspaceState) -> Unit,
     searchHit: ContentHit?,
     searchRevealTick: Int,
+    searchQuery: String = "",
+    searchImageHighlight: com.vivenotes.model.ocr.PictureHighlight? = null,
+    pictureHighlights: () -> Map<String, com.vivenotes.model.ocr.PictureHighlight> = { emptyMap() },
     pictures: PictureLibrary?,
     thumbnails: VideoThumbnailSource?,
     canvasOrigin: CanvasOrigin,
@@ -122,7 +125,7 @@ internal fun WorkspacePage(
         CanvasClipboardActions({ latestState }, { latestOnStateChange(it) },
             clipboardManager, clipboardHtml, pictures, selectionScope, debugLog)
     }
-    CompositionLocalProvider(LocalWordSelectionActions provides wordActions, LocalInkGeometryPublisher provides { source, prepared ->
+    CompositionLocalProvider(com.vivenotes.ui.search.LocalPageSearchQuery provides searchQuery, LocalWordSelectionActions provides wordActions, LocalInkGeometryPublisher provides { source, prepared ->
         latestOnStateChange { it.applyPreparedInkGeometry(source, prepared) }
     }) {
     PageCanvas(
@@ -131,6 +134,8 @@ internal fun WorkspacePage(
         state = state,
         searchHit = searchHit,
         searchRevealTick = searchRevealTick,
+        searchImageHighlight = searchImageHighlight,
+        pictureHighlights = pictureHighlights,
         pictures = pictures,
         thumbnails = thumbnails,
         canvasOrigin = canvasOrigin,

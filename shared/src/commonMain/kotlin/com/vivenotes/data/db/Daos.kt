@@ -1063,8 +1063,18 @@ interface ImageTextDao {
      * Only `Read` rows carry text, but every status is returned: the caller needs to know that a
      * picture has already been tried, or it will queue it again on the next keystroke.
      */
-    @Query("SELECT * FROM attachment_text WHERE attachmentId IN (:attachmentIds)")
-    suspend fun byIds(attachmentIds: List<String>): List<AttachmentTextEntity>
+    @Query(
+        "SELECT attachmentId, text, lineCount, confidence, engine, status, durationMs, updatedAt " +
+            "FROM attachment_text WHERE attachmentId IN (:attachmentIds)",
+    )
+    suspend fun byIds(attachmentIds: List<String>): List<AttachmentTextSummary>
+
+    /** The named pictures that have a layout. Only asked about the pictures on the open page. */
+    @Query(
+        "SELECT attachmentId, text, layout FROM attachment_text " +
+            "WHERE attachmentId IN (:attachmentIds) AND layout IS NOT NULL",
+    )
+    suspend fun layouts(attachmentIds: List<String>): List<AttachmentTextLayoutRow>
 
     @Upsert
     suspend fun upsert(row: AttachmentTextEntity)

@@ -50,7 +50,7 @@ import java.io.File
         SyncEntityStateEntity::class,
         SyncOutboxEntity::class,
     ],
-    version = 2,
+    version = 4,
     exportSchema = true,
 )
 abstract class NotesDatabase : RoomDatabase() {
@@ -116,6 +116,58 @@ abstract class NotesDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Version 3: the bookkeeping stops holding second copies of what it describes.
+         *
+         * `sync_entity_states.serverJson` kept each page body as base64 and each pushed stroke's
+         * points the same way. Android cannot read a row larger than its 2 MB cursor window, so a
+         * body past about 1.5 MB made its state row unreadable. The next edit of that page then
+         * failed every push on the device, for good, with no way out from the app.
+         *
+         * This has to fix what is already stored rather than only stop writing it, because a device
+         * in that state never gets as far as replacing the row. Nothing is lost: a push always puts
+         * these fields back from the row they came from.
+         *
+         * The batch being retried had the same problem, and a stored one too large to read goes too.
+         * Its rows are still in the outbox, because only the server's answer clears those, so the next
+         * run builds a new batch from them. Should the lost one have reached the server after all, a
+         * version conflict settles it.
+         *
+         * No schema change, so only the data moves and the exported JSON differs by its version.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(connection: SQLiteConnection) {
+                DebugLog.i(DebugLog.DB) { "Migrating notes.db from version 2 to 3" }
+                connection.execSQL(
+                    "UPDATE sync_entity_states SET serverJson = json_remove(serverJson, '$.doc') " +
+                        "WHERE kind = 'pageContent'",
+                )
+                connection.execSQL(
+                    "UPDATE sync_entity_states SET serverJson = json_remove(serverJson, '$.points') " +
+                        "WHERE kind IN ('inkStroke', 'inkErase', 'inkMove')",
+                )
+                connection.execSQL(
+                    "DELETE FROM local_metadata WHERE `key` = 'syncPendingHierarchyBatch' " +
+                        "AND length(value) > 1000000",
+                )
+            }
+        }
+
+        /**
+         * Version 4: a picture's recognized text says where on the picture each line is.
+         *
+         * `attachment_text.layout` is null on every existing row, meaning "read before positions
+         * were kept". The engine id moved with this column, so the next search reads those pictures
+         * again in the background, and their text keeps answering searches until it has. Computing
+         * anything here would be running OCR inside the migration.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(connection: SQLiteConnection) {
+                DebugLog.i(DebugLog.DB) { "Migrating notes.db from version 3 to 4" }
+                connection.execSQL("ALTER TABLE attachment_text ADD COLUMN layout BLOB")
+            }
+        }
+
         /** The file name the Android app uses too, inside the platform's data directory. */
         const val FILE_NAME = "notes.db"
 
@@ -124,7 +176,7 @@ abstract class NotesDatabase : RoomDatabase() {
             return Room.databaseBuilder<NotesDatabase>(name = file.absolutePath)
                 // Never `fallbackToDestructiveMigration`, which answers a forgotten migration by
                 // deleting the notes.
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 // Write-ahead logging, as Room chooses on Android: readers never wait for autosave,
                 // and `DatabaseBackupManager` copies with `VACUUM INTO` for exactly this reason.
                 .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)

@@ -189,10 +189,11 @@ internal fun TextBoxPreviews(
     val currentLinks by rememberUpdatedState(links)
     val currentBlocks by rememberUpdatedState(blocks)
     val currentToggleTodo by rememberUpdatedState(onToggleTodo)
+    val searchHighlight = com.vivenotes.ui.search.rememberTextSearchHighlight(projected.text)
     BasicText(projected,
         inlineContent = ordered.mapIndexed { index, entry -> "preview-$index" to entry.content }.toMap(),
-        onTextLayout = { PreviewLayout(it, ranges, offsets).let { shown -> layout = shown; onPreviewLayout(shown) } },
-        style = style, modifier = modifier
+        onTextLayout = { searchHighlight.layout(it); PreviewLayout(it, ranges, offsets).let { shown -> layout = shown; onPreviewLayout(shown) } },
+        style = style, modifier = modifier.then(searchHighlight.modifier)
             .drawBehind {
                 layout?.let { drawBlockDecorations(it.layout, blocks, colors, ink, measurer, offsets::toDisplay) }
             }

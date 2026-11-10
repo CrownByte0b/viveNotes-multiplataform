@@ -231,6 +231,11 @@ class NotesRepository(
     suspend fun imageTextFor(ids: Set<String>) = ids.toList().chunked(400)
         .flatMap { db.imageTextDao().byIds(it) }.associateBy { it.attachmentId }
 
+    suspend fun imageTextLayoutsFor(ids: Collection<String>) = ids.distinct().chunked(400)
+        .flatMap { db.imageTextDao().layouts(it) }.associateBy { it.attachmentId }
+
+    fun observeImageTextChanges() = db.invalidationTracker.createFlow("attachment_text")
+
     suspend fun storeImageText(row: com.vivenotes.data.db.AttachmentTextEntity) = db.withTransaction {
         if (db.attachmentDao().byId(row.attachmentId) != null) db.imageTextDao().upsert(row)
     }

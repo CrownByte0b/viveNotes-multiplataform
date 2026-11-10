@@ -1,5 +1,8 @@
 package com.vivenotes.ui.shell
 
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -119,9 +122,32 @@ internal fun WorkspaceContent(
     val canvasControl = remember { CanvasViewControl() }
     var openPane by remember { mutableStateOf<DockedPane?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+    var searchImageHighlight by remember { mutableStateOf<com.vivenotes.model.ocr.PictureHighlight?>(null) }
+    val searchScope = rememberCoroutineScope()
+    var searchOpenJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     var searchHit by remember { mutableStateOf<ContentHit?>(null) }
     var searchRevealTick by remember { mutableIntStateOf(0) }
     var searchFocusTick by remember { mutableIntStateOf(0) }
+    var pageSearchQuery by remember { mutableStateOf("") }
+    LaunchedEffect(openPane, searchQuery) {
+        if (openPane == DockedPane.Search && searchQuery.isNotBlank()) {
+            kotlinx.coroutines.delay(180)
+            pageSearchQuery = searchQuery.trim()
+        } else pageSearchQuery = ""
+    }
+    val pagePictures = remember(state.selectedPage?.document) {
+        state.selectedPage?.document?.outlines?.filterIsInstance<com.vivenotes.model.Outline.Image>()
+            ?.mapTo(mutableSetOf()) { it.attachmentId }.orEmpty()
+    }
+    val pictureHighlights = remember(search) { mutableStateOf(emptyMap<String, com.vivenotes.model.ocr.PictureHighlight>()) }
+    LaunchedEffect(search, openPane, searchQuery, pagePictures) {
+        if (openPane != DockedPane.Search || searchQuery.isBlank() || search == null || pagePictures.isEmpty()) {
+            pictureHighlights.value = emptyMap()
+        } else {
+            kotlinx.coroutines.delay(180)
+            search.pictureHighlights(pagePictures, searchQuery.trim()).collect { pictureHighlights.value = it }
+        }
+    }
     var notebookConfirmation by remember { mutableStateOf<String?>(null) }
     var confirmRevision by remember { mutableStateOf(false) }
     fun togglePane(pane: DockedPane) {
@@ -181,10 +207,10 @@ internal fun WorkspaceContent(
             fileActions?.openPane(FilePane.VersionHistory)
         }
     }
-    LaunchedEffect(searchHit, searchRevealTick, state.selectedPageId, state.selectedPage?.content, state.selectedPage?.inkReady) {
+    LaunchedEffect(searchHit, searchImageHighlight, searchRevealTick, state.selectedPageId, state.selectedPage?.content, state.selectedPage?.inkReady) {
         val hit = searchHit ?: return@LaunchedEffect
         if (state.selectedPageId != hit.unit.pageId || state.selectedPage?.editable != true) return@LaunchedEffect
-        onStateChange { it.revealSearchHit(hit) }
+        onStateChange { it.revealSearchHit(hit, searchImageHighlight) }
         if (hit.unit.kind == ContentKind.Text) {
             withFrameNanos { }
             editorFocusRequest++
@@ -339,6 +365,9 @@ internal fun WorkspaceContent(
                             onStateChange = onStateChange,
                             searchHit = searchHit,
                             searchRevealTick = searchRevealTick,
+                            searchQuery = pageSearchQuery,
+                            searchImageHighlight = searchImageHighlight,
+                            pictureHighlights = { pictureHighlights.value },
                             pictures = pictures,
                             thumbnails = thumbnails.takeIf { view.linkPreviews },
                             canvasOrigin = canvasOrigin,
@@ -395,7 +424,18 @@ internal fun WorkspaceContent(
                         search = search,
                         searchQuery = searchQuery,
                         onSearchQuery = { searchQuery = it },
-                        onSearchHit = { hit -> searchHit = hit; searchRevealTick++; if (onOpenSearchPage != null) onOpenSearchPage(hit.unit.sectionId, hit.unit.pageId) else onStateChange { it.selectPage(hit.unit.pageId) } },
+                        onSearchHit = { hit ->
+                            searchOpenJob?.cancel()
+                            searchOpenJob = searchScope.launch {
+                                val highlight = search?.pictureHighlight(hit)
+                                debugLog.event("search") { "result opened kind=${hit.unit.kind}, picturePosition=${highlight != null}" }
+                                searchImageHighlight = highlight
+                                searchHit = hit
+                                searchRevealTick++
+                                if (onOpenSearchPage != null) onOpenSearchPage(hit.unit.sectionId, hit.unit.pageId)
+                                else onStateChange { it.selectPage(hit.unit.pageId) }
+                            }
+                        },
                         searchFocusTick = searchFocusTick,
                         drawMath = drawMath,
                         inkMath = inkMath,

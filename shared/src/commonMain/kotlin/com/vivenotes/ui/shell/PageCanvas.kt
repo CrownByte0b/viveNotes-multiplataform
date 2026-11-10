@@ -17,6 +17,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.border
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -143,6 +145,8 @@ internal fun PageCanvas(
     state: WorkspaceState,
     searchHit: ContentHit?,
     searchRevealTick: Int,
+    searchImageHighlight: com.vivenotes.model.ocr.PictureHighlight? = null,
+    pictureHighlights: () -> Map<String, com.vivenotes.model.ocr.PictureHighlight> = { emptyMap() },
     pictures: PictureLibrary?,
     thumbnails: VideoThumbnailSource?,
     canvasOrigin: CanvasOrigin,
@@ -322,6 +326,15 @@ internal fun PageCanvas(
         if (interaction.titleValue.text != title) interaction.titleValue = TextFieldValue(title,
             TextRange(interaction.titleValue.selection.start.coerceAtMost(title.length), interaction.titleValue.selection.end.coerceAtMost(title.length)))
     }
+    val imageSearchFocus = remember(page?.id) { mutableStateOf<com.vivenotes.ui.search.ImageSearchFocus?>(null) }
+    LaunchedEffect(searchHit, searchImageHighlight, searchRevealTick, page?.id, page?.content) {
+        imageSearchFocus.value = null
+        if (searchHit?.unit?.pageId == page?.id && searchImageHighlight != null && page?.editable == true) {
+            imageSearchFocus.value = com.vivenotes.ui.search.ImageSearchFocus(searchHit!!.unit.boxId, searchImageHighlight)
+            kotlinx.coroutines.delay(1800)
+            imageSearchFocus.value = null
+        }
+    }
     LaunchedEffect(searchHit, searchRevealTick, page?.id, page?.inkReady) {
         interaction.searchInkBounds = null
         val hit = searchHit
@@ -332,7 +345,7 @@ internal fun PageCanvas(
             interaction.searchInkBounds = null
         }
     }
-    LaunchedEffect(searchHit, searchRevealTick, page?.id, page?.content) {
+    LaunchedEffect(searchHit, searchImageHighlight, searchRevealTick, page?.id, page?.content) {
         val hit = searchHit ?: return@LaunchedEffect
         if (hit.unit.pageId != page?.id || page.editable != true) return@LaunchedEffect
         withFrameNanos { }
@@ -342,8 +355,17 @@ internal fun PageCanvas(
         val lineY = if (textLayout != null && hit.unit.kind == ContentKind.Text &&
             hit.editorStart < textLayout.layoutInput.text.length)
             textLayout.getBoundingBox(hit.editorStart).top / density.density else 0f
-        horizontalScroll.scrollTo((((hit.unit.inkBounds?.left ?: outline?.x ?: 0f) - 24f).coerceAtLeast(0f) * density.density * zoom).roundToInt())
-        verticalScroll.scrollTo((((hit.unit.inkBounds?.top ?: outline?.y ?: 0f) + lineY - 40f).coerceAtLeast(0f) * density.density * zoom).roundToInt())
+        val picture = (outline as? Outline.Image)?.takeIf { hit.unit.kind == ContentKind.Image }
+        if (picture != null && searchImageHighlight != null) {
+            val scale = density.density * zoom
+            val target = com.vivenotes.ui.search.pictureSearchScrollTarget(picture, searchImageHighlight,
+                visiblePageWindow(), Offset(horizontalScroll.maxValue / scale, verticalScroll.maxValue / scale))
+            horizontalScroll.scrollTo((target.x * scale).roundToInt())
+            verticalScroll.scrollTo((target.y * scale).roundToInt())
+        } else {
+            horizontalScroll.scrollTo((((hit.unit.inkBounds?.left ?: outline?.x ?: 0f) - 24f).coerceAtLeast(0f) * density.density * zoom).roundToInt())
+            verticalScroll.scrollTo((((hit.unit.inkBounds?.top ?: outline?.y ?: 0f) + lineY - 40f).coerceAtLeast(0f) * density.density * zoom).roundToInt())
+        }
         if (hit.unit.kind == ContentKind.Title && !page.document.style.hideTitle) {
             interaction.titleValue = TextFieldValue(page.title, TextRange(hit.editorStart.coerceIn(0, page.title.length),
                 hit.editorEnd.coerceIn(0, page.title.length)))
@@ -845,6 +867,8 @@ internal fun PageCanvas(
                         shapeInk = shapeInk,
                         pictures = pictures,
                         pictureAssets = pictureAssets,
+                        pictureHighlights = pictureHighlights,
+                        searchImageFocus = imageSearchFocus.value,
                         paperColor = palette.background,
                         graphRewrites = graphRewrites,
                         onMutateGraph = onMutateGraph,
@@ -871,7 +895,8 @@ internal fun PageCanvas(
                         Box(Modifier.offset(bounds.left.dp, bounds.top.dp)
                             .size((bounds.right - bounds.left).coerceAtLeast(1f).dp,
                                 (bounds.bottom - bounds.top).coerceAtLeast(1f).dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = .15f))
+                            .background(com.vivenotes.ui.search.SearchHighlightColor.copy(alpha = .24f))
+                            .border(1.5.dp, com.vivenotes.ui.search.SearchHighlightColor.copy(alpha = .72f))
                             .testTag(com.vivenotes.ui.search.SearchTags.InkHighlight))
                     }
                     ruler?.let { RulerLayer(it, canvasSize, palette.ink, zoom) { value -> interaction.rulerPlacement = value } }

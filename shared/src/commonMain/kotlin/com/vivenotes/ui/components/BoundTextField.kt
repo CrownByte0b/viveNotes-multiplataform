@@ -1,5 +1,7 @@
 package com.vivenotes.ui.components
 
+import androidx.compose.foundation.layout.Box
+import com.vivenotes.ui.search.rememberTextSearchHighlight
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -124,6 +126,7 @@ internal fun BoundTextField(
     decorationBox: @Composable (inner: @Composable () -> Unit) -> Unit = { it() },
 ) {
     val field = rememberBoundTextFieldState(value, onValueChange)
+    val searchHighlight = rememberTextSearchHighlight(value.text)
     val styled = value.annotatedString
     val presentation = remember(styled, separateBlocks) {
         OutputTransformation {
@@ -141,6 +144,6 @@ internal fun BoundTextField(
         modifier = modifier, enabled = enabled, readOnly = readOnly,
         textStyle = textStyle, keyboardOptions = keyboardOptions,
         lineLimits = if (singleLine) TextFieldLineLimits.SingleLine else TextFieldLineLimits.MultiLine(minLines, maxLines),
-        outputTransformation = presentation, onTextLayout = { getResult -> getResult()?.let(onTextLayout) },
-        interactionSource = interactionSource, cursorBrush = cursorBrush, decorator = { decorationBox(it) })
+        outputTransformation = presentation, onTextLayout = { getResult -> getResult()?.let { searchHighlight.layout(it); onTextLayout(it) } },
+        interactionSource = interactionSource, cursorBrush = cursorBrush, decorator = { inner -> decorationBox { Box(searchHighlight.modifier) { inner() } } })
 }

@@ -15,6 +15,8 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertContentEquals
+import kotlin.test.assertTrue
 
 /**
  * The desktop database is the Android one — the Android `MigrationTest`, plus the fixture that
@@ -116,13 +118,83 @@ class SchemaCompatibilityTest {
         }
 
         withConnection(file) { connection ->
-            assertEquals(2L, connection.scalar("PRAGMA user_version"))
+            assertEquals(NEWEST.toLong(), connection.scalar("PRAGMA user_version"))
             connection.execSQL("UPDATE attachments SET refCount = 2 WHERE id = 'sha-one'")
             assertEquals(0L, connection.scalar(OUTBOX_ROWS))
 
             connection.execSQL("UPDATE attachments SET releasedAt = 99 WHERE id = 'sha-one'")
             assertEquals(1L, connection.scalar(OUTBOX_ROWS))
         }
+    }
+
+    @Test
+    fun versionThreeMigratesKeepingEveryReadingWithNoLayoutYet() {
+        val file = databaseFrom(androidBaseline(3))
+        withConnection(file) { connection ->
+            connection.execSQL("INSERT INTO attachments(id, mimeType, pixelWidth, pixelHeight, byteCount, refCount, createdAt) " +
+                "VALUES('sha-one', 'image/webp', 8, 8, 10, 1, 42)")
+            connection.execSQL("INSERT INTO attachment_text(attachmentId, text, lineCount, confidence, engine, status, durationMs, updatedAt) " +
+                "VALUES('sha-one', 'hello', 1, 0.9, 'ppocrv5-en/1', 'Read', 5, 42)")
+        }
+        withFileDatabase(file) { database ->
+            runBlocking {
+                assertEquals("hello", database.imageTextDao().byIds(listOf("sha-one")).single().text)
+                assertTrue(database.imageTextDao().layouts(listOf("sha-one")).isEmpty())
+            }
+        }
+        withConnection(file) { connection ->
+            connection.prepare("SELECT text, layout FROM attachment_text").use {
+                assertTrue(it.step())
+                assertEquals("hello", it.getText(0))
+                assertTrue(it.isNull(1))
+            }
+        }
+    }
+
+    @Test
+    fun versionTwoRepairsOversizedSyncStateWithoutDiscardingOtherFields() {
+        val file = databaseFrom(androidBaseline(2))
+        val large = "A".repeat(2_400_000)
+        withConnection(file) { connection ->
+            connection.execSQL("INSERT INTO sync_entity_states(kind, entityId, serverVersion, serverJson) VALUES " +
+                "('pageContent', 'page', 4, '{\"doc\":\"$large\",\"future\":\"kept\",\"version\":4}')," +
+                "('inkStroke', 'stroke', 2, '{\"points\":\"QUJD\",\"drawOrder\":7}')," +
+                "('notebook', 'book', 1, '{\"doc\":\"not a body\",\"name\":\"N\"}')")
+            connection.execSQL("INSERT INTO local_metadata(`key`, value) VALUES('syncPendingHierarchyBatch', '$large')")
+        }
+        withFileDatabase(file) { database -> runBlocking { database.attachmentDao().allIds() } }
+        withConnection(file) { connection ->
+            assertEquals(0L, connection.scalar("SELECT COUNT(*) FROM local_metadata WHERE `key` = 'syncPendingHierarchyBatch'"))
+            fun state(id: String) = connection.prepare("SELECT serverJson FROM sync_entity_states WHERE entityId = '$id'").use {
+                assertTrue(it.step()); it.getText(0)
+            }
+            assertEquals("""{"future":"kept","version":4}""", state("page"))
+            assertEquals("""{"drawOrder":7}""", state("stroke"))
+            assertEquals("""{"doc":"not a body","name":"N"}""", state("book"))
+        }
+    }
+
+    @Test
+    fun versionTwoKeepsASmallPendingBatch() {
+        val file = databaseFrom(androidBaseline(2))
+        withConnection(file) { it.execSQL("INSERT INTO local_metadata(`key`, value) VALUES('syncPendingHierarchyBatch', '{\"batchId\":\"kept\"}')") }
+        withFileDatabase(file) { database -> runBlocking { database.attachmentDao().allIds() } }
+        withConnection(file) { connection ->
+            connection.prepare("SELECT value FROM local_metadata WHERE `key` = 'syncPendingHierarchyBatch'").use {
+                assertTrue(it.step()); assertEquals("""{"batchId":"kept"}""", it.getText(0))
+            }
+        }
+    }
+
+    @Test
+    fun layoutsAreStoredSeparatelyFromSearchSummariesAndCascadeWithTheirPicture() = withDatabase { database ->
+        database.attachmentDao().insert(AttachmentEntity("sha-one", "image/png", 800, 600, 1024, createdAt = 10))
+        val bytes = byteArrayOf(1, 2, 3, 4)
+        database.imageTextDao().upsert(AttachmentTextEntity("sha-one", "hello", 1, .9f, "test", ImageTextStatus.Read, 42, 10, bytes))
+        assertEquals("hello", database.imageTextDao().byIds(listOf("sha-one")).single().text)
+        assertContentEquals(bytes, database.imageTextDao().layouts(listOf("sha-one")).single().layout)
+        database.attachmentDao().deleteIfUnreferenced("sha-one")
+        assertTrue(database.imageTextDao().layouts(listOf("sha-one")).isEmpty())
     }
 
     /**
@@ -201,6 +273,11 @@ class SchemaCompatibilityTest {
         }
     }
 
+    private fun withFileDatabase(file: File, block: (NotesDatabase) -> Unit) {
+        val database = NotesDatabase.create(file)
+        try { block(database) } finally { database.close() }
+    }
+
     private fun androidBaseline(version: Int): JsonObject {
         val text = checkNotNull(javaClass.getResource("/schemas/android-baseline-$version.json")).readText()
         return Json.parseToJsonElement(text).jsonObject
@@ -257,7 +334,7 @@ class SchemaCompatibilityTest {
 
     private companion object {
         /** The newest schema Android has committed, and the version [NotesDatabase] declares. */
-        const val NEWEST = 2
+        const val NEWEST = 4
 
         const val OUTBOX_ROWS = "SELECT COUNT(*) FROM sync_outbox WHERE kind = 'attachment' AND entityId = 'sha-one'"
     }

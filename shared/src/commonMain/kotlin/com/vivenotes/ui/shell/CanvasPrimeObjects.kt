@@ -49,6 +49,7 @@ import com.vivenotes.model.ink.arms
 import com.vivenotes.model.ink.ends
 import com.vivenotes.ui.canvas.LocalObjectGrab
 import com.vivenotes.ui.canvas.PictureAsset
+import com.vivenotes.ui.search.PictureSearchOverlay
 import com.vivenotes.ui.canvas.PictureContent
 import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.detectObjectDrag
@@ -75,6 +76,8 @@ internal fun CanvasPrimeObjects(
     shapeInk: Color,
     pictures: PictureLibrary?,
     pictureAssets: Map<String, PictureAsset>,
+    pictureHighlights: () -> Map<String, com.vivenotes.model.ocr.PictureHighlight> = { emptyMap() },
+    searchImageFocus: com.vivenotes.ui.search.ImageSearchFocus? = null,
     paperColor: Color,
     graphRewrites: Map<String, GraphRewritePreview>,
     onMutateGraph: (Outline.Graph, com.vivenotes.graph.GraphDrag) -> Unit,
@@ -98,6 +101,7 @@ internal fun CanvasPrimeObjects(
     /** A slider's name clicked: the graph whose Sliders dialog opens. */
     onEditGraphSliders: (String) -> Unit = {},
 ) {
+    val highlights = com.vivenotes.ui.search.rememberImageSearchHighlights(pictureHighlights, searchImageFocus)
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
     val currentMoveObject by rememberUpdatedState(onMoveObject)
@@ -196,6 +200,9 @@ internal fun CanvasPrimeObjects(
             Box(contentAlignment = Alignment.Center) {
                 if (outline is Outline.Image && pictures != null) {
                     PictureContent(pictureAssets[outline.attachmentId], outline.backgroundArgb)
+                    if (pictureAssets[outline.attachmentId] is PictureAsset.Ready) {
+                        PictureSearchOverlay(outline, highlights, viewport)
+                    }
                 } else if (outline is Outline.Table) {
                     TableContent(outline, tableRows, shapeInk, state, richColors, editorFocusRequester,
                         onFocusTextBox, onBodyChange, onTextShortcut, heldTable?.takeIf { it.tableId == outline.id },

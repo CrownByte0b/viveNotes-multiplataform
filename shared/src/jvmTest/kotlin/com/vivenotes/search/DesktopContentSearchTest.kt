@@ -53,6 +53,11 @@ class DesktopContentSearchTest {
                 assertEquals(ContentKind.Text, result.pages.single().hits.first().unit.kind)
                 assertEquals(0, result.failedImages)
                 assertEquals(2, repo.imageTextFor(ids.toSet()).size)
+                val layouts = repo.imageTextLayoutsFor(ids)
+                assertEquals(ids.toSet(), layouts.keys)
+                layouts.values.forEach { assertNotNull(com.vivenotes.model.ocr.ImageTextLayout.decode(it.layout)) }
+                val boxes = search.pictureHighlights(ids.toSet(), "revenue").first { it.size == 2 }
+                assertTrue(boxes.values.all { it.count == 1 })
                 assertEquals(1, log.count { it.contains("OCR started") })
             }
         }

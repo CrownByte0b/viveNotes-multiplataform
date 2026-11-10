@@ -131,6 +131,27 @@ class OnnxRecognitionSmokeTest {
         }
     }
 
+    @Test
+    fun aWordsBoxSitsOnThatWord() = runBlocking {
+        val models = settledStore()
+        val text = "Alpha Bravo Charlie"
+        val typeface = org.jetbrains.skia.FontMgr.default.matchFamilyStyle("sans-serif", org.jetbrains.skia.FontStyle.NORMAL)!!
+        val font = org.jetbrains.skia.Font(typeface, 48f)
+        val image = textImage(760, 140, 48f, listOf(Triple(text, 40f, 88f)))
+        val engine = OnnxInkRecognitionEngine(models)
+        try {
+            val result = withTimeout(60_000) { engine.recognizeImageText(image) }
+            val line = result.lines.single()
+            assertEquals(text, line.text)
+            val layout = com.vivenotes.model.ocr.ImageTextLayout.decode(result.layout(image.width, image.height)!!)!!.single()
+            val word = text.indexOf("Bravo")
+            val quad = com.vivenotes.model.ocr.PictureHighlights.forSpans(line.text, layout,
+                listOf(com.vivenotes.model.search.MatchSpan(word, word + 5)))!!.quads
+            assertEquals(40f + font.measureTextWidth(text.substring(0, word)), quad[0] * image.width, 16f)
+            assertEquals(40f + font.measureTextWidth(text.substring(0, word + 5)), quad[2] * image.width, 16f)
+        } finally { engine.close(); models.close(); image.close(); font.close(); typeface.close() }
+    }
+
     /** Two lanes reading one picture four times at once agree with one lane reading it alone. */
     @Test
     fun parallelLanesReadWhatOneLaneReads() = runBlocking {

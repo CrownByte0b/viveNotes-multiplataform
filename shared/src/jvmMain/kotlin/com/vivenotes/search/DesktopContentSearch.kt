@@ -6,6 +6,8 @@ import com.vivenotes.data.db.InkTextStatus
 import com.vivenotes.localization.Strings
 import com.vivenotes.data.AttachmentStore
 import com.vivenotes.data.NotesRepository
+import com.vivenotes.data.PictureTextHighlighter
+import com.vivenotes.model.ocr.PictureHighlight
 import com.vivenotes.data.db.AttachmentTextEntity
 import com.vivenotes.data.db.ImageTextStatus
 import com.vivenotes.diagnostics.DebugLog
@@ -50,6 +52,29 @@ class DesktopContentSearch private constructor(
     }
     private data class ImageKey(val attachment: String, val engine: String = IMAGE_ENGINE)
     private val readings = LinkedHashMap<ImageKey, Deferred<AttachmentTextEntity>>(16, .75f, true)
+
+    private val pictureHighlighter = PictureTextHighlighter(repository)
+    private val imageTextVersion = MutableStateFlow(0L)
+
+    init {
+        indexing.launch {
+            repository.observeImageTextChanges().collect { imageTextVersion.value++ }
+        }
+    }
+
+    override fun pictureHighlights(attachmentIds: Set<String>, query: String): Flow<Map<String, PictureHighlight>> =
+        if (query.isBlank() || attachmentIds.isEmpty()) flowOf(emptyMap())
+        else imageTextVersion.mapLatest { version ->
+            pictureHighlighter.forQuery(attachmentIds, query, version)
+        }.flowOn(Dispatchers.Default)
+
+    override suspend fun pictureHighlight(hit: ContentHit): PictureHighlight? {
+        if (hit.unit.kind != ContentKind.Image) return null
+        val attachment = hit.unit.attachmentId ?: return null
+        return withContext(Dispatchers.Default) {
+            pictureHighlighter.forLine(attachment, hit.unit.blockIndex, hit.spans, imageTextVersion.value)
+        }
+    }
 
     override fun search(request: SearchRequest): Flow<SearchResults> {
         if (request.query.isBlank()) return flowOf(SearchResults())
@@ -103,7 +128,8 @@ class DesktopContentSearch private constructor(
         val placements = entries.flatMap { it.images }
         val placementsById = placements.groupBy { it.attachmentId }
         val ids = placementsById.keys
-        val cached = repository.imageTextFor(ids).filterValues { it.engine == IMAGE_ENGINE }
+        val cached = repository.imageTextFor(ids)
+        val current = cached.filterValues { it.engine == IMAGE_ENGINE }
         val cachedLines = cached.filterValues { it.status == ImageTextStatus.Read }.mapValues { it.value.text.lines() }
         val units = entries.flatMap { it.units } + handwriting + placements.flatMap { placement ->
             cachedLines[placement.attachmentId]?.let { imageUnits(placement, it) }.orEmpty()
@@ -111,10 +137,10 @@ class DesktopContentSearch private constructor(
         var candidates = match(units, request.query)
         var inkCompleted = cachedInk.size
         var inkFailed = cachedInk.values.count { it.status == InkTextStatus.Failed }
-        var completed = cached.size
-        var failed = cached.values.count { it.status == ImageTextStatus.Failed }
+        var completed = current.size
+        var failed = current.values.count { it.status == ImageTextStatus.Failed }
         val unreadable = entries.count { it.unreadable }
-        val pending = ids - cached.keys
+        val pending = ids - current.keys
         val titles = pages.associate { page -> page.id to
             if (page.id == request.livePageId) request.liveTitle else page.title }
         fun result() = SearchResults(
@@ -133,10 +159,11 @@ class DesktopContentSearch private constructor(
             parallelMap(pending.toList()) { id ->
                 val reading = imageReading(id).await()
                 val lines = reading.text.lines()
-                val newUnits = placementsById.getValue(id).flatMap { imageUnits(it, lines) }
+                val newUnits = if (reading.status == ImageTextStatus.Read)
+                    placementsById.getValue(id).flatMap { imageUnits(it, lines) } else emptyList()
                 val hits = match(newUnits, request.query)
                 updates.withLock {
-                    candidates = ranked(candidates + hits)
+                    candidates = ranked(candidates.filterNot { it.unit.attachmentId == id } + hits)
                     completed++
                     if (reading.status == ImageTextStatus.Failed) failed++
                     send(result())
@@ -185,7 +212,7 @@ class DesktopContentSearch private constructor(
                         }
                         AttachmentTextEntity(id, reading.text, if (reading.text.isEmpty()) 0 else reading.text.lines().size,
                             reading.confidence, IMAGE_ENGINE, status, started.elapsedNow().inWholeMilliseconds,
-                            System.currentTimeMillis()).also { repository.storeImageText(it) }
+                            System.currentTimeMillis(), layout = reading.imageLayout).also { repository.storeImageText(it) }
                     }
             }
             readings[key] = job
@@ -252,6 +279,6 @@ class DesktopContentSearch private constructor(
     }
 
     companion object {
-        const val IMAGE_ENGINE = "ppocrv6-small/5435fd74-d73e0058-b5f2bfe2/bgr-db/1"
+        const val IMAGE_ENGINE = "ppocrv6-small/5435fd74-d73e0058-b5f2bfe2/bgr-db/2"
     }
 }
