@@ -38,7 +38,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -81,6 +80,7 @@ import com.vivenotes.fileimport.ImportedPageSize
 import com.vivenotes.localization.Strings
 import com.vivenotes.ui.components.PaneGroup
 import com.vivenotes.ui.components.ToolPaneTags
+import com.vivenotes.ui.components.WavyLoadingIndicator
 import com.vivenotes.ui.icons.ViewSymbols
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -297,7 +297,7 @@ private fun ImportFileBar(
             }
         }
         if (busy) {
-            LoadingIndicator(Modifier.size(24.dp))
+            WavyLoadingIndicator(size = 24.dp)
             Spacer(Modifier.width(12.dp))
         }
         Button(
@@ -325,7 +325,7 @@ private fun PageGrid(
         contentAlignment = Alignment.Center,
     ) {
         if (file == null) {
-            if (opening) LoadingIndicator()
+            if (opening) WavyLoadingIndicator()
             return@Box
         }
         // Lazily, because each is a full render of a page and a document can be hundreds of them.
@@ -398,7 +398,7 @@ private fun PageSheet(
             }
             val sheet = bitmap
             if (sheet == null) {
-                LoadingIndicator()
+                WavyLoadingIndicator()
             } else {
                 Image(
                     bitmap = sheet,

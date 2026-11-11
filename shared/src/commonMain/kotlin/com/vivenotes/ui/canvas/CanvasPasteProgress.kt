@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.offset
-import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -22,6 +21,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import com.vivenotes.localization.Strings
+import com.vivenotes.ui.components.ContainedWavyLoadingIndicator
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -55,7 +55,7 @@ internal fun CanvasPasteProgress(point: Offset, scale: Float, horizontal: Scroll
             IntOffset((point.x * scale - horizontal.value).roundToInt(), (point.y * scale - vertical.value).roundToInt())
         },
     ) {
-        ContainedLoadingIndicator(
+        ContainedWavyLoadingIndicator(
             modifier = Modifier
                 .testTag(CanvasPasteTags.Progress)
                 .semantics {

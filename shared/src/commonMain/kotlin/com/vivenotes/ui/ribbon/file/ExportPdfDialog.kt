@@ -41,7 +41,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -72,6 +71,7 @@ import com.vivenotes.pdf.PdfExportScope
 import com.vivenotes.pdf.PdfExportService
 import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.components.ScaledDropdownMenu
+import com.vivenotes.ui.components.WavyLoadingIndicator
 import com.vivenotes.ui.icons.aboutGlyph
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -106,7 +106,6 @@ internal object ExportPdfTags {
  *
  * Nothing is written until the native save dialog comes back with a file.
  *
- * The opt-in is for [LoadingIndicator] — the same one `AccountScreen` takes.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
@@ -289,7 +288,7 @@ private fun ExportPdfBar(
             }
         }
         if (busy) {
-            LoadingIndicator(Modifier.size(24.dp))
+            WavyLoadingIndicator(size = 24.dp)
             Spacer(Modifier.width(12.dp))
         }
         Button(
@@ -328,7 +327,7 @@ private fun SheetStack(
     ) {
         if (plan == null || plan.sheetCount == 0) {
             if (planning) {
-                LoadingIndicator()
+                WavyLoadingIndicator()
             } else {
                 Text(
                     text = Strings.nothing_to_preview,
@@ -405,7 +404,7 @@ private fun Sheet(
         ) {
             val sheet = bitmap
             if (sheet == null) {
-                LoadingIndicator()
+                WavyLoadingIndicator()
             } else {
                 Image(
                     bitmap = sheet,

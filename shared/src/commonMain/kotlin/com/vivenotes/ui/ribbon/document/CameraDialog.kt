@@ -16,7 +16,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -44,6 +43,7 @@ import com.vivenotes.data.CameraFrame
 import com.vivenotes.data.PictureCamera
 import com.vivenotes.localization.Strings
 import com.vivenotes.ui.components.DesktopDialogPanel
+import com.vivenotes.ui.components.WavyLoadingIndicator
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ViewSymbols
 import kotlinx.coroutines.CancellationException
@@ -215,7 +215,7 @@ internal fun CameraDialog(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.testTag(CameraTags.STARTING),
                 ) {
-                    LoadingIndicator()
+                    WavyLoadingIndicator()
                     Text(
                         text = Strings.camera_starting,
                         style = MaterialTheme.typography.bodyMedium,

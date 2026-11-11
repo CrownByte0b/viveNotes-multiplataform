@@ -11,7 +11,7 @@ plugins {
 
 tasks.register<Exec>("lint") {
     group = "verification"
-    description = "Check shared UI resources, translation placeholders, and hardcoded UI text."
+    description = "Check UI resources, translation placeholders, hardcoded UI text, and M3 Expressive loading indicators."
     val linter = layout.projectDirectory.file("tools/lint/ResourceLint.java")
     inputs.file(linter)
     inputs.files(fileTree("shared/src") { include("**/*.kt", "**/composeResources/**/*.xml") })

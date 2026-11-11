@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.*
 import com.vivenotes.model.ink.InkPage
 import com.vivenotes.ui.canvas.InkLayer
 import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.components.WavyLoadingIndicator
 import com.vivenotes.workspace.InkSettings
 import com.vivenotes.workspace.InkTool
 import kotlinx.coroutines.CancellationException
@@ -199,8 +200,9 @@ internal fun FloatingCalculator(settings: InkSettings, penIndex: Int, allowFinge
                     }
                     if (busy) Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        LoadingIndicator(Modifier.size(32.dp))
-                        Text(Strings.reading_handwriting, style = MaterialTheme.typography.bodyMedium)
+                        WavyLoadingIndicator(size = 32.dp)
+                        Text(Strings.reading_handwriting, style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface)
                     }
                     answer?.let { value ->
                         Spacer(Modifier.height(8.dp))

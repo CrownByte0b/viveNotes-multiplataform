@@ -35,7 +35,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -89,6 +89,7 @@ import com.vivenotes.data.sync.SyncSummary
 import com.vivenotes.localization.Strings
 import com.vivenotes.ui.components.DesktopDialogFrame
 import com.vivenotes.ui.components.DestinationFrame
+import com.vivenotes.ui.components.WavyLoadingIndicator
 import com.vivenotes.ui.icons.AccountSymbols
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.NavigationSymbols
@@ -228,8 +229,6 @@ data class AccountDeletionUiState(
  * request lives in a scope that outlives this screen. The device token comes back exactly once and
  * cannot be reissued, so a request tied to this composition would turn "closing the screen while it
  * spins" into a device row on the server that nothing holds the credential for.
- *
- * The opt-in is for the connect button's [LoadingIndicator].
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalComposeUiApi::class)
 @Composable
@@ -475,9 +474,10 @@ fun AccountScreen(
                         if (linking) {
                             // Same treatment as Connect and the Google button: the spinner replaces the
                             // label, so it carries the name the label was providing.
-                            LoadingIndicator(
-                                Modifier
-                                    .size(18.dp)
+                            WavyLoadingIndicator(
+                                size = 18.dp,
+                                color = LocalContentColor.current,
+                                modifier = Modifier
                                     .semantics { contentDescription = linkingLabel },
                             )
                         } else {
@@ -581,9 +581,10 @@ fun AccountScreen(
                         modifier = Modifier.testTag(AccountTags.DELETE_CONFIRM),
                     ) {
                         if (accountDeletionState.requesting) {
-                            LoadingIndicator(
-                                Modifier
-                                    .size(18.dp)
+                            WavyLoadingIndicator(
+                                size = 18.dp,
+                                color = LocalContentColor.current,
+                                modifier = Modifier
                                     .semantics { contentDescription = deletingLabel },
                             )
                         } else {
@@ -881,9 +882,10 @@ fun AccountScreen(
                                 .testTag(AccountTags.CLOUD_SUBMIT),
                         ) {
                             if (busy) {
-                                LoadingIndicator(
-                                    Modifier
-                                        .size(18.dp)
+                                WavyLoadingIndicator(
+                                    size = 18.dp,
+                                    color = LocalContentColor.current,
+                                    modifier = Modifier
                                         .testTag(AccountTags.CLOUD_PROGRESS)
                                         .semantics {
                                             contentDescription = if (cloudSignUp) {
@@ -1027,9 +1029,10 @@ fun AccountScreen(
                                 // Uncontained and sized to the label it replaces — an indicator
                                 // with its own container inside a button is a container in a
                                 // container.
-                                LoadingIndicator(
-                                    Modifier
-                                        .size(18.dp)
+                                WavyLoadingIndicator(
+                                    size = 18.dp,
+                                    color = LocalContentColor.current,
+                                    modifier = Modifier
                                         .testTag(AccountTags.CONNECT_PROGRESS)
                                         .semantics { contentDescription = connectingLabel },
                                 )
@@ -1148,9 +1151,10 @@ private fun PasswordResetScreen(
                             .testTag(AccountTags.RESET_REQUEST),
                     ) {
                         if (state.requestingCode) {
-                            LoadingIndicator(
-                                Modifier
-                                    .size(18.dp)
+                            WavyLoadingIndicator(
+                                size = 18.dp,
+                                color = LocalContentColor.current,
+                                modifier = Modifier
                                     .semantics { contentDescription = requestingLabel },
                             )
                         } else {
@@ -1233,9 +1237,10 @@ private fun PasswordResetScreen(
                             .testTag(AccountTags.RESET_COMPLETE),
                     ) {
                         if (state.changingPassword) {
-                            LoadingIndicator(
-                                Modifier
-                                    .size(18.dp)
+                            WavyLoadingIndicator(
+                                size = 18.dp,
+                                color = LocalContentColor.current,
+                                modifier = Modifier
                                     .semantics { contentDescription = changingLabel },
                             )
                         } else {
@@ -1294,9 +1299,10 @@ private fun GoogleSignInButton(
             .testTag(AccountTags.GOOGLE),
     ) {
         if (signingIn) {
-            LoadingIndicator(
-                Modifier
-                    .size(18.dp)
+            WavyLoadingIndicator(
+                size = 18.dp,
+                color = LocalContentColor.current,
+                modifier = Modifier
                     .testTag(AccountTags.GOOGLE_PROGRESS)
                     .semantics { contentDescription = signingInLabel },
             )
@@ -1524,9 +1530,10 @@ private fun ConnectedPanel(
             .testTag(AccountTags.SYNC),
     ) {
         if (syncing) {
-            LoadingIndicator(
-                Modifier
-                    .size(18.dp)
+            WavyLoadingIndicator(
+                size = 18.dp,
+                color = LocalContentColor.current,
+                modifier = Modifier
                     .testTag(AccountTags.SYNC_PROGRESS)
                     .semantics {
                         contentDescription = connectedSyncingDescription
@@ -1562,9 +1569,10 @@ private fun ConnectedPanel(
             },
             trailingContent = {
                 if (disconnecting) {
-                    LoadingIndicator(
-                        Modifier
-                            .size(24.dp)
+                    WavyLoadingIndicator(
+                        size = 24.dp,
+                        color = LocalContentColor.current,
+                        modifier = Modifier
                             .semantics { contentDescription = disconnectingDescription },
                     )
                 } else {
@@ -1824,9 +1832,10 @@ private fun ManagedSubscriptionPanel(
                     modifier = Modifier.weight(1f),
                 )
                 if (state.loading) {
-                    LoadingIndicator(
-                        Modifier
-                            .size(24.dp)
+                    WavyLoadingIndicator(
+                        size = 24.dp,
+                        color = LocalContentColor.current,
+                        modifier = Modifier
                             .semantics { contentDescription = checkingDescription },
                     )
                 } else {
@@ -2154,9 +2163,10 @@ private fun CardCheckoutButton(
         )
     val content: @Composable RowScope.() -> Unit = {
         if (loading) {
-            LoadingIndicator(
-                Modifier
-                    .size(18.dp)
+            WavyLoadingIndicator(
+                size = 18.dp,
+                color = LocalContentColor.current,
+                modifier = Modifier
                     .semantics { contentDescription = loadingDescription },
             )
         } else {
@@ -2219,9 +2229,10 @@ private fun GooglePlayActionButton(
         )
     val content: @Composable RowScope.() -> Unit = {
         if (loading) {
-            LoadingIndicator(
-                Modifier
-                    .size(18.dp)
+            WavyLoadingIndicator(
+                size = 18.dp,
+                color = LocalContentColor.current,
+                modifier = Modifier
                     .semantics { contentDescription = loadingDescription },
             )
         } else {
@@ -2291,9 +2302,10 @@ private fun CouponRedemptionControls(
             modifier = modifier.testTag(AccountTags.REDEEM_COUPON),
         ) {
             if (redeeming) {
-                LoadingIndicator(
-                    Modifier
-                        .size(18.dp)
+                WavyLoadingIndicator(
+                    size = 18.dp,
+                    color = LocalContentColor.current,
+                    modifier = Modifier
                         .semantics { contentDescription = redeemingDescription },
                 )
             } else {

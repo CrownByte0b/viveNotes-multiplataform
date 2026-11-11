@@ -6,6 +6,8 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertRangeInfoEquals
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -21,3 +23,10 @@ internal fun SemanticsNodeInteraction.assertIsIndeterminateWavyBar(): SemanticsN
 internal fun SemanticsNodeInteraction.assertIsDeterminateWavyBar(progress: Float): SemanticsNodeInteraction =
     assertRangeInfoEquals(ProgressBarRangeInfo(progress, 0f..1f))
         .assertHeightIsEqualTo(WavyProgressIndicatorDefaults.LinearContainerHeight + 20.dp)
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+internal fun SemanticsNodeInteraction.assertIsIndeterminateWavyRing(
+    size: Dp = WavyProgressIndicatorDefaults.CircularContainerSize,
+): SemanticsNodeInteraction = assertRangeInfoEquals(ProgressBarRangeInfo.Indeterminate)
+    .assertWidthIsEqualTo(size)
+    .assertHeightIsEqualTo(size)

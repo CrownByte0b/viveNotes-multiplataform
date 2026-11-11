@@ -24,6 +24,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.vivenotes.ui.components.ToolPaneTags
+import com.vivenotes.ui.components.assertIsIndeterminateWavyRing
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.FileActions
@@ -338,6 +339,7 @@ class FileTabTest {
         setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
             notebookTransfer = NotebookTransferState(running = true, converting = true)))
         onNodeWithText("Converting the OneNote notebook…").fetchSemanticsNode()
+        onNodeWithTag(FileRibbonTags.TransferProgress).assertIsIndeterminateWavyRing(24.dp)
         assertTrue(onAllNodesWithTag(FileRibbonTags.TransferOk).fetchSemanticsNodes().isEmpty())
         onNodeWithTag(FileRibbonTags.Import).assertIsNotEnabled()
         onRoot().performKeyInput { keyDown(Key.Escape); keyUp(Key.Escape) }

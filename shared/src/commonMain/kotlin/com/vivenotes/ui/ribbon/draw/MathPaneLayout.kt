@@ -46,18 +46,23 @@ internal object MathPaneTags {
 @Composable
 internal fun MathPaneFrame(onClose: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     DrawToolkitTheme {
-        Column(Modifier.width(MathPaneWidth).fillMaxHeight().background(MaterialTheme.colorScheme.surface)
-            .swipeRight(onClose).testTag(ToolPaneTags.Pane)) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 10.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(Strings.recognition, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f))
-                TooltipIconButton(Strings.close_recognition, onClick = onClose, modifier = Modifier.size(34.dp).testTag(ToolPaneTags.Close)) {
-                    Icon(ViewSymbols.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Surface(
+            modifier = Modifier.width(MathPaneWidth).fillMaxHeight().swipeRight(onClose).testTag(ToolPaneTags.Pane),
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ) {
+            Column {
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 10.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(Strings.recognition, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f))
+                    TooltipIconButton(Strings.close_recognition, onClick = onClose, modifier = Modifier.size(34.dp).testTag(ToolPaneTags.Close)) {
+                        Icon(ViewSymbols.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    }
                 }
+                Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp), content = content)
             }
-            Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 4.dp), content = content)
         }
     }
 }

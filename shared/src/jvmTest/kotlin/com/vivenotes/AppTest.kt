@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
+import com.vivenotes.ui.components.assertIsIndeterminateWavyRing
 import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.NotebookTransferManager
 import com.vivenotes.data.NotesLibrary
@@ -250,7 +251,7 @@ class AppTest {
         val store = FakeNotesStore().apply { seedGate = CompletableDeferred() }
         showApp(store)
 
-        onNodeWithTag(AppTestTags.Opening).assertIsDisplayed()
+        onNodeWithTag(AppTestTags.Opening).assertIsDisplayed().assertIsIndeterminateWavyRing()
         onNodeWithTag(WorkspaceTestTags.PageCanvas).assertDoesNotExist()
 
         store.seedGate!!.complete(Unit)

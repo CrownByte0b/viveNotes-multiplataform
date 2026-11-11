@@ -46,6 +46,7 @@ object FileRibbonTags {
     const val ImportFile = "file-import-file"
     const val TransferDialog = "file-transfer-dialog"
     const val TransferBackdrop = "file-transfer-backdrop"
+    const val TransferProgress = "file-transfer-progress"
     const val TransferOk = "file-transfer-ok"
     const val VersionHistory = "file-version-history"
     const val DeletedItems = "file-deleted-items"

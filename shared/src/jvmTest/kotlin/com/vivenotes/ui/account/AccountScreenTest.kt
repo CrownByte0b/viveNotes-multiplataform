@@ -33,6 +33,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.unit.dp
 import com.vivenotes.data.billing.CheckoutProvider
 import com.vivenotes.data.billing.ManagedSubscriptionState
 import com.vivenotes.data.sync.ConnectFailure
@@ -47,6 +48,7 @@ import com.vivenotes.data.sync.SyncRunResult
 import com.vivenotes.data.sync.SyncStatus
 import com.vivenotes.data.sync.SyncSummary
 import com.vivenotes.localization.Strings
+import com.vivenotes.ui.components.assertIsIndeterminateWavyRing
 import com.vivenotes.ui.theme.ViveNotesTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -120,7 +122,7 @@ class AccountScreenTest {
 
         signingInWithGoogle = true
 
-        onNodeWithTag(AccountTags.GOOGLE_PROGRESS).assertIsDisplayed()
+        onNodeWithTag(AccountTags.GOOGLE_PROGRESS).assertIsDisplayed().assertIsIndeterminateWavyRing(18.dp)
         onNodeWithTag(AccountTags.GOOGLE).assertIsNotEnabled()
     }
 
@@ -720,8 +722,7 @@ class AccountScreenTest {
         val purchase = onNodeWithTag(AccountTags.SUBSCRIBE)
             .performScrollTo()
             .assertIsNotEnabled()
-        // Desktop: Compose Multiplatform's LoadingIndicator merges its own semantics, so the
-        // description is announced from the indicator inside the button rather than the button.
+        // The indicator inside the button retains the accessible name while the label is hidden.
         purchase.onChild().assertContentDescriptionEquals(Strings.account_subscription_opening_checkout)
         onNodeWithText(Strings.account_subscription_subscribe_card).assertDoesNotExist()
     }

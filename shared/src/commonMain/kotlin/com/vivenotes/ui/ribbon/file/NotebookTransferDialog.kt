@@ -4,9 +4,7 @@ import com.vivenotes.localization.Strings
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +17,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.vivenotes.ui.components.DesktopDialogFrame
+import com.vivenotes.ui.components.WavyLoadingIndicator
 import com.vivenotes.workspace.NotebookTransferState
 
 /**
@@ -52,7 +51,7 @@ internal fun NotebookTransferDialog(state: NotebookTransferState, onDismiss: () 
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                    WavyLoadingIndicator(size = 24.dp, modifier = Modifier.testTag(FileRibbonTags.TransferProgress))
                     Text(
                         if (state.converting) Strings.transfer_converting_onenote else Strings.checking_and_preparing_the_notebook,
                         style = MaterialTheme.typography.bodyMedium,

@@ -26,7 +26,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,6 +42,7 @@ import com.vivenotes.data.db.ClosedNotebook
 import com.vivenotes.localization.Strings
 import com.vivenotes.ui.components.DestinationFrame
 import com.vivenotes.ui.components.HoverTooltip
+import com.vivenotes.ui.components.WavyLoadingIndicator
 import com.vivenotes.ui.icons.AccountSymbols
 import com.vivenotes.ui.icons.rememberNotebookGlyph
 import com.vivenotes.workspace.FileActions
@@ -302,7 +302,7 @@ private fun ClosedNotebookRow(
                     }
                 }
             } else if (busy) {
-                LoadingIndicator(Modifier.size(24.dp).testTag(ClosedNotebooksTags.busy(notebook.id)))
+                WavyLoadingIndicator(size = 24.dp, modifier = Modifier.testTag(ClosedNotebooksTags.busy(notebook.id)))
             } else {
                 FilledTonalButton(
                     onClick = { onOpen(notebook.id) },

@@ -25,11 +25,9 @@ import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -70,6 +68,8 @@ import com.vivenotes.localization.Strings
 import com.vivenotes.ui.components.DesktopDialogPanel
 import com.vivenotes.ui.components.HoverTooltip
 import com.vivenotes.ui.components.LocalTooltipDismissals
+import com.vivenotes.ui.components.ContainedWavyLoadingIndicator
+import com.vivenotes.ui.components.WavyLoadingIndicator
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ShellSymbols
 import com.vivenotes.ui.icons.ViewSymbols
@@ -104,9 +104,6 @@ internal object OnlineImageTags {
  *
  * Further pages load as the grid nears its end. Openverse allows twenty anonymous searches a
  * minute, so a page is fetched only when the last one has landed and nothing has failed.
- *
- * The opt-in is for [LoadingIndicator] and [ContainedLoadingIndicator] — the same one
- * `ExportPdfDialog` takes.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -339,12 +336,12 @@ internal fun OnlineImageDialog(
                                     .padding(16.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                LoadingIndicator()
+                                WavyLoadingIndicator()
                             }
                         }
                     }
                 }
-                loading -> LoadingIndicator()
+                loading -> WavyLoadingIndicator()
                 else -> Text(
                     text = message
                         ?: searched?.let { Strings.online_image_no_results(it) }
@@ -431,7 +428,7 @@ private fun ResultTile(
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.scrim.copy(alpha = SCRIM_ALPHA)),
                 )
-                ContainedLoadingIndicator()
+                ContainedWavyLoadingIndicator()
             }
         }
     }

@@ -23,6 +23,7 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.dp
 import com.vivenotes.data.CanvasClipboardSource
 import com.vivenotes.data.ClipboardContent
 import com.vivenotes.data.ClipboardHtml
@@ -34,6 +35,7 @@ import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
 import com.vivenotes.ui.canvas.CanvasPasteTags
 import com.vivenotes.ui.canvas.LocalClipboardHtml
+import com.vivenotes.ui.components.assertIsIndeterminateWavyRing
 import com.vivenotes.ui.ribbon.draw.TableTags
 import com.vivenotes.workspace.WorkspaceState
 import kotlinx.coroutines.CompletableDeferred
@@ -195,6 +197,7 @@ class CanvasExternalClipboardTest {
         assertEquals(page.left + at.x, shown.left, 2f, "drawn from where the paste lands")
         assertEquals(page.top + at.y, shown.top, 2f)
         onNodeWithTag(CanvasPasteTags.Progress).assertContentDescriptionEquals(Strings.pasting)
+            .assertIsIndeterminateWavyRing(48.dp)
 
         runOnIdle { ready.complete(Unit) }
         waitUntil { onAllNodesWithTag(CanvasPasteTags.Progress).fetchSemanticsNodes().isEmpty() }

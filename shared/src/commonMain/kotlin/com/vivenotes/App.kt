@@ -7,7 +7,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -36,6 +35,7 @@ import com.vivenotes.ui.theme.ReportDarkTheme
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.ui.update.AppUpdates
 import com.vivenotes.ui.update.UpdateDialog
+import com.vivenotes.ui.components.WavyLoadingIndicator
 import com.vivenotes.workspace.KeyBindings
 import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.ViewSettings
@@ -107,7 +107,7 @@ fun App(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center,
             ) {
-                LoadingIndicator(
+                WavyLoadingIndicator(
                     Modifier.testTag(AppTestTags.Opening).semantics { contentDescription = Strings.opening_your_notebooks },
                 )
             }

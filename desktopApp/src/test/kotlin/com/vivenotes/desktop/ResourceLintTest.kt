@@ -87,6 +87,43 @@ class ResourceLintTest {
     }
 
     @Test
+    fun rejectsNonWavyLoadingIndicatorsIncludingAliasedAndQualifiedUses() {
+        val (status, output) = lint("<resources><string name=\"close\">Close</string></resources>",
+            """
+                import androidx.compose.material.CircularProgressIndicator as Spinner
+                import androidx.compose.material3.LinearProgressIndicator as Bar
+                fun content() {
+                    androidx.compose.material3.LoadingIndicator()
+                    androidx.compose.material3.ContainedLoadingIndicator()
+                }
+            """.trimIndent())
+        assertEquals(1, status, output)
+        for (indicator in listOf("CircularProgressIndicator", "LinearProgressIndicator", "LoadingIndicator", "ContainedLoadingIndicator")) {
+            assertTrue(output.contains("Non-wavy loading indicator $indicator"), output)
+        }
+        assertTrue(output.contains("CircularWavyProgressIndicator"), output)
+        assertTrue(output.contains("LinearWavyProgressIndicator"), output)
+    }
+
+    @Test
+    fun acceptsWavyIndicatorsAndIgnoresOldNamesInCommentsAndDiagnosticStrings() {
+        val (status, output) = lint("<resources><string name=\"close\">Close</string></resources>",
+            """
+                import androidx.compose.material3.CircularWavyProgressIndicator
+                import androidx.compose.material3.LinearWavyProgressIndicator
+                // CircularProgressIndicator()
+                /* LoadingIndicator() and ContainedLoadingIndicator() */
+                fun content() {
+                    CircularWavyProgressIndicator()
+                    LinearWavyProgressIndicator(progress = { 0.5f })
+                    LinearWavyProgressIndicator()
+                    log.event("fixture") { "LinearProgressIndicator" }
+                }
+            """.trimIndent())
+        assertEquals(0, status, output)
+    }
+
+    @Test
     fun rejectsReferencesWithoutResourcesButIgnoresReferencesInComments() {
         val (status, output) = lint("<resources><string name=\"close\">Close</string></resources>",
             "Text(Strings.missing)\nText(\"\${Strings.missing_template}\")\n// Text(Strings.ignored)")

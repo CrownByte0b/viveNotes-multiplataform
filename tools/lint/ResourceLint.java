@@ -10,10 +10,12 @@ import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Element;
 
-/** Dependency-free checks for the Compose resource catalog and application UI text. */
+/** Dependency-free checks for the Compose resource catalog, UI text and loading indicator style. */
 class ResourceLint {
     private static final Pattern PLACEHOLDER = Pattern.compile("%(\\d+)\\$[sd]");
     private static final Pattern UNSUPPORTED_PLACEHOLDER = Pattern.compile("%(?:\\d+\\$)?[a-zA-Z]");
+    private static final Pattern NON_WAVY_PROGRESS = Pattern.compile(
+        "\\b(CircularProgressIndicator|LinearProgressIndicator|LoadingIndicator|ContainedLoadingIndicator)\\b");
     private final List<String> errors = new ArrayList<>();
     private int sourceCount;
 
@@ -128,6 +130,13 @@ class ResourceLint {
         var source = Files.readString(file);
         var lexer = new KotlinStrings(source);
         lexer.scan(0, false);
+        var indicators = NON_WAVY_PROGRESS.matcher(lexer.code);
+        while (indicators.find()) {
+            var replacement = indicators.group(1).equals("LinearProgressIndicator")
+                ? "LinearWavyProgressIndicator" : "CircularWavyProgressIndicator (or WavyLoadingIndicator)";
+            errors.add(relative + ":" + line(source, indicators.start()) + ": Non-wavy loading indicator "
+                + indicators.group(1) + "; use M3 Expressive " + replacement + ".");
+        }
         var references = Pattern.compile("\\b(?:Strings\\.|Res\\.string\\.)([a-zA-Z_][a-zA-Z_0-9]*)").matcher(lexer.code.toString());
         while (references.find()) {
             if (!resourceNames.contains(references.group(1))) {
