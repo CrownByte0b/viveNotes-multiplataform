@@ -19,8 +19,11 @@ import com.vivenotes.fileimport.pdf.PdfPages
 import com.vivenotes.fileimport.pptx.PptxPages
 import com.vivenotes.model.Mark
 import com.vivenotes.richtext.CanvasPasteItem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -108,11 +111,18 @@ class FileImporter(
                 val file = File(source)
                 if (!file.isFile) throw ImportException(ImportFailure.Unreadable)
                 file.inputStream().use { copyBounded(it, staged) }
-                openStaged(staged, file.name)
+                openStaged(staged, file.name).also { abandonedWhileOpening() }
             } catch (failure: Throwable) {
                 staged.delete()
                 throw translated(failure)
             }
+        }
+    }
+
+    private suspend fun abandonedWhileOpening() {
+        if (releaseRequested || !currentCoroutineContext().isActive) {
+            closeOpen()
+            throw CancellationException("The import window closed while the file was being read")
         }
     }
 
@@ -136,12 +146,20 @@ class FileImporter(
         // Exact signatures first: a PDF's marker may sit anywhere in its opening kilobyte.
         CompoundFile.isCompoundFile(file) -> readCompound(CompoundFile.open(file))
         PdfPages.isPdf(file) -> PdfPages.open(file)
-        OdtPackage.isOdt(file) -> OdtPackage.open(file).let { odt ->
+        OdtPackage.isOdt(file) -> OdtPackage.open(file).closedOnFailure { odt ->
             val read = OdtReader(odt).read()
             DocxPages.of(read.document, { odt.bytes(it) }, read.fontFamilies, odt)
         }
-        DocxPackage.isPresentation(file) -> PptxPages.open(DocxPackage.open(file, DocxPackage.PRESENTATION_CONTENT_TYPES))
-        else -> DocxPages.open(DocxPackage.open(file))
+        DocxPackage.isPresentation(file) ->
+            DocxPackage.open(file, DocxPackage.PRESENTATION_CONTENT_TYPES).closedOnFailure { PptxPages.open(it) }
+        else -> DocxPackage.open(file).closedOnFailure { DocxPages.open(it) }
+    }
+
+    private inline fun <C : Closeable, T> C.closedOnFailure(read: (C) -> T): T = try {
+        read(this)
+    } catch (failure: Throwable) {
+        runCatching { close() }
+        throw failure
     }
 
     /** One container, three things it can be: an old Word file, an encrypted new one, or neither. */
@@ -168,12 +186,12 @@ class FileImporter(
     /** The file's [ImportFailure], or [ImportFailure.Unreadable] for the many ways bad input can blow up. */
     private fun translated(failure: Throwable): Throwable {
         val result = when (failure) {
-            is ImportException, is kotlinx.coroutines.CancellationException -> failure
+            is ImportException, is CancellationException -> failure
             is OutOfMemoryError -> ImportException(ImportFailure.TooLarge, failure)
             is StackOverflowError, is Exception -> ImportException(ImportFailure.Unreadable, failure)
             else -> failure
         }
-        if (result is ImportException) log.event("import") { "open refused: ${result.failure} (${failure::class.simpleName})" }
+        if (result is ImportException) log.event("import") { "import refused: ${result.failure} (${failure::class.simpleName})" }
         return result
     }
 
@@ -205,6 +223,8 @@ class FileImporter(
         mutex.withLock {
             try {
                 action()
+            } catch (failure: Throwable) {
+                throw translated(failure)
             } finally {
                 if (releaseRequested) closeOpen()
             }

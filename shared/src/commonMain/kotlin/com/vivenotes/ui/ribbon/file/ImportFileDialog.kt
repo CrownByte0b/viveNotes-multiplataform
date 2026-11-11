@@ -77,6 +77,7 @@ import com.vivenotes.fileimport.FileImportService
 import com.vivenotes.fileimport.ImportException
 import com.vivenotes.fileimport.ImportFailure
 import com.vivenotes.fileimport.ImportedFile
+import com.vivenotes.fileimport.ImportedPageSize
 import com.vivenotes.localization.Strings
 import com.vivenotes.ui.components.PaneGroup
 import com.vivenotes.ui.components.ToolPaneTags
@@ -86,6 +87,7 @@ import kotlinx.coroutines.launch
 import multiplataform_vive.shared.generated.resources.Res
 import multiplataform_vive.shared.generated.resources.import_file_selected
 import org.jetbrains.compose.resources.pluralStringResource
+import kotlin.math.roundToInt
 
 internal object ImportFileTags {
     const val DIALOG = "import-file-dialog"
@@ -381,7 +383,7 @@ private fun PageSheet(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(page.widthDp / page.heightDp)
+                .aspectRatio(sheetRatio(page))
                 .background(SHEET_PAPER)
                 .border(border, borderColor)
                 .toggleable(value = selected, role = Role.Checkbox, onValueChange = onToggle)
@@ -389,6 +391,7 @@ private fun PageSheet(
             contentAlignment = Alignment.Center,
         ) {
             val widthPx = with(LocalDensity.current) { maxWidth.roundToPx() }
+                .let { (it * shownShare(page)).roundToInt() }
             var bitmap by remember(file, index, widthPx) { mutableStateOf<ImageBitmap?>(null) }
             LaunchedEffect(file, index, widthPx) {
                 if (widthPx > 0) bitmap = runCatching { importer.preview(file, index, widthPx) }.getOrNull()
@@ -420,6 +423,15 @@ private fun PageSheet(
         )
     }
 }
+
+private fun sheetRatio(page: ImportedPageSize): Float = pageRatio(page).coerceIn(MIN_SHEET_RATIO, MAX_SHEET_RATIO)
+
+private fun pageRatio(page: ImportedPageSize): Float {
+    val ratio = page.widthDp / page.heightDp
+    return if (ratio.isFinite() && ratio > 0f) ratio else 1f
+}
+
+private fun shownShare(page: ImportedPageSize): Float = minOf(1f, pageRatio(page) / sheetRatio(page))
 
 @Composable
 private fun ImportFileOptions(
@@ -519,6 +531,8 @@ private val OPTIONS_HEIGHT = 260.dp
 
 /** Several pages in view at once, while each stays recognisable. */
 private val SHEET_MIN_WIDTH = 240.dp
+private const val MIN_SHEET_RATIO = 0.25f
+private const val MAX_SHEET_RATIO = 4f
 private val GRID_PADDING = 20.dp
 private val SELECTED_BORDER = 3.dp
 private val UNSELECTED_BORDER = 1.dp

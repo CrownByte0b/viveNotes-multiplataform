@@ -54,6 +54,28 @@ class DocxLayoutTest {
 
     private val stagingDirectory: File get() = File(cache, "file-import")
 
+    @Test
+    fun emptyTablesDoNotStopTheDocumentFromOpeningOrInserting() = runBlocking {
+        val opened = open("<w:tbl/><w:tbl><w:tr/></w:tbl>" + paragraph("After the empty tables."))
+
+        val items = importer.objects(opened, listOf(0), emptySet())
+
+        assertEquals(listOf("After the empty tables."), items.filterIsInstance<com.vivenotes.richtext.CanvasPasteItem.Text>().flatMap { it.blocks }.map { it.text })
+    }
+
+    @Test
+    fun impossibleTableSpansStillOpenAndKeepTheirCellText() = runBlocking {
+        val opened = open(
+            """<w:tbl><w:tr><w:trPr><w:gridBefore w:val="2147483647"/></w:trPr>""" +
+                """<w:tc><w:tcPr><w:gridSpan w:val="2147483647"/></w:tcPr>${paragraph("first")}</w:tc>""" +
+                """<w:tc><w:tcPr><w:gridSpan w:val="2147483647"/></w:tcPr>${paragraph("second")}</w:tc></w:tr></w:tbl>""",
+        )
+
+        val items = importer.objects(opened, listOf(0), emptySet())
+
+        assertEquals(listOf("first\tsecond"), items.filterIsInstance<com.vivenotes.richtext.CanvasPasteItem.Text>().flatMap { it.blocks }.map { it.text })
+    }
+
     /** The way in from a file picker: copied to a private file, which goes when the window does. */
     @Test
     fun aPickedDocumentIsStagedAndTheStagedCopyIsThrownAway() = runBlocking {

@@ -186,6 +186,24 @@ class PdfImportTest {
     }
 
     @Test
+    fun aPosterSizePageComesInAsItsWords() {
+        writePdf(1700, 2400, { canvas: Canvas -> canvas.drawText("Findings, in large print.", 200f, 300f) })
+
+        val text = objects(0).single() as CanvasPasteItem.Text
+
+        assertEquals(listOf("Findings, in large print."), text.blocks.map { it.text })
+    }
+
+    @Test
+    fun aPosterSizePageWithNoWordsIsOnePicture() {
+        writePdf(2400, 1800, { canvas: Canvas -> canvas.drawRect(0f, 0f, 2400f, 1800f, 0x4472C4) })
+
+        val picture = objects(0).single() as CanvasPasteItem.Image
+
+        assertEquals(2400f / 1800f, picture.widthDp!! / picture.heightDp!!, 0.01f)
+    }
+
+    @Test
     fun onlyTheChosenPagesComeIn() {
         writePdf(
             pages = arrayOf(

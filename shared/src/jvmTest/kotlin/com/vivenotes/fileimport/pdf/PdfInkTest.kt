@@ -11,6 +11,17 @@ class PdfInkTest {
     private val blue = 0xFF4472C4.toInt()
     private val paleBlue = 0xFFE9EBF5.toInt()
 
+    @Test
+    fun aWordWhoseBoxIsBackwardsDoesNotStopThePageFromBeingRead() {
+        val raster = PdfTestRaster(100, 100).raster()
+        val word = PdfWord(listOf(PdfGlyph('x', PdfRect(70f, 10f, 20f, 30f))))
+
+        val ink = readInk(raster, listOf(word))
+
+        assertTrue(ink.grids.isEmpty())
+        assertTrue(ink.figures.isEmpty())
+    }
+
     /** Rules at [xs] and [ys] running the whole way across and down, in [color]. */
     private fun PdfTestRaster.rules(xs: List<Float>, ys: List<Float>, color: Int, thickness: Float = 1f) {
         for (x in xs) fill(PdfRect(x, ys.first(), x + thickness, ys.last() + thickness), color)

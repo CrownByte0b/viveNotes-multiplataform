@@ -70,6 +70,8 @@ abstract class FileImportService {
 
     companion object {
         /** What the file chooser offers: Android's MIME types, as the file names that carry them. */
-        val FILE_EXTENSIONS: List<String> = listOf("docx", "doc", "odt", "pptx", "pdf")
+        val FILE_EXTENSIONS: List<String> = listOf(
+            "docx", "dotx", "docm", "dotm", "doc", "dot", "odt", "ott", "pptx", "ppsx", "potx", "pptm", "ppsm", "potm", "pdf",
+        )
     }
 }

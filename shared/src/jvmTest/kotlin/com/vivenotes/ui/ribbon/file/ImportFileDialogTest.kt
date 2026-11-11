@@ -19,13 +19,18 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.fileimport.DocxTestFile
 import com.vivenotes.fileimport.FileImportMode
+import com.vivenotes.fileimport.FileImportService
 import com.vivenotes.fileimport.FileImporter
 import com.vivenotes.fileimport.ImportException
 import com.vivenotes.fileimport.ImportFailure
 import com.vivenotes.fileimport.ImportedFile
+import com.vivenotes.fileimport.ImportedPageSize
+import com.vivenotes.model.Mark
+import com.vivenotes.richtext.CanvasPasteItem
 import com.vivenotes.ui.theme.ViveNotesTheme
 import java.io.File
 import java.nio.file.Files
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -54,13 +59,16 @@ class ImportFileDialogTest {
     private fun ComposeUiTest.setDialog(
         open: suspend () -> ImportedFile = { importer.open(file.path) },
         landed: Boolean = true,
+        beforeInsert: suspend (ImportedFile) -> Unit = {},
+        service: FileImportService = importer,
     ) {
         setContent {
             ViveNotesTheme {
                 ImportFileDialog(
-                    importer = importer,
+                    importer = service,
                     open = open,
-                    onInsert = { _, pages, mode ->
+                    onInsert = { opened, pages, mode ->
+                        beforeInsert(opened)
                         insertedPages = pages
                         insertedMode = mode
                         landed
@@ -168,6 +176,20 @@ class ImportFileDialogTest {
         assertFalse(dismissed)
     }
 
+    @Test
+    fun runningOutOfMemoryDuringInsertSaysSoAndStaysOpen() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        writeDocument(pages = 1)
+        setDialog(beforeInsert = { opened -> importer.withPages(opened) { throw OutOfMemoryError("page") } })
+
+        onNodeWithTag(ImportFileTags.INSERT).performClick()
+
+        waitUntil(timeoutMillis = WAIT_MS) {
+            runCatching { onNodeWithText("The pages could not be placed on this page.").assertExists() }.isSuccess
+        }
+        onNodeWithTag(ImportFileTags.INSERT).assertIsEnabled()
+        assertFalse(dismissed)
+    }
+
     /** Each failure has its own sentence, and a file that cannot be read offers nothing to insert. */
     @Test
     fun aFileThatWillNotOpenSaysWhy() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
@@ -175,6 +197,50 @@ class ImportFileDialogTest {
 
         onNodeWithText("This file is too large to import.").assertIsDisplayed()
         onNodeWithTag(ImportFileTags.INSERT).assertIsNotEnabled()
+    }
+
+    @Test
+    fun aPageOfNoSizeStillTakesAPlaceInTheGrid() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        setDialog(open = { ImportedFile("broken.pdf", listOf(ImportedPageSize(0f, 0f), ImportedPageSize(612f, 0f)), Any()) })
+
+        onNodeWithTag(ImportFileTags.page(0)).assertIsDisplayed()
+        onNodeWithTag(ImportFileTags.page(1)).assertExists()
+    }
+
+    @Test
+    fun veryTallAndVeryWidePagesStayInsideSelectableGridCells() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        setDialog(open = { ImportedFile("long.pdf", listOf(ImportedPageSize(1f, 100f), ImportedPageSize(100f, 1f)), Any()) })
+
+        for (index in 0..1) {
+            val page = onNodeWithTag(ImportFileTags.page(index)).assertIsDisplayed()
+            val bounds = page.fetchSemanticsNode().boundsInRoot
+            assertTrue(bounds.width / bounds.height in 0.249f..4.001f)
+            page.performClick().assertIsOff()
+        }
+    }
+
+    @Test
+    fun aLetterboxedPreviewIsRequestedAtTheWidthThePageActuallyShows() = runDesktopComposeUiTest(width = WIDTH, height = HEIGHT) {
+        val opened = ImportedFile("long.pdf", listOf(ImportedPageSize(1f, 100f), ImportedPageSize(100f, 1f)), Any())
+        val widths = ConcurrentHashMap<Int, Int>()
+        val service = object : FileImportService() {
+            override suspend fun chooseSource(): String? = null
+            override suspend fun open(source: String): ImportedFile = opened
+            override suspend fun preview(file: ImportedFile, index: Int, widthPx: Int): androidx.compose.ui.graphics.ImageBitmap? {
+                widths[index] = widthPx
+                return null
+            }
+            override suspend fun pagePicture(file: ImportedFile, index: Int): androidx.compose.ui.graphics.ImageBitmap? = null
+            override suspend fun objects(file: ImportedFile, pages: List<Int>, marks: Set<Mark>): List<CanvasPasteItem> = emptyList()
+            override fun release() = Unit
+        }
+        setDialog(open = { opened }, service = service)
+        waitUntil(timeoutMillis = WAIT_MS) { widths.size == 2 }
+
+        val tall = onNodeWithTag(ImportFileTags.page(0)).fetchSemanticsNode().boundsInRoot
+        val wide = onNodeWithTag(ImportFileTags.page(1)).fetchSemanticsNode().boundsInRoot
+        assertEquals(tall.width / 25f, widths.getValue(0).toFloat(), 1f)
+        assertEquals(wide.width, widths.getValue(1).toFloat(), 1f)
     }
 
     @Test

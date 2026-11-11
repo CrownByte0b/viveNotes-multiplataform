@@ -4,10 +4,12 @@ package com.vivenotes.fileimport.docx
 
 import com.vivenotes.fileimport.ImportedDocument
 import com.vivenotes.fileimport.ImportedPageSize
+import com.vivenotes.fileimport.FileImporter
 import com.vivenotes.model.Mark
 import com.vivenotes.richtext.CanvasPasteItem
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Canvas
+import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
@@ -15,6 +17,39 @@ import org.jetbrains.skia.Surface
 import java.io.Closeable
 import kotlin.math.max
 import kotlin.math.roundToInt
+
+/** The visible part of a picture, bounded to the attachment store's size, or null if it cannot be decoded. */
+internal fun croppedPicture(bytes: ByteArray, crop: WordCrop): ByteArray? {
+    val left = crop.left.coerceIn(0f, 1f)
+    val top = crop.top.coerceIn(0f, 1f)
+    val right = crop.right.coerceIn(0f, 1f)
+    val bottom = crop.bottom.coerceIn(0f, 1f)
+    if (left + right >= 1f || top + bottom >= 1f) return null
+    return runCatching {
+        Image.makeFromEncoded(bytes).use { source ->
+            val x = (source.width * left).roundToInt().coerceIn(0, source.width - 1)
+            val y = (source.height * top).roundToInt().coerceIn(0, source.height - 1)
+            val endX = (source.width * (1f - right)).roundToInt().coerceIn(x + 1, source.width)
+            val endY = (source.height * (1f - bottom)).roundToInt().coerceIn(y + 1, source.height)
+            val scale = minOf(1f, FileImporter.PICTURE_LONGEST_PX.toFloat() / max(endX - x, endY - y))
+            val width = ((endX - x) * scale).roundToInt().coerceAtLeast(1)
+            val height = ((endY - y) * scale).roundToInt().coerceAtLeast(1)
+            Surface.makeRasterN32Premul(width, height).use { surface ->
+                surface.canvas.drawImageRect(
+                    source,
+                    Rect.makeLTRB(x.toFloat(), y.toFloat(), endX.toFloat(), endY.toFloat()),
+                    Rect.makeWH(width.toFloat(), height.toFloat()),
+                    SamplingMode.MITCHELL,
+                    null,
+                    true,
+                )
+                surface.makeImageSnapshot().use { image ->
+                    image.encodeToData(EncodedImageFormat.PNG)?.use { it.bytes }
+                }
+            }
+        }
+    }.getOrNull()
+}
 
 /** The pictures inside the document, decoded when a page first needs them. */
 internal class DocxMedia(private val read: (String) -> ByteArray?) {
@@ -163,7 +198,7 @@ internal class DocxPages private constructor(
     /** What the chosen [pages] hold as canvas objects; see [WordObjects]. */
     override suspend fun items(pages: List<Int>, marks: Set<Mark>): List<CanvasPasteItem> {
         val pieces = pages.sorted().flatMap { index -> sheets.getOrNull(index)?.objectPieces().orEmpty() }
-        return WordObjects(document, marks, media::bytes).items(pieces)
+        return WordObjects(document, marks, media::bytes, ::croppedPicture).items(pieces)
     }
 
     override fun close() = source.close()

@@ -95,7 +95,8 @@ internal class PdfPages private constructor(
             },
         )
         val document = WordDocument(emptyList(), emptyMap(), emptyMap(), WordSettings())
-        return WordObjects(document, marks) { part -> figures[part]?.let { (page, box) -> figureBytes(page, box) } }.items(pieces)
+        val pictureBytes = { part: String -> figures[part]?.let { (page, box) -> figureBytes(page, box) } }
+        return WordObjects(document, marks, pictureBytes).items(pieces)
     }
 
     /** A sample spread through the file: what repeats on every page shows up in any of them. */
@@ -149,19 +150,26 @@ internal class PdfPages private constructor(
             }
         }
         settleMonospace(lines)
-        val scale = LAYOUT_PIXELS_PER_POINT
-        val image = drawn(
-            index,
-            (width * scale).roundToInt().coerceAtLeast(1),
-            (height * scale).roundToInt().coerceAtLeast(1),
-            scale,
-        )
-        val pixels = IntArray(image.width * image.height)
-        image.getRGB(0, 0, image.width, image.height, pixels, 0, image.width)
-        val raster = PdfRaster(pixels, image.width, image.height, scale)
-        readWordLooks(raster, lines)
-        // Masked including what is left out of the text, or a margin stamp would read as a figure.
-        return PdfPageInput(width, height, lines, readInk(raster, everyLine.flatMap { it.words })) { figure ->
+        // Pixel analysis costs about sixty bytes per square point; posters keep their text, or
+        // become one page picture when they contain no text, as scans do.
+        val ink = if (width * height > MAX_INSPECTED_PAGE_AREA) {
+            PdfInk(emptyList(), if (lines.isEmpty()) listOf(PdfRect(0f, 0f, width, height)) else emptyList())
+        } else {
+            val scale = LAYOUT_PIXELS_PER_POINT
+            val image = drawn(
+                index,
+                (width * scale).roundToInt().coerceAtLeast(1),
+                (height * scale).roundToInt().coerceAtLeast(1),
+                scale,
+            )
+            val pixels = IntArray(image.width * image.height)
+            image.getRGB(0, 0, image.width, image.height, pixels, 0, image.width)
+            val raster = PdfRaster(pixels, image.width, image.height, scale)
+            readWordLooks(raster, lines)
+            // Masked including what is left out of the text, or a margin stamp would read as a figure.
+            readInk(raster, everyLine.flatMap { it.words })
+        }
+        return PdfPageInput(width, height, lines, ink) { figure ->
             val part = "page-$index-figure-${figures.size}"
             figures[part] = index to figure
             part
@@ -226,6 +234,7 @@ internal class PdfPages private constructor(
 
         /** Two to the point: a hairline survives, and a page is still under 2 MP. */
         private const val LAYOUT_PIXELS_PER_POINT = 2f
+        private const val MAX_INSPECTED_PAGE_AREA = 1_100_000f
         private const val FIGURE_PIXELS_PER_POINT = 4f
         private const val FIGURE_LONGEST_PX = 2048f
         private const val FURNITURE_SAMPLE_PAGES = 24
