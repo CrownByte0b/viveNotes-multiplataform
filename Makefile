@@ -1,4 +1,4 @@
-VERSION=1.0.2-dev.0
+VERSION=1.2.0
 
 all:
 	echo "No default" $(VERSION)
