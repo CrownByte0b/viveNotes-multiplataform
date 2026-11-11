@@ -314,6 +314,7 @@ tasks.test {
         "shared/build.gradle.kts", "webApp/build.gradle.kts", "desktopApp/build.gradle.kts",
         "gradle/karma/managed-chromium.js", "gradle/karma/ink-engine.js",
         "gradle/browser-test-page.gradle.kts", "gradle/ink-engine.gradle.kts",
+        "gradle/onenote-converter.gradle.kts",
         "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js",
         "gradle/tests/dev-server-static.cjs", "webApp/webpack.config.d/dev-server.js"))
     inputs.file(rootProject.file("tools/lint/ResourceLint.java"))

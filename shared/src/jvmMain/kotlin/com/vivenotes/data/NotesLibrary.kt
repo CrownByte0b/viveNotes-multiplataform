@@ -88,7 +88,7 @@ class NotesLibrary private constructor(
                 repository = NotesRepository(database),
                 attachments = attachments,
                 transfers = NotebookTransferManager(database, attachments,
-                    File(cacheDirectory, NotebookTransferManager.DIRECTORY)),
+                    File(cacheDirectory, NotebookTransferManager.DIRECTORY), log = log),
                 backups = DatabaseBackupManager(database, File(directory, DatabaseBackupManager.DIRECTORY)),
                 log = log,
             )

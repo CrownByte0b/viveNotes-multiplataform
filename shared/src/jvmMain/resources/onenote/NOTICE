@@ -1,0 +1,5 @@
+OneNote import uses vive-converter (https://github.com/AquilaIgnis/vive-converter)
+and onenote.rs (https://github.com/msiemens/onenote.rs).
+
+The native converter and its parser are built from source. Their unmodified license
+files accompany the library under onenote/licenses/ in the shared JVM jar.

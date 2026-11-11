@@ -8,6 +8,9 @@ on:
       - .github/workflows/windows-msi.yml
       - packaging/windows/**
       - desktopApp/build.gradle.kts
+      - shared/**
+      - gradle/onenote-converter.gradle.kts
+      - .github/actions/one-note-converter/**
       - gradle.properties
       - gradle/libs.versions.toml
 concurrency:
@@ -43,6 +46,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           version: 0.12.19
+      - uses: ./.github/actions/one-note-converter
       - name: Install WiX
         run: |
           choco install wixtoolset --version=3.14.1 --no-progress --yes --allow-downgrade

@@ -463,7 +463,45 @@ class AppTest {
         }
     }
 
-    /** `.vive` files at one fixed path: the dialogs answered, the real transfer behind them. */
+    @Test
+    fun aOneNotePackageImportedFromTheFileTabKeepsItsPagesAndPictureAfterReopen() {
+        val source = File(directory, "Biology.onepkg").apply {
+            writeBytes(checkNotNull(this@AppTest.javaClass.getResourceAsStream("/onenote/notebook.onepkg")).use { it.readBytes() })
+        }
+        val data = File(directory, "onenote-library")
+        NotesLibrary.open(data).use { library ->
+            runDesktopComposeUiTest(width = 1400, height = 900) {
+                val app = showApp(library.repository, FileNotebookFiles(library.transfers, source))
+                awaitOpenPage()
+                onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.File)).performClick()
+                onNodeWithTag(FileRibbonTags.Import).performClick()
+                onNodeWithTag(FileRibbonTags.ImportNotebook).performClick()
+                waitUntil(timeoutMillis = 10_000) {
+                    app.session.state.value?.notebookTransfer?.message != null
+                }
+                onNodeWithTag(FileRibbonTags.TransferDialog).assertTextContains(
+                    "Biology was imported from OneNote. 1 item was left out:\n• Omitted an embedded file inside an outline",
+                )
+                assertEquals("Test Page 2", app.session.state.value!!.selectedPage!!.title)
+                assertEquals("Biology", app.session.state.value!!.selectedNotebook!!.name)
+                onNodeWithTag(FileRibbonTags.TransferOk).performClick()
+                onNodeWithTag(WorkspaceTestTags.TitleEditor).assertTextContains("Test Page 2")
+                app.close()
+            }
+        }
+        NotesLibrary.open(data).use { library ->
+            runBlocking {
+                val notebook = library.repository.observeTree().first().single { it.notebook.name == "Biology" }
+                assertEquals(listOf("New Section 1", "New Section 2"), notebook.liveSections.map { it.name })
+                assertEquals(listOf(listOf("Test Page 2"), listOf("Test Page 3", "Test Page 4")),
+                    notebook.liveSections.map { section -> library.repository.observePages(section.id).first().map { it.title } })
+                val attachment = library.database.attachmentDao().all().single()
+                assertTrue(library.attachments.fileFor(attachment.id)?.isFile == true)
+            }
+        }
+    }
+
+    /** Notebook files at one fixed path: the dialogs answered, the real transfer behind them. */
     private class FileNotebookFiles(private val transfers: NotebookTransferManager, private val file: File) : NotebookFiles {
         val suggestedNames = mutableListOf<String>()
         override suspend fun chooseExportDestination(suggestedName: String): String {
@@ -473,7 +511,7 @@ class AppTest {
         override suspend fun chooseImportSource(): String = file.path
         override suspend fun export(notebookId: String, destination: String) =
             transfers.exportNotebook(notebookId, File(destination))
-        override suspend fun import(source: String) = transfers.importNotebook(File(source))
+        override suspend fun import(source: String, onConverting: suspend () -> Unit) = transfers.importNotebook(File(source), onConverting)
     }
 
     private class ShownApp(val test: ComposeUiTest, val scope: CoroutineScope, val session: WorkspaceSession) {

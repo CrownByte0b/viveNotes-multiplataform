@@ -53,7 +53,10 @@ internal fun NotebookTransferDialog(state: NotebookTransferState, onDismiss: () 
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                    Text(Strings.checking_and_preparing_the_notebook, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        if (state.converting) Strings.transfer_converting_onenote else Strings.checking_and_preparing_the_notebook,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             } else {
                 Text(state.error ?: state.message.orEmpty(), style = MaterialTheme.typography.bodyMedium,

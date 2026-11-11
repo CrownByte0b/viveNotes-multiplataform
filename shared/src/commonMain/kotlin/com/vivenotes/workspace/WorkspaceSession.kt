@@ -15,12 +15,14 @@ import com.vivenotes.data.db.PageEntity
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.model.PageDoc
 import com.vivenotes.model.ink.InkPage
+import com.vivenotes.ui.ribbon.file.oneNoteImportMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +33,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * A [WorkspaceState] kept in step with a [NotesStore].
@@ -599,7 +602,12 @@ class WorkspaceSession(
                     return@enqueue
                 }
                 val result = try {
-                    files.import(source)
+                    val sessionContext = currentCoroutineContext()
+                    files.import(source) {
+                        withContext(sessionContext) {
+                            update { it.copy(notebookTransfer = NotebookTransferState(running = true, converting = true)) }
+                        }
+                    }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
@@ -613,7 +621,9 @@ class WorkspaceSession(
                 }
                 openImported(result)
                 log.event("transfer") { "import complete" }
-                val message = when {
+                val message = result.oneNote?.let { conversion ->
+                    oneNoteImportMessage(result.notebookName, conversion.warnings)
+                } ?: when {
                     result.created -> Strings.value_was_imported(result.notebookName)
                     result.restored -> Strings.value_was_restored_from_the_vive_notebook(result.notebookName)
                     else -> Strings.value_was_updated_from_the_vive_notebook(result.notebookName)

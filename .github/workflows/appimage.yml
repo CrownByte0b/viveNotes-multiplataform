@@ -27,6 +27,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           version: 0.12.19
+      - uses: ./.github/actions/one-note-converter
       - name: Install packaging tools
         run: |
           sudo apt-get update

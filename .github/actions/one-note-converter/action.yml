@@ -1,0 +1,23 @@
+name: Set up the desktop OneNote converter
+description: Check out pinned converter sources and their parser for the JNI library build
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v7
+      with:
+        repository: AquilaIgnis/vive-converter
+        ref: 1f660e2a09ab577894dbf97d8352902b410a36e9
+        path: .gradle/onenote/vive-converter
+        persist-credentials: false
+    - uses: actions/checkout@v7
+      with:
+        repository: msiemens/onenote.rs
+        ref: fa4d7a044324af3bfe68727704a9789a08b36a3c
+        path: .gradle/onenote/onenote.rs
+        persist-credentials: false
+    - name: Select stable Rust
+      shell: bash
+      run: |
+        rustup toolchain install stable --profile minimal
+        rustup default stable
+        echo "ORG_GRADLE_PROJECT_viveConverterDir=$GITHUB_WORKSPACE/.gradle/onenote/vive-converter" >> "$GITHUB_ENV"

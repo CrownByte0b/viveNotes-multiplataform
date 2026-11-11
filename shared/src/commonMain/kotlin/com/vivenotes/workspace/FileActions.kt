@@ -69,6 +69,7 @@ interface FileActions {
  */
 data class NotebookTransferState(
     val running: Boolean = false,
+    val converting: Boolean = false,
     val message: String? = null,
     val error: String? = null,
 ) {

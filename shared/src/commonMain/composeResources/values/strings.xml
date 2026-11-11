@@ -1260,4 +1260,15 @@
     <string name="import_file_too_large">This file is too large to import.</string>
     <string name="import_file_unreadable">This file could not be read.</string>
     <string name="import_file_insert_failed">The pages could not be placed on this page.</string>
+    <string name="transfer_converting_onenote">Converting the OneNote notebook…</string>
+    <string name="onenote_imported">%1$s was imported from OneNote.</string>
+    <string name="onenote_one_item_omitted">1 item was left out:</string>
+    <string name="onenote_items_omitted">%1$d items were left out:</string>
+    <string name="onenote_default_name">OneNote notebook</string>
+    <string name="onenote_converter_unavailable">This file is not a .vive notebook, and this build of ViveNotes cannot convert OneNote files.</string>
+    <string name="onenote_table_of_contents">This is a OneNote table of contents (.onetoc2), which only lists the section files kept beside it. In OneNote, export the notebook as a .onepkg file and import that.</string>
+    <string name="onenote_unreadable">This file is neither a .vive notebook nor a OneNote notebook or section that ViveNotes can read.</string>
+    <string name="onenote_no_sections">This OneNote file has no sections to import.</string>
+    <string name="onenote_conversion_failed">The OneNote notebook could not be converted.</string>
+    <string name="onenote_validation_failed">The OneNote notebook was converted, but the result did not pass the import checks.</string>
 </resources>

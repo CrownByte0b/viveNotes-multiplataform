@@ -45,6 +45,7 @@ jobs:
           cache-provider: basic
       # The math engine's tests have uv install the pinned CPython and SymPy; without uv they skip.
       - uses: astral-sh/setup-uv@v7
+      - uses: ./.github/actions/one-note-converter
       # Window class, popup and touch tests skip without a display.
       - name: Install Linux graphics build and test dependencies
         if: runner.os == 'Linux'

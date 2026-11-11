@@ -28,6 +28,10 @@ import com.vivenotes.data.db.PageEntity
 import com.vivenotes.data.db.PageRevisionEntity
 import com.vivenotes.data.db.SectionEntity
 import com.vivenotes.data.db.deferredNotebookContentKey
+import com.vivenotes.data.onenote.OneNoteConversion
+import com.vivenotes.data.onenote.OneNoteConversionException
+import com.vivenotes.data.onenote.OneNoteConverter
+import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.ink.InkCodec
 import com.vivenotes.model.DocumentCodecs
 import com.vivenotes.model.Outline
@@ -35,7 +39,10 @@ import com.vivenotes.model.PageDoc
 import com.vivenotes.model.migrated
 import com.vivenotes.model.newId
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -78,6 +85,7 @@ class NotebookTransferManager(
     private val transferRoot: File,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val log: DebugLog = DebugLog(),
 ) {
     private val mutex = Mutex()
 
@@ -92,14 +100,14 @@ class NotebookTransferManager(
             }
         }
 
-    suspend fun importNotebook(source: File): NotebookImportResult = mutex.withLock {
+    suspend fun importNotebook(source: File, onConverting: suspend () -> Unit = {}): NotebookImportResult = mutex.withLock {
         withContext(io) {
             val input = try {
                 FileInputStream(source)
             } catch (failure: IOException) {
                 throw NotebookTransferException(Strings.the_selected_notebook_file_could_not_be_opened, failure)
             }
-            input.use { importNotebookLocked(it) }
+            input.use { importNotebookLocked(it, source.name, onConverting) }
         }
     }
 
@@ -115,8 +123,13 @@ class NotebookTransferManager(
         }
 
     /** Test seam which still stages and validates every byte before importing. */
-    internal suspend fun importNotebook(input: InputStream): NotebookImportResult =
-        mutex.withLock { withContext(io) { importNotebookLocked(input) } }
+    internal suspend fun importNotebook(
+        input: InputStream,
+        fileName: String? = null,
+        onConverting: suspend () -> Unit = {},
+    ): NotebookImportResult = mutex.withLock {
+        withContext(io) { importNotebookLocked(input, fileName, onConverting) }
+    }
 
     private suspend fun exportNotebookLocked(
         notebookId: String,
@@ -186,22 +199,72 @@ class NotebookTransferManager(
         }
     }
 
-    private suspend fun importNotebookLocked(input: InputStream): NotebookImportResult {
+    private suspend fun importNotebookLocked(
+        input: InputStream,
+        fileName: String?,
+        onConverting: suspend () -> Unit,
+    ): NotebookImportResult {
         val root = freshDirectory("import")
+        var converted = false
         try {
-            val archive = File(root, "incoming.vive")
-            FileOutputStream(archive).use { output ->
+            val incoming = File(root, "incoming")
+            FileOutputStream(incoming).use { output ->
                 input.copyBounded(output, MAX_ARCHIVE_BYTES, Strings.the_notebook_file_is_too_large)
             }
+            if (isVive(FileInputStream(incoming).use { it.readNBytes(VIVE_SIGNATURE.size) })) {
+                return install(validateArchive(incoming, root))
+            }
+            onConverting()
+            currentCoroutineContext().ensureActive()
+            val archive = File(root, "converted$VIVE_EXTENSION")
+            val conversion = convertOneNote(incoming, fileName, archive)
+            converted = true
+            // JNI conversion cannot be interrupted; a cancelled operation must not install afterward.
+            currentCoroutineContext().ensureActive()
+            incoming.delete()
             val validated = validateArchive(archive, root)
-            return install(validated)
+            return install(validated).copy(oneNote = conversion)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (failure: NotebookTransferException) {
             throw failure
         } catch (failure: Throwable) {
-            throw NotebookTransferException(Strings.this_vive_file_is_damaged_or_unsafe_and_was_not_imported, failure)
+            throw NotebookTransferException(
+                if (converted) Strings.onenote_validation_failed else Strings.this_vive_file_is_damaged_or_unsafe_and_was_not_imported,
+                failure,
+            )
         } finally {
             root.deleteRecursively()
         }
+    }
+
+    private fun convertOneNote(input: File, fileName: String?, output: File): OneNoteConversion {
+        if (!OneNoteConverter.available) {
+            log.event("transfer") { "OneNote converter unavailable" }
+            fail(Strings.onenote_converter_unavailable)
+        }
+        val name = fileName?.takeIf(String::isNotBlank) ?: Strings.onenote_default_name
+        val started = System.nanoTime()
+        val conversion = try {
+            OneNoteConverter.toBundle(input, name, seed = newId(), output = output)
+        } catch (refused: OneNoteConversionException) {
+            log.event("transfer") { "OneNote conversion refused: ${refused.reason}" }
+            fail(when (refused.reason) {
+                OneNoteConversionException.Reason.TableOfContents -> Strings.onenote_table_of_contents
+                OneNoteConversionException.Reason.Unreadable -> Strings.onenote_unreadable
+                OneNoteConversionException.Reason.NoSections -> Strings.onenote_no_sections
+                OneNoteConversionException.Reason.Failed -> Strings.onenote_conversion_failed
+            }, refused)
+        } catch (failure: Throwable) {
+            log.event("transfer") { "OneNote conversion failed: ${failure::class.simpleName}" }
+            fail(Strings.onenote_conversion_failed, failure)
+        }
+        log.event("transfer") {
+            "converted OneNote in ${(System.nanoTime() - started) / 1_000_000} ms: " +
+                "${conversion.sections} sections, ${conversion.pages} pages, ${conversion.strokes} strokes, " +
+                "${conversion.attachments} pictures, ${conversion.warnings.size} omissions, ${output.length()} bytes"
+        }
+        return conversion
     }
 
     /** Copy only this notebook under a source read snapshot; custom/in-memory stores use a full copy. */
@@ -1262,6 +1325,11 @@ class NotebookTransferManager(
 
         /** Where the staging directories live, inside the platform cache directory. */
         const val DIRECTORY = "notebook_transfers"
+
+        internal fun isVive(head: ByteArray): Boolean =
+            head.size >= VIVE_SIGNATURE.size && VIVE_SIGNATURE.indices.all { head[it] == VIVE_SIGNATURE[it] }
+
+        private val VIVE_SIGNATURE = byteArrayOf(0x50, 0x4B)
 
         /** `HierarchySync.SyncKind.Notebook.wire` on Android. */
         private const val SYNC_KIND_NOTEBOOK = "notebook"

@@ -4,6 +4,8 @@ import com.vivenotes.data.NotesLibrary
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import java.awt.FileDialog
+import java.awt.Frame
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -16,6 +18,21 @@ class DesktopNotebookFilesTest {
 
     private val directory: File = Files.createTempDirectory("desktop-notebook-files").toFile()
     private val library = NotesLibrary.open(File(directory, "notes"), cacheDirectory = File(directory, "cache"))
+
+    @Test
+    fun theNativePickerOffersOneNoteFilesAndRetainsViveFilesOnLinuxAndWindows() {
+        for (windows in listOf(false, true)) {
+            val dialog = FileDialog(null as Frame?, "Import", FileDialog.LOAD)
+            try {
+                configureNotebookImportDialog(dialog, windows)
+                for (name in listOf("Notes.vive", "Notes.ONEPKG", "Section.one", "Open Notebook.onetoc2")) {
+                    assertTrue(dialog.filenameFilter.accept(directory, name), name)
+                }
+                assertTrue(!dialog.filenameFilter.accept(directory, "paper.pdf"))
+                if (windows) assertEquals("*.vive;*.onepkg;*.one;*.onetoc2", dialog.file)
+            } finally { dialog.dispose() }
+        }
+    }
 
     @AfterTest
     fun tearDown() {

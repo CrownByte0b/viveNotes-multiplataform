@@ -243,6 +243,7 @@ kotlin {
 }
 
 apply(from = rootProject.file("gradle/browser-test-page.gradle.kts"))
+apply(from = rootProject.file("gradle/onenote-converter.gradle.kts"))
 
 // The browser distributions build here for checks, but the page is :webApp's. A dev server of this
 // module would only list folders, and `./gradlew wasmJsBrowserDevelopmentRun` would race it against

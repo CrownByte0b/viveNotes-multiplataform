@@ -6,6 +6,7 @@ import com.vivenotes.data.NotebookFiles
 import com.vivenotes.data.NotebookImportResult
 import com.vivenotes.data.NotebookTransferManager
 import com.vivenotes.data.VIVE_EXTENSION
+import com.vivenotes.data.NOTEBOOK_IMPORT_EXTENSIONS
 import kotlinx.coroutines.withContext
 import java.awt.FileDialog
 import java.awt.Frame
@@ -38,7 +39,8 @@ internal class DesktopNotebookFiles(
     override suspend fun export(notebookId: String, destination: String): NotebookExportResult =
         transfers.exportNotebook(notebookId, File(destination))
 
-    override suspend fun import(source: String): NotebookImportResult = transfers.importNotebook(File(source))
+    override suspend fun import(source: String, onConverting: suspend () -> Unit): NotebookImportResult =
+        transfers.importNotebook(File(source), onConverting)
 }
 
 /**
@@ -64,14 +66,18 @@ internal fun chooseNotebookDestination(owner: Frame?, suggestedName: String, dir
         dialog.file = suggestedName
     }
 
-/** Asks for a `.vive` file to import. */
+/** Asks for a ViveNotes or OneNote notebook. */
 internal fun chooseNotebookSource(owner: Frame?, directory: File?): File? =
-    if (FlatpakFileDialogs.enabled) FlatpakFileDialogs.choose(Strings.import_notebook, listOf("vive"))
+    if (FlatpakFileDialogs.enabled) FlatpakFileDialogs.choose(Strings.import_notebook, NOTEBOOK_IMPORT_EXTENSIONS)
     else showNotebookDialog(FileDialog(owner, Strings.import_notebook, FileDialog.LOAD), directory) { dialog ->
-        dialog.isMultipleMode = false
-        // Windows ignores filename filters but reads a pattern list from the file name field.
-        if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) dialog.file = "*$VIVE_EXTENSION"
+        configureNotebookImportDialog(dialog, System.getProperty("os.name").startsWith("Windows", ignoreCase = true))
     }
+
+internal fun configureNotebookImportDialog(dialog: FileDialog, windows: Boolean) {
+    dialog.isMultipleMode = false
+    dialog.setFilenameFilter { _, name -> NOTEBOOK_IMPORT_EXTENSIONS.any { name.endsWith(".$it", ignoreCase = true) } }
+    if (windows) dialog.file = NOTEBOOK_IMPORT_EXTENSIONS.joinToString(";") { "*.$it" }
+}
 
 private fun showNotebookDialog(dialog: FileDialog, directory: File?, configure: (FileDialog) -> Unit): File? {
     dialog.directory = (directory ?: File(System.getProperty("user.home"))).path

@@ -333,6 +333,28 @@ class FileTabTest {
         runOnIdle { assertEquals(listOf("dismiss"), calls) }
     }
 
+    @Test
+    fun aOneNoteConversionShowsItsProgressAndKeepsTheWorkspaceModal() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
+            notebookTransfer = NotebookTransferState(running = true, converting = true)))
+        onNodeWithText("Converting the OneNote notebook…").fetchSemanticsNode()
+        assertTrue(onAllNodesWithTag(FileRibbonTags.TransferOk).fetchSemanticsNodes().isEmpty())
+        onNodeWithTag(FileRibbonTags.Import).assertIsNotEnabled()
+        onRoot().performKeyInput { keyDown(Key.Escape); keyUp(Key.Escape) }
+        onNodeWithTag(FileRibbonTags.TransferBackdrop).performClick()
+        runOnIdle { assertTrue(calls.isEmpty()) }
+    }
+
+    @Test
+    fun aOneNoteImportShowsItsOmissionsUntilOk() = runDesktopComposeUiTest(width = 2000, height = 900) {
+        val message = "Biology was imported from OneNote. 2 items were left out:\n• Omitted an embedded file (2×)"
+        setWorkspace(WorkspaceState.demo().copy(activeTab = RibbonTab.File,
+            notebookTransfer = NotebookTransferState(message = message)))
+        onNodeWithText(message).fetchSemanticsNode()
+        onNodeWithTag(FileRibbonTags.TransferOk).performClick()
+        runOnIdle { assertEquals(listOf("dismiss"), calls) }
+    }
+
     /**
      * When the transfer ends, the progress row that held the keyboard goes; OK takes it over, and
      * the workspace's own fallback must not take it from OK — Esc and Enter belong to the dialog.

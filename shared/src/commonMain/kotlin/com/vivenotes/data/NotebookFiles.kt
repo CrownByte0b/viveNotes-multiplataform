@@ -1,6 +1,7 @@
 package com.vivenotes.data
 
 import com.vivenotes.localization.Strings
+import com.vivenotes.data.onenote.OneNoteConversion
 
 /** A successfully imported notebook copy and where the UI should navigate afterward. */
 data class NotebookImportResult(
@@ -11,6 +12,8 @@ data class NotebookImportResult(
     val created: Boolean,
     /** At least one live notebook, section, or page in the archive replaced a local tombstone. */
     val restored: Boolean,
+    /** Set when the file was OneNote's, converted on the way in. */
+    val oneNote: OneNoteConversion? = null,
 )
 
 data class NotebookExportResult(val notebookName: String, val byteCount: Long)
@@ -32,15 +35,18 @@ interface NotebookFiles {
      */
     suspend fun chooseExportDestination(suggestedName: String): String?
 
-    /** Asks for a `.vive` file to import. Null when the user cancels. */
+    /** Asks for a `.vive`, `.onepkg`, `.one` or `.onetoc2` file. Null when the user cancels. */
     suspend fun chooseImportSource(): String?
 
     /** Writes the notebook [notebookId] to [destination]; a failure's message is for the user. */
     suspend fun export(notebookId: String, destination: String): NotebookExportResult
 
-    /** Checks the file at [source] completely, then restores the notebook it holds. */
-    suspend fun import(source: String): NotebookImportResult
+    /** Checks the file completely, converting OneNote first and reporting that slower step. */
+    suspend fun import(source: String, onConverting: suspend () -> Unit = {}): NotebookImportResult
 }
+
+/** Notebook picker extensions, including table-of-contents files so their export advice is reachable. */
+val NOTEBOOK_IMPORT_EXTENSIONS: List<String> = listOf("vive", "onepkg", "one", "onetoc2")
 
 /** A notebook file's extension, as Android's `NotebookTransferManager.EXTENSION`. */
 const val VIVE_EXTENSION = ".vive"

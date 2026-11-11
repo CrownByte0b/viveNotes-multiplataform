@@ -38,6 +38,43 @@ class NotebookTransferSessionTest {
     private val archived = typed("limits, as archived")
 
     @Test
+    fun aOneNoteImportReportsConversionThenOpensItsNotebookAndListsOmissions() = runTest {
+        val session = started()
+        files.converting = true
+        files.gate = CompletableDeferred()
+        files.onImport = {
+            val imported = store.notebook("Biology", "Cells" to listOf("Lecture" to typed("cell notes"))).single()
+            NotebookImportResult("biology", "Biology", imported, store.pageIdsIn(imported).single(),
+                created = true, restored = false,
+                oneNote = com.vivenotes.data.onenote.OneNoteConversion(1, 1, 0, 0, listOf("omitted an embedded file")))
+        }
+        session.fileActions(files).importNotebook()
+        runCurrent()
+        assertEquals(NotebookTransferState(running = true, converting = true), session.state.value!!.notebookTransfer)
+        session.fileActions(files).dismissTransfer()
+        assertTrue(session.state.value!!.notebookTransfer.converting)
+
+        files.gate!!.complete(Unit)
+        runCurrent()
+        val state = session.state.value!!
+        assertEquals("Lecture", state.selectedPage!!.title)
+        assertEquals("cell notes", state.selectedPage!!.body)
+        assertEquals(NotebookTransferState(message = "Biology was imported from OneNote. 1 item was left out:\n" +
+            "• Omitted an embedded file"), state.notebookTransfer)
+    }
+
+    @Test
+    fun aFailedOneNoteConversionClearsProgressAndKeepsTheOpenPage() = runTest {
+        val session = started()
+        files.converting = true
+        files.failure = IllegalStateException("The OneNote notebook could not be converted.")
+        session.fileActions(files).importNotebook()
+        runCurrent()
+        assertEquals(limits, session.state.value!!.selectedPageId)
+        assertEquals(NotebookTransferState(error = files.failure!!.message), session.state.value!!.notebookTransfer)
+    }
+
+    @Test
     fun exportOffersTheNotebooksNameSavesTheOpenPageThenWritesThatNotebook() = runTest {
         val session = started()
         session.type("limits, rewritten")

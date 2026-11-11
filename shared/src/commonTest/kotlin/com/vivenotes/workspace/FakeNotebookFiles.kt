@@ -30,6 +30,7 @@ class FakeNotebookFiles(private val store: FakeNotesStore) : NotebookFiles {
 
     /** Holds the transfer itself until completed, so what the workspace does meanwhile can be seen. */
     var gate: CompletableDeferred<Unit>? = null
+    var converting: Boolean = false
 
     /** What an import does to storage, and what it reports. */
     var onImport: suspend () -> NotebookImportResult = { error("no import was set up") }
@@ -49,7 +50,8 @@ class FakeNotebookFiles(private val store: FakeNotesStore) : NotebookFiles {
         return NotebookExportResult(exportedName, 4_096)
     }
 
-    override suspend fun import(source: String): NotebookImportResult {
+    override suspend fun import(source: String, onConverting: suspend () -> Unit): NotebookImportResult {
+        if (converting) onConverting()
         gate?.await()
         failure?.let { throw it }
         writesAtTransfer = store.writes.toList()
