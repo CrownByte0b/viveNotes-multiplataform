@@ -94,6 +94,7 @@ import com.vivenotes.ui.canvas.InkSelectionToolkit
 import com.vivenotes.ui.canvas.InsertCursorBadge
 import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.ui.canvas.LocalObjectGrab
+import com.vivenotes.ui.canvas.ObjectContextMenu
 import com.vivenotes.ui.canvas.ObjectGrab
 import com.vivenotes.ui.canvas.PageExtent
 import com.vivenotes.ui.canvas.PreviewLayout
@@ -125,6 +126,7 @@ import com.vivenotes.ui.ribbon.draw.*
 import com.vivenotes.workspace.CanvasViewport
 import com.vivenotes.workspace.InkPenSettings
 import com.vivenotes.workspace.InkTool
+import com.vivenotes.workspace.ObjectCommand
 import com.vivenotes.workspace.PageContent
 import com.vivenotes.workspace.RulerKind
 import com.vivenotes.workspace.TableEdit
@@ -192,6 +194,8 @@ internal fun PageCanvas(
     onResizeObjects: (Float, Float, Float, Float, Boolean) -> Unit,
     onCopyObjects: () -> Unit,
     onDeleteObjects: () -> Unit,
+    /** The prime object right-click menu's commands: on what is selected, or on this one object. */
+    onObjectCommand: (ObjectCommand, String?) -> Unit = { _, _ -> },
     onToggleObjectLock: () -> Unit,
     onColorObjects: (Int, Boolean) -> Unit,
     onShapeLineType: (LineType) -> Unit,
@@ -564,6 +568,18 @@ internal fun PageCanvas(
         }
     }
 
+    /**
+     * The prime object menu at page [point]: on object [objectId], which a right-click selects as a
+     * click would unless it is already selected, or with null on the selection, whose frame it was in.
+     */
+    fun openObjectMenu(objectId: String?, point: Offset) {
+        focusManager.clearFocus()
+        canvasFocusRequester.requestFocus()
+        if (objectId != null && objectId !in currentState.selectedObjectIds) onSelectObject(objectId)
+        interaction.pastePoint = null
+        interaction.objectMenu = point
+    }
+
     fun showsMoveBar(box: Outline.Text, snapshot: WorkspaceState): Boolean =
         snapshot.textBoxMoveBarMode(box).shows(hovered = interaction.hoveredTextBox == box.id)
 
@@ -731,6 +747,7 @@ internal fun PageCanvas(
                                 currentClearCanvasFocus()
                                 focusManager.clearFocus()
                                 canvasFocusRequester.requestFocus()
+                                interaction.objectMenu = null
                                 interaction.pastePoint = point.takeIf { canvasClipboard.canPaste() }
                                 event.changes.forEach { it.consume() }
                                 continue
@@ -916,7 +933,9 @@ internal fun PageCanvas(
                         onBodyChange = onBodyChange,
                         onTextShortcut = onTextShortcut,
                         onMoveShapeEnd = onMoveShapeEnd,
-                        onMoveShapeArm = onMoveShapeArm
+                        onMoveShapeArm = onMoveShapeArm,
+                        onObjectMenu = ::openObjectMenu,
+                        onObjectCommand = onObjectCommand,
                     )
                     val inkEnabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy
                     InkLayer(page.ink, canvasSize, shapeInk, visibleWindow, page.id,
@@ -946,7 +965,8 @@ internal fun PageCanvas(
                         measuredTextHeights = measuredTextHeights,
                         canvasFocusRequester = canvasFocusRequester,
                         onMoveSelection = onMoveSelection,
-                        onResizeObjects = onResizeObjects
+                        onResizeObjects = onResizeObjects,
+                        onSelectionMenu = { point -> openObjectMenu(null, point) },
                     )
                     CanvasObjectToolkit(
                         state = state,
@@ -1031,6 +1051,21 @@ internal fun PageCanvas(
                     interaction.pastePoint = null
                 }, modifier = Modifier.testTag(WorkspaceTestTags.CanvasPaste))
         }
+        // Nothing left to act on — an undo, or the objects gone in a sync — closes it for good, so a
+        // later selection does not bring it back.
+        if (interaction.objectMenu != null && !state.hasObjectSelection) SideEffect { interaction.objectMenu = null }
+        ObjectContextMenu(
+            anchor = interaction.objectMenu?.takeIf { state.hasObjectSelection }?.let { point ->
+                Offset(point.x * zoom * density.density - horizontalScroll.value,
+                    point.y * zoom * density.density - verticalScroll.value)
+            },
+            editable = page.editable,
+            onCommand = { command ->
+                interaction.objectMenu = null
+                onObjectCommand(command, null)
+            },
+            onDismiss = { interaction.objectMenu = null },
+        )
         if (state.selectedInk == null) SideEffect { interaction.inkToolkitBoundsInView = null }
         if (page.content == PageContent.Unreadable) {
             StatusBanner(

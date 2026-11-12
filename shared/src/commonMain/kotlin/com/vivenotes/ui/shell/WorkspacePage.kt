@@ -34,7 +34,9 @@ import com.vivenotes.ui.ribbon.draw.GraphableFormulas
 import com.vivenotes.ui.ribbon.draw.DrawMath
 import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.ViewSettings
+import com.vivenotes.workspace.ObjectCommand
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.runObjectCommand
 import com.vivenotes.workspace.applyPreparedInkGeometry
 import com.vivenotes.ui.canvas.LocalInkGeometryPublisher
 import com.vivenotes.ui.canvas.LocalClipboardHtml
@@ -208,6 +210,12 @@ internal fun WorkspacePage(
             (clipboardHtml as? CanvasClipboardSource)?.markInternalCopy()
         },
         onDeleteObjects = { onStateChange { it.deleteSelectedObjects() } },
+        onObjectCommand = { command, objectId ->
+            debugLog.event("objects") { "menu ${command.name.lowercase()}" + if (objectId != null) " table" else "" }
+            onStateChange { it.runObjectCommand(command, objectId) }
+            // As the toolkit's Copy and Ctrl+X do: the system clipboard says the objects are ours now.
+            if (command != ObjectCommand.Delete) (clipboardHtml as? CanvasClipboardSource)?.markInternalCopy()
+        },
         onToggleObjectLock = { onStateChange { it.toggleObjectLock() } },
         onColorObjects = { argb, followsTheme -> onStateChange { it.colorSelectedObjects(argb, followsTheme) } },
         onShapeLineType = { type -> onStateChange { it.setSelectedShapeLineType(type) } },

@@ -26,6 +26,8 @@ internal class CanvasInteractionState(
     val viewportPxState: MutableState<IntSize>,
     val pendingViewportState: MutableState<CanvasViewport?>,
     val pastePointState: MutableState<Offset?>,
+    /** Where the prime object right-click menu is open, in page dp; null while it is closed. */
+    val objectMenuState: MutableState<Offset?>,
     val rulerPlacementState: MutableState<Ruler?>,
     val lassoPath: LassoPathBuffer,
     val lassoState: MutableState<Pair<Offset, Offset>?>,
@@ -49,6 +51,7 @@ internal class CanvasInteractionState(
     var viewportPx by viewportPxState
     var pendingViewport by pendingViewportState
     var pastePoint by pastePointState
+    var objectMenu by objectMenuState
     var rulerPlacement by rulerPlacementState
     var lasso by lassoState
     var inkDragOffset by inkDragOffsetState
@@ -74,6 +77,7 @@ internal fun rememberCanvasInteractionState(page: PageSummary?, state: Workspace
     val viewportPxState = remember { mutableStateOf(IntSize.Zero) }
     val pendingViewportState = remember(page?.id) { mutableStateOf<CanvasViewport?>(null) }
     val pastePointState = remember(page?.id) { mutableStateOf<Offset?>(null) }
+    val objectMenuState = remember(page?.id) { mutableStateOf<Offset?>(null) }
     val rulerPlacementState = remember(page?.id, state.rulerVisible) { mutableStateOf<Ruler?>(null) }
     val lassoPathState = remember(page?.id, state.objectLassoArmed, zoom) { LassoPathBuffer() }
     val lassoState = remember(page?.id) { mutableStateOf<Pair<Offset, Offset>?>(null) }
@@ -97,6 +101,7 @@ internal fun rememberCanvasInteractionState(page: PageSummary?, state: Workspace
         viewportPxState,
         pendingViewportState,
         pastePointState,
+        objectMenuState,
         rulerPlacementState,
         lassoPathState,
         lassoState,

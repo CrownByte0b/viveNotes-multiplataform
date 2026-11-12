@@ -48,6 +48,7 @@ import com.vivenotes.model.ink.ShapeAxis
 import com.vivenotes.model.ink.arms
 import com.vivenotes.model.ink.ends
 import com.vivenotes.ui.canvas.LocalObjectGrab
+import com.vivenotes.ui.canvas.LocalWordSelectionActions
 import com.vivenotes.ui.canvas.PictureAsset
 import com.vivenotes.ui.search.PictureSearchOverlay
 import com.vivenotes.ui.canvas.PictureContent
@@ -55,8 +56,10 @@ import com.vivenotes.ui.canvas.RichTextColors
 import com.vivenotes.ui.canvas.detectObjectDrag
 import com.vivenotes.ui.canvas.drawDocumentShape
 import com.vivenotes.ui.canvas.primeResizePointer
+import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.ribbon.draw.*
 import com.vivenotes.workspace.TABLE_GUTTER
+import com.vivenotes.workspace.ObjectCommand
 import com.vivenotes.workspace.TableEdit
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.isPrimeObject
@@ -100,6 +103,10 @@ internal fun CanvasPrimeObjects(
     onGraphParameter: (String, Int, Double) -> Unit = { _, _, _ -> },
     /** A slider's name clicked: the graph whose Sliders dialog opens. */
     onEditGraphSliders: (String) -> Unit = {},
+    /** A right-click (a held finger) on an object, at this page point: its menu, `diagram.md`'s. */
+    onObjectMenu: (String, Offset) -> Unit = { _, _ -> },
+    /** Cut, Copy or Delete of this table, from the menu of one of its cells. */
+    onObjectCommand: (ObjectCommand, String) -> Unit = { _, _ -> },
 ) {
     val highlights = com.vivenotes.ui.search.rememberImageSearchHighlights(pictureHighlights, searchImageFocus)
     val density = LocalDensity.current
@@ -108,6 +115,8 @@ internal fun CanvasPrimeObjects(
     val grab = LocalObjectGrab.current
     val currentSelectObject by rememberUpdatedState(onSelectObject)
     val currentResizeObjects by rememberUpdatedState(onResizeObjects)
+    val currentObjectMenu by rememberUpdatedState(onObjectMenu)
+    val wordActions = LocalWordSelectionActions.current
     val measurementKeys = remember(measuredTextHeights) { mutableStateMapOf<String, TableMeasurementKey>() }
     val visible by remember(viewport) { derivedStateOf { canvasDemandWindow(viewport()) } }
     val primeOutlines = remember(displayedOutlines) { displayedOutlines.filter { it.isPrimeObject() } }
@@ -161,6 +170,14 @@ internal fun CanvasPrimeObjects(
         // only a picture that cannot be drawn gets a plate (see PictureContent).
         val drawnPicture = outline is Outline.Image && pictures != null
         val drawnObject = drawnPicture || drawnShape || outline is Outline.Table || outline is Outline.Equation || outline is Outline.Graph
+        // The box's corner on the page: a press in the box is this plus its position over the density,
+        // the zoom being a layer scale above. Read when pressed, so the handler outlives a move.
+        val origin by rememberUpdatedState(Offset(outline.x + inset, outline.y + inset))
+        val openMenu: (Offset) -> Unit = remember(outline.id, density) {
+            { position -> currentObjectMenu(outline.id, origin + position / density.density) }
+        }
+        // A typed table's cells open menus of their own, which carry the table's commands too.
+        val cellMenus = outline is Outline.Table && tableCellMenus(outline, wordActions)
         Surface(
             color = if (drawnObject) Color.Transparent else MaterialTheme.colorScheme.surfaceContainer,
             shape = MaterialTheme.shapes.small,
@@ -172,6 +189,7 @@ internal fun CanvasPrimeObjects(
                     if (selected && groupBounds == null) 2.dp else 1.dp,
                     if (selected && groupBounds == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                     MaterialTheme.shapes.small))
+                .then(if (cellMenus) Modifier else Modifier.onSecondaryPress(outline.id, openMenu))
                 .pointerInput(outline.id) {
                     var firstChange = true
                     detectObjectDrag(grab,
@@ -206,7 +224,8 @@ internal fun CanvasPrimeObjects(
                 } else if (outline is Outline.Table) {
                     TableContent(outline, tableRows, shapeInk, state, richColors, editorFocusRequester,
                         onFocusTextBox, onBodyChange, onTextShortcut, heldTable?.takeIf { it.tableId == outline.id },
-                        MaterialTheme.colorScheme.primary.copy(alpha = .22f))
+                        MaterialTheme.colorScheme.primary.copy(alpha = .22f),
+                        onObjectCommand = { command -> onObjectCommand(command, outline.id) })
                 } else if (outline is Outline.Graph) {
                     com.vivenotes.ui.canvas.GraphContent(outline,
                         selected = selected && groupBounds == null && state.selectedInk == null && state.selectedTextOutlineIds.isEmpty(),

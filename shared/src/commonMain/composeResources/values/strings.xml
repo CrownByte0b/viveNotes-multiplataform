@@ -98,6 +98,9 @@
     <string name="select_all">Select all</string>
     <string name="copy_text_box">Copy text box</string>
     <string name="delete_text_box">Delete text box</string>
+    <string name="cut_table">Cut table</string>
+    <string name="copy_table">Copy table</string>
+    <string name="delete_table">Delete table</string>
     <!-- %1$s = label -->
     <string name="make_value_the_default">Make %1$s the default</string>
     <string name="selected">Selected</string>

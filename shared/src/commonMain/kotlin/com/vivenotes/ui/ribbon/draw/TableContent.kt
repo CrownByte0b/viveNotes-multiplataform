@@ -26,6 +26,8 @@ import androidx.compose.ui.text.TextLayoutResult
 import com.vivenotes.model.TableCell
 import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.canvas.LocalWordSelectionActions
+import com.vivenotes.ui.canvas.TableObjectMenuItems
+import com.vivenotes.ui.canvas.WordSelectionActions
 import com.vivenotes.ui.canvas.selectAdditionalWords
 import com.vivenotes.ui.canvas.wordAt
 import com.vivenotes.ui.components.ContextMenu
@@ -35,6 +37,7 @@ import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ContextSymbols
 import com.vivenotes.localization.Strings
 import com.vivenotes.ui.keyboard.LocalKeyBindings
+import com.vivenotes.workspace.ObjectCommand
 import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.workspace.textSelectionsFor
 import androidx.compose.ui.text.TextStyle
@@ -73,14 +76,24 @@ internal fun measuredTableRows(table: Outline.Table, colors: RichTextColors): Li
 }
 
 /**
+ * Whether [table]'s cells open their own right-click menus — text commands, then the table's Cut,
+ * Copy and Delete. A locked table's cells are not edited, and a table without typed cells has none;
+ * a right-click on those opens the prime object menu instead.
+ */
+internal fun tableCellMenus(table: Outline.Table, actions: WordSelectionActions?): Boolean =
+    actions != null && table.lockGroup == null && !table.inkOnly
+
+/**
  * The grid: its cells, with the fill, header tint, [held] band and rules drawn once behind them
- * (Android `TableGrid`), so every rule is the same width wherever two cells meet.
+ * (Android `TableGrid`), so every rule is the same width wherever two cells meet. [onObjectCommand]
+ * runs the table's own commands from a cell's right-click menu.
  */
 @Composable
 internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Color, state: WorkspaceState,
     colors: RichTextColors, focusRequester: FocusRequester, onFocus: (String) -> Unit,
     onChange: (String, TextFieldValue) -> Unit, onShortcut: (KeyEvent) -> Boolean,
     held: TableAxis? = null, heldTint: Color = Color.Transparent,
+    onObjectCommand: (ObjectCommand) -> Unit = {},
 ) {
     val border = Color(automaticColorOr(table.borderArgb, table.borderFollowsTheme, canvasInk.toArgb()))
     val editing = table.lockGroup == null && (
@@ -118,7 +131,7 @@ internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Co
                     val header = (r == 0 && table.headerRow) || (c == 0 && table.headerColumn)
                     Box(Modifier.width(table.columns.getOrElse(c) { 160f }.dp).fillMaxHeight()) {
                         if (!table.inkOnly) TableCellText(table, cell, header, editing, canvasInk,
-                            state, colors, focusRequester, onFocus, onChange, onShortcut)
+                            state, colors, focusRequester, onFocus, onChange, onShortcut, onObjectCommand)
 
                     }
                 }
@@ -133,6 +146,7 @@ private fun TableCellText(
     table: Outline.Table, cell: TableCell, header: Boolean, editing: Boolean, canvasInk: Color,
     state: WorkspaceState, colors: RichTextColors, focusRequester: FocusRequester,
     onFocus: (String) -> Unit, onChange: (String, TextFieldValue) -> Unit, onShortcut: (KeyEvent) -> Boolean,
+    onObjectCommand: (ObjectCommand) -> Unit,
 ) {
     val focused = table.lockGroup == null && state.focusedTextOutlineId == cell.id
     val buffer = RichTextBuffer(cell.blocks, if (focused) state.editorSelection else TextSelection(0),
@@ -145,7 +159,20 @@ private fun TableCellText(
     val actions = LocalWordSelectionActions.current
     val density = LocalDensity.current
     val selectionTint = androidx.compose.material3.MaterialTheme.colorScheme.primary.copy(alpha = .35f)
-    val modifier = Modifier.fillMaxSize().padding(8.dp)
+    val padding = 8.dp
+    // Over the whole cell, its padding too: the cells tile the table, so every right-click on a typed
+    // table reaches one of their menus rather than some reaching the object's and some a cell's.
+    val modifier = Modifier.fillMaxSize()
+        .then(if (actions == null || !tableCellMenus(table, actions)) Modifier else Modifier.onSecondaryPress(cell.id) { point ->
+            val inText = point - with(density) { Offset(padding.toPx(), padding.toPx()) }
+            val clicked = layout?.getOffsetForPosition(inText)?.coerceIn(0, buffer.text.length) ?: 0
+            val range = state.textSelectionsFor(cell.id).firstOrNull { clicked in it.min..it.max }
+                ?: if (focused && clicked in state.editorSelection.min..state.editorSelection.max)
+                    state.editorSelection else TextSelection(clicked)
+            actions.activate(cell.id, range)
+            menu = point
+        })
+        .padding(padding)
         .testTag(TableTags.cell(cell.id))
         .selectAdditionalWords(cell.id, rangeAt = { point ->
             wordAt(layout, buffer.text, layout?.getOffsetForPosition(point) ?: 0)
@@ -158,14 +185,6 @@ private fun TableCellText(
                 }
             } }
         }
-        .then(if (actions == null || table.lockGroup != null) Modifier else Modifier.onSecondaryPress(cell.id) { point ->
-            val clicked = layout?.getOffsetForPosition(point)?.coerceIn(0, buffer.text.length) ?: 0
-            val range = state.textSelectionsFor(cell.id).firstOrNull { clicked in it.min..it.max }
-                ?: if (focused && clicked in state.editorSelection.min..state.editorSelection.max)
-                    state.editorSelection else TextSelection(clicked)
-            actions.activate(cell.id, range)
-            menu = point + with(density) { Offset(8.dp.toPx(), 8.dp.toPx()) }
-        })
     if (!editing) {
         Text(buffer.asAnnotatedString(colors), style = cellStyle, modifier = modifier, onTextLayout = { layout = it })
     } else {
@@ -200,5 +219,9 @@ private fun TableCellText(
             onClick = { menu = null; actions.edit { it.selectAllTextBox(cell.id) } })
         ContextMenuItem(Strings.clear_formatting, DocumentSymbols.FormatClear, enabled = selected,
             onClick = { menu = null; actions.edit { it.clearSelectedFormatting() } })
+        TableObjectMenuItems(editable = state.selectedPage?.editable == true) { command ->
+            menu = null
+            onObjectCommand(command)
+        }
     }
 }

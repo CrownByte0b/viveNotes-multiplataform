@@ -54,6 +54,7 @@ import com.vivenotes.ui.canvas.detectObjectDrag
 import com.vivenotes.ui.canvas.primeResizePointer
 import com.vivenotes.ui.canvas.selectedCanvasBounds
 import com.vivenotes.ui.components.TooltipIconButton
+import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.ui.ribbon.document.PictureObjectTools
@@ -73,6 +74,8 @@ internal fun CanvasGroupSelection(
     canvasFocusRequester: FocusRequester,
     onMoveSelection: (Float, Float, Boolean) -> Unit,
     onResizeObjects: (Float, Float, Float, Float, Boolean) -> Unit,
+    /** A right-click (a held finger) in the frame, at this page point: the menu of what it holds. */
+    onSelectionMenu: (Offset) -> Unit = {},
 ) {
     val currentState by workspaceState
     val density = LocalDensity.current
@@ -80,8 +83,14 @@ internal fun CanvasGroupSelection(
     val currentMoveSelection by rememberUpdatedState(onMoveSelection)
     val currentResizeObjects by rememberUpdatedState(onResizeObjects)
     val grab = LocalObjectGrab.current
+    val currentSelectionMenu by rememberUpdatedState(onSelectionMenu)
     if (groupBounds != null && state.selectedInk == null) {
         val padding = 6.dp
+        // The frame lies over what it holds, so a right-click on any of them lands here.
+        val origin by rememberUpdatedState(Offset(groupBounds.left - padding.value, groupBounds.top - padding.value))
+        val openMenu: (Offset) -> Unit = remember(density) {
+            { position -> currentSelectionMenu(origin + position / density.density) }
+        }
         val left = groupBounds.left.dp - padding
         val top = groupBounds.top.dp - padding
         val right = groupBounds.right.dp + padding
@@ -95,6 +104,7 @@ internal fun CanvasGroupSelection(
                     style = Stroke(width = stroke))
             }
             .testTag(WorkspaceTestTags.GroupSelectionFrame)
+            .onSecondaryPress(Unit, openMenu)
             .pointerInput(state.selectedPage?.id, state.selectedObjectIds, state.selectedTextOutlineIds,
                 state.selectedObjectsLocked) {
                 var firstChange = true
