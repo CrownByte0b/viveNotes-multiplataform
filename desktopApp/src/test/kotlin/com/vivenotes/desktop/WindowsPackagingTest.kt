@@ -1,7 +1,6 @@
 package com.vivenotes.desktop
 
-import com.vivenotes.desktop.update.ReleaseVersion
-import com.vivenotes.desktop.update.installerName
+import com.vivenotes.desktop.update.INSTALLER_NAME
 import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
@@ -118,8 +117,11 @@ class WindowsPackagingTest {
         assertTrue(workflow.contains("desktopApp/build/windows/*.msi"))
         assertTrue(workflow.contains("desktopApp/build/windows/*.sha256"))
         val build = File(root, "packaging/windows/build.ps1").readText()
-        assertTrue(build.contains("\"ViveNotes-\$Version-x64.msi\""), "The updater looks for build.ps1's installer name")
-        assertEquals("ViveNotes-1.2.3-x64.msi", installerName(ReleaseVersion.parse("1.2.3")!!))
+        assertEquals("ViveNotes-x64.msi", INSTALLER_NAME)
+        assertTrue(build.contains("Join-Path \$output.FullName \"$INSTALLER_NAME\""),
+            "The updater looks for build.ps1's installer name, the same for every version")
+        val attach = File(root, ".github/scripts/attach_release_artifacts.py").readText()
+        assertTrue(attach.contains("\nMSI = \"$INSTALLER_NAME\"\n"), "The release carries the name the updater asks for")
         assertTrue(build.contains("\"\$msi.sha256\""))
     }
 
@@ -159,11 +161,13 @@ class WindowsPackagingTest {
         assertTrue(File(fixture, "gradle-arguments.txt").readText().contains("-Pversion=1.0.2-dev.0 "),
             "The app keeps reporting its development version")
         val installers = File(fixture, "desktopApp/build/windows")
-        assertTrue(File(installers, "ViveNotes-1.0.2-x64.msi").isFile, output.readText())
-        assertTrue(File(installers, "ViveNotes-1.0.2-x64.msi.sha256").readText().endsWith("  ViveNotes-1.0.2-x64.msi\r\n"))
+        assertEquals(listOf(INSTALLER_NAME, "$INSTALLER_NAME.sha256"), installers.list()!!.sorted(), output.readText())
+        assertTrue(File(installers, "$INSTALLER_NAME.sha256").readText().endsWith("  $INSTALLER_NAME\r\n"))
 
         assertEquals(0, build("-Version", "1.0.2"), output.readText())
         assertTrue(File(fixture, "gradle-arguments.txt").readText().contains("-Pversion=1.0.2 "))
+        assertEquals(listOf(INSTALLER_NAME, "$INSTALLER_NAME.sha256"), installers.list()!!.sorted(),
+            "Every version builds the installer under its one name")
 
         for (rejected in listOf("1.0.2-dev.0", "1.0.2-rc.1", "1.0.2+build")) {
             assertTrue(build("-Version", rejected) != 0, "A release version must be numeric: $rejected")

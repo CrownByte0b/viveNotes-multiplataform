@@ -52,8 +52,11 @@ internal fun interface ReleaseFeed {
     fun latest(): Release?
 }
 
-/** What `packaging/windows/build.ps1` names the installer for [version], and what a release attaches. */
-internal fun installerName(version: ReleaseVersion): String = "ViveNotes-$version-x64.msi"
+/**
+ * What `packaging/windows/build.ps1` names the installer and every release attaches. The name carries
+ * no version, so `releases/latest/download/ViveNotes-x64.msi` is always the newest installer.
+ */
+internal const val INSTALLER_NAME = "ViveNotes-x64.msi"
 
 /**
  * GitHub's latest release of the public repository: the newest one that is neither a draft nor a
@@ -111,7 +114,7 @@ internal fun parseGitHubRelease(text: String): Release? {
         val bytes = entry["size"]?.jsonPrimitive?.longOrNull ?: return null
         return ReleaseAsset(name, url, bytes).takeIf { isTrustedDownload(url) && bytes in 1..MAX_INSTALLER_BYTES }
     }
-    val installer = asset(installerName(version)) ?: return null
+    val installer = asset(INSTALLER_NAME) ?: return null
     val checksum = asset("${installer.name}.sha256") ?: return null
     return Release(version, plainReleaseNotes(release.text("body").orEmpty()), installer, checksum)
 }

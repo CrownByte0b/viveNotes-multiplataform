@@ -18,7 +18,7 @@ class WindowsInstallerTest {
     @Test
     fun theScriptWaitsForBothLauncherProcessesInstallsInPlaceAndReopensTheApp() {
         val app = InstalledApp(File(temp.newFolder("Vive Notes"), "Vive Notes.exe"), listOf(4321L, 4300L))
-        val msi = File(temp.newFolder("updates"), "ViveNotes-0.2.0-x64.msi")
+        val msi = File(temp.newFolder("updates"), "ViveNotes-x64.msi")
         val log = File(msi.parentFile, WindowsMsiInstaller.INSTALL_LOG)
 
         val script = installScript(msi, log, app, File("C:\\Windows\\System32\\msiexec.exe"))
@@ -58,7 +58,7 @@ class WindowsInstallerTest {
     fun launchingWritesTheScriptWithAByteOrderMarkAndRunsItWithWindowsPowerShell() {
         val app = InstalledApp(File(temp.newFolder("Vive Notes"), "Vive Notes.exe"), listOf(10L))
         val updates = temp.newFolder("updates")
-        val msi = File(updates, "ViveNotes-0.2.0-x64.msi").apply { writeText("msi") }
+        val msi = File(updates, "ViveNotes-x64.msi").apply { writeText("msi") }
         val powershell = temp.newFile("powershell.exe")
         val msiexec = temp.newFile("msiexec.exe")
         val started = mutableListOf<Pair<List<String>, File>>()
@@ -102,7 +102,7 @@ class WindowsInstallerTest {
         val launcher = File(File(root, "Vive Notes").apply { mkdirs() }, "Vive Notes.cmd").apply {
             writeText("@echo off\r\necho reopened> \"${reopened.absolutePath}\"\r\n")
         }
-        val msi = File(File(root, "updates").apply { mkdirs() }, "ViveNotes-0.2.0-x64.msi").apply { writeText("msi") }
+        val msi = File(File(root, "updates").apply { mkdirs() }, "ViveNotes-x64.msi").apply { writeText("msi") }
         // Stands in for the closing app: a process that lives a few seconds.
         val closingApp = ProcessBuilder("cmd.exe", "/c", "ping -n 5 127.0.0.1 > NUL").start()
         val powershell = File(System.getenv("SystemRoot"), "System32\\WindowsPowerShell\\v1.0\\powershell.exe")

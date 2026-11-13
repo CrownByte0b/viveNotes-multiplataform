@@ -1,9 +1,12 @@
 import copy
+import fnmatch
 import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
+import random
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -17,12 +20,18 @@ spec = importlib.util.spec_from_file_location(
 )
 release_artifacts = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release_artifacts)
+spec = importlib.util.spec_from_file_location("appimage_build", ROOT / "packaging/appimage/build.py")
+appimage_build = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(appimage_build)
 REPO = "CrownByte0b/viveNotes-multiplataform"
 TAG = "v1.2.3"
 COMMIT = "a" * 40
-MSI = "ViveNotes-1.2.3-x64.msi"
+MSI = "ViveNotes-x64.msi"
 FLATPAK = "ViveNotes-1.2.3-x86_64.flatpak"
 APPIMAGE = "ViveNotes-1.2.3-x86_64.AppImage"
+INSTALLERS = {MSI: b"MSI fixture", FLATPAK: b"Flatpak fixture", APPIMAGE: b"AppImage fixture"}
+# Where a published release serves its assets.
+DOWNLOADS = f"https://github.com/{REPO}/releases/download/{TAG}"
 
 
 class ReleaseArtifactsTest(unittest.TestCase):
@@ -42,6 +51,11 @@ class ReleaseArtifactsTest(unittest.TestCase):
         self.corrupt_appimage = False
         self.missing_appimage = False
         self.expired = False
+        self.zsyncmake_path = "/usr/bin/zsyncmake"
+        self.zsyncmake_fails = False
+        # What a test changes in the control file a working zsyncmake would write.
+        self.control = lambda fields, separator, table: (fields, separator, table)
+        self.controls = []
         self.assets = []
         self.runs = {}
         for index, (workflow, _) in enumerate(release_artifacts.BUILDS, 10):
@@ -59,6 +73,11 @@ class ReleaseArtifactsTest(unittest.TestCase):
         self.environment = patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": str(self.summary)})
         self.environment.start()
         self.addCleanup(self.environment.stop)
+        os.environ.pop("GITHUB_SERVER_URL", None)
+        self.tools = patch.object(release_artifacts.shutil, "which",
+                                  side_effect=lambda tool: self.zsyncmake_path if tool == "zsyncmake" else None)
+        self.tools.start()
+        self.addCleanup(self.tools.stop)
         self.process = patch.object(release_artifacts.subprocess, "run", side_effect=self.command)
         self.process.start()
         self.addCleanup(self.process.stop)
@@ -66,6 +85,8 @@ class ReleaseArtifactsTest(unittest.TestCase):
     def command(self, arguments, **kwargs):
         self.calls.append(arguments)
         self.assertTrue(kwargs["check"])
+        if arguments[0] == "zsyncmake":
+            return self.zsyncmake(arguments)
         self.assertEqual("gh", arguments[0])
         if arguments[1] == "api":
             endpoint = arguments[-1]
@@ -140,19 +161,105 @@ class ReleaseArtifactsTest(unittest.TestCase):
             return subprocess.CompletedProcess(arguments, 0, stdout="")
         self.fail(f"Unexpected command (must never create, edit or publish releases): {arguments}")
 
+    def zsyncmake(self, arguments):
+        """Stands in for the tool: its header fields, then a block checksum table of the right size."""
+        self.controls.append(arguments)
+        options = dict(zip(arguments[1:-1:2], arguments[2:-1:2]))
+        self.assertEqual({"-u", "-f", "-o"}, set(options))
+        if self.zsyncmake_fails:
+            raise subprocess.CalledProcessError(2, arguments, stderr="zsyncmake: cannot read the file")
+        data = Path(arguments[-1]).read_bytes()
+        fields = {"zsync": "0.6.2", "Filename": options["-f"], "MTime": "Thu, 12 Nov 2026 05:00:00 +0000",
+                  "Blocksize": "4", "Length": str(len(data)), "Hash-Lengths": "2,2,3",
+                  "URL": options["-u"], "SHA-1": hashlib.sha1(data).hexdigest()}
+        fields, separator, table = self.control(fields, b"\n\n", b"\x07" * (-(-len(data) // 4) * 5))
+        header = "\n".join(f"{name}: {value}" for name, value in fields.items())
+        Path(options["-o"]).write_bytes(header.encode("ascii") + separator + table)
+        return subprocess.CompletedProcess(arguments, 0, stdout="")
+
     def attach(self):
         release_artifacts.attach(REPO, TAG)
 
-    def test_attaches_only_installers_and_msi_checksum_and_keeps_authored_draft(self):
+    def test_attaches_installers_checksums_and_zsync_files_and_keeps_authored_draft(self):
         before = copy.deepcopy(self.release)
         self.attach()
         self.assertEqual(before, self.release)
         self.assertEqual(["10", "11", "12"], [call[3] for call in self.downloads])
-        self.assertEqual({MSI, MSI + ".sha256", FLATPAK, APPIMAGE, APPIMAGE + ".sha256"}, set(self.uploads[0]))
+        self.assertEqual({MSI, MSI + ".sha256", MSI + ".zsync", FLATPAK, FLATPAK + ".zsync",
+                          APPIMAGE, APPIMAGE + ".sha256", APPIMAGE + ".zsync"}, set(self.uploads[0]))
         self.assertEqual(b"AppImage fixture", self.uploads[0][APPIMAGE])
         self.assertIn("publish it manually", self.summary.read_text())
         for run in ("10", "11", "12"):
             self.assertIn(f"actions/runs/{run}", self.summary.read_text())
+        for name in self.uploads[0]:
+            self.assertIn(f"- `{name}`", self.summary.read_text())
+
+    def test_each_zsync_file_points_at_the_installers_published_address(self):
+        self.attach()
+        self.assertEqual(3, len(self.controls))
+        for name, content in INSTALLERS.items():
+            header = self.uploads[0][name + ".zsync"].split(b"\n\n", 1)[0].decode("ascii").splitlines()
+            self.assertIn(f"Filename: {name}", header)
+            # Absolute: GitHub redirects a download to storage, where a relative address leads nowhere.
+            self.assertIn(f"URL: {DOWNLOADS}/{name}", header)
+            self.assertIn(f"Length: {len(content)}", header)
+            self.assertIn(f"SHA-1: {hashlib.sha1(content).hexdigest()}", header)
+
+    def test_appimage_updaters_find_the_attached_zsync_file(self):
+        kind, owner, repository, release, pattern = appimage_build.UPDATE_INFORMATION.split("|")
+        self.assertEqual(("gh-releases-zsync", REPO, "latest"), (kind, f"{owner}/{repository}", release))
+        self.attach()
+        # AppImageUpdate takes the release asset whose name matches "*" + pattern.
+        self.assertEqual([APPIMAGE + ".zsync"],
+                         [name for name in self.uploads[0] if fnmatch.fnmatchcase(name, "*" + pattern)])
+
+    def test_the_msi_keeps_one_name_in_every_release(self):
+        self.assertEqual("ViveNotes-x64.msi", release_artifacts.MSI)
+        self.attach()
+        self.assertEqual({"ViveNotes-x64.msi", "ViveNotes-x64.msi.sha256", "ViveNotes-x64.msi.zsync"},
+                         {name for name in self.uploads[0] if ".msi" in name})
+        build = (ROOT / "packaging/windows/build.ps1").read_text()
+        self.assertIn(f'"{release_artifacts.MSI}"', build)
+
+    def test_zsync_file_that_does_not_describe_its_installer_uploads_nothing(self):
+        def changed(**values):
+            return lambda fields, separator, table: (fields | values, separator, table)
+
+        def without(name):
+            return lambda fields, separator, table: (
+                {key: value for key, value in fields.items() if key != name}, separator, table)
+
+        faults = {
+            "another file's length": changed(Length="3"),
+            "another file's digest": changed(**{"SHA-1": "0" * 40}),
+            "another file's name": changed(Filename="Other.msi"),
+            "relative address": changed(URL=MSI),
+            "no address": without("URL"),
+            "not a zsync file": without("zsync"),
+            "no block size": without("Blocksize"),
+            "unreadable hash lengths": changed(**{"Hash-Lengths": "2,2"}),
+            "zero block size": changed(Blocksize="0"),
+            "truncated table": lambda fields, separator, table: (fields, separator, table[:-1]),
+            "no table": lambda fields, separator, table: (fields, b"\n", b""),
+        }
+        for fault, control in faults.items():
+            with self.subTest(fault=fault):
+                self.control = control
+                with self.assertRaisesRegex(ValueError, "usable control file"):
+                    self.attach()
+                self.assertEqual([], self.uploads)
+
+    def test_failing_zsyncmake_uploads_nothing(self):
+        self.zsyncmake_fails = True
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.attach()
+        self.assertEqual([], self.uploads)
+
+    def test_missing_zsyncmake_stops_before_anything_is_requested(self):
+        self.zsyncmake_path = None
+        with self.assertRaisesRegex(ValueError, "zsync package"):
+            self.attach()
+        self.assertEqual([], self.calls)
 
     def test_supports_annotated_tags(self):
         self.annotated = True
@@ -202,6 +309,8 @@ class ReleaseArtifactsTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.attach()
                 self.assertEqual([], self.uploads)
+                # Only installers that passed their checks are described.
+                self.assertEqual([], self.controls)
                 setattr(self, attribute, False)
 
     def test_draft_published_during_download_is_not_modified(self):
@@ -217,16 +326,55 @@ class ReleaseArtifactsTest(unittest.TestCase):
         self.assertEqual([], self.uploads)
 
     def test_existing_release_assets_are_not_overwritten(self):
-        self.assets = [{"id": 444, "name": MSI}]
-        with self.assertRaisesRegex(ValueError, "existing assets are preserved"):
-            self.attach()
-        self.assertEqual([], self.uploads)
+        for name in (MSI, APPIMAGE + ".zsync"):
+            with self.subTest(name=name):
+                self.assets = [{"id": 444, "name": name}]
+                with self.assertRaisesRegex(ValueError, "existing assets are preserved"):
+                    self.attach()
+                self.assertEqual([], self.uploads)
 
     def test_tag_input_cannot_be_an_option_or_arbitrary_ref(self):
         for tag in ("main", "--latest", "v1.2.3;echo invalid", "v1.2.3/other"):
             with self.subTest(tag=tag), self.assertRaisesRegex(ValueError, "version tag"):
                 release_artifacts.attach(REPO, tag)
         self.assertEqual([], self.calls)
+
+
+@unittest.skipUnless(shutil.which("zsyncmake"), "zsync is not installed")
+class ZsyncMakeTest(unittest.TestCase):
+    """The installed zsyncmake itself; the release workflow runs this before it attaches anything."""
+
+    def test_installed_zsyncmake_writes_the_control_file_the_release_needs(self):
+        with tempfile.TemporaryDirectory() as folder:
+            installer = Path(folder) / APPIMAGE
+            # Many blocks and a short last one.
+            content = random.Random(7).randbytes(3_000_001)
+            installer.write_bytes(content)
+            control = release_artifacts.zsync_file(installer, f"{DOWNLOADS}/{APPIMAGE}")
+            self.assertEqual(installer.with_name(APPIMAGE + ".zsync"), control)
+            self.assertEqual({APPIMAGE, APPIMAGE + ".zsync"}, set(os.listdir(folder)))
+            self.assertEqual(content, installer.read_bytes())
+            header, table = control.read_bytes().split(b"\n\n", 1)
+            fields = dict(line.split(": ", 1) for line in header.decode("ascii").splitlines())
+            self.assertRegex(fields["zsync"], r"^0\.6\.")
+            self.assertEqual(APPIMAGE, fields["Filename"])
+            self.assertEqual(f"{DOWNLOADS}/{APPIMAGE}", fields["URL"])
+            self.assertEqual("3000001", fields["Length"])
+            self.assertEqual(hashlib.sha1(content).hexdigest(), fields["SHA-1"])
+            # Not compressed in transit: a client must end with the released bytes.
+            self.assertEqual({"zsync", "Filename", "MTime", "Blocksize", "Length", "Hash-Lengths", "URL", "SHA-1"},
+                             set(fields))
+            self.assertGreater(len(table), 1000)
+
+    def test_replaces_a_control_file_left_by_an_earlier_attempt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            installer = Path(folder) / MSI
+            installer.write_bytes(b"MSI fixture" * 1000)
+            stale = installer.with_name(MSI + ".zsync")
+            stale.write_bytes(b"left over")
+            control = release_artifacts.zsync_file(installer, f"{DOWNLOADS}/{MSI}")
+            self.assertEqual(stale, control)
+            self.assertIn(f"URL: {DOWNLOADS}/{MSI}\n".encode("ascii"), control.read_bytes())
 
 
 if __name__ == "__main__":

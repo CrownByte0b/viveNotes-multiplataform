@@ -34,4 +34,17 @@ class ReleaseArtifactsTest {
         assertFalse(workflow.contains("gh release create"))
         assertFalse(workflow.contains("gh release edit"))
     }
+
+    /** The zsync files come from the runner's zsyncmake, checked there before anything is attached. */
+    @Test
+    fun attachingInstallsZsyncAndChecksItBeforeTouchingTheDraft() {
+        val root = File(System.getProperty("vivenotes.test.projectRoot"))
+        val steps = File(root, ".github/workflows/attach-release-artifacts.yml").readText().substringAfter("    steps:\n")
+        val install = steps.indexOf("sudo apt-get install -y zsync\n")
+        val contracts = steps.indexOf("run: python3 -B .github/tests/test_release_artifacts.py\n")
+        val attach = steps.indexOf("attach_release_artifacts.py --tag")
+        assertTrue(install >= 0 && contracts > install && attach > contracts, steps)
+        val script = File(root, ".github/scripts/attach_release_artifacts.py").readText()
+        assertTrue(script.contains("command(\"zsyncmake\", \"-u\", url, \"-f\", installer.name, \"-o\", control, installer)"))
+    }
 }

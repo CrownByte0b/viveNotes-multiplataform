@@ -15,12 +15,15 @@ repository configured by `settings.gradle.kts`.
 Or set `WIX_PATH` to WiX's bin directory and run `./gradlew.bat :desktopApp:packageReleaseMsi`
 directly. The wrapper sets this automatically so Compose uses the installed WiX version.
 It copies the
-installer to `desktopApp/build/windows/ViveNotes-0.1.0-x64.msi` with a SHA-256 file.
+installer to `desktopApp/build/windows/ViveNotes-x64.msi` with a SHA-256 file. The name is the
+same for every version, so `releases/latest/download/ViveNotes-x64.msi` is always the newest
+installer, and the app's updater asks each release for that name.
 Use `build.ps1 -Version 0.1.1` for another version. MSI accepts only numeric
 `MAJOR.MINOR.BUILD`, bounded by `255.255.65535`; `-Version` rejects prerelease tags. Without
-`-Version`, a development version such as `1.0.2-dev.0` builds `ViveNotes-1.0.2-x64.msi`, and the
+`-Version`, a development version such as `1.0.2-dev.0` builds the installer as `1.0.2`, and the
 installed app still reports the full version and does not offer updates.
-Clean older MSI files from that output directory or pass `smoke-test.ps1 -Msi <path>`.
+Each build replaces the previous installer. Remove MSI files that older builds left in that
+output directory under versioned names, or pass `smoke-test.ps1 -Msi <path>`.
 
 The installer uses the existing app artwork, installs per user, creates Start menu and
 desktop shortcuts, and offers a directory chooser. Keep the configured upgrade UUID
@@ -48,8 +51,11 @@ silently installs it into build-directory storage, launches the actual installed
 with isolated test data, checks its window/SQLite/clean close, then uninstalls it and checks
 that notes remain. Only the isolated smoke profile suppresses first-run downloads.
 Download the `ViveNotes-Windows-x64` Actions artifact for the MSI, checksum and smoke logs.
-For a `v*` tag, a following `release` job (the only one with `contents: write`) checks that
-artifact's checksum and publishes the MSI and `.msi.sha256` as that tag's GitHub Release.
+Tag builds do not publish anything. For a `v*` tag, the manual **Attach release artifacts**
+workflow checks that artifact's checksum and copies `ViveNotes-x64.msi` and
+`ViveNotes-x64.msi.sha256` into the release draft saved for that tag. It also generates
+`ViveNotes-x64.msi.zsync` there with `zsyncmake`, so a zsync client holding an older installer
+downloads only the blocks that changed.
 MSI generation requires Windows; Linux Compose tasks skip it rather than cross-compile.
 
 ## Updates
@@ -59,13 +65,17 @@ after it opens (anonymously, once per launch; drafts and pre-releases are never 
 When its tag is a newer `MAJOR.MINOR.BUILD`, a dialog offers it with the release notes:
 **Install and restart**, **Later** (asks again next launch) or **Skip this version**
 (remembered in `%APPDATA%/ViveNotes/updates.properties` until a newer release appears).
-Installing downloads `ViveNotes-<version>-x64.msi` to `%LOCALAPPDATA%/ViveNotes/Cache/updates`,
-keeps it only if its size and SHA-256 match the release's `.msi.sha256`, saves and closes
+Installing downloads `ViveNotes-x64.msi` to `%LOCALAPPDATA%/ViveNotes/Cache/updates`,
+keeps it only if its size and SHA-256 match the release's `ViveNotes-x64.msi.sha256`, saves and closes
 the notes, then a small PowerShell script waits for both launcher processes to exit, runs
 `msiexec /i … /passive` with `INSTALLDIR` set to the current install folder and reopens the
 app. Its output and the verbose MSI log stay in that folder as `install-update.log` and
 `install-msi.log`. Only the installed launcher (`jpackage.app-path`) with the production
 profile updates itself; Gradle runs and other platforms never check.
+
+Installed versions up to 1.2.0 ask a release for `ViveNotes-<version>-x64.msi` and its
+`.msi.sha256` instead. A release that carries only `ViveNotes-x64.msi` is invisible to them, so
+they report no update and need one manual install of a newer version.
 
 To test an update end to end without publishing, serve a release object shaped like GitHub's
 API from this computer and point the installed app at it with the `VIVENOTES_UPDATE_FEED`

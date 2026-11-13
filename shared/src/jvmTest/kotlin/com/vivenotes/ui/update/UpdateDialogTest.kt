@@ -95,12 +95,12 @@ class UpdateDialogTest {
 
     @Test
     fun aFailureSaysWhyAndOffersRetry() = runDesktopComposeUiTest(width = 1200, height = 800) {
-        val updates = FakeUpdates(UpdateState.Failed(update, "ViveNotes-0.2.0-x64.msi failed verification"))
+        val updates = FakeUpdates(UpdateState.Failed(update, "ViveNotes-x64.msi failed verification"))
         setContent { ViveNotesTheme { UpdateDialog(updates) } }
 
         onNodeWithText("Update failed").assertIsDisplayed()
         onNodeWithText("Vive Notes 0.2.0 was not installed. You can keep using this version and try again.").assertIsDisplayed()
-        onNodeWithText("ViveNotes-0.2.0-x64.msi failed verification").assertIsDisplayed()
+        onNodeWithText("ViveNotes-x64.msi failed verification").assertIsDisplayed()
 
         onNodeWithTag(UpdateDialogTags.Retry).performClick()
         onNodeWithTag(UpdateDialogTags.Later).performClick()

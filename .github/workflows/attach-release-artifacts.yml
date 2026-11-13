@@ -17,6 +17,12 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+      - name: Install zsync
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsync
+      - name: Check the attachment contracts with the installed zsyncmake
+        run: python3 -B .github/tests/test_release_artifacts.py
       - name: Attach tested installers to your saved draft
         env:
           GH_TOKEN: ${{ github.token }}

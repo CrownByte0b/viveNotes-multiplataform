@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Launch the built AppImage through its runtime with disposable storage, then close it again."""
 import argparse
+import importlib.util
 import os
 from pathlib import Path
 import shutil
@@ -11,6 +12,9 @@ import zipfile
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 MARKER = "APPIMAGE_SMOKE_WINDOW_OK"
+spec = importlib.util.spec_from_file_location("appimage_build", HERE / "build.py")
+build = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(build)
 
 
 def agent(folder):
@@ -44,6 +48,10 @@ def main():
     images = list(output.glob("ViveNotes-*-x86_64.AppImage"))
     if len(images) != 1:
         raise SystemExit("Expected one built AppImage")
+    # What an updater reads from the file to find the next release; the runtime prints its own copy.
+    update = subprocess.run([str(images[0]), "--appimage-updateinfo"], capture_output=True, text=True, timeout=30)
+    if update.returncode or update.stdout.rstrip("\0\n") != build.UPDATE_INFORMATION:
+        raise SystemExit(f"The AppImage does not carry its update information: {update.stdout!r} {update.stderr!r}")
     home = output / "test-home"
     if home.exists():
         shutil.rmtree(home)

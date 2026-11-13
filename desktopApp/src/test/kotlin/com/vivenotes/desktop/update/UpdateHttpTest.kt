@@ -36,7 +36,7 @@ class UpdateHttpTest {
     private val base = "http://127.0.0.1:${server.address.port}"
     private val requests = ConcurrentHashMap<String, HttpExchange>()
     private val installer = Random(7).nextBytes(300_000)
-    private val installerName = "ViveNotes-0.2.0-x64.msi"
+    private val installerName = INSTALLER_NAME
 
     @AfterTest
     fun stop() = server.stop(0)
@@ -136,13 +136,13 @@ class UpdateHttpTest {
     @Test
     fun checksumFilesInTheFormsToolsWriteAreRead() {
         val digest = "c7634c943aecf4822419592af2c258113c4412c5d80ba8f5fd58b33dc657f114"
-        assertEquals(digest, parseChecksum("$digest  ViveNotes-0.2.0-x64.msi\r\n", "ViveNotes-0.2.0-x64.msi"))
-        assertEquals(digest, parseChecksum("${digest.uppercase()} *ViveNotes-0.2.0-x64.msi", "ViveNotes-0.2.0-x64.msi"))
-        assertEquals(digest, parseChecksum("$digest\n", "ViveNotes-0.2.0-x64.msi"))
-        assertEquals(digest, parseChecksum("${"0".repeat(64)}  other.msi\n$digest  ViveNotes-0.2.0-x64.msi", "ViveNotes-0.2.0-x64.msi"))
-        assertNull(parseChecksum("${digest.take(63)}  ViveNotes-0.2.0-x64.msi", "ViveNotes-0.2.0-x64.msi"))
-        assertNull(parseChecksum("<html>Not found</html>", "ViveNotes-0.2.0-x64.msi"))
-        assertNull(parseChecksum("", "ViveNotes-0.2.0-x64.msi"))
+        assertEquals(digest, parseChecksum("$digest  ViveNotes-x64.msi\r\n", "ViveNotes-x64.msi"))
+        assertEquals(digest, parseChecksum("${digest.uppercase()} *ViveNotes-x64.msi", "ViveNotes-x64.msi"))
+        assertEquals(digest, parseChecksum("$digest\n", "ViveNotes-x64.msi"))
+        assertEquals(digest, parseChecksum("${"0".repeat(64)}  other.msi\n$digest  ViveNotes-x64.msi", "ViveNotes-x64.msi"))
+        assertNull(parseChecksum("${digest.take(63)}  ViveNotes-x64.msi", "ViveNotes-x64.msi"))
+        assertNull(parseChecksum("<html>Not found</html>", "ViveNotes-x64.msi"))
+        assertNull(parseChecksum("", "ViveNotes-x64.msi"))
     }
 
     private fun feed() = GitHubReleaseFeed(URI("$base/repos/latest"), "ViveNotes/0.1.0 (Windows)")
@@ -155,7 +155,7 @@ class UpdateHttpTest {
         val fixture = checkNotNull(javaClass.getResource("/update/github-release-latest.json")).readText()
             .replace("https://github.com/CrownByte0b/viveNotes-multiplataform/releases/download", "$base/releases/download")
             .replace("\"size\": 229876426", "\"size\": ${installer.size}")
-            .replace("\"size\": 92", "\"size\": ${checksum.length}")
+            .replace("\"size\": 85", "\"size\": ${checksum.length}")
         respond("/repos/latest", 200, fixture.toByteArray())
         for ((name, bytes) in listOf(installerName to served, "$installerName.sha256" to checksum.toByteArray())) {
             server.removeContextQuietly("/releases/download/v0.2.0/$name")

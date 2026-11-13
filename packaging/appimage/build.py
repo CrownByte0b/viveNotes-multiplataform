@@ -6,6 +6,7 @@ import importlib.util
 from pathlib import Path
 import platform
 import shutil
+import struct
 import subprocess
 
 HERE = Path(__file__).resolve().parent
@@ -19,6 +20,9 @@ RUNTIME = ("https://github.com/AppImage/type2-runtime/releases/download/20251108
            "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d")
 # Outside Flatpak the app names its windows WINDOW_CLASS (WindowClass.kt); desktops match it here.
 WINDOW_CLASS = "vivenotes"
+# Where AppImage updaters look for the next version: the zsync file that "Attach release
+# artifacts" puts beside the image in the newest published GitHub release.
+UPDATE_INFORMATION = "gh-releases-zsync|CrownByte0b|viveNotes-multiplataform|latest|ViveNotes-*-x86_64.AppImage.zsync"
 
 
 def desktop_entry(version):
@@ -85,11 +89,49 @@ def stage(args, appdir):
     return version
 
 
-def assemble(appdir, runtime, image, epoch):
+def elf_section(program, name):
+    """Where a 64-bit little-endian ELF keeps the section called [name]: its file offset and size."""
+    try:
+        table, = struct.unpack_from("<Q", program, 0x28)
+        entry, count, names = struct.unpack_from("<HHH", program, 0x3A)
+
+        def section(index):
+            title, _, _, _, offset, size = struct.unpack_from("<IIQQQQ", program, table + index * entry)
+            return title, offset, size
+
+        _, start, length = section(names)
+        titles = bytes(program[start:start + length])
+        for index in range(count):
+            title, offset, size = section(index)
+            if titles[title:].split(b"\0", 1)[0] == name.encode("ascii"):
+                return offset, size
+    except struct.error:
+        pass
+    raise ValueError(f"The AppImage runtime has no {name} section")
+
+
+def with_update_information(program, information):
+    """
+    The runtime with [information] in the empty section it reserves for it, where `appimagetool -u`
+    writes it and updaters and `--appimage-updateinfo` read it.
+    """
+    offset, size = elf_section(program, ".upd_info")
+    text = information.encode("ascii")
+    reserved = program[offset:offset + size]
+    # Read as a C string, so a zero has to follow it.
+    if len(reserved) != size or len(text) >= size:
+        raise ValueError("The update information does not fit the AppImage runtime")
+    if any(reserved):
+        raise ValueError("The AppImage runtime already carries update information")
+    return program[:offset] + text + program[offset + len(text):]
+
+
+def assemble(appdir, runtime, image, epoch, update_information):
     """Writes the runtime followed by a root-owned SquashFS of the AppDir, as appimagetool does."""
-    header = runtime.read_bytes()[:11]
-    if header[:4] != b"\x7fELF" or header[8:11] != b"AI\x02":
+    program = runtime.read_bytes()
+    if program[:4] != b"\x7fELF" or program[4:6] != b"\x02\x01" or program[8:11] != b"AI\x02":
         raise ValueError(f"Not a type 2 AppImage runtime: {runtime}")
+    program = with_update_information(program, update_information)
     filesystem = image.with_name(image.name + ".squashfs")
     image.unlink(missing_ok=True)
     try:
@@ -98,9 +140,9 @@ def assemble(appdir, runtime, image, epoch):
                         "-comp", "zstd", "-mkfs-time", str(epoch), "-all-time", str(epoch), "-no-progress"],
                        check=True)
         with image.open("wb") as output:
-            for part in (runtime, filesystem):
-                with part.open("rb") as source:
-                    shutil.copyfileobj(source, output)
+            output.write(program)
+            with filesystem.open("rb") as source:
+                shutil.copyfileobj(source, output)
     except BaseException:
         image.unlink(missing_ok=True)
         raise
@@ -138,7 +180,7 @@ def main():
     for old in output.glob("ViveNotes-*-x86_64.AppImage*"):
         old.unlink()
     image = output / f"ViveNotes-{version}-x86_64.AppImage"
-    assemble(appdir, runtime, image, flatpak.source_epoch())
+    assemble(appdir, runtime, image, flatpak.source_epoch(), UPDATE_INFORMATION)
     print(f"Built {image}")
 
 

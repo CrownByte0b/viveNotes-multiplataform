@@ -37,8 +37,10 @@ class DesktopUpdatesTest {
     fun aNewerReleaseIsOfferedAfterTheLaunchCheckAndOldInstallersAreCleared() = runBlocking {
         val harness = Harness(this)
         val downloads = harness.downloads.apply { mkdirs() }
-        File(downloads, "ViveNotes-0.1.5-x64.msi").writeText("old")
-        File(downloads, "ViveNotes-0.2.0-x64.msi-123.part").writeText("unfinished")
+        // The last update's installer has the name the next one will be saved under.
+        File(downloads, INSTALLER_NAME).writeText("old")
+        File(downloads, "ViveNotes-0.1.5-x64.msi").writeText("older, from when the name carried a version")
+        File(downloads, "$INSTALLER_NAME-123.part").writeText("unfinished")
         File(downloads, WindowsMsiInstaller.INSTALL_LOG).writeText("last install")
 
         harness.updates.start().join()
@@ -116,7 +118,7 @@ class DesktopUpdatesTest {
         assertEquals(UpdateState.Installing(update), harness.updates.state.value)
         assertEquals(emptyList<File>(), harness.launched, "Nothing runs until the notes are closed")
         harness.closes.single().first()
-        assertEquals(listOf(File(harness.downloads, "ViveNotes-0.2.0-x64.msi")), harness.launched)
+        assertEquals(listOf(File(harness.downloads, "ViveNotes-x64.msi")), harness.launched)
         harness.scope.cancel()
     }
 
@@ -178,7 +180,7 @@ class DesktopUpdatesTest {
 
         harness.updates.install()
         harness.awaitDownloadFinished()
-        assertEquals(UpdateState.Failed(update, "ViveNotes-0.2.0-x64.msi failed verification"), harness.updates.state.value)
+        assertEquals(UpdateState.Failed(update, "ViveNotes-x64.msi failed verification"), harness.updates.state.value)
 
         harness.updates.install()
         harness.awaitClose()
@@ -280,8 +282,8 @@ class DesktopUpdatesTest {
 
     private fun release(version: String, notes: String = "") = ReleaseVersion.parse(version)!!.let { v ->
         Release(v, notes,
-            ReleaseAsset(installerName(v), URI("https://github.com/x/releases/download/v$v/${installerName(v)}"), 229_876_426),
-            ReleaseAsset("${installerName(v)}.sha256", URI("https://github.com/x/releases/download/v$v/${installerName(v)}.sha256"), 92))
+            ReleaseAsset(INSTALLER_NAME, URI("https://github.com/x/releases/download/v$v/$INSTALLER_NAME"), 229_876_426),
+            ReleaseAsset("$INSTALLER_NAME.sha256", URI("https://github.com/x/releases/download/v$v/$INSTALLER_NAME.sha256"), 85))
     }
 
     private inner class Harness(

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 from urllib.parse import urlencode
@@ -14,12 +15,17 @@ BUILDS = (
     ("flatpak.yml", "ViveNotes-Linux-x86_64"),
     ("appimage.yml", "ViveNotes-Linux-AppImage-x86_64"),
 )
+# One name in every release: releases/latest/download/ViveNotes-x64.msi is always the newest
+# installer, and the app's updater asks a release for this name (INSTALLER_NAME in ReleaseFeed.kt).
+MSI = "ViveNotes-x64.msi"
+
+
+def command(*arguments):
+    return subprocess.run(list(map(str, arguments)), check=True, capture_output=True, text=True).stdout
 
 
 def gh(*arguments):
-    return subprocess.run(
-        ["gh", *map(str, arguments)], check=True, capture_output=True, text=True,
-    ).stdout
+    return command("gh", *arguments)
 
 
 def api(endpoint):
@@ -63,7 +69,7 @@ def build_run(repo, workflow, artifact, tag, commit):
 
 
 def release_files(directory, version):
-    names = [f"ViveNotes-{version}-x64.msi", f"ViveNotes-{version}-x64.msi.sha256",
+    names = [MSI, f"{MSI}.sha256",
              f"ViveNotes-{version}-x86_64.flatpak",
              f"ViveNotes-{version}-x86_64.AppImage", f"ViveNotes-{version}-x86_64.AppImage.sha256"]
     files = []
@@ -83,9 +89,40 @@ def release_files(directory, version):
     return files
 
 
+def zsync_file(installer, url):
+    """
+    Writes the zsync control file for an installer the release will serve at [url]. Someone holding
+    an older copy uses it to download only the blocks that changed; AppImage updaters find the
+    image's through the update information packaging/appimage/build.py embeds.
+    """
+    control = installer.with_name(installer.name + ".zsync")
+    control.unlink(missing_ok=True)
+    # An absolute address: GitHub redirects the control file's own download to signed storage for
+    # that one file, and the zsync client resolves a relative address against where it ended up.
+    command("zsyncmake", "-u", url, "-f", installer.name, "-o", control, installer)
+    header, separator, blocks = control.read_bytes().partition(b"\n\n")
+    fields = dict(line.split(": ", 1) for line in header.decode("latin-1").split("\n") if ": " in line)
+    with installer.open("rb") as source:
+        digest = hashlib.file_digest(source, "sha1").hexdigest()
+    size = installer.stat().st_size
+    expected = {"Filename": installer.name, "URL": url, "Length": str(size), "SHA-1": digest}
+    try:
+        # After the header, one weak and one strong checksum for each block of the installer.
+        _, weak, strong = map(int, fields["Hash-Lengths"].split(","))
+        table = -(-size // int(fields["Blocksize"])) * (weak + strong)
+    except (KeyError, ValueError, ZeroDivisionError):
+        table = None
+    if (not separator or not fields.get("zsync") or len(blocks) != table
+            or any(fields.get(name) != value for name, value in expected.items())):
+        raise ValueError(f"zsyncmake did not write a usable control file for {installer.name}.")
+    return control
+
+
 def attach(repo, tag):
     if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
         raise ValueError("Use the pushed version tag, for example v1.0.0.")
+    if not shutil.which("zsyncmake"):
+        raise ValueError("zsyncmake is missing; install the zsync package before attaching.")
     releases = listing(f"repos/{repo}/releases?per_page=100")
     matches = [release for release in releases if release["tag_name"] == tag]
     if len(matches) != 1:
@@ -101,6 +138,10 @@ def attach(repo, tag):
             gh("run", "download", run["id"], "--repo", repo, "--name", artifact,
                "--dir", directory / artifact)
         files = release_files(directory, tag[1:])
+        # Where GitHub serves each asset once you publish the draft for this tag.
+        downloads = f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/{repo}/releases/download/{tag}"
+        files += [zsync_file(file, f"{downloads}/{file.name}")
+                  for file in files if not file.name.endswith(".sha256")]
         current = api(f"repos/{repo}/releases/{release['id']}")
         require_draft(current, tag)
         if tag_commit(repo, tag) != commit:
@@ -126,5 +167,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         attach(args.repo, args.tag)
-    except (ValueError, subprocess.CalledProcessError) as error:
+    except ValueError as error:
         parser.exit(1, f"{error}\n")
+    except subprocess.CalledProcessError as error:
+        parser.exit(1, f"{error}\n{error.stderr or ''}")

@@ -1191,7 +1191,7 @@
     <string name="update_unsaved_changes">Some changes could not be saved, so Vive Notes stayed open. Resolve the error on the page, then try again.</string>
     <string name="update_installer_missing">Windows Installer could not be started on this computer.</string>
     <string name="update_unreachable">The download server could not be reached. Check the connection and try again.</string>
-    <!-- %1$s = the file name the release lists, e.g. ViveNotes-0.2.0-x64.msi -->
+    <!-- %1$s = the file name the release lists, e.g. ViveNotes-x64.msi -->
     <string name="update_checksum_unreadable">The checksum for %1$s could not be read.</string>
     <string name="handwriting">Handwriting</string>
     <string name="handwriting_pages_value_value"> · Handwriting pages %1$s/%2$s</string>

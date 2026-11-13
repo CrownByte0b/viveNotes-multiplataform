@@ -1,3 +1,4 @@
+import fnmatch
 import hashlib
 import importlib.util
 import os
@@ -136,9 +137,21 @@ class AppImagePackagingTest(unittest.TestCase):
             self.assertIn("--add-opens=java.desktop/sun.awt.wl=ALL-UNNAMED", args)
             self.assertEqual(["--debug", "$(literal)", "two words"], args[-3:])
 
-    def runtime(self, folder, magic=b"AI\x02"):
+    def runtime(self, folder, magic=b"AI\x02", sections=((".note", b"build"), (".upd_info", bytes(1024)))):
+        """A 64-bit ELF laid out like the real runtime: its sections, their names, then the section table."""
+        names = b"\0" + b"".join(name.encode() + b"\0" for name, _ in sections) + b".shstrtab\0"
+        program = bytearray(64)
+        headers = [bytes(64)]
+        for name, content in [*sections, (".shstrtab", names)]:
+            title = names.index(name.encode() + b"\0")
+            headers.append(struct.pack("<IIQQQQIIQQ", title, 3 if content is names else 1, 0, 0,
+                                       len(program), len(content), 0, 0, 1, 0))
+            program += content
+        program[:11] = b"\x7fELF\x02\x01\x01\x00" + magic
+        struct.pack_into("<Q", program, 0x28, len(program))
+        struct.pack_into("<HHH", program, 0x3A, 64, len(headers), len(headers) - 1)
         runtime = Path(folder) / "runtime"
-        runtime.write_bytes(b"\x7fELF\x02\x01\x01\x00" + magic + b"\x00" * 501)
+        runtime.write_bytes(program + b"".join(headers))
         return runtime
 
     def appdir(self, folder):
@@ -159,16 +172,17 @@ class AppImagePackagingTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             runtime = self.runtime(folder)
             image = Path(folder) / "ViveNotes-1.2.3-x86_64.AppImage"
-            checksum = build.assemble(self.appdir(folder), runtime, image, EPOCH)
+            checksum = build.assemble(self.appdir(folder), runtime, image, EPOCH, build.UPDATE_INFORMATION)
             data = image.read_bytes()
-            self.assertEqual(runtime.read_bytes(), data[:512])
-            self.assertEqual(b"hsqs", data[512:516])
+            size = runtime.stat().st_size
+            self.assertEqual(build.with_update_information(runtime.read_bytes(), build.UPDATE_INFORMATION), data[:size])
+            self.assertEqual(b"hsqs", data[size:size + 4])
             self.assertTrue(os.access(image, os.X_OK))
             self.assertEqual(f"{hashlib.sha256(data).hexdigest()}  {image.name}\n", checksum.read_text())
             self.assertEqual([image.name, checksum.name], sorted(path.name for path in Path(folder).glob("ViveNotes-*")))
             if not shutil.which("unsquashfs"):
                 return
-            listing = subprocess.run(["unsquashfs", "-lln", "-o", "512", image], capture_output=True, text=True,
+            listing = subprocess.run(["unsquashfs", "-lln", "-o", str(size), image], capture_output=True, text=True,
                                      check=True, env=os.environ | {"TZ": "UTC"}).stdout.splitlines()
             self.assertEqual(6, len(listing), listing)
             for line in listing:
@@ -176,7 +190,7 @@ class AppImagePackagingTest(unittest.TestCase):
                 self.assertIn("2023-11-14 22:13", line)
             self.assertTrue(any(line.startswith("-rwxr-xr-x") and line.endswith("squashfs-root/AppRun") for line in listing))
             self.assertTrue(any(line.endswith("squashfs-root/.DirIcon -> AppRun") for line in listing))
-            details = subprocess.run(["unsquashfs", "-s", "-o", "512", image], capture_output=True, text=True,
+            details = subprocess.run(["unsquashfs", "-s", "-o", str(size), image], capture_output=True, text=True,
                                      check=True).stdout
             self.assertIn("Compression zstd", details)
             self.assertIn("Xattrs are not stored", details)
@@ -185,8 +199,64 @@ class AppImagePackagingTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             image = Path(folder) / "ViveNotes-1.2.3-x86_64.AppImage"
             with self.assertRaisesRegex(ValueError, "type 2 AppImage runtime"):
-                build.assemble(self.appdir(folder), self.runtime(folder, magic=b"\x00\x00\x00"), image, EPOCH)
+                build.assemble(self.appdir(folder), self.runtime(folder, magic=b"\x00\x00\x00"), image, EPOCH,
+                               build.UPDATE_INFORMATION)
             self.assertEqual([], list(Path(folder).glob("ViveNotes-*")))
+
+    def test_update_information_points_updaters_at_the_zsync_file_of_the_latest_release(self):
+        kind, owner, repository, release, pattern = build.UPDATE_INFORMATION.split("|")
+        self.assertEqual(("gh-releases-zsync", "latest"), (kind, release))
+        # The same repository whose releases the Windows updater reads.
+        feed = (ROOT / "desktopApp/src/main/kotlin/com/vivenotes/desktop/update/ReleaseFeed.kt").read_text()
+        self.assertIn(f'"https://api.github.com/repos/{owner}/{repository}/releases/latest"', feed)
+        # AppImageUpdate takes the release asset whose name matches "*" + pattern.
+        names = ["ViveNotes-1.2.3-x86_64.AppImage", "ViveNotes-1.2.3-x86_64.AppImage.sha256",
+                 "ViveNotes-1.2.3-x86_64.AppImage.zsync", "ViveNotes-1.2.3-x86_64.flatpak.zsync",
+                 "ViveNotes-x64.msi.zsync"]
+        self.assertEqual(["ViveNotes-1.2.3-x86_64.AppImage.zsync"],
+                         [name for name in names if fnmatch.fnmatchcase(name, "*" + pattern)])
+        self.assertIn('f"ViveNotes-{version}-x86_64.AppImage"', (HERE / "build.py").read_text())
+
+    def test_update_information_is_written_into_the_section_the_runtime_reserves(self):
+        with tempfile.TemporaryDirectory() as folder:
+            program = self.runtime(folder).read_bytes()
+            offset, size = build.elf_section(program, ".upd_info")
+            self.assertEqual(1024, size)
+            self.assertEqual(bytes(1024), program[offset:offset + size])
+            embedded = build.with_update_information(program, build.UPDATE_INFORMATION)
+            text = build.UPDATE_INFORMATION.encode("ascii")
+            self.assertEqual(text + bytes(1024 - len(text)), embedded[offset:offset + size])
+            # Nothing else moves: the runtime finds the SquashFS right after its section table.
+            self.assertEqual(program[:offset], embedded[:offset])
+            self.assertEqual(program[offset + size:], embedded[offset + size:])
+            if shutil.which("readelf"):
+                patched = Path(folder) / "patched"
+                patched.write_bytes(embedded)
+                dump = subprocess.run(["readelf", "-p", ".upd_info", patched], capture_output=True, text=True, check=True)
+                self.assertIn(build.UPDATE_INFORMATION, dump.stdout)
+
+    def test_runtime_that_cannot_hold_the_update_information_builds_nothing(self):
+        cases = {
+            "no .upd_info section": ((".note", b"build"),),
+            "does not fit": ((".upd_info", bytes(len(build.UPDATE_INFORMATION))),),
+            "already carries": ((".upd_info", b"zsync|https://example.com/Other.AppImage.zsync".ljust(1024, b"\0")),),
+        }
+        for message, sections in cases.items():
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as folder:
+                image = Path(folder) / "ViveNotes-1.2.3-x86_64.AppImage"
+                with self.assertRaisesRegex(ValueError, message):
+                    build.assemble(self.appdir(folder), self.runtime(folder, sections=sections), image, EPOCH,
+                                   build.UPDATE_INFORMATION)
+                self.assertEqual([], list(Path(folder).glob("ViveNotes-*")))
+        with tempfile.TemporaryDirectory() as folder:
+            truncated = self.runtime(folder).read_bytes()[:100]
+            with self.assertRaisesRegex(ValueError, "no .upd_info section"):
+                build.with_update_information(truncated, build.UPDATE_INFORMATION)
+
+    def test_smoke_test_asks_the_real_runtime_for_the_update_information(self):
+        smoke = (HERE / "smoke_test.py").read_text()
+        self.assertIn('"--appimage-updateinfo"', smoke)
+        self.assertIn("build.UPDATE_INFORMATION", smoke)
 
     def test_runtime_download_is_rejected_when_checksum_does_not_match(self):
         with tempfile.TemporaryDirectory() as folder:
