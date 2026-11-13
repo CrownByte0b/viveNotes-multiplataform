@@ -7,6 +7,7 @@ import com.vivenotes.workspace.NavigationActions
 import com.vivenotes.workspace.ShortcutAction
 import com.vivenotes.workspace.StructuralSnapshot
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.selectAllFrom
 
 /**
  * What each keyboard shortcut does in the workspace — the same commands the header, ribbon and
@@ -62,7 +63,7 @@ internal class WorkspaceShortcuts(
                 else clipboard.paste(null, keepFormatting = true)
             ShortcutAction.PastePlainText -> clipboard.paste(null, keepFormatting = false)
             ShortcutAction.SelectAll -> current.focusedTextOutlineId?.let { id ->
-                onEditorCommand { it.selectAllTextBox(id) }
+                onEditorCommand { it.selectAllFrom(id) }
             }
             ShortcutAction.ZoomIn -> view.zoomIn()
             ShortcutAction.ZoomOut -> view.zoomOut()

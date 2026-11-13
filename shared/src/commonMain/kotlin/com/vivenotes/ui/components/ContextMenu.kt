@@ -15,12 +15,16 @@ import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MenuAnchorPosition
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,6 +39,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
+import androidx.compose.ui.window.PopupProperties
+import com.vivenotes.ui.icons.AccountSymbols
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Calls [onPress] with the pointer's position in this element when the secondary (right) mouse
@@ -114,14 +124,20 @@ fun ContextMenu(
                         val shape = MenuDefaults.standaloneGroupShape
                         // One step above the panes and the canvas, with an outline: a dark shadow barely shows
                         // against the dark theme, so the edge carries the separation.
-                        DropdownMenuGroup(
-                            shapes = MenuDefaults.groupShapes(shape = shape, inactiveShape = shape),
-                            modifier = modifier.dismissPopupOnEscape(onDismiss),
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                            contentPadding = PaddingValues(vertical = 4.dp),
-                            content = content,
-                        )
+                        val scope = rememberCoroutineScope()
+                        val submenus = remember(scope) { ContextSubmenus(scope) }
+                        // A closing menu takes its submenu with it rather than leaving it up alone.
+                        submenus.menuOpen = anchor != null
+                        CompositionLocalProvider(LocalContextSubmenus provides submenus) {
+                            DropdownMenuGroup(
+                                shapes = MenuDefaults.groupShapes(shape = shape, inactiveShape = shape),
+                                modifier = modifier.dismissPopupOnEscape(onDismiss),
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                contentPadding = PaddingValues(vertical = 4.dp),
+                                content = content,
+                            )
+                        }
                     }
                 }
             }
@@ -148,11 +164,14 @@ fun ContextMenuItem(
     } else {
         MenuDefaults.itemColors()
     }
+    // Moving on to a plain command closes the submenu a neighbour opened; a command inside a
+    // submenu is not one of the menu's own rows, so it leaves its own submenu alone.
+    val submenus = LocalContextSubmenus.current
     DropdownMenuItem(
         onClick = onClick,
         text = { Text(label, style = MaterialTheme.typography.bodyMedium) },
         shape = MaterialTheme.shapes.medium,
-        modifier = modifier,
+        modifier = if (submenus == null) modifier else modifier.onPointerEnter(submenus) { submenus.point(null) },
         leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(MenuDefaults.LeadingIconSize)) },
         trailingContent = shortcut?.let { keys -> { Text(keys, style = MaterialTheme.typography.bodySmall) } },
         enabled = enabled,
@@ -167,4 +186,110 @@ fun ContextMenuDivider() {
         modifier = Modifier.padding(MenuDefaults.HorizontalDividerPadding),
         color = MaterialTheme.colorScheme.outlineVariant,
     )
+}
+
+/**
+ * Which of a [ContextMenu]'s submenus is open. Pointing at a row asks for its submenu, or for none,
+ * after a pause: straight away would close a submenu under a pointer crossing a neighbouring row on
+ * its way into it, and open one for a pointer only passing through.
+ */
+@Stable
+internal class ContextSubmenus(private val scope: CoroutineScope) {
+    var open by mutableStateOf<Any?>(null)
+        private set
+    var menuOpen by mutableStateOf(true)
+    private var pending: Job? = null
+
+    /** The pointer is over the row that opens [key], or with null over a row that opens nothing. */
+    fun point(key: Any?) {
+        pending?.cancel()
+        if (key == open) return
+        pending = scope.launch {
+            delay(if (open == null) OPEN_DELAY_MILLIS else SWITCH_DELAY_MILLIS)
+            open = key
+        }
+    }
+
+    /** A click, or the pointer inside the submenu itself: no waiting. */
+    fun show(key: Any?) {
+        pending?.cancel()
+        open = key
+    }
+
+    private companion object {
+        const val OPEN_DELAY_MILLIS = 120L
+        const val SWITCH_DELAY_MILLIS = 300L
+    }
+}
+
+/** The enclosing [ContextMenu]'s submenus; null inside a submenu, and outside any menu. */
+internal val LocalContextSubmenus = compositionLocalOf<ContextSubmenus?> { null }
+
+private fun Modifier.onPointerEnter(key: Any?, onEnter: () -> Unit): Modifier = pointerInput(key) {
+    awaitPointerEventScope {
+        while (true) {
+            // Moves as well as the entry: a pointer already on the row when the menu opened never enters it.
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            if (event.type == PointerEventType.Enter || event.type == PointerEventType.Move) onEnter()
+        }
+    }
+}
+
+/**
+ * A row of a [ContextMenu] that opens a second menu beside it — [icon], [label], then a chevron —
+ * holding [content]'s [ContextMenuItem]s. It opens when the pointer rests on the row or clicks it,
+ * and closes when the pointer moves on to another row or the menu closes.
+ *
+ * The second menu takes no keyboard focus: Escape and a click outside stay the first menu's, which
+ * closes both. Its commands close the whole menu themselves, as the first menu's do.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun ContextSubmenu(
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val submenus = LocalContextSubmenus.current ?: return
+    val key = remember { Any() }
+    val contentDensity = LocalDensity.current
+    val layerDensity = LocalPopupLayerDensity.current ?: contentDensity
+    Box {
+        DropdownMenuItem(
+            onClick = { submenus.show(key) },
+            text = { Text(label, style = MaterialTheme.typography.bodyMedium) },
+            shape = MaterialTheme.shapes.medium,
+            modifier = if (enabled) modifier.onPointerEnter(submenus) { submenus.point(key) } else modifier,
+            leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(MenuDefaults.LeadingIconSize)) },
+            trailingContent = {
+                Icon(AccountSymbols.ChevronRight, contentDescription = null, modifier = Modifier.size(MenuDefaults.LeadingIconSize))
+            },
+            enabled = enabled,
+        )
+        // Placed in host-window pixels like the menu it belongs to, beside this row.
+        CompositionLocalProvider(LocalDensity provides layerDensity) {
+            DropdownMenuPopup(
+                expanded = enabled && submenus.menuOpen && submenus.open == key,
+                onDismissRequest = { submenus.show(null) },
+                popupPositionProvider = MenuDefaults.rememberDropdownMenuPopupPositionProvider(MenuAnchorPosition.End),
+                properties = PopupProperties(focusable = false),
+            ) {
+                PopupTooltipScope("context submenu") {
+                    CompositionLocalProvider(LocalDensity provides contentDensity, LocalContextSubmenus provides null) {
+                        val shape = MenuDefaults.standaloneGroupShape
+                        DropdownMenuGroup(
+                            shapes = MenuDefaults.groupShapes(shape = shape, inactiveShape = shape),
+                            modifier = Modifier.onPointerEnter(submenus) { submenus.show(key) },
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            contentPadding = PaddingValues(vertical = 4.dp),
+                            content = content,
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

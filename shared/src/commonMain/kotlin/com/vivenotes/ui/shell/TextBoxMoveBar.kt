@@ -31,14 +31,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.vivenotes.localization.Strings
 import com.vivenotes.model.Outline
-import com.vivenotes.ui.canvas.LocalObjectGrab
-import com.vivenotes.ui.canvas.detectObjectDrag
-import com.vivenotes.ui.icons.NavigationSymbols
+import com.vivenotes.ui.canvas.OBJECT_MOVE_BAR_DP
+import com.vivenotes.ui.canvas.ObjectMoveBar
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.isUnwritten
 
-/** The move bar's thickness in page dp: thin against a box, thick enough for a mouse to land on. */
-internal const val TEXT_BOX_MOVE_BAR_DP = 16f
+/** The move bar's thickness in page dp, the one every object's bar has. */
+internal const val TEXT_BOX_MOVE_BAR_DP = OBJECT_MOVE_BAR_DP
 
 internal enum class TextBoxMoveBarMode { Hidden, OnHover, Always }
 
@@ -112,34 +111,6 @@ internal fun TextBoxMoveBar(
     border: Color,
     onMove: (dx: Float, dy: Float, firstChange: Boolean) -> Unit,
 ) {
-    val density = LocalDensity.current
-    val grab = LocalObjectGrab.current
-    val currentMove by rememberUpdatedState(onMove)
-    val thickness = TEXT_BOX_MOVE_BAR_DP.dp
-    val shape = MaterialTheme.shapes.small.copy(bottomStart = ZeroCornerSize, bottomEnd = ZeroCornerSize)
-    Box(
-        // Over every neighbour: the box above this one may be drawn later and reach its top edge.
-        Modifier.offset(box.x.coerceAtLeast(0f).dp, box.moveBarTop.dp)
-            .size(box.width.coerceIn(120f, 2000f).dp, thickness).zIndex(1f)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
-            .border(1.dp, border, shape)
-            .testTag(WorkspaceTestTags.textMoveBar(box.id))
-            .semantics { contentDescription = Strings.move_text_box }
-            .pointerInput(box.id) {
-                var firstChange = true
-                detectObjectDrag(grab,
-                    onDragStart = { firstChange = true },
-                    onDrag = { change, drag ->
-                        change.consume()
-                        currentMove(with(density) { drag.x.toDp().value }, with(density) { drag.y.toDp().value }, firstChange)
-                        firstChange = false
-                    },
-                )
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(NavigationSymbols.DragIndicator, contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(thickness).rotate(90f))
-    }
+    ObjectMoveBar(box.x.coerceAtLeast(0f), box.moveBarTop, box.width.coerceIn(120f, 2000f), border,
+        WorkspaceTestTags.textMoveBar(box.id), Strings.move_text_box, box.id, onMove)
 }

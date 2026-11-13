@@ -363,6 +363,20 @@ data class WorkspaceState(
             is TableEdit.RowMinHeight -> edit.recordHistory
             else -> true
         }
+        val edited = applyTableEdit(edit, recordHistory)
+        // The cell being typed in went with its row or column: the caret takes the cell now in its place.
+        val focused = focusedTextOutlineId ?: return edited
+        if (edited.selectedPage?.document?.textContainer(focused) != null) return edited
+        val (row, column) = editedTable(focused)?.locate(focused) ?: return edited
+        val left = edited.copy(focusedTextOutlineId = null, editorSelection = TextSelection(0), wordSelections = null,
+            typingMarks = emptySet(), editorComposition = null, typingRun = null)
+        val table = left.selectedPage?.document?.outlines?.firstOrNull { it.id == edit.tableId } as? Outline.Table
+        val heir = table?.rows?.getOrNull(row.coerceAtMost(table.rowCount - 1))?.cells
+            ?.getOrNull(column.coerceAtMost(table.columnCount - 1))
+        return if (heir == null) left else left.focusTextBox(heir.id)
+    }
+
+    private fun applyTableEdit(edit: TableEdit, recordHistory: Boolean): WorkspaceState {
         return editOutlines(recordHistory) { outlines -> outlines.map { outline ->
             if (outline !is Outline.Table || outline.id != edit.tableId) outline else when (edit) {
                 is TableEdit.InsertRow -> outline.withRowInserted(edit.at)
@@ -1127,7 +1141,7 @@ data class WorkspaceState(
         editTextSelections { it.replace(text) }
 
     val selectedText: String
-        get() = orderedTextRanges().mapNotNull { target ->
+        get() = selectedCellsText() ?: orderedTextRanges().mapNotNull { target ->
             selectedPage?.document?.textIndex?.get(target.containerId)?.let {
                 val buffer = RichTextBuffer(it.blocks)
                 val range = target.range.clamped(buffer.text.length)

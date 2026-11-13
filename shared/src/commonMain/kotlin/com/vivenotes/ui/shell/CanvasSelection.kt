@@ -209,7 +209,10 @@ internal fun CanvasObjectToolkit(
     if (state.selectedObjectIds.isNotEmpty() && state.selectedInk == null) {
         val selected = state.selectedPrimeObjects.firstOrNull()
         if (selected != null) {
-            val bounds = groupBounds ?: Rect(selected.x, selected.y, selected.x + selected.primeWidth(),
+            // A table alone in the selection wears its move bar above its frame; the toolkit clears it.
+            val barRoom = if (groupBounds == null && selected is Outline.Table && selected.lockGroup == null &&
+                state.showsTableHandles(selected)) selected.y - selected.moveBarTop else 0f
+            val bounds = groupBounds ?: Rect(selected.x, selected.y - barRoom, selected.x + selected.primeWidth(),
                 selected.y + (measuredTextHeights[selected.id] ?: selected.primeHeight()))
             var toolkitSize by remember { mutableStateOf(IntSize.Zero) }
             Surface(color = Color(0xFF202124), contentColor = Color(0xFFE8EAED),

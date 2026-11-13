@@ -37,10 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.vivenotes.localization.Strings
 import com.vivenotes.model.Outline
-import com.vivenotes.ui.canvas.LocalObjectGrab
-import com.vivenotes.ui.canvas.detectObjectDrag
+import com.vivenotes.ui.canvas.OBJECT_MOVE_BAR_DP
+import com.vivenotes.ui.canvas.ObjectMoveBar
 import com.vivenotes.ui.canvas.primeResizePointer
-import com.vivenotes.ui.icons.NavigationSymbols
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.workspace.TABLE_GUTTER
 import com.vivenotes.workspace.WorkspaceState
@@ -77,9 +76,9 @@ internal fun TableAxis?.heldIn(state: WorkspaceState): TableAxis? {
  * A selected table's handles, laid over the gutter its `(x, y)` reserves above and left of the grid.
  *
  * Each column has a bar in the top gutter and each row one in the left gutter: a click holds that
- * column or row (a second click lets go) and a drag sets its width or floor. The square where the
- * gutters meet is the move grip, and the grid's bottom-right corner scales the whole table. A lock
- * keeps the bars for holding but drops every drag, as on Android.
+ * column or row (a second click lets go) and a drag sets its width or floor. A bar along the top, the
+ * one a text box has, moves the table, and the grid's bottom-right corner scales it. A lock keeps the
+ * row and column bars for holding but drops every drag, as on Android.
  */
 @Composable
 internal fun TableChrome(
@@ -100,31 +99,13 @@ internal fun TableChrome(
     val currentHeld by rememberUpdatedState(held)
     val currentMove by rememberUpdatedState(onMove)
     val currentScale by rememberUpdatedState(onScale)
-    val grab = LocalObjectGrab.current
     val gutter = TABLE_GUTTER.dp
     val gridHeight = rows.sum()
 
     if (grabbable) {
-        // Larger than the gutter, so it grows up and left from the grid's corner and stays clear of
-        // the first column and row bars.
-        Box(Modifier.offset((table.x + TABLE_GUTTER).dp - TableGripSize, (table.y + TABLE_GUTTER).dp - TableGripSize)
-            .size(TableGripSize)
-            .clip(RoundedCornerShape(topStart = 5.dp))
-            .background(accent)
-            .testTag(TableTags.Move)
-            .semantics { contentDescription = Strings.move_table }
-            .pointerInput(table.id) {
-                var first = true
-                detectObjectDrag(grab, onDragStart = { first = true }) { change, drag ->
-                    change.consume()
-                    currentMove(with(density) { drag.x.toDp().value }, with(density) { drag.y.toDp().value }, first)
-                    first = false
-                }
-            },
-            contentAlignment = Alignment.Center) {
-            Icon(NavigationSymbols.DragIndicator, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(TableGripSize - 4.dp))
-        }
+        // The bar a text box has, over the whole of the table's frame: its gutters and its grid.
+        ObjectMoveBar(table.x, table.moveBarTop, TABLE_GUTTER + table.width, accent,
+            TableTags.Move, Strings.move_table, table.id) { dx, dy, first -> currentMove(dx, dy, first) }
     }
 
     var left = table.x + TABLE_GUTTER
@@ -278,8 +259,20 @@ private fun AxisHandle(
     }
 }
 
-/** The move grip's side: a little more than the 16 dp gutter, which made it a small target. */
-internal val TableGripSize = 22.dp
+/** The move bar's top in page dp: on the top gutter, or over it where the page has no room above. */
+internal val Outline.Table.moveBarTop: Float
+    get() = (y - OBJECT_MOVE_BAR_DP).coerceAtLeast(0f)
+
+/** Whether [table] shows its handles: alone in the selection, or being typed in. */
+internal fun WorkspaceState.showsTableHandles(table: Outline.Table): Boolean =
+    selectedInk == null && selectedTextOutlineIds.isEmpty() &&
+        (selectedObjectIds == setOf(table.id) || table.locate(focusedTextOutlineId.orEmpty()) != null)
+
+/** Whether page point [point] is on the move bar [table] shows; a locked table has none. */
+internal fun WorkspaceState.tableMoveBarContains(table: Outline.Table, point: Offset): Boolean =
+    table.lockGroup == null && showsTableHandles(table) &&
+        point.x in table.x..(table.x + TABLE_GUTTER + table.width) &&
+        point.y in table.moveBarTop..(table.moveBarTop + OBJECT_MOVE_BAR_DP)
 
 /** The grab knob on a gutter bar, light in both themes because it sits on the bar's own blue. */
 private val HANDLE_KNOB = Color(0xFFF2F0EF)

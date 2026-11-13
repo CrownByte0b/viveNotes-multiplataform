@@ -10,8 +10,12 @@ import com.vivenotes.richtext.TextSelection
 
 data class SelectedTextRange(val containerId: String, val range: TextSelection, val typingMarks: Set<Mark>? = null)
 
-/** Transient selections in one text box or in the cells of one table; the last range is active. */
-data class WordSelections(val pageId: String, val ownerId: String, val ranges: List<SelectedTextRange>)
+/**
+ * Transient selections in one text box or in the cells of one table; the last range is active.
+ * [cells] are the table cells selected whole — a row, a column or the table — which the canvas tints.
+ */
+data class WordSelections(val pageId: String, val ownerId: String, val ranges: List<SelectedTextRange>,
+                          val cells: Set<String> = emptySet())
 
 internal val WorkspaceState.activeWordSelections: WordSelections?
     get() = wordSelections?.takeIf { group ->

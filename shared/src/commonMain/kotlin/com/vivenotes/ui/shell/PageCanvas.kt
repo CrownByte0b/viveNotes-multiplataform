@@ -571,12 +571,15 @@ internal fun PageCanvas(
     /**
      * The prime object menu at page [point]: on object [objectId], which a right-click selects as a
      * click would unless it is already selected, or with null on the selection, whose frame it was in.
+     * [tableCell] is the row and column of the cell the point is in, when the object is a table.
      */
-    fun openObjectMenu(objectId: String?, point: Offset) {
+    fun openObjectMenu(objectId: String?, point: Offset, tableCell: Pair<Int, Int>? = null) {
         focusManager.clearFocus()
         canvasFocusRequester.requestFocus()
         if (objectId != null && objectId !in currentState.selectedObjectIds) onSelectObject(objectId)
         interaction.pastePoint = null
+        // Left as it is when the menu closes, so the cell's rows do not go before the menu has.
+        interaction.objectMenuCell = tableCell
         interaction.objectMenu = point
     }
 
@@ -592,7 +595,8 @@ internal fun PageCanvas(
             val margin = if (outline is Outline.Text && snapshot.focusedTextOutlineId == outline.id &&
                 !outline.isUnwritten()) 16f else 0f
             val chromeTop = if (outline is Outline.Text && showsMoveBar(outline, snapshot)) TEXT_BOX_MOVE_BAR_DP
-                else if (outline.id in snapshot.selectedObjectIds) 52f else 0f
+                else if (outline.id in snapshot.selectedObjectIds) 52f
+                else if (outline is Outline.Table && snapshot.showsTableHandles(outline)) TEXT_BOX_MOVE_BAR_DP else 0f
             point.x >= outline.x - margin && point.x <= outline.x + outline.primeWidth() + margin &&
                 point.y >= outline.y - chromeTop &&
                 point.y <= outline.y + height + margin
@@ -609,8 +613,9 @@ internal fun PageCanvas(
                 Offset(group.left - 6f, group.top - 6f), Offset(group.right + 6f, group.top - 6f),
                 Offset(group.left - 6f, group.bottom + 6f), Offset(group.right + 6f, group.bottom + 6f),
             ).any { (point - it).getDistance() <= 14f }
-        val moveBar = outlines.any { text ->
-            text is Outline.Text && text.moveBarContains(point) && showsMoveBar(text, snapshot)
+        val moveBar = outlines.any { outline ->
+            outline is Outline.Text && outline.moveBarContains(point) && showsMoveBar(outline, snapshot) ||
+                outline is Outline.Table && snapshot.tableMoveBarContains(outline, point)
         }
         val primeBounds = outlines.any { outline ->
             val margin = if (outline is Outline.Shape && outline.segments.isNotEmpty())
@@ -1054,7 +1059,19 @@ internal fun PageCanvas(
         // Nothing left to act on — an undo, or the objects gone in a sync — closes it for good, so a
         // later selection does not bring it back.
         if (interaction.objectMenu != null && !state.hasObjectSelection) SideEffect { interaction.objectMenu = null }
+        // One table right-clicked on a cell — a locked one, or one that holds only ink, whose cells
+        // have no menu of their own — also offers that cell's row and column commands.
+        val menuTable = (state.selectedPrimeObjects.singleOrNull() as? Outline.Table)?.takeIf {
+            state.selectedObjectIds.size == 1 && state.selectedTextOutlineIds.isEmpty() && state.selectedInk == null
+        }
+        val menuCell = interaction.objectMenuCell
         ObjectContextMenu(
+            own = if (menuTable == null || menuCell == null) null else { {
+                TableGridMenuItems(menuTable, menuCell.first, menuCell.second, page.editable) { edit ->
+                    interaction.objectMenu = null
+                    onTableEdit(edit)
+                }
+            } },
             anchor = interaction.objectMenu?.takeIf { state.hasObjectSelection }?.let { point ->
                 Offset(point.x * zoom * density.density - horizontalScroll.value,
                     point.y * zoom * density.density - verticalScroll.value)

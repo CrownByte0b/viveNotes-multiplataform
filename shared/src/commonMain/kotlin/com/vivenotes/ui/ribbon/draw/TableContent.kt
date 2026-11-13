@@ -31,6 +31,7 @@ import com.vivenotes.ui.canvas.WordSelectionActions
 import com.vivenotes.ui.canvas.selectAdditionalWords
 import com.vivenotes.ui.canvas.wordAt
 import com.vivenotes.ui.components.ContextMenu
+import com.vivenotes.ui.components.ContextMenuDivider
 import com.vivenotes.ui.components.ContextMenuItem
 import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.DocumentSymbols
@@ -39,6 +40,9 @@ import com.vivenotes.localization.Strings
 import com.vivenotes.ui.keyboard.LocalKeyBindings
 import com.vivenotes.workspace.ObjectCommand
 import com.vivenotes.workspace.ShortcutAction
+import com.vivenotes.workspace.TableEdit
+import com.vivenotes.workspace.selectTableCells
+import com.vivenotes.workspace.selectedTableCells
 import com.vivenotes.workspace.textSelectionsFor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -86,7 +90,7 @@ internal fun tableCellMenus(table: Outline.Table, actions: WordSelectionActions?
 /**
  * The grid: its cells, with the fill, header tint, [held] band and rules drawn once behind them
  * (Android `TableGrid`), so every rule is the same width wherever two cells meet. [onObjectCommand]
- * runs the table's own commands from a cell's right-click menu.
+ * runs the table's own commands from a cell's right-click menu, and [onTableEdit] its row and column ones.
  */
 @Composable
 internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Color, state: WorkspaceState,
@@ -94,7 +98,10 @@ internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Co
     onChange: (String, TextFieldValue) -> Unit, onShortcut: (KeyEvent) -> Boolean,
     held: TableAxis? = null, heldTint: Color = Color.Transparent,
     onObjectCommand: (ObjectCommand) -> Unit = {},
+    onTableEdit: (TableEdit) -> Unit = {},
 ) {
+    // Cells selected whole by the menu's Select commands: tinted as cells, the empty ones too.
+    val selectedCells = state.selectedTableCells(table.id)
     val border = Color(automaticColorOr(table.borderArgb, table.borderFollowsTheme, canvasInk.toArgb()))
     val editing = table.lockGroup == null && (
         state.selectedObjectIds == setOf(table.id) && state.selectedTextOutlineIds.isEmpty() && state.selectedInk == null ||
@@ -114,6 +121,12 @@ internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Co
                 drawRect(heldTint, Offset(lefts[held.index], 0f), Size(lefts[held.index + 1] - lefts[held.index], size.height))
             null -> Unit
         }
+        if (selectedCells.isNotEmpty()) table.rows.forEachIndexed { r, row ->
+            row.cells.forEachIndexed { c, cell ->
+                if (cell.id in selectedCells && r < rows.size && c < table.columns.size)
+                    drawRect(heldTint, Offset(lefts[c], tops[r]), Size(lefts[c + 1] - lefts[c], tops[r + 1] - tops[r]))
+            }
+        }
         val stroke = table.borderWidth.dp.toPx().coerceAtLeast(1f)
         // Half a stroke in at each edge, so the outer rules are not clipped in half by the box.
         lefts.forEach { x ->
@@ -130,8 +143,8 @@ internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Co
                 row.cells.forEachIndexed { c, cell ->
                     val header = (r == 0 && table.headerRow) || (c == 0 && table.headerColumn)
                     Box(Modifier.width(table.columns.getOrElse(c) { 160f }.dp).fillMaxHeight()) {
-                        if (!table.inkOnly) TableCellText(table, cell, header, editing, canvasInk,
-                            state, colors, focusRequester, onFocus, onChange, onShortcut, onObjectCommand)
+                        if (!table.inkOnly) TableCellText(table, cell, r, c, header, editing, canvasInk,
+                            state, colors, focusRequester, onFocus, onChange, onShortcut, onObjectCommand, onTableEdit)
 
                     }
                 }
@@ -143,10 +156,10 @@ internal fun TableContent(table: Outline.Table, rows: List<Float>, canvasInk: Co
 
 @Composable
 private fun TableCellText(
-    table: Outline.Table, cell: TableCell, header: Boolean, editing: Boolean, canvasInk: Color,
+    table: Outline.Table, cell: TableCell, row: Int, column: Int, header: Boolean, editing: Boolean, canvasInk: Color,
     state: WorkspaceState, colors: RichTextColors, focusRequester: FocusRequester,
     onFocus: (String) -> Unit, onChange: (String, TextFieldValue) -> Unit, onShortcut: (KeyEvent) -> Boolean,
-    onObjectCommand: (ObjectCommand) -> Unit,
+    onObjectCommand: (ObjectCommand) -> Unit, onTableEdit: (TableEdit) -> Unit,
 ) {
     val focused = table.lockGroup == null && state.focusedTextOutlineId == cell.id
     val buffer = RichTextBuffer(cell.blocks, if (focused) state.editorSelection else TextSelection(0),
@@ -166,7 +179,8 @@ private fun TableCellText(
         .then(if (actions == null || !tableCellMenus(table, actions)) Modifier else Modifier.onSecondaryPress(cell.id) { point ->
             val inText = point - with(density) { Offset(padding.toPx(), padding.toPx()) }
             val clicked = layout?.getOffsetForPosition(inText)?.coerceIn(0, buffer.text.length) ?: 0
-            val range = state.textSelectionsFor(cell.id).firstOrNull { clicked in it.min..it.max }
+            // In a cell selected whole the click keeps that selection, wherever in the cell it lands.
+            val range = state.textSelectionsFor(cell.id).firstOrNull { clicked in it.min..it.max || cell.id in state.selectedTableCells(table.id) }
                 ?: if (focused && clicked in state.editorSelection.min..state.editorSelection.max)
                     state.editorSelection else TextSelection(clicked)
             actions.activate(cell.id, range)
@@ -209,14 +223,23 @@ private fun TableCellText(
         ContextMenuItem(Strings.cut, DocumentSymbols.ContentCut, shortcut = bindings.primary(ShortcutAction.Cut)?.label,
             enabled = selected, onClick = { menu = null; actions.clipboard.cut(actions.state(), null) })
         ContextMenuItem(Strings.copy, DocumentSymbols.ContentCopy, shortcut = bindings.primary(ShortcutAction.Copy)?.label,
-            enabled = selected, onClick = { menu = null; actions.clipboard.copy(actions.state(), null) })
+            enabled = selected, onClick = { menu = null; actions.clipboard.copy(actions.state(), null) },
+            modifier = Modifier.testTag(TableMenuTags.Copy))
         ContextMenuItem(Strings.paste, DocumentSymbols.ContentPaste, shortcut = bindings.primary(ShortcutAction.Paste)?.label,
             enabled = actions.clipboard.canPaste(), onClick = { menu = null; actions.clipboard.paste(null, true) })
         ContextMenuItem(Strings.paste_as_plain_text, ContextSymbols.PasteAsText,
             shortcut = bindings.primary(ShortcutAction.PastePlainText)?.label,
             enabled = actions.clipboard.canPaste(), onClick = { menu = null; actions.clipboard.paste(null, false) })
-        ContextMenuItem(Strings.select_all, ContextSymbols.SelectAll, shortcut = bindings.primary(ShortcutAction.SelectAll)?.label,
-            onClick = { menu = null; actions.edit { it.selectAllTextBox(cell.id) } })
+        ContextMenuDivider()
+        TableSelectMenuItems(table, bindings.primary(ShortcutAction.SelectAll)?.label) { scope ->
+            menu = null
+            actions.edit { if (scope == null) it.selectAllTextBox(cell.id) else it.selectTableCells(cell.id, scope) }
+        }
+        TableGridMenuItems(table, row, column, editable = state.selectedPage?.editable == true) { edit ->
+            menu = null
+            onTableEdit(edit)
+        }
+        ContextMenuDivider()
         ContextMenuItem(Strings.clear_formatting, DocumentSymbols.FormatClear, enabled = selected,
             onClick = { menu = null; actions.edit { it.clearSelectedFormatting() } })
         TableObjectMenuItems(editable = state.selectedPage?.editable == true) { command ->

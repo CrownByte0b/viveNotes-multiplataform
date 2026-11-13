@@ -9,6 +9,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.model.*
+import com.vivenotes.ui.canvas.OBJECT_MOVE_BAR_DP
 import com.vivenotes.ui.canvas.SelectionColorTags
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.shell.WorkspaceTestTags
@@ -63,13 +64,13 @@ class TableHandlesInteractionTest {
                 top += handle.height
             }
             close(grid.bottom, top, "rows span the grid")
+            // The move bar a text box has, along the top of the table's frame: no grip in the corner.
             val grip = bounds(TableTags.Move)
-            close(grid.left, grip.right, "grip right"); close(grid.top, grip.bottom, "grip bottom")
-            close(TableGripSize.value * scale, grip.width, "grip width")
-            close(TableGripSize.value * scale, grip.height, "grip height")
-            assertTrue(grip.width > gutter, "grip larger than the gutter")
-            assertTrue(grip.right <= bounds(TableTags.columnHandle(table.id, 0)).left + 0.5f, "grip clear of the first column bar")
-            assertTrue(grip.bottom <= bounds(TableTags.rowHandle(table.id, 0)).top + 0.5f, "grip clear of the first row bar")
+            close(grid.left - gutter, grip.left, "move bar left"); close(grid.right, grip.right, "move bar right")
+            close(grid.top - gutter, grip.bottom, "move bar sits on the top gutter")
+            close(OBJECT_MOVE_BAR_DP * scale, grip.height, "move bar thickness")
+            onNodeWithTag(TableTags.Move).assertContentDescriptionEquals("Move table")
+            assertTrue(grip.bottom <= bounds(TableTags.columnHandle(table.id, 0)).top + 0.5f, "move bar clear of the column bars")
             val corner = bounds(WorkspaceTestTags.objectCorner(table.id, 3))
             close(grid.right, corner.center.x, "scale corner x"); close(grid.bottom, corner.center.y, "scale corner y")
             (0..2).forEach { onNodeWithTag(WorkspaceTestTags.objectCorner(table.id, it)).assertDoesNotExist() }
@@ -238,7 +239,7 @@ class TableHandlesInteractionTest {
         }
 
     @Test
-    fun theGripMovesTheTableAndTheCornerScalesItFromItsTopLeft() =
+    fun theMoveBarMovesTheTableAndTheCornerScalesItFromItsTopLeft() =
         runDesktopComposeUiTest(width = 1500, height = 1000) {
             val state = mutableStateOf(workspace(table).selectObject(table.id))
             setContent { ViveNotesTheme(darkTheme = true) { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
@@ -290,6 +291,24 @@ class TableHandlesInteractionTest {
             }
             onNodeWithTag(TableTags.rowHandle(table.id, 2)).assertIsSelected()
             onNodeWithTag(TableTags.RowBelow).assertIsDisplayed()
+        }
+
+    /** The bar is there while a cell is typed in, and dragging it holds the table rather than the cell. */
+    @Test
+    fun theMoveBarDraggedWhileTypingInACellMovesTheTableAndTakesTheCaretFromTheCell() =
+        runDesktopComposeUiTest(width = 1500, height = 1000) {
+            val cell = table.cellAt(1, 1)!!
+            val state = mutableStateOf(workspace(table).focusTextBox(cell.id))
+            setContent { ViveNotesTheme(darkTheme = true) { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
+            onNodeWithTag(TableTags.Move).assertIsDisplayed()
+            onNodeWithTag(TableTags.Move).performMouseInput { moveTo(center); press(); repeat(5) { moveBy(Offset(10f, 6f)) }; release() }
+            runOnIdle {
+                assertTrue(state.value.grid.x > table.x + 30f && state.value.grid.y > table.y + 15f)
+                assertEquals(setOf(table.id), state.value.selectedObjectIds)
+                assertNull(state.value.focusedTextOutlineId)
+                assertEquals(1, state.value.structuralUndo.size, "one drag is one undo")
+            }
+            onNodeWithTag(TableTags.Move).assertIsDisplayed()
         }
 
     @Test

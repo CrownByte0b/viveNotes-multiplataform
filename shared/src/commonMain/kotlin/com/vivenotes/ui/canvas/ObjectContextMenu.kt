@@ -36,6 +36,8 @@ internal fun ObjectContextMenu(
     editable: Boolean,
     onCommand: (ObjectCommand) -> Unit,
     onDismiss: () -> Unit,
+    /** The selected object's own commands, between Copy and Delete: a table's rows and columns. */
+    own: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     // The keys shown are the ones in force, which Settings → Hardware can change.
     val bindings = LocalKeyBindings.current
@@ -56,6 +58,10 @@ internal fun ObjectContextMenu(
             modifier = Modifier.testTag(ObjectMenuTags.Copy),
         )
         ContextMenuDivider()
+        if (own != null) {
+            own()
+            ContextMenuDivider()
+        }
         ContextMenuItem(
             label = Strings.delete,
             icon = ObjectSymbols.Delete,

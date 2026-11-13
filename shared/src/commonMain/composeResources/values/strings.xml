@@ -219,6 +219,16 @@
     <string name="insert_column_right">Insert column right</string>
     <string name="delete_row">Delete row</string>
     <string name="delete_column">Delete column</string>
+    <string name="insert">Insert</string>
+    <string name="insert_row_above">Row above</string>
+    <string name="insert_row_below_short">Row below</string>
+    <string name="insert_column_left">Column left</string>
+    <string name="insert_column_right_short">Column right</string>
+    <string name="select">Select</string>
+    <string name="select_cell">Cell</string>
+    <string name="select_row">Row</string>
+    <string name="select_column">Column</string>
+    <string name="select_table">Table</string>
     <string name="change_border_width">Change border width</string>
     <string name="change_fill_color">Change fill color</string>
     <string name="change_line_style">Change line style</string>
