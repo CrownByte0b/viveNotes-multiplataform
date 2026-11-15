@@ -71,7 +71,8 @@ class UpdateHttpTest {
         val directory = temp.newFolder("updates")
         val progress = mutableListOf<Long>()
 
-        val msi = VerifiedUpdateDownloader("ViveNotes/0.1.0 (Windows)").download(release, directory) { progress += it }
+        val msi = VerifiedUpdateDownloader("ViveNotes/0.1.0 (Windows)")
+            .download(release, java.io.File(directory, installerName), seed = null) { progress += it.bytes }
 
         assertEquals(java.io.File(directory, installerName), msi)
         assertContentEquals(installer, msi.readBytes())
@@ -89,7 +90,7 @@ class UpdateHttpTest {
         val directory = temp.newFolder("updates")
 
         val failure = assertFailsWith<IOException> {
-            VerifiedUpdateDownloader("test").download(release, directory) {}
+            VerifiedUpdateDownloader("test").download(release, java.io.File(directory, installerName), null) {}
         }
 
         assertEquals("$installerName failed verification", failure.message)
@@ -101,11 +102,11 @@ class UpdateHttpTest {
         val directory = temp.newFolder("updates")
         val longer = assertNotNull(serveRelease(served = installer + byteArrayOf(1)).let { feed().latest() })
         assertEquals("$installerName is larger than expected",
-            assertFailsWith<IOException> { VerifiedUpdateDownloader("test").download(longer, directory) {} }.message)
+            assertFailsWith<IOException> { VerifiedUpdateDownloader("test").download(longer, java.io.File(directory, installerName), null) {} }.message)
 
         val shorter = assertNotNull(serveRelease(served = installer.copyOf(installer.size - 1)).let { feed().latest() })
         assertEquals("$installerName is incomplete",
-            assertFailsWith<IOException> { VerifiedUpdateDownloader("test").download(shorter, directory) {} }.message)
+            assertFailsWith<IOException> { VerifiedUpdateDownloader("test").download(shorter, java.io.File(directory, installerName), null) {} }.message)
         assertEquals(emptyList(), directory.list()!!.toList())
     }
 
@@ -114,7 +115,7 @@ class UpdateHttpTest {
         val release = assertNotNull(serveRelease(checksum = "${sha256(installer)}  ViveNotes-0.1.0-x64.msi\r\n").let { feed().latest() })
         val directory = temp.newFolder("updates")
 
-        val failure = assertFailsWith<IOException> { VerifiedUpdateDownloader("test").download(release, directory) {} }
+        val failure = assertFailsWith<IOException> { VerifiedUpdateDownloader("test").download(release, java.io.File(directory, installerName), null) {} }
 
         assertEquals("The checksum for $installerName could not be read.", failure.message)
         assertTrue(!requests.containsKey("/storage/$installerName"), "Nothing is downloaded without a checksum")
@@ -126,9 +127,9 @@ class UpdateHttpTest {
             ReleaseAsset(installerName, URI("https://github.com/x/$installerName"), 3),
             ReleaseAsset("$installerName.sha256", URI("https://github.com/x/$installerName.sha256"), 92))
         // What HttpURLConnection reports after following a redirect to plain HTTP elsewhere.
-        val downloader = VerifiedUpdateDownloader("test") { _ -> FakeConnection(URL("http://example.com/checksum"), "x") }
+        val downloader = VerifiedUpdateDownloader("test", openConnection = { _ -> FakeConnection(URL("http://example.com/checksum"), "x") })
 
-        val failure = assertFailsWith<IOException> { downloader.download(release, temp.newFolder("updates")) {} }
+        val failure = assertFailsWith<IOException> { downloader.download(release, java.io.File(temp.newFolder("updates"), installerName), null) {} }
 
         assertEquals("$installerName.sha256 failed verification", failure.message)
     }

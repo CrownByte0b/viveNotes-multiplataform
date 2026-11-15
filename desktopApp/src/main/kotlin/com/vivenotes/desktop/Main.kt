@@ -62,7 +62,7 @@ fun main(args: Array<String>) {
             System.setProperty("awt.toolkit.name", "WLToolkit")
             useWaylandWindowClass(profile)
             runBlocking { Localization.initialize(log = log) }
-            launchWayland(DesktopNotes.open(profile, log), profile, log)
+            launchWayland(DesktopNotes.open(profile, log), profile, log, args.toList())
         }
         WindowBackend.STANDARD -> {
             if (System.getProperty("os.name").startsWith("Linux", ignoreCase = true)) {
@@ -71,21 +71,21 @@ fun main(args: Array<String>) {
                 DesktopTouch.prepareX11(log)
             }
             runBlocking { Localization.initialize(log = log) }
-            launchStandardWindow(DesktopNotes.open(profile, log), profile, log)
+            launchStandardWindow(DesktopNotes.open(profile, log), profile, log, args.toList())
         }
     }
 }
 
-private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, log: DebugLog) {
+private fun launchStandardWindow(notes: DesktopNotes, profile: DesktopProfile, log: DebugLog, arguments: List<String>) {
     notes.start()
     val monitor = primaryMonitorArea()
     val initialSize = initialWindowSize(monitor)
     application {
-        // Only the installed Windows app updates itself; the dialog offers a newer release once it opens.
+        // The installed Windows app and the AppImage update themselves; the dialog offers a newer release once it opens.
         val updates = remember {
-            DesktopUpdates.forInstalledApp(profile, log, closeApp = { onClosed, onKeptOpen ->
+            DesktopUpdates.forThisInstallation(profile, log, closeApp = { onClosed, onKeptOpen ->
                 notes.close(done = { onClosed(); exitApplication() }, keptOpen = onKeptOpen)
-            })
+            }, arguments = arguments)
         }
         LaunchedEffect(updates) { updates?.start() }
         Window(

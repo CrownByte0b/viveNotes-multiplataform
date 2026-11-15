@@ -4,11 +4,13 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** The hand-over from the closing app to Windows Installer. */
@@ -62,10 +64,10 @@ class WindowsInstallerTest {
         val powershell = temp.newFile("powershell.exe")
         val msiexec = temp.newFile("msiexec.exe")
         val started = mutableListOf<Pair<List<String>, File>>()
-        val installer = WindowsMsiInstaller(app, powershell, msiexec) { command, log -> started += command to log }
+        val installer = WindowsMsiInstaller(app, updates, powershell, msiexec) { command, log -> started += command to log }
 
-        assertTrue(installer.available())
-        installer.launch(msi)
+        assertNull(installer.problem())
+        installer.launch(msi, release)
 
         val script = File(updates, WindowsMsiInstaller.SCRIPT_NAME)
         assertContentEquals(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()), script.readBytes().copyOf(3))
@@ -81,8 +83,31 @@ class WindowsInstallerTest {
         val present = temp.newFile("present.exe")
         val missing = File(temp.root, "missing.exe")
 
-        assertFalse(WindowsMsiInstaller(app, missing, present).available())
-        assertFalse(WindowsMsiInstaller(app, present, missing).available())
+        val reason = "Windows Installer could not be started on this computer."
+        assertEquals(reason, WindowsMsiInstaller(app, temp.root, missing, present).problem())
+        assertEquals(reason, WindowsMsiInstaller(app, temp.root, present, missing).problem())
+    }
+
+    /**
+     * The installed app has no copy of its own MSI, so the last installer stays as the next update's
+     * seed; unfinished downloads and installers under the old versioned names go.
+     */
+    @Test
+    fun theLastInstallerStaysAsTheNextUpdatesSeed() {
+        val app = InstalledApp(temp.newFile("Vive Notes.exe"), listOf(1L))
+        val updates = temp.newFolder("updates")
+        val installer = WindowsMsiInstaller(app, updates, temp.newFile("powershell.exe"), temp.newFile("msiexec.exe"))
+        assertNull(installer.seed(), "Before the first update there is nothing to start from")
+        assertEquals(File(updates, INSTALLER_NAME), installer.staged(release))
+
+        File(updates, INSTALLER_NAME).writeText("1.2.0's installer")
+        File(updates, "ViveNotes-1.0.2-x64.msi").writeText("older, from when the name carried a version")
+        File(updates, "$INSTALLER_NAME-123.part").writeText("unfinished")
+        File(updates, WindowsMsiInstaller.INSTALL_LOG).writeText("last install")
+        installer.clearLeftovers()
+
+        assertEquals(listOf(INSTALLER_NAME, WindowsMsiInstaller.INSTALL_LOG), updates.list()!!.sorted())
+        assertEquals(File(updates, INSTALLER_NAME), installer.seed())
     }
 
     /**
@@ -107,7 +132,7 @@ class WindowsInstallerTest {
         val closingApp = ProcessBuilder("cmd.exe", "/c", "ping -n 5 127.0.0.1 > NUL").start()
         val powershell = File(System.getenv("SystemRoot"), "System32\\WindowsPowerShell\\v1.0\\powershell.exe")
 
-        WindowsMsiInstaller(InstalledApp(launcher, listOf(closingApp.pid())), powershell, msiexec).launch(msi)
+        WindowsMsiInstaller(InstalledApp(launcher, listOf(closingApp.pid())), msi.parentFile, powershell, msiexec).launch(msi, release)
 
         Thread.sleep(1_500)
         assertTrue(closingApp.isAlive, "The stand-in app must outlive the first check")
@@ -122,6 +147,10 @@ class WindowsInstallerTest {
         assertTrue(record.lastModified() >= exitedAt - 1_000, "Windows Installer ran before the app exited")
         assertTrue(log.readText().contains("Windows Installer exit code: 0"), log.readText())
     }
+
+    private val release = Release(ReleaseVersion.parse("0.2.0")!!, "",
+        ReleaseAsset(INSTALLER_NAME, URI("https://github.com/x/releases/download/v0.2.0/$INSTALLER_NAME"), 3),
+        ReleaseAsset("$INSTALLER_NAME.sha256", URI("https://github.com/x/releases/download/v0.2.0/$INSTALLER_NAME.sha256"), 85))
 
     private fun awaitFile(file: File, message: () -> String) {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60)

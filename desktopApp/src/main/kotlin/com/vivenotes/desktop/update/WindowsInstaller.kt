@@ -1,5 +1,6 @@
 package com.vivenotes.desktop.update
 
+import com.vivenotes.localization.Strings
 import java.io.File
 
 /** The installed app an update replaces: its launcher, and the processes that must end first. */
@@ -24,37 +25,62 @@ internal data class InstalledApp(val launcher: File, val processIds: List<Long>)
     }
 }
 
-/** Runs a verified installer once the app has gone, so it can replace the app's files. */
+/** Puts a verified update in place once the app has gone, so it can replace the app's files. */
 internal interface UpdateInstaller {
-    /** Whether this computer has what [launch] runs. */
-    fun available(): Boolean
+    /** Why this installation cannot update itself, in words for the user; null when it can. */
+    fun problem(): String?
 
-    /** Starts the hand-over to [msi]; the app must exit next. */
-    fun launch(msi: File)
+    /** Where the verified download of [release] waits for [launch]. */
+    fun staged(release: Release): File
+
+    /** A local file the next release's installer likely shares most of its bytes with, if any. */
+    fun seed(): File?
+
+    /** Deletes what earlier updates left behind, except the [seed]. */
+    fun clearLeftovers()
+
+    /** Starts the hand-over to [file], the verified download of [release]; the app must exit next. */
+    fun launch(file: File, release: Release)
 }
 
 /**
- * Hands the MSI to Windows Installer through a small PowerShell script in the download directory: it
- * waits for [app]'s processes to end, installs over the same folder with only a progress bar, and
- * opens the app again. The script outlives the app because jpackage's launcher lets its job's
- * children break away (`JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK`).
+ * Hands the MSI to Windows Installer through a small PowerShell script in [downloads]: it waits for
+ * [app]'s processes to end, installs over the same folder with only a progress bar, and opens the app
+ * again. The script outlives the app because jpackage's launcher lets its job's children break away
+ * (`JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK`).
+ *
+ * The last installer stays in [downloads] after it ran: the installed app keeps no copy of its own
+ * MSI (Windows Installer's cached one lacks the files), and the next update downloads only the parts
+ * of its installer that differ from it.
  */
 internal class WindowsMsiInstaller(
     private val app: InstalledApp,
+    private val downloads: File,
     // Full paths, never a PATH lookup: the launcher puts its own app directory first on PATH.
     private val powershell: File = File(systemRoot(), "System32\\WindowsPowerShell\\v1.0\\powershell.exe"),
     private val msiexec: File = File(systemRoot(), "System32\\msiexec.exe"),
     private val start: (List<String>, File) -> Unit = ::startDetached,
 ) : UpdateInstaller {
-    override fun available(): Boolean = powershell.isFile && msiexec.isFile
+    override fun problem(): String? = if (powershell.isFile && msiexec.isFile) null else Strings.update_installer_missing
 
-    override fun launch(msi: File) {
-        val directory = msi.absoluteFile.parentFile
+    override fun staged(release: Release): File = File(downloads, INSTALLER_NAME)
+
+    override fun seed(): File? = File(downloads, INSTALLER_NAME).takeIf(File::isFile)
+
+    /** Unfinished downloads and installers saved under older names; the install logs stay for diagnosis. */
+    override fun clearLeftovers() {
+        downloads.listFiles()?.filter {
+            it.name.endsWith(".part") || (it.name.endsWith(".msi", ignoreCase = true) && it.name != INSTALLER_NAME)
+        }?.forEach(File::delete)
+    }
+
+    override fun launch(file: File, release: Release) {
+        val directory = file.absoluteFile.parentFile
         val script = File(directory, SCRIPT_NAME)
         // Windows PowerShell reads a script without a byte order mark in the ANSI code page, which
         // would garble a user name outside it.
         script.writeBytes(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) +
-            installScript(msi, File(directory, INSTALL_LOG), app, msiexec).toByteArray(Charsets.UTF_8))
+            installScript(file, File(directory, INSTALL_LOG), app, msiexec).toByteArray(Charsets.UTF_8))
         start(listOf(powershell.path, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
             "-WindowStyle", "Hidden", "-File", script.absolutePath), File(directory, SCRIPT_LOG))
     }

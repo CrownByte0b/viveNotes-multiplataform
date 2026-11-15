@@ -47,5 +47,22 @@ the blocks that differ from the image they already have.
 
 That asset is `ViveNotes-<version>-x86_64.AppImage.zsync`. **Attach release artifacts** generates
 it with `zsyncmake` from the tested image and uploads it beside the image, so a release published
-without running that workflow offers these tools nothing to update to. The app itself does not
-check for AppImage updates. There is no signature yet.
+without running that workflow offers these tools nothing to update to. There is no signature yet.
+
+The app updates itself too. Run from an AppImage (`APPIMAGE` set and its JVM inside `APPDIR`) with
+a release version, it asks GitHub's latest release a few seconds after it opens, and Settings ▸
+About shows the result and checks again on request; the dialog, **Later** and **Skip this version**
+work as on Windows. Installing reads the release's `.sha256` and `.zsync`, rebuilds the new image
+from the running one plus HTTP range requests for the blocks that changed (a day of code changes
+fetched 6.5 of 316 MB), checks the whole file against both, then saves and closes the notes. The
+new image replaces the old one by a rename in the same folder: an image still named
+`ViveNotes-<version>-x86_64.AppImage` takes the new release's name and the old file is removed;
+a renamed one (as AppImage managers do) is replaced at its own path. A shell script waits for the
+old process to end and opens the new image with the same `--x11`/`--debug` options; its output is
+`reopen-appimage.log` in the app's cache `updates` folder. A folder the user cannot write to is
+reported instead of downloading. Without a `.zsync` asset, or when the server will not serve
+ranges or the result does not verify, the whole image is downloaded.
+
+To test end to end, serve a release object shaped like GitHub's API from this computer, with the
+image, its checksum and `zsyncmake` output, and start the older image with `VIVENOTES_UPDATE_FEED`
+pointing at it (plain HTTP only to `localhost`/`127.x`/`[::1]`).

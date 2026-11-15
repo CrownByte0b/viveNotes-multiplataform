@@ -19,7 +19,16 @@ sealed interface UpdateState {
 
     data class Available(val update: AvailableUpdate) : UpdateState
 
-    data class Downloading(val update: AvailableUpdate, val bytes: Long) : UpdateState
+    /**
+     * [bytes] of the [total] the update needs have arrived; [reused] more came from the version on
+     * this computer. A [total] of zero before anything is reused means the two are still being compared.
+     */
+    data class Downloading(
+        val update: AvailableUpdate,
+        val bytes: Long,
+        val total: Long = update.bytes,
+        val reused: Long = 0,
+    ) : UpdateState
 
     /** Downloaded and verified: the notes are being saved so the app can close for the installer. */
     data class Installing(val update: AvailableUpdate) : UpdateState
@@ -28,12 +37,33 @@ sealed interface UpdateState {
     data class Failed(val update: AvailableUpdate, val reason: String) : UpdateState
 }
 
+/** What the last look for a newer release found, for About to show. */
+sealed interface UpdateCheck {
+    /** Nothing asked yet: the check at launch waits a few seconds. */
+    data object NotChecked : UpdateCheck
+
+    data object Checking : UpdateCheck
+
+    data object UpToDate : UpdateCheck
+
+    /** [version] is newer than this one, offered or not (the user may have skipped it). */
+    data class Found(val version: String) : UpdateCheck
+
+    data class Failed(val reason: String) : UpdateCheck
+}
+
 /**
- * The platform's updater: the installed Windows app checks for a newer release when it opens. Other
- * platforms update through their own package manager and pass none.
+ * The platform's updater: the installed Windows app and the AppImage check for a newer release once
+ * after they open, and About checks again on request. Other installations update through their own
+ * package manager and pass none.
  */
 interface AppUpdates {
     val state: StateFlow<UpdateState>
+
+    val check: StateFlow<UpdateCheck>
+
+    /** Looks for a newer release now and offers it, even a version the user chose to skip. */
+    fun checkNow()
 
     /** Downloads the offered release, verifies it, then closes the app and runs its installer. */
     fun install()

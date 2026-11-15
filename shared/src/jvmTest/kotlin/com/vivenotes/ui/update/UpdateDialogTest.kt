@@ -3,7 +3,11 @@ package com.vivenotes.ui.update
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotFocused
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -67,6 +71,27 @@ class UpdateDialogTest {
         onNodeWithTag(UpdateDialogTags.Dialog).assertIsDisplayed()
     }
 
+    /**
+     * Regression: the offer opened without keyboard focus, so Escape did nothing until something in
+     * it was clicked. It takes focus itself, on its text rather than a button: it opens a few seconds
+     * after launch, and an Enter or Space meant for the page must not install.
+     */
+    @Test
+    fun theOfferTakesKeyboardFocusAsItOpensButEnterDoesNotInstall() = runDesktopComposeUiTest(width = 1200, height = 800) {
+        val updates = FakeUpdates(UpdateState.Idle)
+        setContent { ViveNotesTheme { UpdateDialog(updates) } }
+        updates.state.value = UpdateState.Available(update)
+
+        val focused = onNode(isFocused(), useUnmergedTree = true)
+        focused.assert(hasTestTag(UpdateDialogTags.Message))
+        onNodeWithTag(UpdateDialogTags.Install).assertIsNotFocused()
+        focused.performKeyInput { pressKey(Key.Enter); pressKey(Key.Spacebar) }
+        runOnIdle { assertEquals(emptyList<String>(), updates.calls) }
+
+        focused.performKeyInput { pressKey(Key.Escape) }
+        runOnIdle { assertEquals(listOf("later"), updates.calls) }
+    }
+
     @Test
     fun theDownloadShowsItsProgressAndCanBeCancelled() = runDesktopComposeUiTest(width = 1200, height = 800) {
         val updates = FakeUpdates(UpdateState.Downloading(update, 12_345_678))
@@ -82,13 +107,31 @@ class UpdateDialogTest {
         runOnIdle { assertEquals(listOf("cancel"), updates.calls) }
     }
 
+    /** With an older copy to start from, the dialog compares first, then counts only what it downloads. */
+    @Test
+    fun aDownloadOfOnlyTheChangesSaysHowMuchItReused() = runDesktopComposeUiTest(width = 1200, height = 800) {
+        val updates = FakeUpdates(UpdateState.Downloading(update, 0, total = 0))
+        setContent { ViveNotesTheme { UpdateDialog(updates) } }
+
+        onNodeWithText("Comparing with the version on this computer…").assertIsDisplayed()
+        onNodeWithTag(UpdateDialogTags.Progress).assertIsDisplayed()
+        onNodeWithTag(UpdateDialogTags.Reused, useUnmergedTree = true).assertDoesNotExist()
+
+        updates.state.value = UpdateState.Downloading(update, 4_000_000, total = 19_000_000, reused = 210_876_426)
+        onNodeWithText("Downloading Vive Notes 0.2.0…").assertIsDisplayed()
+        onNodeWithText("4.0 MB of 19.0 MB").assertIsDisplayed()
+        onNodeWithText("211 MB reused from the version on this computer").assertIsDisplayed()
+        onNodeWithTag(UpdateDialogTags.Cancel).assertIsDisplayed()
+    }
+
     @Test
     fun installingSaysTheAppIsClosingAndOffersNothingToClick() = runDesktopComposeUiTest(width = 1200, height = 800) {
         val updates = FakeUpdates(UpdateState.Installing(update))
         setContent { ViveNotesTheme { UpdateDialog(updates) } }
 
         onNodeWithText("Installing update").assertIsDisplayed()
-        onNodeWithText("Saving your notes and closing Vive Notes. The installer starts once it has closed.").assertIsDisplayed()
+        onNodeWithText("Saving your notes and closing Vive Notes. The update finishes once it has closed, and Vive Notes opens again.")
+            .assertIsDisplayed()
         listOf(UpdateDialogTags.Install, UpdateDialogTags.Later, UpdateDialogTags.Skip, UpdateDialogTags.Cancel,
             UpdateDialogTags.Retry).forEach { onNodeWithTag(it).assertDoesNotExist() }
     }
@@ -132,7 +175,9 @@ class UpdateDialogTest {
 
     private class FakeUpdates(initial: UpdateState) : AppUpdates {
         override val state = MutableStateFlow(initial)
+        override val check = MutableStateFlow<UpdateCheck>(UpdateCheck.NotChecked)
         val calls = mutableListOf<String>()
+        override fun checkNow() { calls += "checkNow" }
         override fun install() { calls += "install" }
         override fun cancel() { calls += "cancel" }
         override fun later() { calls += "later" }

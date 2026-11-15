@@ -1169,7 +1169,7 @@
     <string name="camera_photo_failed">The photo couldn’t be taken. Try again.</string>
     <!-- Desktop only: shown over the page while files are dragged onto it from a file manager. -->
     <string name="drop_to_add_to_page">Drop to add to the page</string>
-    <!-- Desktop only: the installed Windows app offers a newer release when it opens. -->
+    <!-- Desktop only: the installed Windows app and the AppImage offer a newer release when they open. -->
     <string name="update_available">Update available</string>
     <!-- %1$s = the new version; %2$s = the version that is running -->
     <string name="update_available_message">Vive Notes %1$s is ready to download. You have version %2$s.</string>
@@ -1183,16 +1183,37 @@
     <string name="update_downloading_message">Downloading Vive Notes %1$s…</string>
     <!-- %1$s = bytes downloaded so far, e.g. 12.3 MB; %2$s = the whole download -->
     <string name="update_download_progress">%1$s of %2$s</string>
+    <!-- Before downloading, the update is compared with the installed copy so only what changed comes over the network. -->
+    <string name="update_comparing">Comparing with the version on this computer…</string>
+    <!-- %1$s = how much of the new version came from the installed copy instead of the network, e.g. 297 MB -->
+    <string name="update_reused">%1$s reused from the version on this computer</string>
     <string name="update_installing">Installing update</string>
-    <string name="update_installing_message">Saving your notes and closing Vive Notes. The installer starts once it has closed.</string>
+    <string name="update_installing_message">Saving your notes and closing Vive Notes. The update finishes once it has closed, and Vive Notes opens again.</string>
     <string name="update_failed">Update failed</string>
     <!-- %1$s = the version that was not installed -->
     <string name="update_failed_message">Vive Notes %1$s was not installed. You can keep using this version and try again.</string>
     <string name="update_unsaved_changes">Some changes could not be saved, so Vive Notes stayed open. Resolve the error on the page, then try again.</string>
     <string name="update_installer_missing">Windows Installer could not be started on this computer.</string>
+    <!-- %1$s = the folder that holds the AppImage -->
+    <string name="update_appimage_read_only">Vive Notes cannot replace its AppImage in %1$s. Move the AppImage to a folder you can change, then try again.</string>
     <string name="update_unreachable">The download server could not be reached. Check the connection and try again.</string>
     <!-- %1$s = the file name the release lists, e.g. ViveNotes-x64.msi -->
     <string name="update_checksum_unreadable">The checksum for %1$s could not be read.</string>
+    <!-- Desktop only: the Updates section of About, for the installations that update themselves. -->
+    <string name="updates">Updates</string>
+    <string name="update_check_now">Check for updates</string>
+    <string name="update_check_again">Check again</string>
+    <string name="update_not_checked">Vive Notes looks for a newer version each time it opens.</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_up_to_date">Vive Notes is up to date</string>
+    <!-- %1$s = the version that is running -->
+    <string name="update_up_to_date_message">Version %1$s is the newest release.</string>
+    <!-- %1$s = the newer version -->
+    <string name="update_found">Vive Notes %1$s is available</string>
+    <!-- %1$s = the version that is running -->
+    <string name="update_found_message">You have version %1$s.</string>
+    <string name="update_view">View update</string>
+    <string name="update_check_failed">Could not check for updates</string>
     <string name="handwriting">Handwriting</string>
     <string name="handwriting_pages_value_value"> · Handwriting pages %1$s/%2$s</string>
     <string name="value_handwriting_pages_failed"> · %1$s handwriting pages could not be read</string>

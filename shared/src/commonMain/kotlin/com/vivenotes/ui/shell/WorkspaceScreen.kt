@@ -39,6 +39,7 @@ import com.vivenotes.ui.navigation.NotebookPane
 import com.vivenotes.ui.ribbon.draw.*
 import com.vivenotes.ui.ribbon.file.ClosedNotebooksDestination
 import com.vivenotes.ui.ribbon.settings.AboutDialog
+import com.vivenotes.ui.update.AppUpdates
 import com.vivenotes.ui.ribbon.settings.InterfaceDialog
 import com.vivenotes.ui.ribbon.settings.InterfaceSettings
 import com.vivenotes.ui.theme.ReportDarkTheme
@@ -161,6 +162,8 @@ fun WorkspaceScreen(
     developmentBuild: Boolean = false,
     /** Told whether the workspace shows its dark look, previews included, for the window frame. */
     onDarkThemeChange: (Boolean) -> Unit = {},
+    /** The platform's updater, for About's Updates section; without it About has none. */
+    updates: AppUpdates? = null,
 ) {
     var previewSettings by remember { mutableStateOf<InterfaceSettings?>(null) }
     // Held here as well, so a caller that does not keep the settings still sees its changes.
@@ -242,7 +245,7 @@ fun WorkspaceScreen(
                 // Composed while closed as well: it holds the state Android keeps above its Account
                 // destination, so a sign-in in flight outlives the screen it was started from.
                 accountHost?.Destination(visible = accountOpen, onBack = { accountOpen = false })
-                if (aboutOpen) AboutDialog(appVersion, onDismiss = { aboutOpen = false })
+                if (aboutOpen) AboutDialog(appVersion, onDismiss = { aboutOpen = false }, updates = updates)
                 previewSettings?.let { draft ->
                     InterfaceDialog(
                         settings = draft,

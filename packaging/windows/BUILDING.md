@@ -61,7 +61,9 @@ MSI generation requires Windows; Linux Compose tasks skip it rather than cross-c
 ## Updates
 
 The installed app checks GitHub's latest release of the public repository a few seconds
-after it opens (anonymously, once per launch; drafts and pre-releases are never offered).
+after it opens (anonymously, once per launch; drafts and pre-releases are never offered), and
+Settings ▸ About shows what that check found and checks again on request, offering even a skipped
+version.
 When its tag is a newer `MAJOR.MINOR.BUILD`, a dialog offers it with the release notes:
 **Install and restart**, **Later** (asks again next launch) or **Skip this version**
 (remembered in `%APPDATA%/ViveNotes/updates.properties` until a newer release appears).
@@ -71,7 +73,13 @@ the notes, then a small PowerShell script waits for both launcher processes to e
 `msiexec /i … /passive` with `INSTALLDIR` set to the current install folder and reopens the
 app. Its output and the verbose MSI log stay in that folder as `install-update.log` and
 `install-msi.log`. Only the installed launcher (`jpackage.app-path`) with the production
-profile updates itself; Gradle runs and other platforms never check.
+profile updates itself; Gradle runs never check.
+
+The installer stays in that folder after it ran, about 240 MB: the installed app has no copy of
+its own MSI (Windows Installer's cached one lacks the files), so the next update uses it as the
+seed for the release's `ViveNotes-x64.msi.zsync` and downloads only the blocks that differ
+(58% of v1.2.0's MSI came from v1.0.2's). The first update after a manual install, or a release
+without the `.zsync`, downloads the whole MSI.
 
 Installed versions up to 1.2.0 ask a release for `ViveNotes-<version>-x64.msi` and its
 `.msi.sha256` instead. A release that carries only `ViveNotes-x64.msi` is invisible to them, so

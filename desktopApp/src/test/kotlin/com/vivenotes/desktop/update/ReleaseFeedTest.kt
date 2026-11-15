@@ -57,6 +57,41 @@ class ReleaseFeedTest {
     }
 
     @Test
+    fun eachInstallerComesWithItsZsyncControlFile() {
+        val release = assertNotNull(parseGitHubRelease(fixture.toString()))
+        assertEquals(ReleaseAsset("ViveNotes-x64.msi.zsync",
+            URI("https://github.com/CrownByte0b/viveNotes-multiplataform/releases/download/v0.2.0/ViveNotes-x64.msi.zsync"),
+            617_431), release.zsync)
+
+        // A release from before control files were attached still installs, downloading the whole installer.
+        val older = assertNotNull(parseGitHubRelease(fixture.withAssets { it.filterNot { a -> a.name.endsWith(".zsync") } }
+            .toString()))
+        assertNull(older.zsync)
+        assertEquals(release.installer, older.installer)
+    }
+
+    /** The AppImage's name carries its version: `ViveNotes-<tag without v>-x86_64.AppImage`, as Attach uploads it. */
+    @Test
+    fun theAppImageGetsItsOwnImageChecksumAndControlFile() {
+        val release = assertNotNull(parseGitHubRelease(fixture.toString(), UpdatePackage.APPIMAGE))
+        val download = "https://github.com/CrownByte0b/viveNotes-multiplataform/releases/download/v0.2.0"
+
+        assertEquals("0.2.0", release.version.toString())
+        assertEquals(ReleaseAsset("ViveNotes-0.2.0-x86_64.AppImage", URI("$download/ViveNotes-0.2.0-x86_64.AppImage"),
+            301_234_567), release.installer)
+        assertEquals(ReleaseAsset("ViveNotes-0.2.0-x86_64.AppImage.sha256",
+            URI("$download/ViveNotes-0.2.0-x86_64.AppImage.sha256"), 98), release.checksum)
+        assertEquals(ReleaseAsset("ViveNotes-0.2.0-x86_64.AppImage.zsync",
+            URI("$download/ViveNotes-0.2.0-x86_64.AppImage.zsync"), 809_377), release.zsync)
+        assertEquals(assertNotNull(parseGitHubRelease(fixture.toString())).notes, release.notes)
+
+        // An image named for another version is not this release's.
+        assertNull(parseGitHubRelease(fixture.with("tag_name", JsonPrimitive("v0.3.0")).toString(), UpdatePackage.APPIMAGE))
+        assertNull(parseGitHubRelease(fixture.withAssets { it.filterNot { a -> a.name.endsWith(".AppImage.sha256") } }
+            .toString(), UpdatePackage.APPIMAGE))
+    }
+
+    @Test
     fun draftsAndPreReleasesAreNotOffered() {
         assertNull(parseGitHubRelease(fixture.with("draft", JsonPrimitive(true)).toString()))
         assertNull(parseGitHubRelease(fixture.with("prerelease", JsonPrimitive(true)).toString()))

@@ -3,6 +3,7 @@ package com.vivenotes.desktop.update
 import com.vivenotes.desktop.DesktopProfile
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.ui.update.AvailableUpdate
+import com.vivenotes.ui.update.UpdateCheck
 import com.vivenotes.ui.update.UpdateState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -34,19 +35,90 @@ class DesktopUpdatesTest {
     private val update = AvailableUpdate("0.2.0", "0.1.0", "• Faster ink", newer.installer.bytes)
 
     @Test
-    fun aNewerReleaseIsOfferedAfterTheLaunchCheckAndOldInstallersAreCleared() = runBlocking {
+    fun aNewerReleaseIsOfferedAfterTheLaunchCheckWhichAlsoClearsLeftovers() = runBlocking {
         val harness = Harness(this)
-        val downloads = harness.downloads.apply { mkdirs() }
-        // The last update's installer has the name the next one will be saved under.
-        File(downloads, INSTALLER_NAME).writeText("old")
-        File(downloads, "ViveNotes-0.1.5-x64.msi").writeText("older, from when the name carried a version")
-        File(downloads, "$INSTALLER_NAME-123.part").writeText("unfinished")
-        File(downloads, WindowsMsiInstaller.INSTALL_LOG).writeText("last install")
+        assertEquals(UpdateCheck.NotChecked, harness.updates.check.value)
 
         harness.updates.start().join()
 
         assertEquals(UpdateState.Available(update), harness.updates.state.value)
-        assertEquals(listOf(WindowsMsiInstaller.INSTALL_LOG), downloads.list()!!.toList())
+        assertEquals(UpdateCheck.Found("0.2.0"), harness.updates.check.value)
+        assertEquals(1, harness.cleared)
+        harness.scope.cancel()
+    }
+
+    @Test
+    fun checkingAgainFromAboutReportsEachResultAndClearsNothing() = runBlocking {
+        var latest: Release? = release("0.1.0")
+        var failure: Exception? = null
+        val harness = Harness(this, feed = { failure?.let { throw it }; latest })
+        harness.updates.start().join()
+        assertEquals(UpdateCheck.UpToDate, harness.updates.check.value)
+        assertEquals(UpdateState.Idle, harness.updates.state.value)
+
+        failure = UnknownHostException("api.github.com")
+        harness.updates.checkNow()
+        harness.awaitCheck()
+        assertEquals(UpdateCheck.Failed("The download server could not be reached. Check the connection and try again."),
+            harness.updates.check.value)
+
+        failure = null
+        latest = newer
+        harness.updates.checkNow()
+        harness.awaitCheck()
+        assertEquals(UpdateCheck.Found("0.2.0"), harness.updates.check.value)
+        assertEquals(UpdateState.Available(update), harness.updates.state.value)
+        assertEquals(1, harness.cleared, "Only the launch check clears; a staged download may be waiting")
+        harness.scope.cancel()
+    }
+
+    @Test
+    fun checkingFromAboutOffersEvenASkippedVersionButTheLaunchCheckDoesNot() = runBlocking {
+        val first = Harness(this)
+        first.updates.check()
+        first.updates.skip()
+        first.scope.cancel()
+
+        val relaunched = Harness(this)
+        relaunched.updates.start().join()
+        assertEquals(UpdateState.Idle, relaunched.updates.state.value)
+        assertEquals(UpdateCheck.Found("0.2.0"), relaunched.updates.check.value, "About still says it exists")
+
+        relaunched.updates.checkNow()
+        relaunched.awaitCheck()
+        assertEquals(UpdateState.Available(update), relaunched.updates.state.value)
+        relaunched.scope.cancel()
+    }
+
+    @Test
+    fun aCheckFromAboutBeforeTheLaunchCheckReplacesIt() = runBlocking {
+        var asked = 0
+        val harness = Harness(this, feed = { asked++; newer })
+        harness.updates.checkNow()
+        harness.awaitCheck()
+        harness.updates.start().join()
+        assertEquals(1, asked)
+        harness.scope.cancel()
+    }
+
+    @Test
+    fun aCheckDuringADownloadLeavesItAlone() = runBlocking {
+        val reading = CompletableDeferred<Unit>()
+        var asked = 0
+        val harness = Harness(this, feed = { asked++; newer }, downloader = { _, _, _, _ ->
+            reading.complete(Unit)
+            CompletableDeferred<Unit>().await()
+            error("not reached")
+        })
+        harness.updates.check()
+        harness.updates.install()
+        reading.await()
+
+        harness.updates.checkNow()
+        repeat(10) { yield() }
+
+        assertEquals(1, asked)
+        assertIs<UpdateState.Downloading>(harness.updates.state.value)
         harness.scope.cancel()
     }
 
@@ -61,6 +133,7 @@ class DesktopUpdatesTest {
         val offline = Harness(this, feed = { throw UnknownHostException("api.github.com") })
         offline.updates.check()
         assertEquals(UpdateState.Idle, offline.updates.state.value)
+        assertIs<UpdateCheck.Failed>(offline.updates.check.value)
         assertTrue(log.any { it.contains("check for updates failed: UnknownHostException") }, log.toString())
         offline.scope.cancel()
     }
@@ -102,32 +175,36 @@ class DesktopUpdatesTest {
     fun installingDownloadsThenClosesTheAppAndHandsTheVerifiedInstallerOver() = runBlocking {
         val seen = mutableListOf<UpdateState>()
         lateinit var harness: Harness
-        harness = Harness(this, downloader = { release, directory, onBytes ->
+        harness = Harness(this, downloader = { release, target, seed, onProgress ->
+            assertEquals(harness.seed, seed)
+            assertEquals(harness.staged, target)
             seen += harness.updates.state.value
-            onBytes(1_000)
+            onProgress(DownloadProgress(0, 0))
             seen += harness.updates.state.value
-            onBytes(release.installer.bytes)
-            File(directory, release.installer.name).apply { parentFile.mkdirs(); writeText("msi") }
+            onProgress(DownloadProgress(1_000, 19_000_000, 210_876_426))
+            seen += harness.updates.state.value
+            target.apply { parentFile.mkdirs(); writeText("msi") }
         })
         harness.updates.check()
 
         harness.updates.install()
         harness.awaitClose()
 
-        assertEquals(listOf<UpdateState>(UpdateState.Downloading(update, 0), UpdateState.Downloading(update, 1_000)), seen)
+        assertEquals(listOf<UpdateState>(UpdateState.Downloading(update, 0),
+            UpdateState.Downloading(update, 0, total = 0), UpdateState.Downloading(update, 1_000, 19_000_000, 210_876_426)), seen)
         assertEquals(UpdateState.Installing(update), harness.updates.state.value)
         assertEquals(emptyList<File>(), harness.launched, "Nothing runs until the notes are closed")
         harness.closes.single().first()
-        assertEquals(listOf(File(harness.downloads, "ViveNotes-x64.msi")), harness.launched)
+        assertEquals(listOf(harness.staged), harness.launched)
         harness.scope.cancel()
     }
 
     @Test
     fun aSecondClickBeforeTheDownloadStartsDoesNotStartAnother() = runBlocking {
         var downloads = 0
-        val harness = Harness(this, downloader = { release, directory, _ ->
+        val harness = Harness(this, downloader = { _, target, _, _ ->
             downloads++
-            File(directory, release.installer.name).apply { parentFile.mkdirs(); writeText("msi") }
+            target.apply { parentFile.mkdirs(); writeText("msi") }
         })
         harness.updates.check()
 
@@ -145,9 +222,9 @@ class DesktopUpdatesTest {
     fun cancellingStopsTheDownloadAndOffersTheUpdateAgain() = runBlocking {
         val reading = CompletableDeferred<(Long) -> Unit>()
         val stopped = CompletableDeferred<Unit>()
-        val harness = Harness(this, downloader = { _, _, onBytes ->
+        val harness = Harness(this, downloader = { _, _, _, onProgress ->
             try {
-                reading.complete(onBytes)
+                reading.complete { bytes -> onProgress(DownloadProgress(bytes, 1_000)) }
                 CompletableDeferred<Unit>().await()
                 error("not reached")
             } finally {
@@ -171,10 +248,10 @@ class DesktopUpdatesTest {
     @Test
     fun aFailedDownloadSaysWhyAndCanBeRetried() = runBlocking {
         var attempts = 0
-        val harness = Harness(this, downloader = { release, directory, _ ->
+        val harness = Harness(this, downloader = { release, target, _, _ ->
             attempts++
             if (attempts == 1) throw IOException("${release.installer.name} failed verification")
-            File(directory, release.installer.name).apply { parentFile.mkdirs(); writeText("msi") }
+            target.apply { parentFile.mkdirs(); writeText("msi") }
         })
         harness.updates.check()
 
@@ -191,7 +268,7 @@ class DesktopUpdatesTest {
 
     @Test
     fun anUnreachableServerIsExplainedInWords() = runBlocking {
-        val harness = Harness(this, downloader = { _, _, _ -> throw UnknownHostException("github.com") })
+        val harness = Harness(this, downloader = { _, _, _, _ -> throw UnknownHostException("github.com") })
         harness.updates.check()
 
         harness.updates.install()
@@ -205,9 +282,9 @@ class DesktopUpdatesTest {
     @Test
     fun unsavedChangesKeepTheAppOpenAndRetryReusesTheVerifiedDownload() = runBlocking {
         var downloads = 0
-        val harness = Harness(this, downloader = { release, directory, _ ->
+        val harness = Harness(this, downloader = { _, target, _, _ ->
             downloads++
-            File(directory, release.installer.name).apply { parentFile.mkdirs(); writeText("msi") }
+            target.apply { parentFile.mkdirs(); writeText("msi") }
         })
         harness.updates.check()
         harness.updates.install()
@@ -226,9 +303,10 @@ class DesktopUpdatesTest {
     }
 
     @Test
-    fun withoutWindowsInstallerNothingIsDownloaded() = runBlocking {
+    fun anInstallationThatCannotReplaceItselfDownloadsNothing() = runBlocking {
         var downloaded = false
-        val harness = Harness(this, installerAvailable = false, downloader = { _, _, _ -> downloaded = true; error("unused") })
+        val harness = Harness(this, problem = "Windows Installer could not be started on this computer.",
+            downloader = { _, _, _, _ -> downloaded = true; error("unused") })
         harness.updates.check()
 
         harness.updates.install()
@@ -252,19 +330,41 @@ class DesktopUpdatesTest {
     }
 
     @Test
-    fun onlyTheInstalledWindowsAppInTheProductionProfileUpdatesItself() {
+    fun onlyTheInstalledWindowsAppAndTheAppImageInTheProductionProfileUpdateThemselves() {
         val app = InstalledApp(File("C:/Users/Ada/AppData/Local/Vive Notes/Vive Notes.exe"), listOf(1L))
+        val image = RunningAppImage(File("/home/ada/Applications/ViveNotes-0.1.0-x86_64.AppImage"), 1L)
         fun updater(os: String = "Windows 11", profile: DesktopProfile = DesktopProfile.PRODUCTION,
-            installed: InstalledApp? = app, version: String = "0.1.0") =
-            DesktopUpdates.forInstalledApp(profile, DebugLog(), closeApp = { _, _ -> }, osName = os,
-                environment = { null }, installedApp = { installed }, version = version)
+            installed: InstalledApp? = app, appImage: RunningAppImage? = null, version: String = "0.1.0") =
+            DesktopUpdates.forThisInstallation(profile, DebugLog(), closeApp = { _, _ -> }, osName = os,
+                environment = { null }, installedApp = { installed }, appImage = { appImage }, version = version)
 
         assertNotNull(updater())
-        assertNull(updater(os = "Linux"))
-        assertNull(updater(os = "Mac OS X"))
+        assertNotNull(updater(os = "Linux", installed = null, appImage = image))
+        assertNull(updater(os = "Linux"), "Flatpak and Gradle runs on Linux are not an AppImage")
+        assertNull(updater(os = "Windows 11", installed = null, appImage = image))
+        assertNull(updater(os = "Mac OS X", appImage = image))
         assertNull(updater(profile = DesktopProfile.DEVELOPMENT))
+        assertNull(updater(os = "Linux", appImage = image, profile = DesktopProfile.DEVELOPMENT))
         assertNull(updater(installed = null), "Gradle runs are not an installation to replace")
         assertNull(updater(version = "development"))
+        assertNull(updater(os = "Linux", appImage = image, version = "1.2.0-dev0"), "Only a release's version updates")
+    }
+
+    @Test
+    fun theAppImageIsTheOneThisJvmRunsFrom() {
+        val folder = temp.newFolder("Applications")
+        val image = File(folder, "ViveNotes-0.1.0-x86_64.AppImage").apply { writeText("image") }
+        val mount = temp.newFolder(".mount_ViveNoXYZ")
+        val variables = mapOf("APPIMAGE" to image.path, "APPDIR" to mount.path)
+
+        val running = assertNotNull(RunningAppImage.current(variables::get, javaHome = File(mount, "usr/jbr").path))
+        assertEquals(image.absoluteFile, running.image)
+        assertEquals(ProcessHandle.current().pid(), running.processId)
+        assertNull(RunningAppImage.current(variables::get, javaHome = "/usr/lib/jvm/java-25"),
+            "A Gradle run that inherited the variables from an AppImage's terminal")
+        assertNull(RunningAppImage.current({ null }, javaHome = File(mount, "usr/jbr").path))
+        assertNull(RunningAppImage.current(mapOf("APPIMAGE" to File(folder, "gone.AppImage").path,
+            "APPDIR" to mount.path)::get, javaHome = File(mount, "usr/jbr").path))
     }
 
     @Test
@@ -289,29 +389,33 @@ class DesktopUpdatesTest {
     private inner class Harness(
         parent: CoroutineScope,
         feed: ReleaseFeed = ReleaseFeed { newer },
-        downloader: UpdateDownloader = UpdateDownloader { release, directory, _ ->
-            File(directory, release.installer.name).apply { parentFile.mkdirs(); writeText("msi") }
+        downloader: UpdateDownloader = UpdateDownloader { _, target, _, _ ->
+            target.apply { parentFile.mkdirs(); writeText("msi") }
         },
-        installerAvailable: Boolean = true,
+        problem: String? = null,
         launch: (File) -> Unit = {},
     ) {
         val scope = CoroutineScope(parent.coroutineContext + SupervisorJob())
-        val downloads = File(temp.root, "cache/updates")
+        val staged = File(temp.root, "cache/updates/$INSTALLER_NAME")
+        val seed = File(temp.root, "cache/updates/seed.msi")
         val launched = mutableListOf<File>()
         val closes = mutableListOf<Pair<() -> Unit, () -> Unit>>()
+        var cleared = 0
         val updates = DesktopUpdates(
             currentVersion = ReleaseVersion.parse("0.1.0")!!,
             feed = feed,
             downloader = downloader,
             installer = object : UpdateInstaller {
-                override fun available() = installerAvailable
-                override fun launch(msi: File) {
-                    launch(msi)
-                    launched += msi
+                override fun problem() = problem
+                override fun staged(release: Release) = staged
+                override fun seed() = seed
+                override fun clearLeftovers() { cleared++ }
+                override fun launch(file: File, release: Release) {
+                    launch(file)
+                    launched += file
                 }
             },
             preferences = UpdatePreferencesFile(File(temp.root, "config/updates.properties")),
-            downloads = downloads,
             closeApp = { onClosed, onKeptOpen -> closes += onClosed to onKeptOpen },
             scope = scope,
             io = EmptyCoroutineContext,
@@ -322,6 +426,15 @@ class DesktopUpdatesTest {
         suspend fun awaitClose(count: Int = 1) {
             repeat(1_000) { if (closes.size >= count) return; yield() }
             error("The app was never asked to close: ${updates.state.value}")
+        }
+
+        /** Lets a check that was just asked for run, then waits for its answer. */
+        suspend fun awaitCheck() {
+            repeat(1_000) {
+                yield()
+                if (updates.check.value != UpdateCheck.Checking && updates.check.value != UpdateCheck.NotChecked) return
+            }
+            error("Still checking")
         }
 
         suspend fun awaitDownloadFinished() {

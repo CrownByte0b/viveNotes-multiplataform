@@ -5,6 +5,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import com.vivenotes.App
 import com.vivenotes.desktop.titlebar.TitleBar
 import com.vivenotes.desktop.touch.DesktopTouch
+import com.vivenotes.desktop.update.DesktopUpdates
 import com.vivenotes.desktop.rendering.waylandComposePanel
 import com.vivenotes.desktop.rendering.WaylandRendering
 import com.vivenotes.diagnostics.DebugLog
@@ -25,7 +26,7 @@ import javax.swing.SwingUtilities
 import javax.swing.WindowConstants
 
 /** Native Wayland host for JetBrains Runtime's WLToolkit. */
-internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: DebugLog) {
+internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: DebugLog, arguments: List<String> = emptyList()) {
     System.setProperty("compose.layers.type", "COMPONENT")
     requireNativeWaylandToolkit(Toolkit.getDefaultToolkit().javaClass.name)
     WaylandRendering.prepare()
@@ -43,14 +44,20 @@ internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: De
         frame.addWindowListener(object : WindowAdapter() {
             override fun windowClosing(event: WindowEvent) = notes.close(frame::dispose)
         })
+        // The AppImage updates itself; its dialog offers a newer release once the window is up.
+        val updates = DesktopUpdates.forThisInstallation(profile, log, closeApp = { onClosed, onKeptOpen ->
+            notes.close(done = { onClosed(); frame.dispose() }, keptOpen = onKeptOpen)
+        }, arguments = arguments)
         frame.minimumSize = Dimension(720.coerceAtMost(monitor.workArea.width),
             540.coerceAtMost(monitor.workArea.height))
         frame.size = initialSize
         frame.setLocation(monitor.workArea.x + (monitor.workArea.width - initialSize.width) / 2,
             monitor.workArea.y + (monitor.workArea.height - initialSize.height) / 2)
         frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame), notes.notebookFiles(frame),
-            notes.pdfExporter(frame), notes.fileImporter(frame), log, profile, onDarkThemeChange = { titleBar.dark = it }))
+            notes.pdfExporter(frame), notes.fileImporter(frame), log, profile, onDarkThemeChange = { titleBar.dark = it },
+            updates = updates))
         frame.isVisible = true
+        updates?.start()
         DesktopTouch.attachPointers(frame, log)
         // The panel makes its drop target as it is shown.
         CopyOnlyDrops.install(frame, log)
@@ -68,7 +75,8 @@ internal fun requireNativeWaylandToolkit(toolkitClassName: String) {
 private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, notebookFiles: NotebookFiles,
                                  pdfExporter: com.vivenotes.pdf.PdfExportService,
                                  fileImporter: com.vivenotes.fileimport.FileImportService, log: DebugLog,
-                                 profile: DesktopProfile, onDarkThemeChange: (Boolean) -> Unit): PopupLayerHost {
+                                 profile: DesktopProfile, onDarkThemeChange: (Boolean) -> Unit,
+                                 updates: DesktopUpdates?): PopupLayerHost {
     val panel = waylandComposePanel(log)
     val host = PopupLayerHost(panel, log)
     panel.windowContainer = host
@@ -95,7 +103,7 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
             accountHost = notes.sync?.accountHost,
             aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
             appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild,
-            clipboardHtml = notes.clipboardHtml, onDarkThemeChange = onDarkThemeChange)
+            clipboardHtml = notes.clipboardHtml, onDarkThemeChange = onDarkThemeChange, updates = updates)
     }
     return host
 }

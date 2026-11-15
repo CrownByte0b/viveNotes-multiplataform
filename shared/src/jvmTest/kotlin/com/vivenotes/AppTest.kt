@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.rightClick
@@ -37,7 +38,9 @@ import com.vivenotes.ui.ribbon.file.ClosedNotebooksTags
 import com.vivenotes.ui.ribbon.file.FileRibbonTags
 import com.vivenotes.ui.ribbon.file.FilePaneTags
 import com.vivenotes.ui.shell.WorkspaceTestTags
+import com.vivenotes.ui.ribbon.settings.AboutTags
 import com.vivenotes.ui.update.AppUpdates
+import com.vivenotes.ui.update.UpdateCheck
 import com.vivenotes.ui.update.AvailableUpdate
 import com.vivenotes.ui.update.UpdateDialogTags
 import com.vivenotes.ui.update.UpdateState
@@ -106,6 +109,8 @@ class AppTest {
         val offer = MutableStateFlow<UpdateState>(UpdateState.Available(AvailableUpdate("0.2.0", "0.1.0")))
         val updates = object : AppUpdates {
             override val state = offer
+            override val check = MutableStateFlow<UpdateCheck>(UpdateCheck.Found("0.2.0"))
+            override fun checkNow() { offer.value = UpdateState.Available(AvailableUpdate("0.2.0", "0.1.0")) }
             override fun install() = Unit
             override fun cancel() = Unit
             override fun later() { offer.value = UpdateState.Idle }
@@ -122,6 +127,14 @@ class AppTest {
                 onNodeWithTag(UpdateDialogTags.Dialog).assertDoesNotExist()
                 onNodeWithTag(WorkspaceTestTags.BodyEditor).performTextReplacement("Still here")
                 onNodeWithTag(WorkspaceTestTags.BodyEditor).assertTextContains("Still here")
+
+                // Put off at launch, the update is still a click away in Settings ▸ About.
+                onNodeWithTag(WorkspaceTestTags.ribbonTab(RibbonTab.Settings)).performClick()
+                onNodeWithTag(AboutTags.Open).performClick()
+                onNodeWithText("Vive Notes 0.2.0 is available").assertIsDisplayed()
+                onNodeWithTag(AboutTags.UpdateButton).performClick()
+                onNodeWithTag(UpdateDialogTags.Dialog).assertIsDisplayed()
+                onNodeWithTag(AboutTags.Dialog).assertDoesNotExist()
             }
         }
     }

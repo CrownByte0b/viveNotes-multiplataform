@@ -90,7 +90,7 @@ fun App(
     clipboardHtml: ClipboardHtml? = null,
     /** Told whether the app shows its dark look, as it changes, for the window frame around it. */
     onDarkThemeChange: (Boolean) -> Unit = {},
-    /** The platform's updater; its dialog opens over the workspace once the notebooks are open. */
+    /** The platform's updater: its dialog opens over the workspace once the notebooks are open, and About checks with it. */
     updates: AppUpdates? = null,
 ) {
     val state by session.state.collectAsState()
@@ -126,7 +126,8 @@ fun App(
                     fileActions = fileActions,
                     accountHost = accountHost, aiModels = aiModels, drawMath = drawMath,
                     appVersion = appVersion, search = search, onOpenSearchPage = session::openSearchPage,
-                    debugLog = debugLog, developmentBuild = developmentBuild, onDarkThemeChange = onDarkThemeChange)
+                    debugLog = debugLog, developmentBuild = developmentBuild, onDarkThemeChange = onDarkThemeChange,
+                    updates = updates)
                 updates?.let { UpdateDialog(it) }
             }
         }

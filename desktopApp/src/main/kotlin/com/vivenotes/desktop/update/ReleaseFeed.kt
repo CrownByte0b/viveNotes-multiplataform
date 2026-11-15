@@ -1,5 +1,6 @@
 package com.vivenotes.desktop.update
 
+import com.vivenotes.desktop.update.zsync.ZsyncControl
 import com.vivenotes.localization.Strings
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -39,13 +40,32 @@ internal data class ReleaseVersion(private val parts: List<Int>) : Comparable<Re
 
 internal data class ReleaseAsset(val name: String, val url: URI, val bytes: Long)
 
-/** A published release this app can install: its Windows installer and the installer's checksum. */
+/**
+ * A published release this app can install: the installer for this kind of installation, its
+ * checksum and, when the release has one, its zsync control file for downloading only what changed.
+ */
 internal data class Release(
     val version: ReleaseVersion,
     val notes: String,
     val installer: ReleaseAsset,
     val checksum: ReleaseAsset,
+    val zsync: ReleaseAsset? = null,
 )
+
+/** The kinds of installation that update themselves, each with its own file in every release. */
+internal enum class UpdatePackage(val label: String) {
+    WINDOWS_MSI("Windows"),
+    APPIMAGE("Linux AppImage");
+
+    /** The installer's name in the release tagged [tag]: what **Attach release artifacts** uploads. */
+    fun installerName(tag: String): String = when (this) {
+        WINDOWS_MSI -> INSTALLER_NAME
+        APPIMAGE -> appImageName(tag.removePrefix("v"))
+    }
+}
+
+/** What `packaging/appimage/build.py` names the image of [version], and every release attaches. */
+internal fun appImageName(version: String): String = "ViveNotes-$version-x86_64.AppImage"
 
 /** The newest published release, or null when there is none to install. Throws when it cannot tell. */
 internal fun interface ReleaseFeed {
@@ -65,6 +85,7 @@ internal const val INSTALLER_NAME = "ViveNotes-x64.msi"
 internal class GitHubReleaseFeed(
     private val url: URI = LATEST_RELEASE,
     private val userAgent: String,
+    private val target: UpdatePackage = UpdatePackage.WINDOWS_MSI,
     private val openConnection: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection },
 ) : ReleaseFeed {
     override fun latest(): Release? {
@@ -78,7 +99,7 @@ internal class GitHubReleaseFeed(
         try {
             return when (val response = connection.responseCode) {
                 HttpURLConnection.HTTP_OK ->
-                    parseGitHubRelease(connection.inputStream.use { it.readNBytes(MAX_RESPONSE_BYTES) }.decodeToString())
+                    parseGitHubRelease(connection.inputStream.use { it.readNBytes(MAX_RESPONSE_BYTES) }.decodeToString(), target)
                 // GitHub's answer while the repository has no published release.
                 HttpURLConnection.HTTP_NOT_FOUND -> null
                 else -> throw IOException(Strings.server_returned_http_value(response))
@@ -98,28 +119,30 @@ internal class GitHubReleaseFeed(
 private val json = Json { ignoreUnknownKeys = true }
 
 /**
- * The installable release in a GitHub release object, or null when it is a draft or pre-release, its
- * tag is not a version, or it lacks a finished installer or checksum over HTTPS.
+ * The release [target] can install from a GitHub release object, or null when it is a draft or
+ * pre-release, its tag is not a version, or it lacks a finished installer or checksum over HTTPS.
  */
-internal fun parseGitHubRelease(text: String): Release? {
+internal fun parseGitHubRelease(text: String, target: UpdatePackage = UpdatePackage.WINDOWS_MSI): Release? {
     val release = json.parseToJsonElement(text).jsonObject
     if (release.flag("draft") || release.flag("prerelease")) return null
-    val version = release.text("tag_name")?.let(ReleaseVersion::parse) ?: return null
+    val tag = release.text("tag_name") ?: return null
+    val version = ReleaseVersion.parse(tag) ?: return null
     val assets = release["assets"]?.jsonArray?.map { it.jsonObject }.orEmpty()
-    fun asset(name: String): ReleaseAsset? {
+    fun asset(name: String, maxBytes: Long = MAX_INSTALLER_BYTES): ReleaseAsset? {
         val entry = assets.firstOrNull { it.text("name") == name } ?: return null
         // GitHub lists an upload under way as "open"; only an "uploaded" asset is complete.
         if (entry.text("state")?.let { it != "uploaded" } == true) return null
         val url = entry.text("browser_download_url")?.let { runCatching { URI(it) }.getOrNull() } ?: return null
         val bytes = entry["size"]?.jsonPrimitive?.longOrNull ?: return null
-        return ReleaseAsset(name, url, bytes).takeIf { isTrustedDownload(url) && bytes in 1..MAX_INSTALLER_BYTES }
+        return ReleaseAsset(name, url, bytes).takeIf { isTrustedDownload(url) && bytes in 1..maxBytes }
     }
-    val installer = asset(INSTALLER_NAME) ?: return null
+    val installer = asset(target.installerName(tag.trim())) ?: return null
     val checksum = asset("${installer.name}.sha256") ?: return null
-    return Release(version, plainReleaseNotes(release.text("body").orEmpty()), installer, checksum)
+    val zsync = asset("${installer.name}.zsync", ZsyncControl.MAX_BYTES.toLong())
+    return Release(version, plainReleaseNotes(release.text("body").orEmpty()), installer, checksum, zsync)
 }
 
-/** An MSI larger than this is not one of ours; the current one is about 230 MB. */
+/** An installer larger than this is not one of ours; the MSI is about 240 MB and the AppImage 320 MB. */
 internal const val MAX_INSTALLER_BYTES = 2_000_000_000L
 
 /**
