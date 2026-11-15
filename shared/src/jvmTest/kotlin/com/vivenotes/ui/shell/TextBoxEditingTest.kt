@@ -1,3 +1,5 @@
+@file:Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+
 package com.vivenotes.ui.shell
 
 import androidx.compose.runtime.CompositionLocalProvider
@@ -5,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.selection.SelectionHandleInfoKey
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
@@ -15,6 +18,8 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
@@ -36,6 +41,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import com.vivenotes.data.ClipboardHtml
 import com.vivenotes.model.Block
+import com.vivenotes.model.Align
 import com.vivenotes.model.BlockType
 import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
@@ -55,6 +61,29 @@ import kotlin.test.assertTrue
 /** The text box bugs reported on the Test page, each from a fresh workspace, as a person meets them. */
 @OptIn(ExperimentalTestApi::class)
 class TextBoxEditingTest {
+
+    @Test
+    fun alignmentButtonsKeepMouseSelectionWithoutTouchHandles() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        val state = page(Block.of("First paragraph"), Block.of("Second paragraph"), Block.of(""))
+        var observed = state
+        setWorkspace(state) { observed = it }
+        val editor = onNodeWithTag(WorkspaceTestTags.BodyEditor)
+        editor.performMouseInput { click(Offset(50f, 12f)) }
+        editor.performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.A) } }
+        onAllNodes(SemanticsMatcher.keyIsDefined(SelectionHandleInfoKey)).assertCountEquals(0)
+        listOf(Align.Center, Align.End, Align.Start, Align.Center).forEach { align ->
+            onNodeWithTag(DocumentRibbonTags.alignment(align)).performMouseInput { click(center) }
+            runOnIdle {
+                assertEquals("First paragraph\nSecond paragraph\n", observed.richText!!.text)
+                assertEquals(listOf(align, align, align), observed.richText!!.blocks.map { it.align })
+                val layout = editor.textLayout()
+                assertEquals(3, layout.lineCount)
+                assertEquals(TextSelection(0, observed.richText!!.text.length), observed.editorSelection)
+            }
+            editor.assertIsFocused()
+            onAllNodes(SemanticsMatcher.keyIsDefined(SelectionHandleInfoKey)).assertCountEquals(0)
+        }
+    }
 
     /** The demo page with its first text box — 720 dp wide, under the title — holding [blocks], unedited. */
     private fun page(vararg blocks: Block): WorkspaceState {

@@ -127,9 +127,12 @@ internal fun BoundTextField(
 ) {
     val field = rememberBoundTextFieldState(value, onValueChange)
     val searchHighlight = rememberTextSearchHighlight(value.text)
-    val styled = value.annotatedString
-    val presentation = remember(styled, separateBlocks) {
+    val currentStyled = rememberUpdatedState(value.annotatedString)
+    // Replacing the transformation recreates Compose's selection state in touch mode.
+    // Keep its identity while observing the current styles so mouse selections stay mouse selections.
+    val presentation = remember(separateBlocks) {
         OutputTransformation {
+            val styled = currentStyled.value
             val shown = if (separateBlocks) BlockSeparators.filter(styled).text else styled
             if (separateBlocks) {
                 val needsPadding = length == 0 || charAt(length - 1) == '\n'
