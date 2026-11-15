@@ -65,6 +65,16 @@ fun Outline.withLockGroup(group: String?): Outline = when (this) {
     is Outline.Text, is Outline.Ink -> this
 }
 
+fun Outline.withGroup(group: String?): Outline = when (this) {
+    is Outline.Text -> copy(groupId = group)
+    is Outline.Shape -> copy(groupId = group)
+    is Outline.Table -> copy(groupId = group)
+    is Outline.Equation -> copy(groupId = group)
+    is Outline.Graph -> copy(groupId = group)
+    is Outline.Image -> copy(groupId = group)
+    is Outline.Ink -> copy(groupId = group)
+}
+
 fun Outline.movedBy(dx: Float, dy: Float): Outline = when (this) {
     is Outline.Shape -> translated(dx, dy)
     is Outline.Table -> translated(dx, dy)

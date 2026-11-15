@@ -199,6 +199,12 @@ class WorkspaceSession(
             if (lockChanges.isNotEmpty()) log.event("objects") {
                 "${if (lockChanges.all { it.lockGroup == null }) "unlocked" else "locked"} ${lockChanges.size} objects"
             }
+            val oldGroups = before.selectedPage?.document?.outlines.orEmpty().associate { it.id to it.groupId }
+            val groupChanges = after.selectedPage?.document?.outlines.orEmpty()
+                .filter { it.id in oldGroups && it.groupId != oldGroups[it.id] }
+            if (groupChanges.isNotEmpty()) log.event("objects") {
+                "${if (groupChanges.all { it.groupId == null }) "ungrouped" else "grouped"} ${groupChanges.size} objects"
+            }
             val backgroundChanges = newObjects.filterIsInstance<com.vivenotes.model.Outline.Image>().filter { picture ->
                 (oldObjects[picture.id] as? com.vivenotes.model.Outline.Image)?.let { it.backgroundArgb != picture.backgroundArgb } == true
             }

@@ -50,6 +50,7 @@ import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.LineType
 import com.vivenotes.ui.canvas.LocalObjectGrab
 import com.vivenotes.ui.canvas.SelectionColorButton
+import com.vivenotes.ui.canvas.SelectionGroupButton
 import com.vivenotes.ui.canvas.detectObjectDrag
 import com.vivenotes.ui.canvas.primeResizePointer
 import com.vivenotes.ui.canvas.selectedCanvasBounds
@@ -64,6 +65,8 @@ import com.vivenotes.workspace.TableEdit
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.primeHeight
 import com.vivenotes.workspace.primeWidth
+import com.vivenotes.workspace.canGroupSelection
+import com.vivenotes.workspace.selectionGrouped
 
 @Composable
 internal fun CanvasGroupSelection(
@@ -205,9 +208,13 @@ internal fun CanvasObjectToolkit(
     onGraphEquation: (Outline.Equation) -> Unit = {},
     /** Opens an equation in the Math pane. Null where there is no pane to open, and no button. */
     onOpenEquationInMath: ((Outline.Equation) -> Unit)? = null,
+    onGroupSelection: () -> Unit = {},
+    groupingEnabled: Boolean = true,
 ) {
-    if (state.selectedObjectIds.isNotEmpty() && state.selectedInk == null) {
-        val selected = state.selectedPrimeObjects.firstOrNull()
+    if ((state.selectedObjectIds.isNotEmpty() || state.canGroupSelection && state.selectedTextOutlineIds.isNotEmpty()) &&
+        state.selectedInk == null) {
+        val selected = state.selectedPrimeObjects.firstOrNull() ?: state.selectedPage?.document?.outlines
+            ?.firstOrNull { it.id in state.selectedTextOutlineIds }
         if (selected != null) {
             // A table alone in the selection wears its move bar above its frame; the toolkit clears it.
             val barRoom = if (groupBounds == null && selected is Outline.Table && selected.lockGroup == null &&
@@ -259,6 +266,9 @@ internal fun CanvasObjectToolkit(
                                 modifier = Modifier.size(18.dp))
                         }
                     }
+                    if (state.canGroupSelection) SelectionGroupButton(state.selectionGrouped,
+                        groupingEnabled && state.selectedPage?.editable == true && state.selectedPage?.inkReady == true &&
+                            !state.notebookTransfer.running && !state.filePane.busy, onGroupSelection)
                     if (state.selectedObjectIds.size == 1 && state.selectedTextOutlineIds.isEmpty()) {
                         if (selected is Outline.Table) TableObjectTools(selected, heldTable, onTableEdit, onReleaseTable)
                         // One formula, one graph — and one formula in the pane: several held

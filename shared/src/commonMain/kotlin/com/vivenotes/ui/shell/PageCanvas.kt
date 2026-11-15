@@ -131,6 +131,9 @@ import com.vivenotes.workspace.PageContent
 import com.vivenotes.workspace.RulerKind
 import com.vivenotes.workspace.TableEdit
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.canGroupSelection
+import com.vivenotes.workspace.selectionGrouped
+import com.vivenotes.workspace.toggleSelectionGroup
 import com.vivenotes.workspace.isPrimeObject
 import com.vivenotes.workspace.isUnwritten
 import com.vivenotes.workspace.movedBy
@@ -175,7 +178,7 @@ internal fun PageCanvas(
     onInkEdit: (com.vivenotes.data.InkEdit, com.vivenotes.model.ink.InkPage) -> Unit,
     onSelectInk: (InkSelection) -> Unit,
     onInkSelectionChange: (InkSelectionChange) -> Unit,
-    onInkGrouping: (InkSelectionChange) -> Unit,
+    onSelectionGrouping: (WorkspaceState, WorkspaceState) -> Unit,
     inkMathAvailable: Boolean,
     onInkMath: (InkSelection) -> Unit,
     onInkRecolor: (InkSelection, Int, Boolean, InkSelectionChange?) -> Unit,
@@ -271,7 +274,7 @@ internal fun PageCanvas(
     val inkMoveScope = rememberCoroutineScope()
     val currentSelectInk by rememberUpdatedState(onSelectInk)
     val currentInkSelectionChange by rememberUpdatedState(onInkSelectionChange)
-    val currentInkGrouping by rememberUpdatedState(onInkGrouping)
+    val currentSelectionGrouping by rememberUpdatedState(onSelectionGrouping)
     val currentInkRecolor by rememberUpdatedState(onInkRecolor)
     val currentPreparedPaste by rememberUpdatedState(onPreparedPaste)
     fun finishInkMove(selection: InkSelection, offset: Offset) {
@@ -318,6 +321,17 @@ internal fun PageCanvas(
     }
     val currentStateValue = rememberUpdatedState(state)
     val currentState by currentStateValue
+    fun groupSelection() {
+        if (interaction.inkMoveBusy) return
+        val before = currentState
+        interaction.inkMoveBusy = true
+        inkMoveScope.launch {
+            try {
+                val prepared = withContext(Dispatchers.Default) { before.toggleSelectionGroup() }
+                currentSelectionGrouping(before, prepared)
+            } finally { interaction.inkMoveBusy = false }
+        }
+    }
     val measuredTextHeights = remember(page?.id) { mutableStateMapOf<String, Float>() }
     val textMeasurementCache = remember(state.selectedNotebookId) { TextMeasurementCache() }
     val notebookPages = remember(state.notebooks, state.selectedNotebookId) {
@@ -993,6 +1007,8 @@ internal fun PageCanvas(
                         onImageBackground = onImageBackground,
                         onCopyObjects = onCopyObjects,
                         onToggleObjectLock = onToggleObjectLock,
+                        onGroupSelection = ::groupSelection,
+                        groupingEnabled = !interaction.inkMoveBusy,
                         onDeleteObjects = onDeleteObjects
                     )
                 }
@@ -1008,22 +1024,10 @@ internal fun PageCanvas(
             InkSelectionToolkit(selection, viewBounds, interaction.viewportPx, ink,
                 enabled = page.editable && page.inkReady && !state.notebookTransfer.running && !state.filePane.busy && !interaction.inkMoveBusy,
                 showColor = state.selectedTextOutlineIds.isEmpty(), onBoundsChange = { interaction.inkToolkitBoundsInView = it },
-                showGroup = state.inkOnlySelection && (selection.targetIds.size > 1 || selection.isGrouped),
+                showGroup = state.canGroupSelection, grouped = state.selectionGrouped,
                 showMath = state.inkAndLinesSelection && inkMathAvailable,
                 onMath = { onInkMath(selection) },
-                onGroup = {
-                    if (!interaction.inkMoveBusy) {
-                        interaction.inkMoveBusy = true
-                        inkMoveScope.launch {
-                            try {
-                                val change = withContext(Dispatchers.Default) {
-                                    if (selection.isGrouped) selection.ungroup() else selection.group()
-                                }
-                                if (change != null) currentInkGrouping(change)
-                            } finally { interaction.inkMoveBusy = false }
-                        }
-                    }
-                },
+                onGroup = ::groupSelection,
                 onCopy = onCopyObjects, onDelete = onDeleteObjects, onColor = { argb, followsTheme ->
                     if (!interaction.inkMoveBusy) {
                         interaction.inkMoveBusy = true

@@ -108,6 +108,7 @@ import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.canGroupSelection
 import com.vivenotes.workspace.isUnwritten
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
@@ -248,7 +249,7 @@ internal fun CanvasTextBoxes(
                 if (!needed) background++
                 CanvasTextBox(
                     outline = outline, index = index, focused = focused, lassoSelected = selected,
-                    showSelectionToolkit = selected && state.selectedInk == null && state.selectedObjectIds.isEmpty() &&
+                    showSelectionToolkit = selected && !state.canGroupSelection && state.selectedInk == null && state.selectedObjectIds.isEmpty() &&
                         outline.id == state.selectedTextOutlineIds.firstOrNull(),
                     moveBar = state.textBoxMoveBarMode(outline),
                     selection = if (focused) state.editorSelection else TextSelection(0),
@@ -365,6 +366,7 @@ private fun CanvasTextBox(
     val uriHandler = LocalUriHandler.current
     val textMeasurer = rememberTextMeasurer()
     val currentEditTextAt by rememberUpdatedState(onEditTextAt)
+    val currentFocusTextBox by rememberUpdatedState(onFocusTextBox)
     val currentToggleTodo by rememberUpdatedState(onToggleTodo)
     val currentTextShortcut by rememberUpdatedState(onTextShortcut)
     val richText = remember(outline.blocks, selection, typingMarks) { RichTextBuffer(outline.blocks, selection, typingMarks) }
@@ -439,6 +441,19 @@ private fun CanvasTextBox(
         modifier = Modifier.offset(x, y).width(width)
             .heightIn(min = maxOf(outline.minHeight, 80f).dp)
             .onPlaced(publishPlacement)
+            .then(if (outline.groupId == null) Modifier else Modifier.pointerInput(outline.id, outline.groupId) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                    val current = workspaceState.value
+                    if (current.textToolArmed || current.inkTool != null || current.shapeToolArmed ||
+                        current.objectLassoArmed || current.drawPlacement != null ||
+                        down.type == PointerType.Mouse && !currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
+                    down.consume()
+                    val up = waitForUpOrCancellation(PointerEventPass.Initial) ?: return@awaitEachGesture
+                    up.consume()
+                    currentFocusTextBox(outline.id)
+                }
+            })
             .selectAdditionalWords(outline.id, rangeAt = { position ->
                 val point = position - with(density) { Offset(TextBoxPadding.toPx(), TextBoxPadding.toPx()) }
                 val layout = textLayouts[outline.id]

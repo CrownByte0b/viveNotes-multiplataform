@@ -33,6 +33,16 @@ class TextBoxMoveBarRulesTest {
     }
 
     @Test
+    fun aGroupedBoxRequiresSelectingItsGroupBeforeItsMoveBarCanDrag() {
+        val grouped = written.copy(groupId = "group")
+        val state = page().updatePage(page().selectedPageId) {
+            it.copy(document = PageDoc(outlines = listOf(grouped)))
+        }
+        assertEquals(TextBoxMoveBarMode.Hidden, state.textBoxMoveBarMode(grouped))
+        assertEquals(TextBoxMoveBarMode.Always, state.selectObject(grouped.id).textBoxMoveBarMode(grouped))
+    }
+
+    @Test
     fun anUnwrittenBoxHasNoBarEvenWhileEdited() {
         assertEquals(TextBoxMoveBarMode.Hidden, page().textBoxMoveBarMode(unwritten))
         assertEquals(TextBoxMoveBarMode.Hidden, page().focusTextBox(unwritten.id).textBoxMoveBarMode(unwritten))

@@ -29,6 +29,10 @@ import com.vivenotes.ui.canvas.LocalClipboardHtml
 import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.workspace.CANVAS_PASTE_MARGIN
 import com.vivenotes.workspace.TABLE_GUTTER
+import com.vivenotes.workspace.selectionGrouped
+import com.vivenotes.ink.InkPageReader
+import com.vivenotes.ink.selectionLine
+import com.vivenotes.ui.canvas.INK_SELECTION_FRAME_TAG
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeFalse
 import java.awt.GraphicsEnvironment
@@ -57,6 +61,71 @@ private const val STEADY_NANOS = 1_000_000_000L
 /** Native keys and the real desktop clipboard through the application's displayed workspace. */
 @OptIn(ExperimentalComposeUiApi::class, ComposeToolingApi::class)
 class CanvasSystemClipboardHostTest {
+    @Test
+    fun nativeMouseGroupsReselectsMovesAndUngroupsInkTablesAndShapes() {
+        assumeFalse(GraphicsEnvironment.isHeadless())
+        val base = WorkspaceState.demo()
+        val ink = InkPageReader.read(base.selectedPageId, listOf(selectionLine("stroke", base.selectedPageId)),
+            emptyList(), emptyList())
+        val state = mutableStateOf(base.updatePage(base.selectedPageId) { page -> page.copy(ink = ink,
+            document = page.document.copy(outlines = listOf(
+                Outline.Shape("shape", x = 150f, y = 200f, width = 60f, height = 60f),
+                newTable(2, 2, x = 280f, y = 200f, columnWidth = 60f, inkOnly = true).copy(id = "table"),
+            ))) }.selectObjectsInRect(0f, 180f, 500f, 380f))
+        lateinit var window: JFrame
+        lateinit var panel: ComposePanel
+        onEdt {
+            window = JFrame("Native mixed grouping")
+            panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
+            window.contentPane.add(panel)
+            window.setSize(1400, 900)
+            window.isVisible = true
+            panel.setContent { WorkspaceScreen(state.value, { state.value = it(state.value) }) }
+        }
+        try {
+            fun node(tag: String) = panel.semanticsOwners.flatMap { it.getAllSemanticsNodes(false) }.firstOrNull {
+                it.config.getOrNull(SemanticsProperties.TestTag) == tag
+            }
+            waitFor("the grouping button") { node(WorkspaceTestTags.InkGroup) != null }
+            awaitPlaced(window)
+            val robot = Robot().apply { autoDelay = 35 }
+            fun point(tag: String, offset: Offset? = null) = onEdt {
+                val coordinates = node(tag)!!.layoutInfo.coordinates
+                val position = coordinates.localToRoot(offset ?: Offset(coordinates.size.width / 2f, coordinates.size.height / 2f))
+                val origin = panel.locationOnScreen
+                java.awt.Point(origin.x + position.x.toInt(), origin.y + position.y.toInt())
+            }
+            fun click(tag: String, offset: Offset? = null) {
+                val at = point(tag, offset)
+                robot.mouseMove(at.x, at.y)
+                robot.mousePress(InputEvent.BUTTON1_DOWN_MASK)
+                robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK)
+                robot.waitForIdle()
+            }
+            click(WorkspaceTestTags.InkGroup)
+            waitFor("a mixed group") { state.value.selectionGrouped }
+            click(WorkspaceTestTags.CanvasExtent, Offset(600f, 500f))
+            waitFor("the selection to clear") { state.value.selectedInk == null && state.value.selectedObjectIds.isEmpty() }
+            click(WorkspaceTestTags.primeObject("table"))
+            waitFor("the table to hold its ink and shape") {
+                state.value.selectedInk?.targetIds == setOf("stroke") && state.value.selectedObjectIds == setOf("table", "shape")
+            }
+            val at = point(INK_SELECTION_FRAME_TAG)
+            robot.mouseMove(at.x, at.y)
+            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK)
+            repeat(5) { robot.mouseMove(at.x + (it + 1) * 8, at.y + (it + 1) * 6); robot.delay(20) }
+            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK)
+            robot.waitForIdle()
+            waitFor("one mixed move history step") { state.value.structuralUndo.size == 2 }
+            onEdt {
+                assertTrue(state.value.selectedInk!!.bounds.top > 200f)
+                assertTrue(state.value.selectedPrimeObjects.all { it.y > 200f })
+            }
+            click(WorkspaceTestTags.InkGroup)
+            waitFor("the group to come apart") { !state.value.selectionGrouped && state.value.structuralUndo.size == 3 }
+        } finally { onEdt { panel.setContent { }; window.dispose() } }
+    }
+
     @Test
     fun nativeCtrlDoubleClickSelectsWordsAcrossCellsAndCopyFormattingUndoUseEveryRange() {
         assumeFalse(GraphicsEnvironment.isHeadless())

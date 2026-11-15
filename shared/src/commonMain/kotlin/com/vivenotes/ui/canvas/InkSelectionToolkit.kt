@@ -47,6 +47,7 @@ internal fun InkSelectionToolkit(selection: InkSelection, boundsInView: Rect, vi
     canvasInk: Color, enabled: Boolean, showColor: Boolean,
     onBoundsChange: (Rect) -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onColor: (Int, Boolean) -> Unit,
     showGroup: Boolean, showMath: Boolean, onGroup: () -> Unit, onMath: () -> Unit,
+    grouped: Boolean = selection.isGrouped,
 ) {
     var size by remember { mutableStateOf(IntSize.Zero) }
     val gap = with(LocalDensity.current) { 6.dp.toPx() }
@@ -82,18 +83,7 @@ internal fun InkSelectionToolkit(selection: InkSelection, boundsInView: Rect, vi
                     Text(Strings.math, style = MaterialTheme.typography.labelSmall)
                 }
             }
-            if (showGroup) {
-                val label = if (selection.isGrouped) Strings.ungroup else Strings.group
-                HoverTooltip(label, position = TooltipAnchorPosition.Above) {
-                    TextButton(onClick = onGroup, enabled = enabled,
-                        colors = ButtonDefaults.textButtonColors(contentColor = foreground,
-                            disabledContentColor = foreground.copy(alpha = .38f)),
-                        contentPadding = PaddingValues(horizontal = 7.dp),
-                        modifier = Modifier.height(32.dp).testTag(WorkspaceTestTags.InkGroup)) {
-                        Text(label, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
+            if (showGroup) SelectionGroupButton(grouped, enabled, onGroup)
             TooltipIconButton(Strings.delete_selection, onClick = onDelete, enabled = enabled,
                 tooltipPosition = TooltipAnchorPosition.Above, colors = buttonColors,
                 modifier = Modifier.size(32.dp).testTag(WorkspaceTestTags.ObjectDelete)) {

@@ -214,6 +214,15 @@ internal class DesktopInkPage private constructor(
         return DesktopInkSelection(page, selection)
     }
 
+    override fun selectGroups(page: InkPage, groups: Set<String>, selection: InkSelection?): InkSelection? {
+        val held = (selection as? DesktopInkSelection)?.held
+        val selected = (groups.flatMap(::grouped) + held?.let { selectedProjections(it.projections) }.orEmpty())
+            .distinctBy { it.projectionKey }
+        val box = selected.mapNotNull { it.pageBounds }.unionBounds() ?: return selection
+        return DesktopInkSelection(page, InkLassoSelection(box.heldLassoPath(), selected.mapTo(LinkedHashSet()) { it.id },
+            selected.mapTo(LinkedHashSet()) { it.projectionKey }, box))
+    }
+
     override fun selectInRect(page: InkPage, left: Float, top: Float, right: Float, bottom: Float): InkSelection? {
         if (listOf(left, top, right, bottom).any { !it.isFinite() } || right <= left || bottom <= top) return null
         val selected = index.selectWithLasso(InkBounds(left, top, right, bottom).selectionPath()) ?: return null

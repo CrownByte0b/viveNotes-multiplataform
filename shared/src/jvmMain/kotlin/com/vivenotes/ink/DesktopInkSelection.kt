@@ -23,8 +23,11 @@ internal class DesktopInkSelection(override val page: InkPage, val held: InkLass
         it.colorFollowsTheme == true || it.colorFollowsTheme == null &&
             it.colorArgb in setOf(0xff000000.toInt(), 0xffffffff.toInt())
     } }
-    override val isGrouped: Boolean by lazy { page.desktopGeometry().sourceStrokes.filter { it.id in targetIds }
-        .map { it.groupId }.distinct().let { it.size == 1 && it.single() != null } }
+    override val groupIds: Set<String> by lazy { page.desktopGeometry().sourceStrokes
+        .filter { it.id in targetIds }.mapNotNull { it.groupId }.toSet() }
+    override val groupId: String? by lazy { page.desktopGeometry().sourceStrokes.filter { it.id in targetIds }
+        .map { it.groupId }.distinct().singleOrNull() }
+    override val isGrouped: Boolean get() = groupId != null
 
     override fun forRecognition(): InkPage {
         val pieces = page.desktopGeometry().selectedProjections(held.projections)
@@ -33,7 +36,11 @@ internal class DesktopInkSelection(override val page: InkPage, val held: InkLass
 
     override fun group(): InkSelectionChange? {
         if (targetIds.size < 2 || isGrouped) return null
-        val groupId = newId()
+        return groupWith(newId())
+    }
+
+    override fun groupWith(groupId: String): InkSelectionChange? {
+        if (targetIds.isEmpty()) return null
         val native = page.desktopGeometry()
         if (native.projections.any { it.id in targetIds && it.projectionKey !in held.projections }) {
             // A stored group belongs to rows. Give selected fragments independent rows first so
@@ -122,9 +129,11 @@ private class DesktopInkClipboard(original: InkPage, private val held: InkLassoS
     private val operations = original.desktopGeometry().operations.filter { op -> op.targetIds.any { it in held.targetIds } }
         .sortedWith(compareBy(DecodedInkOperation::createdAt, DecodedInkOperation::id))
 
-    override fun paste(page: InkPage, dx: Float, dy: Float): InkSelectionChange? {
+    override fun paste(page: InkPage, dx: Float, dy: Float): InkSelectionChange? =
+        pasteGrouped(page, dx, dy, mutableMapOf())
+
+    override fun pasteGrouped(page: InkPage, dx: Float, dy: Float, groups: MutableMap<String, String>): InkSelectionChange? {
         if (!dx.isFinite() || !dy.isFinite() || sources.isEmpty()) return null
-        val groups = mutableMapOf<String, String>()
         val ids = sources.associate { it.id to newId() }
         val copiedIds = ids.values.toSet()
         var clock = maxOf(System.currentTimeMillis(), Math.addExact(page.latestOperationAt, 1L))

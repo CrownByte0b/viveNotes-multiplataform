@@ -459,7 +459,7 @@ data class WorkspaceState(
 
     fun selectInk(selection: com.vivenotes.model.ink.InkSelection): WorkspaceState =
         if (selection.page !== selectedPage?.ink || inkTool != null || textToolArmed || shapeToolArmed) this
-        else clearCanvasFocus().copy(selectedInk = selection)
+        else clearCanvasFocus().copy(selectedInk = selection).expandSelectionGroups()
 
     fun applyInkSelectionChange(change: com.vivenotes.model.ink.InkSelectionChange, deleteOutlines: Boolean = false,
                                 recolorOutlinesArgb: Int? = null, recolorFollowsTheme: Boolean = false): WorkspaceState {
@@ -732,7 +732,9 @@ data class WorkspaceState(
         val page = editablePage?.takeIf { it.id == pageId } ?: return this
         if (outlines.isEmpty() || !x.isFinite() || !y.isFinite()) return this
         val top = y.coerceAtLeast(page.document.style.titleFloor)
-        val pasted = outlines.map { it.duplicateAt(x.coerceAtLeast(0f) + it.x, top + it.y) }
+        val groups = mutableMapOf<String, String>()
+        val pasted = outlines.map { it.duplicateAt(x.coerceAtLeast(0f) + it.x, top + it.y)
+            .withGroup(it.groupId?.let { group -> groups.getOrPut(group, ::newId) }) }
         return selectPointer().editOutlines { it + pasted }.copy(
             focusedTextOutlineId = null,
             selectedTextOutlineIds = pasted.filterIsInstance<Outline.Text>().map { it.id }.toSet(),
@@ -748,11 +750,12 @@ data class WorkspaceState(
         val sources = canvasClipboard.outlines
         val left = (sources.map { it.x } + listOfNotNull(canvasClipboard.ink?.bounds?.left)).min()
         val top = (sources.map { it.y } + listOfNotNull(canvasClipboard.ink?.bounds?.top)).min()
+        val groups = mutableMapOf<String, String>()
         val pasted = sources.map { it.duplicateAt(it.x - left + x.coerceAtLeast(0f),
-            it.y - top + y.coerceAtLeast(0f)) }
+            it.y - top + y.coerceAtLeast(0f)).withGroup(it.groupId?.let { group -> groups.getOrPut(group, ::newId) }) }
         canvasClipboard.ink?.let { clipboard ->
-            val change = clipboard.paste(page.ink ?: InkPage(page.id, emptyList()),
-                x.coerceAtLeast(0f) - left, y.coerceAtLeast(0f) - top) ?: return this
+            val change = clipboard.pasteGrouped(page.ink ?: InkPage(page.id, emptyList()),
+                x.coerceAtLeast(0f) - left, y.coerceAtLeast(0f) - top, groups) ?: return this
             val document = page.document.copy(outlines = page.document.outlines + pasted)
             val history = InkHistoryChange(change.before, change.after, change.undo, change.redo,
                 document.takeIf { it != page.document })
@@ -910,12 +913,13 @@ data class WorkspaceState(
 
     /** Tapping one member of a locked group holds the whole group. */
     fun selectObject(id: String): WorkspaceState {
-        val objects = selectedPage?.document?.outlines?.filter { it.isPrimeObject() } ?: return this
+        val objects = selectedPage?.document?.outlines?.filter { it.isPrimeObject() || it is Outline.Text && it.groupId != null } ?: return this
         val tapped = objects.firstOrNull { it.id == id } ?: return this
         val ids = if (tapped.lockGroup == null) setOf(id) else
             objects.filter { it.lockGroup == tapped.lockGroup }.map { it.id }.toSet()
-        return discardEmptyFocusedTextBox().copy(selectedObjectIds = ids, selectedInk = null,
-            selectedTextOutlineIds = emptySet(), focusedTextOutlineId = null, wordSelections = null)
+        return discardEmptyFocusedTextBox().copy(selectedObjectIds = objects.filter { it.isPrimeObject() && it.id in ids }.map { it.id }.toSet(),
+            selectedInk = null, selectedTextOutlineIds = objects.filterIsInstance<Outline.Text>().filter { it.id in ids }.map { it.id }.toSet(),
+            focusedTextOutlineId = null, wordSelections = null).expandSelectionGroups()
     }
 
     /** Mixed lassos prefer movable outlines; a loop containing only locks selects those groups. */
@@ -937,7 +941,7 @@ data class WorkspaceState(
             objects.filter { it.lockGroup in groups }.map { it.id }.toSet()
         }
         return cleaned.copy(selectedObjectIds = ids, selectedTextOutlineIds = textIds, selectedInk = inkSelection,
-            focusedTextOutlineId = null)
+            focusedTextOutlineId = null).expandSelectionGroups()
     }
 
     fun selectObjectsInLasso(path: List<InkSample>, measuredHeights: Map<String, Float> = emptyMap()): WorkspaceState {
@@ -959,7 +963,7 @@ data class WorkspaceState(
             val groups = objects.mapNotNull { it.lockGroup }.toSet()
             outlines.filter { it.isPrimeObject() && it.lockGroup in groups }.map { it.id }.toSet()
         }
-        return cleaned.copy(selectedObjectIds = ids, selectedTextOutlineIds = texts, selectedInk = selected)
+        return cleaned.copy(selectedObjectIds = ids, selectedTextOutlineIds = texts, selectedInk = selected).expandSelectionGroups()
     }
 
     val selectedPrimeObjects: List<Outline> get() = selectedPage?.document?.outlines.orEmpty()

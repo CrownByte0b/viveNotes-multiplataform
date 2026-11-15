@@ -111,7 +111,7 @@ class InkToolkitInteractionTest {
     }
 
     @Test
-    fun mathAndGroupBelongToInkOnlySelectionsAndMathFollowsModelAvailability() = runDesktopComposeUiTest(width = 1500, height = 900) {
+    fun groupingSupportsMixedSelectionsWhileMathFollowsTheirKindsAndModelAvailability() = runDesktopComposeUiTest(width = 1500, height = 900) {
         val state = mutableStateOf(workspace())
         val models = Models(false)
         val math = Math()
@@ -127,7 +127,7 @@ class InkToolkitInteractionTest {
             }.copy(selectedObjectIds = setOf(equation.id))
         }
         onNodeWithTag(WorkspaceTestTags.InkMath).assertDoesNotExist()
-        onNodeWithTag(WorkspaceTestTags.InkGroup).assertDoesNotExist()
+        onNodeWithTag(WorkspaceTestTags.InkGroup).assertIsDisplayed()
         onNodeWithTag(WorkspaceTestTags.ObjectCopy).assertIsDisplayed()
         onNodeWithTag(WorkspaceTestTags.ObjectDelete).assertIsDisplayed()
         runOnIdle { assertTrue(math.reads.isEmpty()) }
@@ -171,7 +171,7 @@ class InkToolkitInteractionTest {
             assertEquals(setOf("numerator", "denominator"), state.value.selectedInk?.targetIds)
             assertEquals(setOf(bar.id), state.value.selectedObjectIds)
         }
-        onNodeWithTag(WorkspaceTestTags.InkGroup).assertDoesNotExist()
+        onNodeWithTag(WorkspaceTestTags.InkGroup).assertIsDisplayed()
         onNodeWithTag(WorkspaceTestTags.InkMath).assertIsDisplayed().performClick()
         waitUntil(timeoutMillis = 5000) { math.reads.isNotEmpty() }
         onNodeWithTag("draw-math-source").assertIsDisplayed().assertTextContains("x^2-4=0")

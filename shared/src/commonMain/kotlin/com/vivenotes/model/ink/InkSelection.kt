@@ -20,7 +20,10 @@ interface InkSelection {
     fun recolor(argb: Int, followsTheme: Boolean = false): InkSelectionChange? = null
     fun copy(): InkClipboard? = null
     val isGrouped: Boolean get() = false
+    val groupId: String? get() = null
+    val groupIds: Set<String> get() = setOfNotNull(groupId)
     fun group(): InkSelectionChange? = null
+    fun groupWith(groupId: String): InkSelectionChange? = null
     fun ungroup(): InkSelectionChange? = null
     /** A read-only snapshot of the visible selected pieces, including their current transforms. */
     fun forRecognition(): InkPage? = null
@@ -30,6 +33,8 @@ interface InkSelection {
 interface InkClipboard {
     val bounds: InkSelectionBounds
     fun paste(page: InkPage, dx: Float, dy: Float): InkSelectionChange?
+    fun pasteGrouped(page: InkPage, dx: Float, dy: Float, groups: MutableMap<String, String>): InkSelectionChange? =
+        paste(page, dx, dy)
 }
 
 data class InkSelectionChange(

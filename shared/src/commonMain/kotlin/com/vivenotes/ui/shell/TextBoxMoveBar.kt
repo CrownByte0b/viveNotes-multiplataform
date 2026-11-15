@@ -49,6 +49,7 @@ internal enum class TextBoxMoveBarMode { Hidden, OnHover, Always }
 internal fun WorkspaceState.textBoxMoveBarMode(box: Outline.Text): TextBoxMoveBarMode = when {
     selectedPage?.editable != true || selectedInk != null || inkTool != null -> TextBoxMoveBarMode.Hidden
     box.id in selectedTextOutlineIds -> TextBoxMoveBarMode.Always
+    box.groupId != null -> TextBoxMoveBarMode.Hidden
     box.isUnwritten() -> TextBoxMoveBarMode.Hidden
     focusedTextOutlineId == box.id -> TextBoxMoveBarMode.Always
     textToolArmed || shapeToolArmed || objectLassoArmed || drawPlacement != null -> TextBoxMoveBarMode.Hidden

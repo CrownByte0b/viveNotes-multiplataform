@@ -36,6 +36,7 @@ import com.vivenotes.workspace.InputSettings
 import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.ObjectCommand
 import com.vivenotes.workspace.WorkspaceState
+import com.vivenotes.workspace.applyPreparedSelectionGrouping
 import com.vivenotes.workspace.runObjectCommand
 import com.vivenotes.workspace.applyPreparedInkGeometry
 import com.vivenotes.ui.canvas.LocalInkGeometryPublisher
@@ -158,14 +159,18 @@ internal fun WorkspacePage(
         modifier = modifier,
         onTitleChange = { title -> onStateChange { it.updateSelectedPage(title = title) } },
         onFocusTextBox = { id ->
-            onStateChange { it.focusTextBox(id) }
-            requestEditorFocus()
+            onStateChange { current ->
+                if (!current.textToolArmed && current.selectedPage?.document?.outlines?.any { it.id == id && it.groupId != null } == true)
+                    current.selectObject(id) else current.focusTextBox(id)
+            }
+            if (!state.textToolArmed && state.selectedPage?.document?.outlines?.any { it.id == id && it.groupId != null } == true)
+                canvasFocusRequester.requestFocus() else requestEditorFocus()
         },
         onClearCanvasFocus = { onStateChange { it.clearCanvasFocus() } },
         onInkEdit = { edit, rendered -> onStateChange { it.applyInkEdit(edit, rendered) } },
         onSelectInk = { selection -> onStateChange { it.selectInk(selection) } },
         onInkSelectionChange = { change -> onStateChange { it.applyInkSelectionChange(change) } },
-        onInkGrouping = { change -> onStateChange { it.applyInkGrouping(change) } },
+        onSelectionGrouping = { before, prepared -> onStateChange { it.applyPreparedSelectionGrouping(before, prepared) } },
         inkMathAvailable = formulaReady,
         onInkMath = onInkMath,
         onInkRecolor = { source, argb, followsTheme, change -> onStateChange { current ->
@@ -271,9 +276,12 @@ internal fun WorkspacePage(
         },
         onEditTextAt = { id, selection ->
             onStateChange { current ->
-                (if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)).selectText(selection)
+                if (!current.textToolArmed && current.selectedPage?.document?.outlines?.any { it.id == id && it.groupId != null } == true)
+                    current.selectObject(id)
+                else (if (current.focusedTextOutlineId == id) current else current.focusTextBox(id)).selectText(selection)
             }
-            requestEditorFocus()
+            if (!state.textToolArmed && state.selectedPage?.document?.outlines?.any { it.id == id && it.groupId != null } == true)
+                canvasFocusRequester.requestFocus() else requestEditorFocus()
         },
         onBodyChange = { id, value ->
             onStateChange { current ->

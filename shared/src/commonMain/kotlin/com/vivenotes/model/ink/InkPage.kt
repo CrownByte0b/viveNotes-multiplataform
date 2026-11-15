@@ -51,6 +51,8 @@ interface InkPageGeometry {
     fun selectPastLine(page: InkPage, cut: com.vivenotes.model.SpaceCut): InkSelection? = null
     fun selectInLasso(page: InkPage, path: List<InkSample>): InkSelection? = null
     fun selectInRect(page: InkPage, left: Float, top: Float, right: Float, bottom: Float): InkSelection? = null
+    /** Adds all visible pieces in these groups, retaining any ungrouped pieces already held. */
+    fun selectGroups(page: InkPage, groups: Set<String>, selection: InkSelection? = null): InkSelection? = selection
 }
 
 /** Optional platform snapshot carried with a new stored stroke. */

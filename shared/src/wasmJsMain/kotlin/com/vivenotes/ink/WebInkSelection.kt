@@ -37,9 +37,9 @@ internal class WebInkSelection(private val pages: WebInkPages, override val page
     override val bounds = held.bounds.let { InkSelectionBounds(it.left, it.top, it.right, it.bottom) }
     override val targetIds: Set<String> get() = held.targetIds
     private val rows by lazy { pages.rows(page) }
-    override val isGrouped: Boolean by lazy {
-        rows.strokes.filter { it.id in targetIds }.map { it.groupId }.distinct().let { it.size == 1 && it.single() != null }
-    }
+    override val groupIds: Set<String> by lazy { rows.strokes.filter { it.id in targetIds }.mapNotNull { it.groupId }.toSet() }
+    override val groupId: String? by lazy { rows.strokes.filter { it.id in targetIds }.map { it.groupId }.distinct().singleOrNull() }
+    override val isGrouped: Boolean get() = groupId != null
 
     override fun move(dx: Float, dy: Float): InkSelectionChange? {
         if (!dx.isFinite() || !dy.isFinite()) return null
@@ -85,7 +85,11 @@ internal class WebInkSelection(private val pages: WebInkPages, override val page
 
     override fun group(): InkSelectionChange? {
         if (targetIds.size < 2 || isGrouped) return null
-        val groupId = newId()
+        return groupWith(newId())
+    }
+
+    override fun groupWith(groupId: String): InkSelectionChange? {
+        if (targetIds.isEmpty()) return null
         if (pages.pieces(page).any { it.id in targetIds && it.key !in held.projections }) {
             // A stored group belongs to rows. Give selected fragments independent rows first so
             // grouping them cannot pull an unselected sibling into future selections and moves.
@@ -127,9 +131,11 @@ private class WebInkClipboard(private val pages: WebInkPages, original: InkPage,
     private val erases = rows.erases.filter { row -> row.deletedAt == null && row.targetIds.any { it in held.targetIds } }
     private val moves = rows.moves.filter { row -> row.deletedAt == null && row.targetIds.any { it in held.targetIds } }
 
-    override fun paste(page: InkPage, dx: Float, dy: Float): InkSelectionChange? {
+    override fun paste(page: InkPage, dx: Float, dy: Float): InkSelectionChange? =
+        pasteGrouped(page, dx, dy, mutableMapOf())
+
+    override fun pasteGrouped(page: InkPage, dx: Float, dy: Float, groups: MutableMap<String, String>): InkSelectionChange? {
         if (!dx.isFinite() || !dy.isFinite() || sources.isEmpty()) return null
-        val groups = mutableMapOf<String, String>()
         val ids = sources.associate { it.id to newId() }
         val copiedIds = ids.values.toSet()
         var clock = operationClock(page)

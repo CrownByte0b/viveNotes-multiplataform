@@ -46,6 +46,14 @@ internal class WebInkGeometry(private val pages: WebInkPages, val rows: InkPageR
             ?.let { WebInkSelection(pages, page, it) }
     }
 
+    override fun selectGroups(page: InkPage, groups: Set<String>, selection: InkSelection?): InkSelection? {
+        val held = (selection as? WebInkSelection)?.held
+        val selected = pages.pieces(page).filter { it.groupId in groups || it.key in held?.projections.orEmpty() }
+        val box = selected.mapNotNull { it.bounds }.unionBounds() ?: return selection
+        return WebInkSelection(pages, page, InkLassoSelection(box.heldLassoPath(), selected.mapTo(LinkedHashSet()) { it.id },
+            selected.mapTo(LinkedHashSet()) { it.key }, box))
+    }
+
     override fun selectInLasso(page: InkPage, path: List<InkSample>): InkSelection? {
         if (!com.vivenotes.model.ink.inkLassoCloses(path)) return null
         return pages.pieces(page).selectWithLasso(path.map { InkPoint(it.x, it.y) })?.let { WebInkSelection(pages, page, it) }
