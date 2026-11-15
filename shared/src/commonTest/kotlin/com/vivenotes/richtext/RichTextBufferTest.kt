@@ -126,6 +126,83 @@ class RichTextBufferTest {
         assertEquals(setOf(Mark.Bold), callback.typingMarks)
     }
 
+    /** Reported: with the default size at 20, text written on an empty line came out at 15. */
+    @Test
+    fun anEmptyParagraphWritesInTheDefaultFontAndSizeAndTextElsewhereInItsNeighbours() {
+        val defaults = setOf(Mark.FontFamily("inter"), Mark.FontSize(20))
+        val big = setOf(Mark.FontSize(24), Mark.Bold)
+        val buffer = RichTextBuffer(listOf(Block(id = "a", runs = listOf(Run("Hello", big))), Block(id = "b"),
+            Block(id = "c", runs = listOf(Run("World", big)))), defaultMarks = defaults)
+
+        val onEmptyLine = buffer.select(TextSelection(6))
+        assertEquals(defaults, onEmptyLine.typingMarks, "an empty line has no text to take a font and size from")
+        assertEquals(defaults, onEmptyLine.activeMarks, "the ribbon shows what typing there writes")
+        assertEquals(listOf(Run("X", defaults)), onEmptyLine.replace("X").blocks[1].runs)
+        assertEquals(big, buffer.select(TextSelection(5)).typingMarks, "after text, typing matches it")
+        assertEquals(big, buffer.select(TextSelection(7)).typingMarks, "at a line's start, the text after the caret")
+        assertEquals(defaults, RichTextBuffer(listOf(Block.of("a"), Block.of("")), defaultMarks = defaults)
+            .select(TextSelection(2)).typingMarks, "a line holding only an empty run is empty too")
+        assertEquals(emptySet(), RichTextBuffer(listOf(Block.of("plain")), defaultMarks = defaults)
+            .select(TextSelection(2)).typingMarks, "text with no size of its own is matched, not restyled")
+    }
+
+    /** Reported: text pasted over a selection came in at 15, without the selected text's size. */
+    @Test
+    fun typingOrPastingOverASelectionKeepsTheSelectedTextsFormatting() {
+        val marks = setOf(Mark.FontSize(20), Mark.Bold)
+        val tail = Run(" big", setOf(Mark.FontSize(28)))
+        val buffer = editor(Block(id = "b", runs = listOf(Run("Hello", marks), tail)))
+
+        val typed = buffer.select(TextSelection(1, 4)).replace("XY")
+        assertEquals(listOf(Run("HXYo", marks), tail), typed.blocks.single().runs)
+        assertEquals(marks, typed.typingMarks, "typing goes on in it")
+
+        val acrossSizes = buffer.select(TextSelection(3, 7)).replace("Z")
+        assertEquals(listOf(Run("Hel", marks), Run("Z", setOf(Mark.FontSize(20))), Run("ig", setOf(Mark.FontSize(28)))),
+            acrossSizes.blocks.single().runs, "what the text shares, and the size of its first character")
+
+        val deleted = buffer.select(TextSelection(0, 5)).acceptTextChange(" big", TextSelection(0))
+        assertEquals(marks, deleted.typingMarks, "deleting a selection leaves typing in its formatting")
+        assertEquals(Run("X", marks), deleted.acceptTextChange("X big", TextSelection(1)).blocks.single().runs.first())
+
+        val lineBreak = editor(Block(id = "a", runs = listOf(Run("ab", marks))), Block(id = "c", runs = listOf(Run("cd"))))
+            .select(TextSelection(2, 3)).replace("-")
+        assertEquals(listOf(Run("ab-", marks), Run("cd")), lineBreak.blocks.single().runs,
+            "a selection of only a line break is written over as text typed at its start")
+    }
+
+    @Test
+    fun typingBesideOrOverAnEquationWritesTextNotAnotherEquation() {
+        val equation = Run("x", setOf(Mark.Equation("x^2"), Mark.FontSize(20)))
+        val beside = editor(Block(id = "b", runs = listOf(Run("ab"), equation))).select(TextSelection(3)).replace("c")
+        assertEquals(listOf(Run("ab"), equation, Run("c", setOf(Mark.FontSize(20)))), beside.blocks.single().runs)
+        val over = editor(Block(id = "b", runs = listOf(equation))).select(TextSelection(0, 1)).replace("y")
+        assertEquals(listOf(Run("y", setOf(Mark.FontSize(20)))), over.blocks.single().runs)
+    }
+
+    /** Text copied without a size takes the caret's, as Android's `carryFontForward` gives it one. */
+    @Test
+    fun pastedTextWithoutASizeOrFontTakesTheCaretsWhileCopiedOnesStay() {
+        val lora = Mark.FontFamily("lora")
+        val target = editor(Block(id = "t")).copy(typingMarks = setOf(lora, Mark.FontSize(20), Mark.Italic))
+
+        val plain = target.insertFragment(listOf(Block(id = "p", runs = listOf(Run("plain "), Run("bold", setOf(Mark.Bold))))))
+        assertEquals(listOf(Run("plain ", setOf(lora, Mark.FontSize(20))), Run("bold", setOf(Mark.Bold, lora, Mark.FontSize(20)))),
+            plain.blocks.single().runs, "only the font and size come from the caret")
+
+        val sized = target.insertFragment(listOf(Block(id = "s",
+            runs = listOf(Run("Title", setOf(Mark.FontSize(28))), Run(" body")))))
+        assertEquals(listOf(Run("Title", setOf(Mark.FontSize(28), lora)), Run(" body", setOf(lora))),
+            sized.blocks.single().runs, "a copy with sizes of its own keeps them as they were")
+    }
+
+    @Test
+    fun backspaceKeepsTheMarksArmedAtTheCaret() {
+        val armed = editor(Block(id = "b", runs = listOf(Run("abc", setOf(Mark.Bold))))).select(TextSelection(3))
+            .toggleMark(Mark.Italic)
+        assertEquals(setOf(Mark.Bold, Mark.Italic), armed.acceptTextChange("ab", TextSelection(2)).typingMarks)
+    }
+
     @Test
     fun blockCommandsApplyToSelectedParagraphs() {
         val original = editor(Block.of("one"), Block.of("two"), Block.of("three"))

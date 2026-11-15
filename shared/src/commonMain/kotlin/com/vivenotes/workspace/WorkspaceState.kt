@@ -240,8 +240,15 @@ data class WorkspaceState(
 
     /** The focused text box as an editing buffer; null — and the text commands disabled — without one. */
     val richText: RichTextBuffer? by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        focusedTextOutline?.let { RichTextBuffer(it.blocks, editorSelection, typingMarks) }
+        focusedTextOutline?.let { textBuffer(it.blocks, editorSelection, typingMarks) }
     }
+
+    /** [blocks] as an editing buffer that writes in this device's default font and size where nothing else decides one. */
+    internal fun textBuffer(
+        blocks: List<Block>,
+        selection: TextSelection = TextSelection(0),
+        typingMarks: Set<Mark> = emptySet(),
+    ): RichTextBuffer = RichTextBuffer(blocks, selection, typingMarks, defaultMarks = editorDefaults.textMarks())
 
     val fontFamilyChoice: String get() = if (richText != null)
         selectedTextMarks.filterIsInstance<Mark.FontFamily>().firstOrNull()?.name ?: "sans-serif"
@@ -261,12 +268,25 @@ data class WorkspaceState(
         else if (richText != null) setSelectedMark(Mark.FontSize(size))
         else copy(nextFontSize = size)
 
-    fun setEditorDefaults(defaults: EditorDefaults): WorkspaceState =
-        copy(editorDefaults = defaults.normalized())
+    /**
+     * New defaults take effect at once, in the box being edited too: a caret with no text to write
+     * like (an empty box or paragraph) was going to write in the old default, and writes in the new
+     * one now. A font or size chosen for it, which differs from the old default, stays.
+     */
+    fun setEditorDefaults(defaults: EditorDefaults): WorkspaceState {
+        val next = copy(editorDefaults = defaults.normalized())
+        val caret = richText?.takeIf { it.selection.collapsed && it.currentBlock.editorText.isEmpty() }
+            ?: return next
+        val old = editorDefaults.textMarks()
+        val new = next.editorDefaults.textMarks()
+        return next.copy(typingMarks = caret.typingMarks.mapTo(mutableSetOf()) { mark ->
+            if (mark in old) new.firstOrNull { it::class == mark::class } ?: mark else mark
+        })
+    }
 
     fun richTextFor(id: String): RichTextBuffer? =
         selectedPage?.document?.textContainer(id)?.let {
-                RichTextBuffer(it.blocks, if (id == focusedTextOutlineId) editorSelection else TextSelection(0),
+                textBuffer(it.blocks, if (id == focusedTextOutlineId) editorSelection else TextSelection(0),
                     if (id == focusedTextOutlineId) typingMarks else emptySet())
             }
 
@@ -599,9 +619,10 @@ data class WorkspaceState(
         if (selectedPage?.document?.textContainer(id) == null) return this
         val next = if (id == focusedTextOutlineId) this else discardEmptyFocusedTextBox()
         val outline = next.selectedPage?.document?.textContainer(id)
-        val marks = if (outline?.blocks?.all { it.runs.isEmpty() } == true)
-            editorDefaults.textMarks(nextFontFamily ?: editorDefaults.fontFamily,
-                nextFontSize ?: editorDefaults.fontSize) else emptySet()
+        // The caret starts at the top: an empty box writes in the font and size armed for it, or the
+        // defaults; one with text, in that text's.
+        val marks = outline?.let { textBuffer(it.blocks, typingMarks = armedTextMarks).select(TextSelection(0)).typingMarks }
+            .orEmpty()
         return next.copy(focusedTextOutlineId = id, selectedTextOutlineIds = emptySet(),
             selectedObjectIds = emptySet(), selectedInk = null,
             editorSelection = TextSelection(0), wordSelections = null, typingMarks = marks, editorComposition = null,
@@ -636,11 +657,14 @@ data class WorkspaceState(
             outlines.filterNot { it is Outline.Text && it.isUnwritten() } + outline
         }.copy(focusedTextOutlineId = outline.id, selectedTextOutlineIds = emptySet(),
             editorSelection = TextSelection(0), wordSelections = null,
-            typingMarks = editorDefaults.textMarks(nextFontFamily ?: editorDefaults.fontFamily,
-                nextFontSize ?: editorDefaults.fontSize), editorComposition = null,
+            typingMarks = armedTextMarks, editorComposition = null,
             nextFontFamily = null, nextFontSize = null)
             .discardEmptyTextHistory(removedIds)
     }
+
+    /** What the next new text box writes in: a font and size chosen with no box open, or the defaults. */
+    private val armedTextMarks: Set<Mark>
+        get() = editorDefaults.textMarks(nextFontFamily ?: editorDefaults.fontFamily, nextFontSize ?: editorDefaults.fontSize)
 
     /** A provisional box must not return through Undo after it was abandoned. */
     private fun discardEmptyTextHistory(ids: Set<String>): WorkspaceState {
@@ -857,7 +881,7 @@ data class WorkspaceState(
         val blocks = if (before) change.before else change.after
         val selection = if (before) change.selectionBefore else change.selectionAfter
         val focused = if (focusedTextOutlineId == change.outlineId) this else focusTextBox(change.outlineId)
-        val buffer = RichTextBuffer(blocks, typingMarks = focused.typingMarks).select(selection)
+        val buffer = textBuffer(blocks, typingMarks = focused.typingMarks).select(selection)
         return focused.updatePage(selectedPageId) { page -> page.withDocument(page.document.withTextBlocks(
             changes.associate { it.outlineId to if (before) it.before else it.after }))
         }.copy(editorSelection = buffer.selection, typingMarks = buffer.typingMarks, editorComposition = null,

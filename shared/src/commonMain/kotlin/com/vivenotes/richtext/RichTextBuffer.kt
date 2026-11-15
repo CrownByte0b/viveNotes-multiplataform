@@ -26,6 +26,12 @@ data class RichTextBuffer(
     val blocks: List<Block>,
     val selection: TextSelection = TextSelection(0),
     val typingMarks: Set<Mark> = emptySet(),
+    /**
+     * The editor default's font and size, as marks (Android's `OutlineEditText.defaultMarks`). Text
+     * gets them only where it has nothing to take a font and size from: written in an empty
+     * paragraph, or pasted without either of its own where the caret has none.
+     */
+    val defaultMarks: Set<Mark> = emptySet(),
 ) {
     init { require(blocks.isNotEmpty()) }
 
@@ -61,6 +67,24 @@ data class RichTextBuffer(
             return involved.firstOrNull()?.let { first ->
                 involved.drop(1).fold(first) { common, marks -> common intersect marks }
             }.orEmpty()
+        }
+
+    /**
+     * What text typed or pasted now is written in. At the caret, [typingMarks]. Over a selection, the
+     * selected text's own formatting, as typing over a word keeps its look: what all of it shares,
+     * with the size and font of its first character where it shares none. An equation's mark is the
+     * equation itself and never passes to other text. A selection holding only line breaks is written
+     * over as text typed at its start would be.
+     */
+    val insertionMarks: Set<Mark>
+        get() {
+            val range = selection.clamped(textLength)
+            if (range.collapsed) return typingMarks
+            val involved = selectedRunPieces(range.min, range.max)
+            val first = involved.firstOrNull() ?: return marksForCaret(range.min)
+            val shared = involved.drop(1).fold(first) { common, marks -> common intersect marks }
+            val fonts = first.filter { mark -> mark.isFont && shared.none { it::class == mark::class } }
+            return (shared + fonts).filterNotTo(mutableSetOf()) { it is Mark.Equation }
         }
 
     fun toggleMark(mark: Mark): RichTextBuffer {
@@ -162,9 +186,9 @@ data class RichTextBuffer(
             else range
         val relabelled = if (text.substring(target.min, target.max) == shown) this else {
             val marks = if (target.collapsed) typingMarks else marksOfCharacterAt(target.min)
-            copy(selection = target, typingMarks = marks.filterNotTo(mutableSetOf()) {
+            copy(selection = target).replace(shown, marks.filterNotTo(mutableSetOf()) {
                 it is Mark.Link || it is Mark.Equation
-            }).replace(shown)
+            })
         }
         val end = target.min + shown.length
         return relabelled.changeMarks(target.min, end) { it.withMark(Mark.Link(url), true) }
@@ -184,8 +208,13 @@ data class RichTextBuffer(
         it.copy(indent = (it.indent + delta).coerceIn(0, 8))
     }
 
-    /** Replace a selection, preserving run marks and unaffected block identities. */
-    fun replace(inserted: String): RichTextBuffer {
+    /**
+     * Replace a selection, preserving run marks and unaffected block identities. The text goes in
+     * written in [insertionMarks], and what is typed after it carries on in them.
+     */
+    fun replace(inserted: String): RichTextBuffer = replace(inserted, insertionMarks)
+
+    private fun replace(inserted: String, marks: Set<Mark>): RichTextBuffer {
         val range = selection.clamped(textLength)
         val from = locate(range.min)
         val to = locate(range.max)
@@ -195,7 +224,7 @@ data class RichTextBuffer(
         val suffix = last.runs.splitAt(to.offset).second
         val lines = inserted.split('\n')
         val insertedRuns = lines.map { line ->
-            if (line.isEmpty()) emptyList() else listOf(Run(line, typingMarks))
+            if (line.isEmpty()) emptyList() else listOf(Run(line, marks))
         }
         // Android's `SpannableCodec.normalize`: a paragraph split off continues the one it came
         // from, which is what makes Enter in a list make another item. A new to-do starts unticked.
@@ -214,7 +243,7 @@ data class RichTextBuffer(
         }
         val changed = blocks.take(from.index) + replacement + blocks.drop(to.index + 1)
         val caret = range.min + inserted.length
-        return copy(blocks = changed, selection = TextSelection(caret))
+        return copy(blocks = changed, selection = TextSelection(caret), typingMarks = marks)
     }
 
     /**
@@ -239,9 +268,11 @@ data class RichTextBuffer(
      * the paragraph at the caret and takes its style. Pasted paragraphs keep their own style, except
      * that one sharing a line with text already there — the first, after the text before the caret;
      * the last, before the text after it — takes that paragraph's. Pasted blocks get new ids.
+     * Text copied with no size or font of its own takes those of [insertionMarks] ([carryingFont]).
      */
-    fun insertFragment(fragment: List<Block>): RichTextBuffer {
-        if (fragment.isEmpty()) return this
+    fun insertFragment(copied: List<Block>): RichTextBuffer {
+        if (copied.isEmpty()) return this
+        val fragment = copied.carryingFont(insertionMarks)
         val range = selection.clamped(textLength)
         val from = locate(range.min)
         val to = locate(range.max)
@@ -307,6 +338,8 @@ data class RichTextBuffer(
             return copy(selection = oldRange).replace(inserted)
                 .copy(selection = newSelection.clamped(newText.length))
         }
+        // From here the range replaced is worked out from the text, not chosen by the user: from a
+        // caret, typing marks are what they were, as after any keystroke there.
         if (oldRange.collapsed && newSelection.collapsed && newText.length < oldText.length) {
             val removed = oldText.length - newText.length
             val candidateStart = if (newSelection.start < oldRange.start) {
@@ -317,7 +350,7 @@ data class RichTextBuffer(
                 oldText.removeRange(candidateStart, candidateEnd) == newText
             ) {
                 return copy(selection = TextSelection(candidateStart, candidateEnd))
-                    .replace("").copy(selection = newSelection.clamped(newText.length))
+                    .replace("", typingMarks).copy(selection = newSelection.clamped(newText.length))
             }
         }
         val prefix = oldText.commonPrefixWith(newText).length
@@ -327,7 +360,8 @@ data class RichTextBuffer(
         val removedEnd = oldText.length - suffix
         val inserted = newText.substring(prefix, newText.length - suffix)
         val prepared = copy(selection = TextSelection(prefix, removedEnd))
-        return prepared.replace(inserted).copy(selection = newSelection.clamped(newText.length))
+        return prepared.replace(inserted, if (oldRange.collapsed) typingMarks else prepared.insertionMarks)
+            .copy(selection = newSelection.clamped(newText.length))
     }
 
     private fun changeBlocks(transform: (Block) -> Block): RichTextBuffer {
@@ -431,9 +465,15 @@ data class RichTextBuffer(
         return runs.lastOrNull()?.marks.orEmpty()
     }
 
-    /** A link ends at its edge; typing there keeps other formatting without growing the link. */
+    /**
+     * What typing at [offset] is written in: the text it is typed against, so writing beside 20pt
+     * text is 20pt too. A link ends at its edge, and typing there keeps the other formatting without
+     * growing the link; an equation is the one character it marks, so typing beside it is text. A
+     * paragraph with no text has nothing to give, and writes in the default font and size.
+     */
     private fun marksForCaret(offset: Int): Set<Mark> {
-        val marks = marksAt(offset)
+        if (blockLengths[locate(offset).index] == 0) return defaultMarks
+        val marks = marksAt(offset).filterNotTo(mutableSetOf()) { it is Mark.Equation }
         val link = marks.filterIsInstance<Mark.Link>().firstOrNull() ?: return marks
         return if (linkSpans().any { it.href == link.href && (offset == it.start || offset == it.end) })
             marks - link else marks
@@ -466,6 +506,22 @@ private fun Set<Mark>.withMark(mark: Mark, add: Boolean): Set<Mark> {
         retained.add(mark)
     }
     return retained
+}
+
+/** A font or size mark: what text written or pasted without one takes from where it goes. */
+private val Mark.isFont: Boolean get() = this is Mark.FontSize || this is Mark.FontFamily
+
+/**
+ * These copied blocks with the size and font of [marks] where they have none of their own, as
+ * Android's `carryFontForward` gives pasted text. Each is one decision for the whole copy: a size
+ * anywhere in it means it came with sizes of its own, which laying [marks]' size over the rest would
+ * flatten; the same goes for the font.
+ */
+internal fun List<Block>.carryingFont(marks: Set<Mark>): List<Block> {
+    val runs = flatMap { it.runs }
+    val missing = marks.filter { mark -> mark.isFont && runs.none { run -> run.marks.any { it::class == mark::class } } }
+    if (missing.isEmpty()) return this
+    return map { block -> block.copy(runs = block.runs.map { run -> run.copy(marks = run.marks + missing) }) }
 }
 
 /** This block, with [source]'s paragraph style. */

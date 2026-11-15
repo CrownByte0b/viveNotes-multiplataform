@@ -15,6 +15,7 @@ import com.vivenotes.model.Outline
 import com.vivenotes.model.newId
 import com.vivenotes.richtext.CanvasPasteItem
 import com.vivenotes.richtext.CanvasPastePlan
+import com.vivenotes.richtext.carryingFont
 import com.vivenotes.richtext.plainPasteBlocks
 import com.vivenotes.workspace.PasteFrames
 import com.vivenotes.workspace.WorkspaceState
@@ -104,8 +105,10 @@ internal class CanvasClipboardActions(
                 items.mapNotNull { item ->
                     when (item) {
                         is CanvasPasteItem.Text -> {
+                            // Text copied here keeps its formatting, and takes the new box's font and
+                            // size where it has none of its own, as the other app's text does.
                             val blocks = before.textClipboard?.takeIf { content.html == null && it.text == content.text }
-                                ?.blocks ?: item.blocks
+                                ?.blocks?.carryingFont(marks) ?: item.blocks
                             Outline.Text.empty().copy(blocks = blocks)
                         }
                         is CanvasPasteItem.Table -> item.outline

@@ -338,7 +338,20 @@ class TextContextMenuTest {
                 assertEquals(setOf(Mark.Bold), block.runs.single().marks)
             }
 
+            // Plain text takes the formatting of the text it replaces, as typing over it would: bold here.
             editor.performTextInputSelection(TextRange(0, 6))
+            editor.performMouseInput { rightClick(onFirstWord) }
+            onNodeWithTag(TextMenuTags.PastePlainText).performClick()
+            runOnIdle {
+                val block = observed.richText!!.blocks.single()
+                assertEquals("Review", block.text)
+                assertEquals(setOf(Mark.Bold), block.runs.single().marks)
+            }
+
+            // Over plain text it stays plain: the copy's bold does not come back with it.
+            editor.performTextInputSelection(TextRange(0, 6))
+            editor.performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.B) } }
+            runOnIdle { assertEquals(emptySet(), observed.richText!!.blocks.single().runs.single().marks) }
             editor.performMouseInput { rightClick(onFirstWord) }
             onNodeWithTag(TextMenuTags.PastePlainText).performClick()
             runOnIdle {

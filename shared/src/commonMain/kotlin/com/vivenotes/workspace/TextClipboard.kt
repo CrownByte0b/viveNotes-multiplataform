@@ -27,10 +27,12 @@ fun WorkspaceState.copySelectedText(): WorkspaceState {
  * Pastes [clipboardText] — what the system clipboard holds — over the selection of the focused box.
  *
  * With [keepFormatting], text this workspace copied comes back as it was copied: marks, lists and
- * paragraph styles. Text another app copied with its HTML, [clipboardHtml] — a web page, a document
- * — comes with the headings, lists and marks it showed there, in the font and size at the caret
- * ([pastedHtmlBlocks]). Anything else, and everything when [keepFormatting] is off, is pasted as
- * plain text in the formatting at the caret, as if it had been typed there.
+ * paragraph styles, and the font and size at the caret where it had none of its own. Text another
+ * app copied with its HTML, [clipboardHtml] — a web page, a document — comes with the headings,
+ * lists and marks it showed there, in the font and size at the caret ([pastedHtmlBlocks]).
+ * Anything else, and everything when [keepFormatting] is off, is pasted as plain text in the
+ * formatting at the caret, as if it had been typed there. Over a selection, "at the caret" is the
+ * selected text's ([com.vivenotes.richtext.RichTextBuffer.insertionMarks]).
  */
 fun WorkspaceState.pasteText(clipboardText: String, keepFormatting: Boolean, clipboardHtml: String? = null): WorkspaceState {
     val text = clipboardText.replace("\r\n", "\n").replace('\r', '\n')
@@ -38,7 +40,7 @@ fun WorkspaceState.pasteText(clipboardText: String, keepFormatting: Boolean, cli
     val buffer = richText ?: return this
     if (keepFormatting) {
         textClipboard?.takeIf { it.text == text }?.let { return editTextSelections { buffer -> buffer.insertFragment(it.blocks) } }
-        clipboardHtml?.let { pastedHtmlBlocks(it, buffer.activeMarks) }?.let { return editTextSelections { buffer -> buffer.insertFormatted(it) } }
+        clipboardHtml?.let { pastedHtmlBlocks(it, buffer.insertionMarks) }?.let { return editTextSelections { buffer -> buffer.insertFormatted(it) } }
     }
     return editTextSelections { it.replace(text) }
 }

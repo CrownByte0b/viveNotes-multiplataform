@@ -9,7 +9,11 @@ import com.vivenotes.data.ImportedPicture
 import com.vivenotes.data.PictureLibrary
 import com.vivenotes.data.TextClipboard
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.model.Block
+import com.vivenotes.model.Mark
 import com.vivenotes.model.Outline
+import com.vivenotes.model.Run
+import com.vivenotes.workspace.EditorDefaults
 import com.vivenotes.workspace.WorkspaceState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -101,6 +105,20 @@ class CanvasClipboardActionsTest {
         assertTrue(actions.pendingPastes.isEmpty())
         assertEquals(1, images().size)
         assertEquals("Second", state.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>().last().blocks.single().text)
+    }
+
+    /** Desktop: text copied in this app keeps its marks on the canvas, and takes the default size where it had none. */
+    @Test
+    fun copiedTextWithoutASizeLandsInTheDefaultSize() = runTest {
+        val copied = listOf(Block(id = "c", runs = listOf(Run("plain "), Run("bold", setOf(Mark.Bold)))))
+        state = state.setEditorDefaults(EditorDefaults(fontSize = 20))
+            .copy(textClipboard = com.vivenotes.workspace.TextClipboard("plain bold", copied))
+        source.content = ClipboardContent(text = "plain bold")
+        actions().pasteExternal(150f, 250f)
+        advanceUntilIdle()
+        val font = setOf(Mark.FontFamily("sans-serif"), Mark.FontSize(20))
+        assertEquals(listOf(Run("plain ", font), Run("bold", font + Mark.Bold)),
+            state.selectedPage!!.document.outlines.filterIsInstance<Outline.Text>().last().blocks.single().runs)
     }
 
     private class Source : CanvasClipboardSource, ClipboardHtml, TextClipboard {

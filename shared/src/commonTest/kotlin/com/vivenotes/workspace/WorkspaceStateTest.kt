@@ -157,6 +157,74 @@ class WorkspaceStateTest {
         assertEquals(PaperSize.Auto, state.selectedPage!!.document.style.paper)
     }
 
+    private fun WorkspaceState.sizes(): List<List<Int?>> = focusedTextOutline!!.blocks.map { block ->
+        block.runs.map { run -> run.marks.filterIsInstance<Mark.FontSize>().singleOrNull()?.sp }
+    }
+
+    /** Reported: with the default size at 20, pasted text and what was written after it came out at 15. */
+    @Test
+    fun theDefaultSizeReachesPastedTextBlankLinesAndTextWrittenOverASelection() {
+        val box = WorkspaceState.demo().setEditorDefaults(EditorDefaults(fontSize = 20))
+            .toggleTextTool().createTextBox(100f, 200f)
+
+        val pasted = box.pasteText("one\n\ntwo", keepFormatting = true, "<p>one</p><p>two</p>")
+        assertEquals(listOf(listOf(20), emptyList(), listOf(20)), pasted.sizes())
+
+        val blankLine = pasted.selectText(TextSelection(4))
+        assertEquals(20, blankLine.fontSizeChoice, "the ribbon shows what typing on the blank line writes")
+        assertEquals(listOf(listOf(20), listOf(20), listOf(20)),
+            blankLine.editSelectedText("one\nx\ntwo", TextSelection(5)).sizes())
+        assertEquals(listOf(listOf(20), listOf(20), listOf(20)), blankLine.pasteText("x", keepFormatting = false).sizes())
+
+        val all = pasted.selectText(TextSelection(0, pasted.richText!!.text.length))
+        assertEquals(listOf(listOf(20)), all.pasteText("replaced", keepFormatting = true).sizes(),
+            "pasting over a selection keeps its size")
+        assertEquals(listOf(listOf(20)), all.editSelectedText("", TextSelection(0)).editSelectedText("y", TextSelection(1))
+            .sizes(), "and so does deleting it and typing")
+    }
+
+    @Test
+    fun copiedTextWithoutASizeOfItsOwnPastesInTheDefault() {
+        val demo = WorkspaceState.demo().setEditorDefaults(EditorDefaults(fontSize = 20))
+        val copied = demo.focusTextBox(demo.bodyTextOutline!!.id).selectText(TextSelection(0, 6)).copySelectedText()
+        assertEquals(listOf(emptyList<Int?>()), copied.textClipboard!!.blocks.map { block ->
+            block.runs.mapNotNull { run -> run.marks.filterIsInstance<Mark.FontSize>().singleOrNull()?.sp } })
+
+        val pasted = copied.toggleTextTool().createTextBox(100f, 900f).pasteText(copied.selectedText, keepFormatting = true)
+        assertEquals(listOf(listOf(20)), pasted.sizes())
+    }
+
+    @Test
+    fun aNewDefaultReachesTheEmptyBoxBeingEditedButNotASizeChosenForIt() {
+        val box = WorkspaceState.demo().toggleTextTool().createTextBox(100f, 200f)
+        val changed = box.setEditorDefaults(EditorDefaults(fontSize = 20))
+        assertEquals(20, changed.fontSizeChoice)
+        assertEquals(listOf(listOf(20)), changed.pasteText("pasted", keepFormatting = true).sizes())
+
+        val chosen = box.chooseFontSize(24).setEditorDefaults(EditorDefaults(fontSize = 20))
+        assertEquals(24, chosen.fontSizeChoice, "a size picked for this caret stays")
+
+        val written = box.editSelectedText("Hello", TextSelection(5)).setEditorDefaults(EditorDefaults(fontSize = 20))
+        assertEquals(15, written.fontSizeChoice, "beside text, typing still matches it")
+    }
+
+    @Test
+    fun focusingABoxStartsInTheFormattingAtItsStart() {
+        val demo = WorkspaceState.demo().setEditorDefaults(EditorDefaults(fontSize = 20))
+        val id = demo.bodyTextOutline!!.id
+        fun holding(vararg blocks: Block) = demo.updatePage(demo.selectedPageId) { page ->
+            page.copy(document = page.document.copy(outlines = page.document.outlines.map { outline ->
+                if (outline is Outline.Text && outline.id == id) outline.copy(blocks = blocks.toList()) else outline
+            }))
+        }
+
+        val big = setOf(Mark.FontSize(28))
+        assertEquals(big, holding(Block(id = "b", runs = listOf(Run("Big", big)))).focusTextBox(id).typingMarks,
+            "focus from the keyboard writes like the text at the caret")
+        assertEquals(EditorDefaults(fontSize = 20).textMarks(), holding(Block.of("")).focusTextBox(id).typingMarks,
+            "a box holding an empty run is empty")
+    }
+
     @Test
     fun pointerCommandClearsToolsAndCanvasSelection() {
         val initial = WorkspaceState.demo()

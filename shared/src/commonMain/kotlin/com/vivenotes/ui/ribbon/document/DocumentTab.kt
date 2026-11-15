@@ -93,6 +93,17 @@ internal fun DocumentTab(
         applyRibbonCommand { it.withRibbonSelection(selection).command() }
 
     /**
+     * A new default font or size reaches the box being edited at once ([WorkspaceState.setEditorDefaults]),
+     * and the keyboard goes back to that box, as after choosing a font or size for it.
+     */
+    fun setDefaults(defaults: EditorDefaults) {
+        val next = defaults.normalized()
+        if (state.richText != null) applyRibbonCommand { it.setEditorDefaults(next) }
+        else onStateChange { it.setEditorDefaults(next) }
+        onEditorDefaultsChange(next)
+    }
+
+    /**
      * Stores downloaded or photographed [bytes] and puts them on the page open now — Android's
      * `placeImage`: the page is read when the picture arrives, not when its window opened, and
      * [WorkspaceState.insertPicture] leaves the page alone if it changed while the bytes were stored.
@@ -161,16 +172,8 @@ internal fun DocumentTab(
                 if (state.richText != null) edit(selection) { chooseFontSize(size) }
                 else onStateChange { it.chooseFontSize(size) }
             },
-            setDefaultFontFamily = { family ->
-                val next = state.editorDefaults.copy(fontFamily = family).normalized()
-                onStateChange { it.setEditorDefaults(next) }
-                onEditorDefaultsChange(next)
-            },
-            setDefaultFontSize = { size ->
-                val next = state.editorDefaults.copy(fontSize = size).normalized()
-                onStateChange { it.setEditorDefaults(next) }
-                onEditorDefaultsChange(next)
-            },
+            setDefaultFontFamily = { family -> setDefaults(state.editorDefaults.copy(fontFamily = family)) },
+            setDefaultFontSize = { size -> setDefaults(state.editorDefaults.copy(fontSize = size)) },
             clearMark = { mark, selection -> edit(selection) { clearSelectedMark(mark) } },
             clearFormatting = { selection -> edit(selection) { clearSelectedFormatting() } },
             setBlockType = { type, selection -> edit(selection) { setSelectedBlockType(type) } },
