@@ -251,7 +251,7 @@ private fun SortMenu(current: PageSort, onPick: (PageSort) -> Unit) {
 
 /**
  * A page: its grip under Section order, then its title — bolder while open, quieter while untitled —
- * the first line written on it when there is one, and when it last changed.
+ * and when it last changed.
  */
 @Composable
 private fun PageRow(
@@ -292,16 +292,6 @@ private fun PageRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (page.preview.isNotBlank()) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = page.preview,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
             if (page.updatedLabel.isNotBlank()) {
                 Spacer(Modifier.height(2.dp))
                 Text(

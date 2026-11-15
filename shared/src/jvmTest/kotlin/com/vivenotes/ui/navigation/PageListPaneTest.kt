@@ -140,20 +140,26 @@ class PageListPaneTest {
         onNodeWithTag(NavigationTestTags.SortPages).assertDoesNotExist()
     }
 
-    /** A row: title — or "Untitled page" — the first line written when there is one, and its date. */
+    /** Page rows show their title and date without exposing their content previews. */
     @Test
-    fun aRowShowsTitlePreviewAndWhenItChanged() = runDesktopComposeUiTest(width = 400, height = 700) {
+    fun rowsShowTitlesAndDatesWithoutContentPreviewsOrExtraSpace() = runDesktopComposeUiTest(width = 400, height = 700) {
         setList(section.copy(pages = listOf(
             page("a", "Alpha", updatedAt = 1, preview = "First line"),
             page("u", "", updatedAt = 2),
+            page("b", "Bravo", updatedAt = 3, preview = "Another page's content"),
         )))
 
         onNodeWithTag(WorkspaceTestTags.page("a")).assertTextContains("Alpha")
-            .assertTextContains("First line").assertTextContains("label a")
+            .assertTextContains("label a")
         onNodeWithTag(WorkspaceTestTags.page("u")).assertTextContains(UntitledPage).assertTextContains("label u")
-        val withPreview = onNodeWithTag(WorkspaceTestTags.page("a")).fetchSemanticsNode().boundsInRoot.height
-        val without = onNodeWithTag(WorkspaceTestTags.page("u")).fetchSemanticsNode().boundsInRoot.height
-        assertTrue(without < withPreview, "a row without a preview is a line shorter")
+        onNodeWithTag(WorkspaceTestTags.page("b")).assertTextContains("Bravo").assertTextContains("label b")
+        onNodeWithText("First line", useUnmergedTree = true).assertDoesNotExist()
+        onNodeWithText("Another page's content", useUnmergedTree = true).assertDoesNotExist()
+        val withoutPreview = onNodeWithTag(WorkspaceTestTags.page("u")).fetchSemanticsNode().boundsInRoot.height
+        listOf("a", "b").forEach { id ->
+            assertEquals(withoutPreview, onNodeWithTag(WorkspaceTestTags.page(id)).fetchSemanticsNode().boundsInRoot.height,
+                "stored previews must not add space to selected or unselected rows")
+        }
 
         onNodeWithTag(WorkspaceTestTags.page("u")).performClick()
         assertEquals("u", opened)
