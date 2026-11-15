@@ -45,11 +45,11 @@ class CanvasDoubleTapTest {
         assertFalse(g.tap(900), "too late")
     }
 
-    @Test fun theDesktopCanvasCanAlsoKeepItsMouseDoubleClickPasteShortcut() {
+    @Test fun mouseClicksBreakAFingerTapPairWithoutBecomingTaps() {
         val g = gesture()
-        g.begin(PointerType.Mouse, 100, Offset.Zero, acceptMouse = true)
-        assertFalse(g.end(110, Offset.Zero))
-        g.begin(PointerType.Mouse, 200, Offset.Zero, acceptMouse = true)
-        assertTrue(g.end(210, Offset.Zero))
+        assertFalse(g.tap(100))
+        assertFalse(g.tap(150, PointerType.Mouse))
+        assertFalse(g.tap(200), "a mouse click broke the earlier finger tap pair")
+        assertTrue(g.tap(300), "two finger taps still work after using the mouse")
     }
 }

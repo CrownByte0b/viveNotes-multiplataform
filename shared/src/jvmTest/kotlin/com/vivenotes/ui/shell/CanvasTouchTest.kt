@@ -182,6 +182,31 @@ class CanvasTouchTest {
     }
 
     @Test
+    fun twoFingerTapsOnEmptyCanvasStillOfferPaste() = checkFingerDoubleTapOffersPaste(lasso = false)
+
+    @Test
+    fun twoFingerTapsWithLassoAndFingerDrawingEnabledStillOfferPaste() = checkFingerDoubleTapOffersPaste(lasso = true)
+
+    private fun checkFingerDoubleTapOffersPaste(lasso: Boolean) = runDesktopComposeUiTest(width = 1400, height = 900) {
+        val copied = withShape().selectObject(SHAPE).copySelectedObjects().copy(objectLassoArmed = lasso)
+        var observed = copied
+        setCanvas(copied, input = InputSettings(drawWithFinger = true), onState = { observed = it })
+        onNodeWithTag(WorkspaceTestTags.CanvasPaste).assertDoesNotExist()
+
+        onNodeWithTag(WorkspaceTestTags.PageCanvas).performTouchInput {
+            click(Offset(700f, 600f))
+            advanceEventTime(120)
+            click(Offset(702f, 601f))
+        }
+
+        onNodeWithTag(WorkspaceTestTags.CanvasPaste).performClick()
+        runOnIdle {
+            assertEquals(copied.selectedPage!!.document.outlines.size + 1, observed.selectedPage!!.document.outlines.size)
+            assertEquals(copied.structuralUndo.size + 1, observed.structuralUndo.size)
+        }
+    }
+
+    @Test
     fun withAPenArmedTwoQuickFingerTapsOfferPaste() = runDesktopComposeUiTest(width = 1400, height = 900) {
         val copied = withShape().selectObject(SHAPE).copySelectedObjects()
         setCanvas(copied.toggleInkTool(InkTool.Pen))

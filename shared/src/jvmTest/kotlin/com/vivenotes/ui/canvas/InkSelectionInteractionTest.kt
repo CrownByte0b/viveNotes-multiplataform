@@ -53,7 +53,7 @@ class InkSelectionInteractionTest {
         }
         onNodeWithTag(WorkspaceTestTags.ObjectCopy).performMouseInput { click(center) }
         runOnIdle { assertFalse(state.value.canvasClipboard.isEmpty); assertNotNull(state.value.selectedInk) }
-        onNodeWithTag(WorkspaceTestTags.CanvasExtent).performMouseInput { doubleClick(Offset(400f, 400f)) }
+        onNodeWithTag(WorkspaceTestTags.CanvasExtent).performMouseInput { rightClick(Offset(400f, 400f)) }
         onNodeWithTag(WorkspaceTestTags.CanvasPaste).performMouseInput { click(center) }
         waitUntil(timeoutMillis = 5000) { state.value.structuralUndo.size == 1 }
         runOnIdle {

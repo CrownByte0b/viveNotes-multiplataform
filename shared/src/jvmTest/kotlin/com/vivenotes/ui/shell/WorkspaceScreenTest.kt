@@ -673,7 +673,7 @@ class WorkspaceScreenTest {
         }
 
     @Test
-    fun doubleClickOnEmptyCanvasOffersSharedObjectPaste() =
+    fun doubleClickOnEmptyCanvasDoesNotOfferPasteAndRightClickStillPastes() =
         runDesktopComposeUiTest(width = 1400, height = 900) {
             val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Document)
             val initial = base.copyTextBox(base.bodyTextOutline!!.id)
@@ -684,8 +684,33 @@ class WorkspaceScreenTest {
             onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
                 doubleClick(Offset(780f, 500f))
             }
+            onNodeWithTag(WorkspaceTestTags.CanvasPaste).assertDoesNotExist()
+            runOnIdle { assertEquals(before, observed.selectedPage!!.document.outlines.size) }
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                rightClick(Offset(780f, 500f))
+            }
             onNodeWithTag(WorkspaceTestTags.CanvasPaste).performClick()
             runOnIdle { assertEquals(before + 1, observed.selectedPage!!.document.outlines.size) }
+        }
+
+    @Test
+    fun mouseDoubleClickWithLassoArmedDoesNotOfferPaste() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            val base = WorkspaceState.demo()
+            val initial = base.copyTextBox(base.bodyTextOutline!!.id).toggleObjectLasso()
+            var observed = initial
+            setWorkspace(initial = initial) { observed = it }
+
+            onNodeWithTag(WorkspaceTestTags.PageCanvas).performMouseInput {
+                doubleClick(Offset(780f, 500f))
+            }
+
+            onNodeWithTag(WorkspaceTestTags.CanvasPaste).assertDoesNotExist()
+            runOnIdle {
+                assertTrue(observed.objectLassoArmed)
+                assertEquals(initial.selectedPage!!.document, observed.selectedPage!!.document)
+                assertEquals(initial.structuralUndo.size, observed.structuralUndo.size)
+            }
         }
 
     @Test

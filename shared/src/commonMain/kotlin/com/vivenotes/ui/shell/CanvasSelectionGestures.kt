@@ -93,7 +93,7 @@ internal suspend fun PointerInputScope.detectCanvasSelectionGestures(
         viewConfiguration.touchSlop)
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-        taps.begin(down.type, down.uptimeMillis, down.position, acceptStylus = currentState.objectLassoArmed, acceptMouse = true)
+        taps.begin(down.type, down.uptimeMillis, down.position, acceptStylus = currentState.objectLassoArmed)
         if (down.isConsumed || currentState.inkTool != null) {
             taps.cancel()
             waitForUpOrCancellation(pass = PointerEventPass.Initial)

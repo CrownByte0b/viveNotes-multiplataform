@@ -11,9 +11,8 @@ internal class CanvasDoubleTap(private val minimum: Long, private val maximum: L
     private var first = Offset.Zero
     private var still = false
 
-    fun begin(type: PointerType, time: Long, position: Offset, acceptStylus: Boolean = false, acceptMouse: Boolean = false) {
-        if (type != PointerType.Touch && !(type == PointerType.Stylus && acceptStylus) &&
-            !(type == PointerType.Mouse && acceptMouse)) { cancel(); return }
+    fun begin(type: PointerType, time: Long, position: Offset, acceptStylus: Boolean = false) {
+        if (type != PointerType.Touch && !(type == PointerType.Stylus && acceptStylus)) { cancel(); return }
         downAt = time
         down = position
         still = true

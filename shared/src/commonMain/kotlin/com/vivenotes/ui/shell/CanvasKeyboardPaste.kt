@@ -15,7 +15,7 @@ internal class CanvasKeyboardPaste {
 
 /**
  * Where Ctrl+V puts the canvas clipboard, as the page point for its top left: under the mouse
- * [pointer] when the page takes content there, as a double click's Paste does, else
+ * [pointer] when the page takes content there, as the canvas Paste menu does, else
  * [WorkspaceState.PICTURE_INSERT_MARGIN] inside the [visibleOrigin] and below the title, where a
  * picture is inserted.
  */
