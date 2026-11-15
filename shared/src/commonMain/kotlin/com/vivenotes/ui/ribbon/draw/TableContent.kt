@@ -239,9 +239,6 @@ private fun TableCellText(
             menu = null
             onTableEdit(edit)
         }
-        ContextMenuDivider()
-        ContextMenuItem(Strings.clear_formatting, DocumentSymbols.FormatClear, enabled = selected,
-            onClick = { menu = null; actions.edit { it.clearSelectedFormatting() } })
         TableObjectMenuItems(editable = state.selectedPage?.editable == true) { command ->
             menu = null
             onObjectCommand(command)

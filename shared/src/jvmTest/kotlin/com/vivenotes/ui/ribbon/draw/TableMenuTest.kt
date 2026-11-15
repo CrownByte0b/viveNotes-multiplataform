@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
@@ -60,6 +61,29 @@ class TableMenuTest {
         override fun getText(): AnnotatedString? = value
         override fun setText(annotatedString: AnnotatedString) { value = annotatedString }
     }
+
+    @Test
+    fun theCellMenuOmitsClearFormattingWithOrWithoutSelectedText() =
+        runDesktopComposeUiTest(width = 1400, height = 900) {
+            setWorkspace(workspace(table)) {}
+
+            rightClickCell(1, 1)
+            onNodeWithTag(TableMenuTags.Copy).assertIsNotEnabled()
+            onNodeWithText("Clear formatting").assertDoesNotExist()
+            onNodeWithTag(TableMenuTags.Select).performClick()
+            onNodeWithTag(TableMenuTags.SelectCell).performClick()
+
+            rightClickCell(1, 1)
+            onNodeWithTag(TableMenuTags.Copy).assertIsEnabled()
+            onNodeWithText("Clear formatting").assertDoesNotExist()
+            onNodeWithTag(TableMenuTags.Select).assertExists()
+            onNodeWithTag(TableMenuTags.Insert).assertIsEnabled()
+            onNodeWithTag(TableMenuTags.DeleteRow).assertIsEnabled()
+            onNodeWithTag(TableMenuTags.DeleteColumn).assertIsEnabled()
+            onNodeWithTag(ObjectMenuTags.CutTable).assertIsEnabled()
+            onNodeWithTag(ObjectMenuTags.CopyTable).assertIsEnabled()
+            onNodeWithTag(ObjectMenuTags.DeleteTable).assertIsEnabled()
+        }
 
     @Test
     fun theSelectSubmenuSelectsTheCellItsRowItsColumnOrTheTableAndCopyTakesTheCells() =
