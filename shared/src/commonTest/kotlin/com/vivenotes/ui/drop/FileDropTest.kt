@@ -41,8 +41,8 @@ class FileDropTest {
     @Test
     fun picturesAreTakenByTheirFileExtensionsAlone() {
         val drop = PictureDrop(Pictures(), place = { _, _ -> })
-        assertEquals(listOf(true, true, true, true, true, true, false, false, false),
-            files("a.png", "b.JPG", "c.jpeg", "d.webp", "e.gif", "f.bmp", "g.heic", "h.svg", "png").map(drop::accepts))
+        assertEquals(listOf(true, true, true, true, true, true, false, true, true, false),
+            files("a.png", "b.JPG", "c.jpeg", "d.webp", "e.gif", "f.bmp", "g.heic", "h.svg", "i.SVG", "png").map(drop::accepts))
     }
 
     @Test

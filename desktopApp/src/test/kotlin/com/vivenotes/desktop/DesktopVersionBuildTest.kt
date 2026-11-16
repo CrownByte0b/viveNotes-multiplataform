@@ -39,6 +39,7 @@ class DesktopVersionBuildTest {
         val versions = listOf(
             Triple(null, "1.0.0-dev.0", "1.0.0"),
             Triple("1.2.3", "1.2.3", "1.2.3"),
+            Triple("1.2.1.dev0", "1.2.1.dev0", "1.2.1"),
             Triple("2.4.6-rc.1+build.42", "2.4.6-rc.1+build.42", "2.4.6"),
             Triple("3.2.1+build.7", "3.2.1+build.7", "3.2.1"),
         )

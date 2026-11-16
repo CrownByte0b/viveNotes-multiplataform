@@ -5,6 +5,7 @@ import com.vivenotes.localization.Strings
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.luminance
 import com.vivenotes.data.AttachmentStore
+import com.vivenotes.data.SvgPicture
 import com.vivenotes.byteink.kit.PageStroke
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.pdf.PdfBounds as InkBounds
@@ -96,9 +97,12 @@ class MeasuredPage(
     equations: Map<String, PdfEquation>,
     images: Map<String, org.jetbrains.skia.Image>,
     val header: PdfPageHeader?,
+    vectorImages: Map<String, SvgPicture> = emptyMap(),
 ) {
     internal val drawingEquations = equations.toMutableMap()
     internal val drawingImages = images.toMutableMap()
+    internal val drawingVectorImages = vectorImages.toMutableMap()
+    val vectorImages: Map<String, SvgPicture> get() = drawingVectorImages
     val equations: Map<String, PdfEquation> get() = drawingEquations
     val images: Map<String, org.jetbrains.skia.Image> get() = drawingImages
     internal var drawingAssetsLoaded = false
@@ -114,6 +118,8 @@ class MeasuredPage(
     }
 
     internal fun releaseDrawingAssets() {
+        drawingVectorImages.values.forEach { it.close() }
+        drawingVectorImages.clear()
         drawingImages.values.forEach { it.close() }
         drawingImages.clear()
         drawingEquations.values.forEach { it.close() }
@@ -235,6 +241,7 @@ class PageMeasurer(
         val tables = mutableMapOf<String, PdfTableGrid>()
         val equations = mutableMapOf<String, PdfEquation>()
         val images = mutableMapOf<String, org.jetbrains.skia.Image>()
+        val vectorImages = mutableMapOf<String, SvgPicture>()
         try {
         suspend fun measureText(outline: Outline.Text, width: Float): PdfAtom {
             coroutineContext.ensureActive()
@@ -332,13 +339,15 @@ class PageMeasurer(
         doc.outlines.filterIsInstance<Outline.Image>().forEach { image ->
             coroutineContext.ensureActive()
             val store = attachments
-            if (loadPictures && store != null && image.attachmentId !in images) {
+            if (loadPictures && store != null && image.attachmentId !in images && image.attachmentId !in vectorImages) {
                 // Asked for at print resolution rather than at screen resolution: a picture that
                 // looked fine at 320 dp on a tablet is a 300-dpi block of paper here.
                 val target = (maxOf(image.width, image.height) * PRINT_PIXELS_PER_DP)
                     .roundToInt()
                     .coerceIn(1, MAX_IMAGE_EDGE)
-                loadImage(store, image.attachmentId, target)?.let { images[image.attachmentId] = it }
+                val svg = store.loadSvg(image.attachmentId)
+                if (svg != null) vectorImages[image.attachmentId] = svg
+                else loadImage(store, image.attachmentId, target)?.let { images[image.attachmentId] = it }
             }
             atoms += PdfAtom(
                 id = image.id,
@@ -397,9 +406,11 @@ class PageMeasurer(
             boundSheet = boundSheet,
             equations = equations,
             images = images,
+            vectorImages = vectorImages,
             header = header,
         ).also { it.drawingAssetsLoaded = loadDrawingAssets && loadPictures }
         } catch (error: Throwable) {
+            vectorImages.values.forEach { it.close() }
             images.values.forEach { it.close() }
             equations.values.forEach { it.close() }
             texts.values.forEach { it.layout.equations.forEach(PdfEquation::close) }
@@ -428,10 +439,12 @@ class PageMeasurer(
         val store = attachments
         if (store != null) for (image in page.allContent.pictures) {
             coroutineContext.ensureActive()
-            if (image.attachmentId in page.drawingImages) continue
+            if (image.attachmentId in page.drawingImages || image.attachmentId in page.drawingVectorImages) continue
             val target = (maxOf(image.width, image.height) * PRINT_PIXELS_PER_DP)
                 .roundToInt().coerceIn(1, MAX_IMAGE_EDGE)
-            loadImage(store, image.attachmentId, target)?.let { page.drawingImages[image.attachmentId] = it }
+            val svg = store.loadSvg(image.attachmentId)
+            if (svg != null) page.drawingVectorImages[image.attachmentId] = svg
+            else loadImage(store, image.attachmentId, target)?.let { page.drawingImages[image.attachmentId] = it }
         }
         page.drawingAssetsLoaded = true
         work?.let { it.hydratedPages++ }

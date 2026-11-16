@@ -24,7 +24,13 @@ internal class PictureAssetLoader(
     private val decode: PictureDecoder,
 ) {
     private data class Cached(val asset: PictureAsset, val attempted: Long) {
-        val bytes: Long get() = (asset as? PictureAsset.Ready)?.bitmap?.let { it.width.toLong() * it.height * 4 } ?: 0
+        val bytes: Long get() = when (asset) {
+            is PictureAsset.Ready -> asset.bitmap.width.toLong() * asset.bitmap.height * 4
+            // This budget counts retained pixels; SVGs hold no bitmap. Input size/depth/node
+            // limits and the cache entry limit bound their parsed documents separately.
+            is PictureAsset.Vector -> 0
+            is PictureAsset.Broken -> 0
+        }
     }
     private data class Active(val target: PictureDemand, val generation: Long, val job: Job, var waiting: Boolean = false)
     val assets = mutableStateMapOf<String, PictureAsset>()
@@ -69,6 +75,7 @@ internal class PictureAssetLoader(
     }
 
     private fun satisfies(cached: Cached, target: PictureDemand): Boolean = when (val asset = cached.asset) {
+        is PictureAsset.Vector -> true
         is PictureAsset.Broken -> nowMillis() - cached.attempted < 60_000
         is PictureAsset.Ready -> cached.bytes <= target.bytes && hasResolution(asset, target)
     }

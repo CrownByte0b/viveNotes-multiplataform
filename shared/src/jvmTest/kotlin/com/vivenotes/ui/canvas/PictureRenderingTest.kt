@@ -18,6 +18,7 @@ import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.vivenotes.data.ImportedPicture
 import com.vivenotes.data.PictureLibrary
+import com.vivenotes.data.SvgPicture
 import com.vivenotes.ui.theme.ViveNotesTheme
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
@@ -38,6 +39,34 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class PictureRenderingTest {
+    @Test
+    fun svgPicturesStayVectorsAcrossResizeAndShowTransparency() = runDesktopComposeUiTest {
+        val bytes = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><path fill="red" d="M40 0h40v40H40z"/></svg>""".encodeToByteArray()
+        val decodes = AtomicInteger()
+        val pictures = object : PictureLibrary {
+            override suspend fun choose(): ImportedPicture? = null
+            override suspend fun import(bytes: ByteArray): ImportedPicture? = null
+            override suspend fun bytes(attachmentId: String) = bytes
+            override suspend fun vector(bytes: ByteArray) = SvgPicture.read(bytes)?.painter().also { decodes.incrementAndGet() }
+        }
+        var edge by mutableStateOf(80)
+        var loaded: PictureAsset? = null
+        setContent {
+            val assets = rememberPictureAssets(listOf(PictureDemand("svg", edge, edge / 2)), pictures, "page")
+            SideEffect { loaded = assets["svg"] }
+            Box(Modifier.size(edge.dp, (edge / 2).dp).testTag("svg")) {
+                PictureContent(assets["svg"], background = 0xffffffff.toInt())
+            }
+        }
+        waitUntil { loaded is PictureAsset.Vector }
+        runOnIdle { edge = 320 }
+        waitForIdle()
+        val pixels = onNodeWithTag("svg").captureToImage().toPixelMap()
+        assertTrue(pixels[pixels.width / 4, pixels.height / 2].green > .9f)
+        assertTrue(pixels[pixels.width * 3 / 4, pixels.height / 2].red > .9f)
+        assertTrue(pixels[pixels.width * 3 / 4, pixels.height / 2].green < .1f)
+        assertEquals(1, decodes.get(), "resizing must redraw vectors without decoding a bitmap")
+    }
     @Test
     fun visiblePicturesLoadOffMainInTwoLanesAndRenderAtTheirTargetResolution() = runDesktopComposeUiTest {
         val bytes = png()

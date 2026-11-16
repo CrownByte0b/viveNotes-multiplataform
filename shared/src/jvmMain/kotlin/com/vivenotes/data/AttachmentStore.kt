@@ -33,13 +33,14 @@ import java.util.concurrent.ConcurrentHashMap
  * Where imported pictures live: Android's `data/AttachmentStore.kt`, on desktop.
  *
  * Bytes go to `<data directory>/attachments/<sha256>`, and what is known about them to the
- * `attachments` table. Every import is decoded, shrunk to [MAX_DIMENSION] on its longer side, and
+ * `attachments` table. Raster imports are decoded, shrunk to [MAX_DIMENSION] on their longer side, and
  * re-encoded as lossy WebP at [QUALITY] — Android's memory budget written as a length, applied once
  * at the door, and its format, which keeps transparency. The id is the hash of the stored bytes, so
  * the same picture inserted twice is one file with two references.
  *
  * Skia does the decoding, as it does for everything Compose draws on desktop; it also reads the
  * WebP files Android stores.
+ * SVG files retain their original bytes and MIME type, and are rendered as vectors when displayed.
  */
 class AttachmentStore(
     private val directory: File,
@@ -145,6 +146,9 @@ class AttachmentStore(
      * Skia can read: a placeholder pointing at nothing would be worse than nothing on the page.
      */
     suspend fun import(bytes: ByteArray): ImportedPicture? = withContext(io) {
+        SvgPicture.read(bytes)?.use { svg ->
+            return@withContext store(Encoded(bytes, svg.width, svg.height, SvgPictureSource.MIME_TYPE))
+        }
         val encoded = reencode(bytes) ?: return@withContext null
         store(encoded)
     }
@@ -216,7 +220,7 @@ class AttachmentStore(
             attachments.insert(
                 AttachmentEntity(
                     id = id,
-                    mimeType = MIME_TYPE,
+                    mimeType = encoded.mimeType,
                     pixelWidth = encoded.width,
                     pixelHeight = encoded.height,
                     byteCount = encoded.bytes.size.toLong(),
@@ -234,7 +238,14 @@ class AttachmentStore(
         fileFor(id)?.takeIf { it.isFile }?.readBytes()
     }
 
-    private class Encoded(val bytes: ByteArray, val width: Int, val height: Int)
+    suspend fun loadSvg(id: String): SvgPicture? = withContext(io) {
+        if (attachments.byId(id)?.mimeType != SvgPictureSource.MIME_TYPE) return@withContext null
+        fileFor(id)?.takeIf { it.isFile }?.inputStream()?.use {
+            SvgPicture.read(it.readNBytes(SvgPictureSource.MAX_BYTES + 1))
+        }
+    }
+
+    private class Encoded(val bytes: ByteArray, val width: Int, val height: Int, val mimeType: String = MIME_TYPE)
 
     private fun reencode(bytes: ByteArray): Encoded? = runCatching {
         Image.makeFromEncoded(bytes).use { source ->

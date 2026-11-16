@@ -9,6 +9,7 @@ import com.vivenotes.ai.AiModelStore
 import com.vivenotes.ai.OnnxInkRecognitionEngine
 import com.vivenotes.model.DocumentCodecs
 import com.vivenotes.model.migrated
+import com.vivenotes.data.decodePictureImage
 import com.vivenotes.model.search.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -81,7 +82,7 @@ object SearchWorker {
                                 }
                                 val bytes = request.imageData?.let { Base64.getDecoder().decode(it) }
                                     ?: File(requireNotNull(request.imagePath)).readBytes()
-                                Image.makeFromEncoded(bytes).use { image ->
+                                requireNotNull(decodePictureImage(bytes)).use { image ->
                                     if (request.textLine) {
                                         val result = engine!!.recognizeText(image)
                                         WorkerReply(text = result.text, confidence = result.confidence)

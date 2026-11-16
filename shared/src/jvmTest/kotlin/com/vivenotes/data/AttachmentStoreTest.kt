@@ -34,6 +34,52 @@ import kotlin.test.assertTrue
 /** The desktop half of Android's `AttachmentStore`, against a real database and directory. */
 class AttachmentStoreTest {
 
+    @Test
+    fun svgImportsKeepTheirExactBytesMimeTypeAndStableIdentity() = runBlocking {
+        val source = """<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40"><path fill="red" d="M40 0h40v40H40z"/></svg>""".encodeToByteArray()
+        val first = assertNotNull(store.import(source))
+        val second = assertNotNull(store.import(source))
+        assertEquals(first, second)
+        assertEquals(source.sha256(), first.attachmentId)
+        assertContentEquals(source, store.bytes(first.attachmentId))
+        val row = assertNotNull(db.attachmentDao().byId(first.attachmentId))
+        assertEquals("image/svg+xml", row.mimeType)
+        assertEquals(source.size.toLong(), row.byteCount)
+        assertEquals(2, row.refCount)
+        assertEquals(80 to 40, first.pixelWidth to first.pixelHeight)
+        assertNotNull(store.loadSvg(first.attachmentId)).use { svg ->
+            Surface.makeRasterN32Premul(800, 400).use { surface ->
+                surface.canvas.clear(Color.TRANSPARENT)
+                svg.draw(surface.canvas, 0f, 0f, 800f, 400f)
+                val bitmap = Bitmap.makeFromImage(surface.makeImageSnapshot())
+                bitmap.use {
+                    assertEquals(Color.TRANSPARENT, it.getColor(200, 200))
+                    assertEquals(Color.RED, it.getColor(600, 200))
+                }
+            }
+        }
+        assertNotNull(decodePictureImage(source, 160)).use { image ->
+            assertEquals(160 to 80, image.width to image.height)
+        }
+        assertContentEquals(source, store.bytes(first.attachmentId))
+    }
+
+    @Test
+    fun largeSvgWithoutViewBoxScalesItsEntireViewport() {
+        val bytes = """<svg xmlns="http://www.w3.org/2000/svg" width="8192" height="4096"><path fill="red" d="M4096 0h4096v4096H4096z"/></svg>""".encodeToByteArray()
+        assertNotNull(SvgPicture.read(bytes)).use { svg ->
+            assertEquals(2048 to 1024, svg.width to svg.height)
+            Surface.makeRasterN32Premul(80, 40).use { surface ->
+                surface.canvas.clear(Color.TRANSPARENT)
+                svg.draw(surface.canvas, 0f, 0f, 80f, 40f)
+                Bitmap.makeFromImage(surface.makeImageSnapshot()).use {
+                    assertEquals(Color.TRANSPARENT, it.getColor(20, 20))
+                    assertEquals(Color.RED, it.getColor(60, 20))
+                }
+            }
+        }
+    }
+
     private val root: File = Files.createTempDirectory("attachments").toFile()
     private val directory = File(root, AttachmentStore.DIRECTORY)
     private val db = NotesDatabase.create(File(root, NotesDatabase.FILE_NAME))

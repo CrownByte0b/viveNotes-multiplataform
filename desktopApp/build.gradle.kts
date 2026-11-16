@@ -157,7 +157,8 @@ val jbrJvmArgs = listOf("--add-opens=java.desktop/sun.awt.wl=ALL-UNNAMED")
 
 val appVersion = project.version.toString()
 // MSI packaging requires a numeric version; build-info keeps the full development version.
-val nativePackageVersion = appVersion.substringBefore('-').substringBefore('+')
+val nativePackageVersion = Regex("""^(\d+\.\d+\.\d+)(?:[.+-].*)?$""")
+    .matchEntire(appVersion)?.groupValues?.get(1) ?: appVersion
 
 val prepareWindowsResources = tasks.register<PrepareWindowsResources>("prepareWindowsResources") {
     group = "distribution"

@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.ImageBitmapConfig
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,6 +38,8 @@ import org.jetbrains.compose.resources.decodeToImageBitmap
 internal sealed interface PictureAsset {
     data class Ready(val bitmap: ImageBitmap, val sourceWidth: Int = bitmap.width,
         val sourceHeight: Int = bitmap.height) : PictureAsset
+
+    data class Vector(val painter: Painter) : PictureAsset
 
     /** Android's wording on its broken-picture plate. */
     data class Broken(val reason: String) : PictureAsset
@@ -60,9 +63,14 @@ internal fun rememberPictureAssets(demands: List<PictureDemand>, library: Pictur
                     currentCoroutineContext().ensureActive()
                     if (bytes == null) PictureAsset.Broken(Strings.error_value_not_found(target.attachmentId.pictureFileName()))
                     else {
-                        val bitmap = bytes.decodeToImageBitmap()
+                        val vector = library?.vector(bytes)
                         currentCoroutineContext().ensureActive()
-                        resizePicture(PictureAsset.Ready(bitmap), target)
+                        if (vector != null) PictureAsset.Vector(vector)
+                        else {
+                            val bitmap = bytes.decodeToImageBitmap()
+                            currentCoroutineContext().ensureActive()
+                            resizePicture(PictureAsset.Ready(bitmap), target)
+                        }
                     }
                 }
             }
@@ -92,6 +100,9 @@ internal fun resizePicture(source: PictureAsset.Ready, target: PictureDemand): P
 @Composable
 internal fun PictureContent(asset: PictureAsset?, background: Int? = null, modifier: Modifier = Modifier) {
     when (asset) {
+        is PictureAsset.Vector -> Image(asset.painter, contentDescription = Strings.picture,
+            contentScale = ContentScale.FillBounds, modifier = modifier.fillMaxSize()
+                .then(background?.let { Modifier.background(Color(it)) } ?: Modifier))
         is PictureAsset.Ready -> Image(asset.bitmap, contentDescription = Strings.picture,
             contentScale = ContentScale.FillBounds, modifier = modifier.fillMaxSize()
                 .then(background?.let { Modifier.background(Color(it)) } ?: Modifier))

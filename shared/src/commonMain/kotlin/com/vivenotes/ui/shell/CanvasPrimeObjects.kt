@@ -222,7 +222,7 @@ internal fun CanvasPrimeObjects(
             Box(contentAlignment = Alignment.Center) {
                 if (outline is Outline.Image && pictures != null) {
                     PictureContent(pictureAssets[outline.attachmentId], outline.backgroundArgb)
-                    if (pictureAssets[outline.attachmentId] is PictureAsset.Ready) {
+                    if (pictureAssets[outline.attachmentId] is PictureAsset.Ready || pictureAssets[outline.attachmentId] is PictureAsset.Vector) {
                         PictureSearchOverlay(outline, highlights, viewport)
                     }
                 } else if (outline is Outline.Table) {

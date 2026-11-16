@@ -9,6 +9,7 @@ import com.vivenotes.data.OnlineImages
 import com.vivenotes.data.PictureCamera
 import com.vivenotes.data.PictureFileExtensions
 import com.vivenotes.data.PictureLibrary
+import com.vivenotes.data.SvgPicture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.awt.FileDialog
@@ -44,6 +45,10 @@ internal class DesktopPictures(
     override suspend fun importDrawn(picture: ImageBitmap): ImportedPicture? = store.importDrawn(picture.asSkiaBitmap())
 
     override suspend fun bytes(attachmentId: String): ByteArray? = store.bytes(attachmentId)
+
+    override suspend fun vector(bytes: ByteArray) = withContext(Dispatchers.Default) {
+        SvgPicture.read(bytes)?.painter()
+    }
 }
 
 /**

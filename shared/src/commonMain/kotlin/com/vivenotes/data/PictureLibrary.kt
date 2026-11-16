@@ -3,8 +3,8 @@ package com.vivenotes.data
 /** A stored picture, as Android's `AttachmentStore.import` reports it: the id and its pixel size. */
 data class ImportedPicture(val attachmentId: String, val pixelWidth: Int, val pixelHeight: Int)
 
-/** File extensions of the picture formats Skia decodes: what the file dialog offers and a drop takes. */
-val PictureFileExtensions = listOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "ico", "wbmp")
+/** Picture formats accepted by the attachment store: what the file dialog offers and a drop takes. */
+val PictureFileExtensions = listOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "ico", "wbmp", "svg")
 
 /**
  * Pictures kept outside the document, the way Android keeps them: the page holds an
@@ -37,6 +37,9 @@ interface PictureLibrary {
 
     /** The stored bytes of [attachmentId], or null when there is no such file. */
     suspend fun bytes(attachmentId: String): ByteArray?
+
+    /** A vector painter for an SVG, or null for raster/unsupported input. Does not alter the bytes. */
+    suspend fun vector(bytes: ByteArray): androidx.compose.ui.graphics.painter.Painter? = null
 
     /** The Picture menu's "Search online"; null where the platform offers none. */
     val online: OnlineImages? get() = null

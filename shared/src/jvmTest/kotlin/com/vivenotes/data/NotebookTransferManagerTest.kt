@@ -64,6 +64,24 @@ import kotlin.test.assertTrue
 class NotebookTransferManagerTest {
 
     @Test
+    fun svgAttachmentsSurviveNotebookExportAndImportWithoutConversion() = runBlocking {
+        val source = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><path fill="red" d="M40 0h40v40H40z"/></svg>""".encodeToByteArray()
+        val picture = assertNotNull(attachmentStore.import(source))
+        val notebook = repository.createNotebook("Vectors")
+        val page = repository.createPage(repository.createSection(notebook, "Art"), "SVG")
+        repository.saveDoc(page, PageDoc(outlines = listOf(
+            Outline.Image("svg", attachmentId = picture.attachmentId, width = 320f, height = 160f),
+        )))
+        val archive = export(notebook)
+        val destination = openDatabase("svg-import.db")
+        val destinationStore = storeFor(destination, "svg-import")
+        transfersFor(destination, destinationStore, "svg-import").importNotebook(ByteArrayInputStream(archive))
+        assertContentEquals(source, destinationStore.bytes(picture.attachmentId))
+        assertEquals("image/svg+xml", destination.attachmentDao().byId(picture.attachmentId)!!.mimeType)
+        assertNotNull(destinationStore.loadSvg(picture.attachmentId)).close()
+    }
+
+    @Test
     fun graphFunctionsOptionsTraceAndAreaSurviveStorageAndViveTransfer() = runBlocking {
         val notebook = repository.createNotebook("Graphs")
         val section = repository.createSection(notebook, "Functions")

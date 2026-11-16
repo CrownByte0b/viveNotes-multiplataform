@@ -23,6 +23,30 @@ import java.io.File
 import kotlin.test.*
 
 class PdfRenderingTest {
+    @Test
+    fun svgArtworkExportsAsVectorPathsAndRetainsTheOriginalAttachment() = runBlocking {
+        fixture { repository, attachments, page, directory, exporter ->
+            val source = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><path fill="red" d="M40 0h40v40H40z"/></svg>""".encodeToByteArray()
+            val picture = assertNotNull(attachments.import(source))
+            repository.saveDoc(page, PageDoc(style = style, outlines = listOf(
+                Outline.Image("svg", x = 100f, y = 100f, width = 400f, height = 200f,
+                    attachmentId = picture.attachmentId),
+            )))
+            val plan = exporter.plan(PdfExportRequest(page, null, PdfExportOptions(includeRuling = false)))
+            val output = File(directory, "vector-svg.pdf")
+            exporter.write(plan, output.path)
+            Loader.loadPDF(output).use { pdf ->
+                val rendered = PDFRenderer(pdf).renderImageWithDPI(0, 160f)
+                assertEquals(0xffff0000.toInt(), rendered.getRGB(400, 200))
+                assertEquals(0xffffffff.toInt(), rendered.getRGB(150, 200))
+                val resources = pdf.getPage(0).resources
+                assertTrue(resources.xObjectNames.none {
+                    resources.getXObject(it) is org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject
+                }, "SVG must reach the PDF as vector paths")
+            }
+            assertContentEquals(source, attachments.bytes(picture.attachmentId))
+        }
+    }
     private suspend fun fixture(block: suspend (NotesRepository, AttachmentStore, String, File, PdfExporter) -> Unit) {
         val directory = Files.createTempDirectory("vive-pdf-render").toFile()
         val db = NotesDatabase.create(File(directory, "notes.db"))

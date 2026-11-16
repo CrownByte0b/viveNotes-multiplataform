@@ -549,7 +549,7 @@ class NotebookTransferManager(
             requireValidAttachmentMetadata(metadata)
             val file = stagedAttachments[metadata.id] ?: fail(Strings.attachment_value_is_absent(metadata.id))
             if (file.sha256() != metadata.id) fail(Strings.attachment_value_is_damaged(metadata.id.take(12)))
-            val bounds = boundsOf(file) ?: fail(Strings.attachment_value_is_not_a_readable_image(metadata.id.take(12)))
+            val bounds = boundsOf(file, metadata.mimeType) ?: fail(Strings.attachment_value_is_not_a_readable_image(metadata.id.take(12)))
             if (bounds.width != metadata.pixelWidth || bounds.height != metadata.pixelHeight) {
                 fail(Strings.attachment_value_has_incorrect_image_dimensions(metadata.id.take(12)))
             }
@@ -1365,7 +1365,7 @@ class NotebookTransferManager(
         private val UUIDISH = Regex("[0-9a-fA-F-]{20,64}")
         private val ATTACHMENT_PATH = Regex("attachments/[0-9a-f]{64}")
         private val CHECKSUM_LINE = Regex("([0-9a-f]{64})  ([^\\r\\n]+)")
-        private val ALLOWED_IMAGE_TYPES = setOf("image/webp", "image/jpeg")
+        private val ALLOWED_IMAGE_TYPES = setOf("image/webp", "image/jpeg", SvgPictureSource.MIME_TYPE)
 
         private val EXPECTED_COLUMNS = linkedMapOf(
             "android_metadata" to listOf("locale"),
@@ -1529,7 +1529,12 @@ private class PixelSize(val width: Int, val height: Int)
  * Skia's codec, like Android's `BitmapFactory`, reports the stored size and leaves an EXIF
  * orientation to whoever draws the picture, so both read the same dimensions for the check.
  */
-private fun boundsOf(file: File): PixelSize? = runCatching {
+private fun boundsOf(file: File, mimeType: String): PixelSize? = runCatching {
+    if (mimeType == SvgPictureSource.MIME_TYPE) {
+        return@runCatching file.inputStream().use { input ->
+            SvgPicture.read(input.readNBytes(SvgPictureSource.MAX_BYTES + 1))?.use { PixelSize(it.width, it.height) }
+        }
+    }
     Data.makeFromBytes(file.readBytes()).use { data ->
         Codec.makeFromData(data).use { codec -> PixelSize(codec.width, codec.height) }
     }

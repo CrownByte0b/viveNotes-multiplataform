@@ -91,7 +91,18 @@ class DesktopPicturesTest {
 
     @Test
     fun theDialogOffersOnlyPicturesSkiaCanRead() {
-        listOf("png", "jpg", "jpeg", "webp", "gif", "bmp").forEach { assertTrue(it in PictureFileExtensions, it) }
+        listOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "svg").forEach { assertTrue(it in PictureFileExtensions, it) }
+    }
+
+    @Test
+    fun aChosenSvgStaysAnSvgAndProvidesAVectorPainter() = runBlocking<Unit> {
+        val bytes = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 10"><path d="M0 0h30v10H0z"/></svg>""".encodeToByteArray()
+        val file = File(directory, "artwork.svg").apply { writeBytes(bytes) }
+        val pictures = DesktopPictures(library.attachments) { file }
+        val imported = assertNotNull(pictures.choose())
+        assertEquals(30 to 10, imported.pixelWidth to imported.pixelHeight)
+        assertContentEquals(bytes, pictures.bytes(imported.attachmentId))
+        assertNotNull(pictures.vector(bytes))
     }
 
     /** Android's `AttachmentStore.import(bytes)`: a downloaded picture is stored as a chosen one is. */
