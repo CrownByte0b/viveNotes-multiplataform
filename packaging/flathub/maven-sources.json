@@ -4278,10 +4278,23 @@
     },
     {
         "type": "file",
+        "url": "https://repo.maven.apache.org/maven2/org/jetbrains/compose/desktop/desktop-jvm-linux-arm64/1.13.0-beta01/desktop-jvm-linux-arm64-1.13.0-beta01.pom",
+        "sha256": "b7de1fb89cddf87996f5abe68480b587166bff006da7ea75137c29de0df6a9ab",
+        "dest": "offline-repository/org/jetbrains/compose/desktop/desktop-jvm-linux-arm64/1.13.0-beta01",
+        "dest-filename": "desktop-jvm-linux-arm64-1.13.0-beta01.pom",
+        "only-arches": [
+            "aarch64"
+        ]
+    },
+    {
+        "type": "file",
         "url": "https://repo.maven.apache.org/maven2/org/jetbrains/compose/desktop/desktop-jvm-linux-x64/1.13.0-beta01/desktop-jvm-linux-x64-1.13.0-beta01.pom",
         "sha256": "86ac7257e5277407e0b447403ab7ca674b0b64debe0a4e44149e63e0e67e7e96",
         "dest": "offline-repository/org/jetbrains/compose/desktop/desktop-jvm-linux-x64/1.13.0-beta01",
-        "dest-filename": "desktop-jvm-linux-x64-1.13.0-beta01.pom"
+        "dest-filename": "desktop-jvm-linux-x64-1.13.0-beta01.pom",
+        "only-arches": [
+            "x86_64"
+        ]
     },
     {
         "type": "file",

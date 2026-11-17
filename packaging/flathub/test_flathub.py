@@ -7,6 +7,7 @@ source. ByteInk's pins are read from ../byteink and skipped without that checkou
 Set VIVE_TEST_FLATHUB_APP to a built Flatpak directory to include the real sandbox contracts.
 The OneNote converter's pins are checked against ../converter/vive-converter when it exists.
 """
+import importlib.util
 import json
 import os
 import re
@@ -16,6 +17,7 @@ import tarfile
 import tempfile
 import tomllib
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
@@ -33,6 +35,10 @@ SANDBOX_APP = os.environ.get("VIVE_TEST_FLATHUB_APP")
 sys.path.insert(0, str(HERE))
 import install  # noqa: E402
 import build_local  # noqa: E402
+# By path: install.py puts packaging/flatpak, with its own smoke_test.py, first on sys.path.
+_smoke = importlib.util.spec_from_file_location("flathub_smoke_test", HERE / "smoke_test.py")
+smoke_test = importlib.util.module_from_spec(_smoke)
+_smoke.loader.exec_module(smoke_test)
 
 
 def manifest():
@@ -385,6 +391,27 @@ class FlathubLauncherTest(unittest.TestCase):
         launcher = next(s for s in module("vivenotes")["sources"]
                         if isinstance(s, dict) and s.get("dest") == "packaging/flathub")
         self.assertEqual("vivenotes", launcher["path"])
+
+
+class FlathubSmokeTestTest(unittest.TestCase):
+    def test_runtime_is_looked_up_for_this_machines_architecture_only(self):
+        with tempfile.TemporaryDirectory() as folder:
+            calls = Path(folder) / "calls"
+            flatpak = Path(folder) / "flatpak"
+            flatpak.write_text(f'''#!/bin/sh
+printf '%s\\n' "$*" >> {calls}
+case "$1" in
+  --default-arch) echo x86_64 ;;
+  info) for a in "$@"; do [ "$a" = --arch=x86_64 ] && echo /i/flatpak/runtime/org.freedesktop.Platform/x86_64/26.08/c && exit 0; done
+        echo /u/flatpak/runtime/org.freedesktop.Platform/aarch64/26.08/c ;;
+esac
+''')
+            flatpak.chmod(0o755)
+            with mock.patch.dict(os.environ, {"PATH": f"{folder}:{os.environ['PATH']}"}):
+                location = smoke_test.runtime_location(manifest())
+            asked = calls.read_text()
+        self.assertEqual(Path("/i/flatpak"), location.parents[4])
+        self.assertIn("info --show-location --arch=x86_64 org.freedesktop.Platform//26.08", asked)
 
 
 class FlathubInstallTest(unittest.TestCase):

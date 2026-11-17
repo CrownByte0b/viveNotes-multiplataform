@@ -28,6 +28,17 @@ def launcher_options():
     return [word for word in words[java + 1:words.index("-cp")]]
 
 
+def runtime_location(manifest):
+    """
+    The installed runtime the bundle runs on: this machine's architecture, which the bundle is
+    built for. Without --arch, flatpak info can answer with another architecture's copy (an aarch64
+    SDK installed to build under emulation brings its Platform), which the bundle cannot use.
+    """
+    arch = subprocess.check_output(["flatpak", "--default-arch"], text=True).strip()
+    return Path(subprocess.check_output(["flatpak", "info", "--show-location", f"--arch={arch}",
+        f"{manifest['runtime']}//{manifest['runtime-version']}"], text=True).strip())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--wayland", action="store_true", help="Use the current Wayland display instead of X11")
@@ -35,10 +46,9 @@ def main():
     work = ROOT / "build/flathub-dev"
     manifest = yaml.safe_load((HERE / f"{APP_ID}.yml").read_text())
     env = os.environ.copy()
-    runtime = subprocess.check_output(["flatpak", "info", "--show-location",
-        f"{manifest['runtime']}//{manifest['runtime-version']}"], text=True).strip()
+    runtime = runtime_location(manifest)
     # Expose the already installed runtime read-only as a system installation to the isolated user.
-    env["FLATPAK_SYSTEM_DIR"] = str(Path(runtime).parents[4])
+    env["FLATPAK_SYSTEM_DIR"] = str(runtime.parents[4])
     env["FLATPAK_USER_DIR"] = str(work / "test-installation")
     env["HOME"] = str(work / "test-home")
     Path(env["HOME"]).mkdir(exist_ok=True)
