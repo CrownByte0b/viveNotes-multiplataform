@@ -8,10 +8,24 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
+    name: build (${{ matrix.arch }})
+    # Flathub builds every architecture packaging/flathub/flathub.json lists, each on its own
+    # native runner; one failing does not cancel the other.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            timeout: 180
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            timeout: 240
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout }}
     env:
       VIVE_FLATHUB_APPARMOR_PROFILE: vivenotes-flathub-ci
+      VIVE_FLATHUB_ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,10 +41,10 @@ jobs:
       - name: Cache Flathub sources and build results
         uses: actions/cache@v5
         with:
-          path: build/flathub-ci/work/.flatpak-builder
-          key: flathub-source-x86_64-${{ hashFiles('packaging/flathub/**', 'packaging/flatpak/flathub.json') }}
+          path: build/flathub-ci/${{ matrix.arch }}/work/.flatpak-builder
+          key: flathub-source-${{ matrix.arch }}-${{ hashFiles('packaging/flathub/**') }}
           restore-keys: |
-            flathub-source-x86_64-
+            flathub-source-${{ matrix.arch }}-
       - name: Validate submission manifest
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -51,9 +65,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ViveNotes-Flathub-x86_64
+          name: ViveNotes-Flathub-${{ matrix.arch }}
           if-no-files-found: warn
           path: |
-            build/flathub-ci/work/artifacts/
-            build/flathub-ci/work/.local/state/flatpak_builder_lint/linter.log
-            build/flathub-ci/work/builddir/files/manifest.json
+            build/flathub-ci/${{ matrix.arch }}/work/artifacts/
+            build/flathub-ci/${{ matrix.arch }}/work/.local/state/flatpak_builder_lint/linter.log
+            build/flathub-ci/${{ matrix.arch }}/work/builddir/files/manifest.json

@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -55,6 +56,7 @@ class FlathubRunnerTest(unittest.TestCase):
             "packaging/flathub/maven-sources.json": "[]\n",
             "packaging/flathub/vivenotes": "#!/bin/sh\nexec /app/jbr/bin/java \"$@\"\n",
             "packaging/flathub/patches/ink/native.patch": "patch fixture\n",
+            "packaging/flathub/flathub.json": '{"only-arches": ["x86_64", "aarch64"]}\n',
             "packaging/flatpak/flathub.json": '{"only-arches": ["x86_64"]}\n',
         })
         (self.root / "local.properties").write_text("private fixture\n")
@@ -64,16 +66,16 @@ class FlathubRunnerTest(unittest.TestCase):
             "LICENSE": "upstream licence fixture\n",
         })
 
-    def prepare(self):
+    def prepare(self, arch="x86_64"):
         with contextlib.redirect_stdout(io.StringIO()):
-            return ci.prepare(self.root, self.state, self.builder)
+            return ci.prepare(self.root, self.state, self.builder, arch)
 
     def test_prepare_preserves_release_pins_and_copies_every_local_build_input(self):
         work = self.prepare()
         self.assertEqual(self.manifest, (work / f"{ci.APP_ID}.yml").read_text())
         for name in ("maven-sources.json", "vivenotes", "patches/ink/native.patch"):
             self.assertEqual((self.root / "packaging/flathub" / name).read_bytes(), (work / name).read_bytes())
-        self.assertEqual({"only-arches": ["x86_64"]}, json.loads((work / "flathub.json").read_text()))
+        self.assertEqual({"only-arches": ["x86_64", "aarch64"]}, json.loads((work / "flathub.json").read_text()))
         self.assertFalse((work / "local.properties").exists())
         self.assertEqual((self.builder / "justfile").read_bytes(), (work / ".flathub.justfile").read_bytes())
         self.assertEqual((self.builder / "LICENSE").read_bytes(), (work / "FLATHUB-BUILDER-LICENSE").read_bytes())
@@ -84,8 +86,19 @@ class FlathubRunnerTest(unittest.TestCase):
         provenance = json.loads((work / "artifacts/provenance.json").read_text())
         self.assertEqual(self.source_revision, provenance["checkout_commit"])
         self.assertEqual(self.builder_revision, provenance["builder_revision"])
-        self.assertEqual(ci.BUILDER_IMAGE, provenance["builder_image"])
+        self.assertEqual("x86_64", provenance["arch"])
+        self.assertEqual(ci.BUILDER_IMAGES["x86_64"], provenance["builder_image"])
         self.assertEqual(64, len(provenance["manifest_sha256"]))
+
+    def test_prepare_records_the_image_of_the_architecture_it_prepares(self):
+        provenance = json.loads((self.prepare("aarch64") / "artifacts/provenance.json").read_text())
+        self.assertEqual("aarch64", provenance["arch"])
+        self.assertEqual(ci.BUILDER_IMAGES["aarch64"], provenance["builder_image"])
+
+    def test_prepare_falls_back_to_the_local_package_configuration(self):
+        git(self.root, "rm", "--quiet", "packaging/flathub/flathub.json")
+        work = self.prepare()
+        self.assertEqual({"only-arches": ["x86_64"]}, json.loads((work / "flathub.json").read_text()))
 
     def test_prepare_refreshes_inputs_without_discarding_the_source_cache(self):
         work = self.prepare()
@@ -114,9 +127,9 @@ class FlathubRunnerTest(unittest.TestCase):
             ci.ensure_builder(self.builder, str(self.builder), self.builder_revision)
 
     def test_container_uses_the_pinned_image_and_upstream_sandbox_profile(self):
-        command = ci.container_command("build", self.state, self.builder)
-        self.assertRegex(ci.BUILDER_IMAGE, r"@sha256:[0-9a-f]{64}$")
-        self.assertIn(ci.BUILDER_IMAGE, command)
+        command = ci.container_command("build", self.state, self.builder, "x86_64")
+        self.assertIn(ci.BUILDER_IMAGES["x86_64"], command)
+        self.assertEqual("linux/amd64", command[command.index("--platform") + 1])
         self.assertIn(f"seccomp={self.builder / 'flatpak.seccomp.json'}", command)
         self.assertIn("--cap-drop", command)
         self.assertIn("all", command)
@@ -135,27 +148,55 @@ class FlathubRunnerTest(unittest.TestCase):
         }
         for phase, recipe in expected.items():
             with self.subTest(phase=phase):
-                script = ci.container_command(phase, self.state, self.builder)[-1]
+                script = ci.container_command(phase, self.state, self.builder, "x86_64")[-1]
                 self.assertIn(f"just -f .flathub.justfile {recipe}", script)
                 self.assertIn("just -f .flathub.justfile prepare-env", script)
                 self.assertNotIn("packaging/flatpak/build.py", script)
                 self.assertNotIn(" upload ", script)
-        build = ci.container_command("build", self.state, self.builder)[-1]
+        build = ci.container_command("build", self.state, self.builder, "x86_64")[-1]
         self.assertIn(f"build {ci.APP_ID} {ci.LOCAL_REF} x86_64", build)
         self.assertIn("install-if-extra-data", build)
-        bundle = ci.container_command("bundle", self.state, self.builder)[-1]
+        bundle = ci.container_command("bundle", self.state, self.builder, "x86_64")[-1]
+        self.assertIn(f"--arch=x86_64 --runtime-repo=", bundle)
         self.assertIn(f"artifacts/{ci.APP_ID}.flatpak {ci.APP_ID} test", bundle)
+
+    def test_each_architecture_runs_its_own_pinned_image_build_and_bundle(self):
+        for arch, platform in [("x86_64", "linux/amd64"), ("aarch64", "linux/arm64")]:
+            with self.subTest(arch=arch):
+                for phase in ci.PHASES:
+                    command = ci.container_command(phase, self.state, self.builder, arch)
+                    self.assertEqual(platform, command[command.index("--platform") + 1])
+                    self.assertEqual(ci.BUILDER_IMAGES[arch], command[command.index("--workdir") + 2])
+                    self.assertIn(f"BUILD_ARCH={arch}", command)
+                build = ci.container_command("build", self.state, self.builder, arch)[-1]
+                self.assertIn(f"just -f .flathub.justfile build {ci.APP_ID} {ci.LOCAL_REF} {arch}", build)
+                bundle = ci.container_command("bundle", self.state, self.builder, arch)[-1]
+                self.assertIn(f"flatpak build-bundle --arch={arch} ", bundle)
+
+    def test_builder_images_are_immutable_per_platform_pins_of_one_repository(self):
+        repositories = {image.split("@", 1)[0] for image in ci.BUILDER_IMAGES.values()}
+        self.assertEqual({"ghcr.io/flathub-infra/flatpak-builder-lint"}, repositories)
+        for arch, image in ci.BUILDER_IMAGES.items():
+            with self.subTest(arch=arch):
+                self.assertRegex(image, r"@sha256:[0-9a-f]{64}$")
+        self.assertEqual(len(ci.BUILDER_IMAGES), len(set(ci.BUILDER_IMAGES.values())))
+        self.assertEqual(set(ci.BUILDER_IMAGES), set(ci.DOCKER_PLATFORMS))
+
+    def test_host_architecture_uses_flatpak_names(self):
+        for machine, arch in [("x86_64", "x86_64"), ("AMD64", "x86_64"), ("aarch64", "aarch64"), ("arm64", "aarch64")]:
+            with self.subTest(machine=machine), mock.patch.object(ci.platform, "machine", return_value=machine):
+                self.assertEqual(arch, ci.host_arch())
 
     def test_custom_apparmor_profile_is_selected_without_enabling_a_privileged_container(self):
         for phase in ci.PHASES:
             with self.subTest(phase=phase):
-                command = ci.container_command(phase, self.state, self.builder, ci.APPARMOR_PROFILE)
+                command = ci.container_command(phase, self.state, self.builder, "x86_64", ci.APPARMOR_PROFILE)
                 self.assertIn(f"apparmor={ci.APPARMOR_PROFILE}", command)
                 self.assertNotIn("apparmor=unconfined", command)
                 self.assertNotIn("--privileged", command)
 
     def test_sandbox_probe_checks_user_and_network_namespaces_before_building(self):
-        command = ci.container_command("sandbox", self.state, self.builder)
+        command = ci.container_command("sandbox", self.state, self.builder, "x86_64")
         for flag in ("--unshare-user", "--unshare-net", "--unshare-pid"):
             self.assertIn(flag, command[-1])
         self.assertIn("127.0.0.1", command[-1])
@@ -163,12 +204,12 @@ class FlathubRunnerTest(unittest.TestCase):
         self.assertEqual("sandbox", ci.PHASES[0])
 
     def test_every_phase_hands_the_builders_directories_back_when_it_ends(self):
-        command = ci.container_command("build", self.state, self.builder)
+        command = ci.container_command("build", self.state, self.builder, "x86_64")
         self.assertIn(f"{self.state / 'work'}:{ci.WORK_MOUNT}:z", command)
         self.assertIn(f"{self.state / 'flatpak'}:{ci.FLATPAK_MOUNT}:z", command)
         for phase in ci.PHASES:
             with self.subTest(phase=phase):
-                trap = ci.container_command(phase, self.state, self.builder)[-1].splitlines()[0]
+                trap = ci.container_command(phase, self.state, self.builder, "x86_64")[-1].splitlines()[0]
                 self.assertTrue(trap.startswith("trap ") and trap.endswith(" EXIT"), trap)
                 for mount in (ci.WORK_MOUNT, ci.FLATPAK_MOUNT):
                     self.assertIn(mount, trap)
@@ -201,10 +242,27 @@ class FlathubRunnerTest(unittest.TestCase):
         self.assertEqual("compiler failed\n", log.read_text())
 
     def test_cli_reports_unprepared_inputs_before_starting_a_container(self):
-        result = subprocess.run([sys.executable, "-B", str(SCRIPT), "--phase", "build",
+        result = subprocess.run([sys.executable, "-B", str(SCRIPT), "--phase", "build", "--arch", "x86_64",
                                  "--state-dir", str(self.state)], capture_output=True, text=True)
         self.assertEqual(2, result.returncode)
-        self.assertIn("Run --phase prepare first", result.stderr)
+        self.assertIn("Run --phase prepare --arch x86_64 first", result.stderr)
+
+    def test_cli_keeps_each_architectures_work_apart_and_reads_the_workflow_architecture(self):
+        (self.state / "x86_64/work").mkdir(parents=True)
+        (self.state / "x86_64/work/.flathub.justfile").write_text("prepared\n")
+        result = subprocess.run([sys.executable, "-B", str(SCRIPT), "--phase", "build", "--state-dir", str(self.state)],
+                                capture_output=True, text=True, env={**os.environ, "VIVE_FLATHUB_ARCH": "aarch64"})
+        self.assertEqual(2, result.returncode)
+        self.assertIn("Run --phase prepare --arch aarch64 first", result.stderr)
+
+    def test_cli_rejects_an_architecture_without_a_pinned_builder(self):
+        for arguments, environment in [(["--arch", "riscv64"], {}), ([], {"VIVE_FLATHUB_ARCH": "riscv64"})]:
+            with self.subTest(arguments=arguments, environment=environment):
+                result = subprocess.run([sys.executable, "-B", str(SCRIPT), "--phase", "build",
+                                         "--state-dir", str(self.state), *arguments],
+                                        capture_output=True, text=True, env={**os.environ, **environment})
+                self.assertEqual(2, result.returncode)
+                self.assertIn("riscv64", result.stderr)
 
 
 class FlathubWorkflowTest(unittest.TestCase):
@@ -219,9 +277,33 @@ class FlathubWorkflowTest(unittest.TestCase):
         self.assertEqual(sorted(phases), phases)
         self.assertIn("steps.build.outcome == 'success'", workflow)
         self.assertIn("if: always()", workflow)
-        self.assertIn("build/flathub-ci/work/artifacts/", workflow)
-        self.assertIn("build/flathub-ci/work/.flatpak-builder", workflow)
+        self.assertIn("build/flathub-ci/${{ matrix.arch }}/work/artifacts/", workflow)
+        self.assertIn("build/flathub-ci/${{ matrix.arch }}/work/.flatpak-builder", workflow)
         self.assertNotIn("continue-on-error", workflow)
+
+    def test_workflow_builds_every_flathub_architecture_on_a_native_runner(self):
+        try:
+            import yaml
+        except ImportError:
+            self.skipTest("needs PyYAML")
+        workflow = yaml.safe_load((ROOT / ".github/workflows/flathub.yml").read_text())
+        job = workflow["jobs"]["build"]
+        matrix = job["strategy"]["matrix"]["include"]
+        flathub = json.loads((ROOT / "packaging/flathub/flathub.json").read_text())
+        self.assertEqual(flathub["only-arches"], [entry["arch"] for entry in matrix])
+        self.assertFalse(job["strategy"]["fail-fast"])
+        runners = {entry["arch"]: entry["runner"] for entry in matrix}
+        self.assertRegex(runners["aarch64"], r"^ubuntu-[0-9.]+-arm$")
+        self.assertNotIn("arm", runners["x86_64"])
+        self.assertEqual("${{ matrix.runner }}", job["runs-on"])
+        self.assertEqual("${{ matrix.arch }}", job["env"]["VIVE_FLATHUB_ARCH"])
+        self.assertTrue(set(runners) <= set(ci.BUILDER_IMAGES))
+        for entry in matrix:
+            self.assertLessEqual(entry["timeout"], 360)
+        upload = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/upload-artifact"))
+        self.assertIn("${{ matrix.arch }}", upload["with"]["name"])
+        cache = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/cache"))
+        self.assertIn("${{ matrix.arch }}", cache["with"]["key"])
 
     def test_hosted_builder_loads_a_named_userns_profile_before_any_container_runs(self):
         workflow = (ROOT / ".github/workflows/flathub.yml").read_text()
@@ -249,8 +331,9 @@ class FlathubWorkflowTest(unittest.TestCase):
 class FlathubSandboxTest(unittest.TestCase):
     def test_real_builder_creates_an_isolated_network_and_working_loopback(self):
         profile = os.environ.get("VIVE_FLATHUB_APPARMOR_PROFILE", "unconfined")
-        command = ci.container_command("sandbox", ROOT / "build/flathub-ci",
-                                       ROOT / "build/flathub-ci/vorarbeiter", profile)
+        arch = os.environ.get("VIVE_FLATHUB_ARCH") or ci.host_arch()
+        command = ci.container_command("sandbox", ROOT / "build/flathub-ci" / arch,
+                                       ROOT / "build/flathub-ci/vorarbeiter", arch, profile)
         result = subprocess.run(command, capture_output=True, text=True, timeout=60)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("FLATHUB_SANDBOX_OK", result.stdout)
@@ -263,13 +346,15 @@ class FlathubOwnershipTest(unittest.TestCase):
         work = temporary / "work"
         work.mkdir()
         work.chmod(0o777)
-        docker = ["docker", "run", "--rm", "--init", "--cap-drop", "all", "--entrypoint=",
-                  "--volume", f"{work}:{ci.WORK_MOUNT}:z", "--workdir", ci.WORK_MOUNT, ci.BUILDER_IMAGE,
+        arch = os.environ.get("VIVE_FLATHUB_ARCH") or ci.host_arch()
+        docker = ["docker", "run", "--rm", "--init", "--platform", ci.DOCKER_PLATFORMS[arch],
+                  "--cap-drop", "all", "--entrypoint=",
+                  "--volume", f"{work}:{ci.WORK_MOUNT}:z", "--workdir", ci.WORK_MOUNT, ci.BUILDER_IMAGES[arch],
                   "/bin/bash", "-euo", "pipefail", "-c"]
         # Cleanups run last first: the builder removes its own files whatever happens, then the rest goes.
         self.addCleanup(shutil.rmtree, temporary, ignore_errors=True)
         self.addCleanup(subprocess.run, [*docker, "rm -rf builddir"], capture_output=True)
-        trap = ci.container_command("manifest", temporary, temporary)[-1].splitlines()[0]
+        trap = ci.container_command("manifest", temporary, temporary, arch)[-1].splitlines()[0]
         script = "\n".join([trap, 'test "$(id -u)" != 0', "mkdir -p builddir/files/app",
                             "chmod 0755 builddir builddir/files builddir/files/app",
                             "touch builddir/files/app/bin", "exit 3"])
@@ -282,8 +367,9 @@ class FlathubOwnershipTest(unittest.TestCase):
 class FlathubRepositoryTest(unittest.TestCase):
     def test_real_repository_passes_the_submission_linter(self):
         profile = os.environ.get("VIVE_FLATHUB_APPARMOR_PROFILE", "unconfined")
-        command = ci.container_command("lint", ROOT / "build/flathub-ci",
-                                       ROOT / "build/flathub-ci/vorarbeiter", profile)
+        arch = os.environ.get("VIVE_FLATHUB_ARCH") or ci.host_arch()
+        command = ci.container_command("lint", ROOT / "build/flathub-ci" / arch,
+                                       ROOT / "build/flathub-ci/vorarbeiter", arch, profile)
         result = subprocess.run(command, capture_output=True, text=True, timeout=180)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 

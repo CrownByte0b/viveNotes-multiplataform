@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """Lists what a Gradle build downloaded as flatpak-builder sources, for the offline Flathub build.
 
-Run the Flathub build's Gradle command once online with an empty GRADLE_USER_HOME (BUILDING.md in
-this directory), then:
+Run the Flathub build's Gradle command once online with an empty GRADLE_USER_HOME on each
+architecture flathub.json lists (BUILDING.md in this directory), then:
 
-    python3 -B packaging/flathub/generate_maven_sources.py <gradle home> > packaging/flathub/maven-sources.json
+    python3 -B packaging/flathub/generate_maven_sources.py x86_64=<gradle home> aarch64=<gradle home> \
+        > packaging/flathub/maven-sources.json
 
-Every file in that home's module cache becomes a `file` source laid out in Maven form under
+Every file in those homes' module caches becomes a `file` source laid out in Maven form under
 `offline-repository/`, at the first repository the builds declare that serves it, with the SHA-256
-of the copy Gradle verified. offline-repository.init.gradle.kts points the builds there.
+of the copy Gradle verified. offline-repository.init.gradle.kts points the builds there. A file
+only some architectures' builds downloaded (compose.desktop.currentOs names the build machine's
+platform) is fetched only there, through `only-arches`. A single home without an architecture
+lists one build's files for every architecture.
 """
 import concurrent.futures
 import hashlib
@@ -89,7 +93,8 @@ def fetched_sha256(url):
         return hashlib.sha256(response.read()).hexdigest()
 
 
-def sources(gradle_home, exists=serves, fetch=fetched_sha256, workers=16):
+def sources(gradle_home, exists=None, fetch=None, workers=16):
+    exists, fetch = exists or serves, fetch or fetched_sha256
     artifacts = list(cached_artifacts(gradle_home))
     with concurrent.futures.ThreadPoolExecutor(workers) as pool:
         found = list(pool.map(lambda artifact: source(artifact, exists), artifacts))
@@ -112,10 +117,42 @@ def sources(gradle_home, exists=serves, fetch=fetched_sha256, workers=16):
     return chosen
 
 
+def merged(by_arch):
+    """
+    One source list from each architecture's: a file every build fetched as is, and a file only
+    some fetched restricted to those, in the order the architectures were given.
+    """
+    arches = list(by_arch)
+    found = {}
+    for arch, entries in by_arch.items():
+        for entry in entries:
+            key = f"{entry['dest']}/{entry['dest-filename']}"
+            known = found.setdefault(key, (entry, []))
+            if known[0] != entry:
+                raise ValueError(f"{arch} and {known[1][0]} builds fetched different copies of {key}")
+            known[1].append(arch)
+    result = []
+    for key in sorted(found):
+        entry, fetched = found[key]
+        result.append(entry if fetched == arches else dict(entry, **{"only-arches": fetched}))
+    return result
+
+
 def main(argv):
-    if len(argv) != 2:
+    homes = argv[1:]
+    if not homes:
         raise SystemExit(__doc__)
-    json.dump(sources(argv[1]), sys.stdout, indent=4)
+    if len(homes) == 1 and "=" not in homes[0]:
+        listed = sources(homes[0])
+    else:
+        by_arch = {}
+        for argument in homes:
+            arch, separator, home = argument.partition("=")
+            if not separator or not arch or not home or arch in by_arch:
+                raise SystemExit(f"Name each Gradle home once as <arch>=<path>, not {argument!r}\n\n{__doc__}")
+            by_arch[arch] = home
+        listed = merged({arch: sources(home) for arch, home in by_arch.items()})
+    json.dump(listed, sys.stdout, indent=4)
     sys.stdout.write("\n")
 
 

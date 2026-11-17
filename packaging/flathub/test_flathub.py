@@ -5,6 +5,7 @@ The manifest restates pins that live elsewhere (uv.lock, ByteInk's upstream/pins
 Gradle wrapper, the local package's JBR and permissions); these tests keep each copy equal to its
 source. ByteInk's pins are read from ../byteink and skipped without that checkout.
 Set VIVE_TEST_FLATHUB_APP to a built Flatpak directory to include the real sandbox contracts.
+The OneNote converter's pins are checked against ../converter/vive-converter when it exists.
 """
 import json
 import os
@@ -25,6 +26,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 APP_ID = "net.vivenotes.ViveNotes"
 BYTEINK = Path(os.environ.get("VIVE_BYTEINK_SOURCE", ROOT.parent / "byteink"))
+CONVERTER = Path(os.environ.get("VIVE_CONVERTER_SOURCE", ROOT.parent / "converter/vive-converter"))
+# Rust's names for the Linux targets the converter publishes a library for, by Flatpak architecture.
+RUST_TARGETS = {"x86_64": "x86_64-unknown-linux-gnu", "aarch64": "aarch64-unknown-linux-gnu"}
 SANDBOX_APP = os.environ.get("VIVE_TEST_FLATHUB_APP")
 sys.path.insert(0, str(HERE))
 import install  # noqa: E402
@@ -37,6 +41,23 @@ def manifest():
 
 def module(name):
     return next(m for m in manifest()["modules"] if m["name"] == name)
+
+
+def architectures():
+    return json.loads((HERE / "flathub.json").read_text())["only-arches"]
+
+
+def git_source(module_name, dest=None):
+    return next(s for s in module(module_name)["sources"]
+                if isinstance(s, dict) and s["type"] == "git" and s.get("dest") == dest)
+
+
+def gradle_command():
+    return next(c for c in module("vivenotes")["build-commands"] if ":desktopApp:stageFlatpak" in c)
+
+
+def gradle_flag(name):
+    return next(word.split("=", 1)[1] for word in gradle_command().split() if word.startswith(f"-P{name}="))
 
 
 class FlathubManifestTest(unittest.TestCase):
@@ -106,15 +127,15 @@ class FlathubManifestTest(unittest.TestCase):
         self.assertNotIn("Secret", gradle)
         self.assertNotIn("SECRET", gradle)
         for flag in ["--offline", "--init-script packaging/flathub/offline-repository.init.gradle.kts",
-                     "-Pvive.googleDesktopClientId=",
-                     "-PbyteinkBundledPlatforms=linux-x86_64", "-PbyteinkLinuxLibrary=/app/lib/libink.so"]:
+                     "-Pvive.googleDesktopClientId=", "-PbyteinkBundledPlatforms=${BYTEINK_PLATFORM}",
+                     "-PbyteinkLinuxLibrary=/app/lib/libink.so", "-PbyteinkLinuxArm64Library=/app/lib/libink.so"]:
             self.assertIn(flag, gradle)
 
     def test_native_modules_use_their_build_systems(self):
         jbr = module("jbr")
         self.assertEqual("autotools", jbr["buildsystem"])
         self.assertIn("images", jbr["make-args"])
-        self.assertIn("CONF=linux-x86_64-server-release", jbr["make-args"])
+        self.assertIn("CONF=release", jbr["make-args"])
         self.assertTrue(jbr["no-make-install"])
         self.assertNotIn("build-commands", jbr)
         self.assertEqual("cmake-ninja", module("libink")["buildsystem"])
@@ -137,6 +158,15 @@ class FlathubManifestTest(unittest.TestCase):
                                 check=True, capture_output=True, text=True)
         self.assertEqual("3", result.stdout)
 
+    def test_jbr_builds_into_the_same_configuration_on_every_architecture(self):
+        jbr = module("jbr")
+        self.assertIn("--with-conf-name=release", jbr["config-opts"])
+        self.assertNotIn("--openjdk-target", " ".join(jbr["config-opts"]))
+        for command in jbr["post-install"]:
+            self.assertNotRegex(command, r"x86_64|aarch64|x64|arm64")
+        self.assertIn("build/release/images/jdk/bin/jlink", jbr["post-install"][0])
+        self.assertIn("--module-path build/release/images/jmods", jbr["post-install"][0])
+
     def test_python_packages_install_offline_into_the_application_prefix(self):
         commands = " ".join(module("math-python")["build-commands"])
         self.assertIn("python3 -m pip install --prefix=${FLATPAK_DEST}", commands)
@@ -145,6 +175,118 @@ class FlathubManifestTest(unittest.TestCase):
 
 
 @unittest.skipUnless((BYTEINK / "upstream/pins.properties").is_file(), "needs the ByteInk checkout")
+class FlathubByteInkTest(unittest.TestCase):
+    def test_both_byteink_sources_are_one_release_tag(self):
+        native, composite = git_source("libink", "byteink"), git_source("vivenotes", "byteink")
+        self.assertEqual(native, composite)
+        self.assertRegex(native["tag"], r"^v\d+\.\d+\.\d+$")
+        self.assertRegex(native["commit"], r"^[0-9a-f]{40}$")
+
+    @unittest.skipUnless((BYTEINK / ".git").exists(), "needs the ByteInk checkout")
+    def test_byteink_tag_names_the_pinned_commit(self):
+        source = git_source("libink", "byteink")
+        tagged = subprocess.check_output(["git", "-C", str(BYTEINK), "rev-parse", f"{source['tag']}^{{commit}}"], text=True)
+        self.assertEqual(source["commit"], tagged.strip())
+
+    def test_each_architecture_bundles_its_own_byteink_platform(self):
+        options = module("vivenotes")["build-options"]
+        platforms = {arch: values["env"]["BYTEINK_PLATFORM"] for arch, values in options["arch"].items()}
+        self.assertEqual({"x86_64": "linux-x86_64", "aarch64": "linux-arm64"}, platforms)
+        self.assertEqual(set(architectures()), set(platforms))
+        self.assertNotIn("BYTEINK_PLATFORM", options["env"])
+        self.assertEqual("${BYTEINK_PLATFORM}", gradle_flag("byteinkBundledPlatforms"))
+        # Whichever platform is bundled reads the library the libink module installs.
+        self.assertEqual("/app/lib/libink.so", gradle_flag("byteinkLinuxLibrary"))
+        self.assertEqual("/app/lib/libink.so", gradle_flag("byteinkLinuxArm64Library"))
+
+    @unittest.skipUnless((BYTEINK / ".git").exists(), "needs the ByteInk checkout")
+    def test_byteink_platform_names_and_library_properties_exist_at_the_pinned_commit(self):
+        revision = git_source("libink", "byteink")["commit"]
+        libraries = subprocess.check_output(["git", "-C", str(BYTEINK), "show",
+            f"{revision}:build-logic/src/main/kotlin/com/vivenotes/byteink/build/NativeLibraries.kt"], text=True)
+        declared = dict(re.findall(r'^\s+LINUX_\w+\("([\w-]+)", "libink.so", "(\w+)"', libraries, re.M))
+        self.assertEqual({"linux-x86_64": "byteinkLinuxLibrary", "linux-arm64": "byteinkLinuxArm64Library"}, declared)
+        options = module("vivenotes")["build-options"]["arch"]
+        for arch, values in options.items():
+            with self.subTest(arch=arch):
+                self.assertIn(values["env"]["BYTEINK_PLATFORM"], declared)
+                self.assertEqual("/app/lib/libink.so", gradle_flag(declared[values["env"]["BYTEINK_PLATFORM"]]))
+
+
+class FlathubConverterTest(unittest.TestCase):
+    def converter(self):
+        return git_source("vivenotes", gradle_flag("viveConverterDir"))
+
+    def libraries(self):
+        return [s for s in module("vivenotes")["sources"] if isinstance(s, dict) and s["type"] == "archive"
+                and "vive-converter" in s["url"]]
+
+    def test_gradle_packages_the_released_library_with_the_tagged_sources_licences(self):
+        directory = Path(gradle_flag("viveConverterDir"))
+        self.assertEqual("https://github.com/CrownByte0b/vive-converter.git", self.converter()["url"])
+        # The converter's build expects the parser checkout beside it (its Cargo.toml, its licence).
+        parser = git_source("vivenotes", str(directory.parent / "onenote.rs"))
+        self.assertEqual("https://github.com/msiemens/onenote.rs.git", parser["url"])
+        library = Path(gradle_flag("viveConverterLibrary"))
+        self.assertEqual("libvive_converter.so", library.name)
+        self.assertEqual({str(library.parent)}, {s["dest"] for s in self.libraries()})
+
+    def test_every_architecture_gets_exactly_its_own_release_library(self):
+        version = self.converter()["tag"].removeprefix("v")
+        release = f"https://github.com/CrownByte0b/vive-converter/releases/download/v{version}/"
+        found = {}
+        for source in self.libraries():
+            with self.subTest(url=source["url"]):
+                self.assertEqual(1, len(source["only-arches"]))
+                self.assertEqual(0, source["strip-components"])
+                self.assertRegex(source["sha256"], r"^[0-9a-f]{64}$")
+                found[source["only-arches"][0]] = source["url"]
+        self.assertEqual({arch: f"{release}vive-converter-{version}-{RUST_TARGETS[arch]}.zip"
+                          for arch in architectures()}, found)
+
+    def test_parser_is_the_revision_the_desktop_ci_builds_the_converter_with(self):
+        action = (ROOT / ".github/actions/one-note-converter/action.yml").read_text()
+        parser_ref = re.search(r"repository: msiemens/onenote\.rs\n\s+ref: ([0-9a-f]{40})", action)[1]
+        parser = git_source("vivenotes", str(Path(gradle_flag("viveConverterDir")).parent / "onenote.rs"))
+        self.assertEqual(parser_ref, parser["commit"])
+
+    @unittest.skipUnless((CONVERTER / ".git").exists(), "needs the vive-converter checkout")
+    def test_converter_tag_names_the_pinned_commit_and_its_version(self):
+        source = self.converter()
+        tagged = subprocess.check_output(["git", "-C", str(CONVERTER), "rev-parse", f"{source['tag']}^{{commit}}"], text=True)
+        self.assertEqual(source["commit"], tagged.strip())
+        cargo = tomllib.loads(subprocess.check_output(
+            ["git", "-C", str(CONVERTER), "show", f"{source['commit']}:Cargo.toml"], text=True))
+        self.assertEqual(source["tag"].removeprefix("v"), cargo["package"]["version"])
+
+
+class FlathubApplicationSourceTest(unittest.TestCase):
+    def test_application_is_a_release_tag_of_this_repository(self):
+        source = git_source("vivenotes")
+        self.assertEqual("https://github.com/CrownByte0b/viveNotes-multiplataform.git", source["url"])
+        tagged = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--verify", "--quiet", f"{source['tag']}^{{commit}}"],
+                                capture_output=True, text=True)
+        if tagged.returncode:
+            self.skipTest(f"this checkout lacks {source['tag']}")
+        self.assertEqual(source["commit"], tagged.stdout.strip())
+        properties = subprocess.check_output(["git", "-C", str(ROOT), "show", f"{source['commit']}:gradle.properties"], text=True)
+        self.assertEqual(source["tag"].removeprefix("v"), re.search(r"^version=(.+)$", properties, re.M)[1])
+
+    def test_offline_maven_sources_fetch_each_compose_platform_for_its_architecture_only(self):
+        # compose.desktop.currentOs names the build machine's platform; Gradle resolves no other.
+        sources = json.loads((HERE / "maven-sources.json").read_text())
+        compose = {"x86_64": "linux-x64", "aarch64": "linux-arm64"}
+        for entry in sources:
+            for arch in entry.get("only-arches", []):
+                self.assertIn(arch, architectures(), entry["dest"])
+        for arch in architectures():
+            with self.subTest(arch=arch):
+                platform = [entry for entry in sources if entry["dest"].startswith(
+                    f"offline-repository/org/jetbrains/compose/desktop/desktop-jvm-{compose[arch]}/")]
+                self.assertTrue(platform, f"no desktop-jvm-{compose[arch]}")
+                self.assertTrue(all(entry.get("only-arches") == [arch] for entry in platform), platform)
+
+
 class FlathubNativeSourcesTest(unittest.TestCase):
     def test_declared_ink_patch_series_matches_the_pinned_byteink_source(self):
         sources = module("libink")["sources"]

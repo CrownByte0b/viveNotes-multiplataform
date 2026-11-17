@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Contract tests for generate_maven_sources.py, on a stand-in Gradle cache: no network."""
 import hashlib
+import io
 import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import generate_maven_sources as generator  # noqa: E402
@@ -90,6 +92,43 @@ class GenerateMavenSourcesTest(unittest.TestCase):
         self.cached("com.example", "private", "1.0", "private-1.0.jar", b"c")
         with self.assertRaisesRegex(LookupError, "com/example/private/1.0/private-1.0.jar"):
             generator.sources(self.home, exists=lambda url: False)
+
+    def test_files_one_architectures_build_alone_fetched_are_restricted_to_it(self):
+        common = {"type": "file", "url": "u/common.jar", "sha256": "1", "dest": "offline-repository/a", "dest-filename": "common.jar"}
+        x64 = {"type": "file", "url": "u/x64.pom", "sha256": "2", "dest": "offline-repository/b", "dest-filename": "x64.pom"}
+        arm = {"type": "file", "url": "u/arm.pom", "sha256": "3", "dest": "offline-repository/c", "dest-filename": "arm.pom"}
+
+        listed = generator.merged({"x86_64": [common, x64], "aarch64": [arm, common]})
+
+        self.assertEqual([common, dict(x64, **{"only-arches": ["x86_64"]}), dict(arm, **{"only-arches": ["aarch64"]})], listed)
+        self.assertNotIn("only-arches", common)
+
+    def test_architectures_that_fetched_different_copies_of_one_file_fail_the_generation(self):
+        entry = {"type": "file", "url": "u/a.jar", "sha256": "1", "dest": "offline-repository/a", "dest-filename": "a.jar"}
+        with self.assertRaisesRegex(ValueError, "x86_64 builds fetched different copies of offline-repository/a/a.jar"):
+            generator.merged({"x86_64": [entry], "aarch64": [dict(entry, sha256="2")]})
+
+    def test_the_command_line_reads_one_home_per_architecture(self):
+        self.cached("org.example", "lib", "1.0", "lib-1.0.pom", b"pom")
+        arm = Path(tempfile.mkdtemp())
+        file = arm / "caches/modules-2/files-2.1/org.example/lib-arm64/1.0/99/lib-arm64-1.0.pom"
+        file.parent.mkdir(parents=True)
+        file.write_bytes(b"arm")
+        shared = arm / "caches/modules-2/files-2.1/org.example/lib/1.0/0123abcd/lib-1.0.pom"
+        shared.parent.mkdir(parents=True)
+        shared.write_bytes(b"pom")
+        output = io.StringIO()
+        with mock.patch.object(generator, "serves", lambda url: url.startswith(generator.CENTRAL)), \
+                mock.patch.object(generator.sys, "stdout", output):
+            generator.main(["generate", f"x86_64={self.home}", f"aarch64={arm}"])
+        listed = json.loads(output.getvalue())
+        self.assertEqual([("lib-arm64-1.0.pom", ["aarch64"]), ("lib-1.0.pom", None)],
+                         [(entry["dest-filename"], entry.get("only-arches")) for entry in listed])
+
+    def test_the_command_line_names_each_architecture_once(self):
+        for arguments in (["x86_64=a", "x86_64=b"], ["=a"], ["x86_64="], ["a", "b"]):
+            with self.subTest(arguments=arguments), self.assertRaisesRegex(SystemExit, "<arch>=<path>"):
+                generator.main(["generate", *arguments])
 
     def test_a_missing_cache_explains_how_to_fill_it(self):
         with self.assertRaisesRegex(SystemExit, "run the build with this GRADLE_USER_HOME first"):

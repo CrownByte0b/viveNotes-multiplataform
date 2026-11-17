@@ -3,14 +3,19 @@
 
     python3 -B packaging/flathub/run_ci.py
 
-Docker runs the same unprivileged builder image as Flathub's submission CI. Inputs retain
-the manifest's release pins. Outputs and the upstream builder checkout live in build/flathub-ci/.
+    python3 -B packaging/flathub/run_ci.py --arch aarch64
+
+Docker runs the same unprivileged builder image as Flathub's submission CI, for each architecture
+flathub.json lists. Inputs retain the manifest's release pins. The upstream builder checkout lives
+in build/flathub-ci/vorarbeiter, and each architecture's work and Flatpak installation in
+build/flathub-ci/<arch>/. Another architecture than the host's runs under binfmt emulation.
 """
 import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import shlex
 import shutil
 import subprocess
@@ -22,10 +27,15 @@ APP_ID = "net.vivenotes.ViveNotes"
 SUBMISSION_URL = "https://github.com/flathub/flathub"
 UPSTREAM_URL = "https://github.com/flathub-infra/vorarbeiter.git"
 UPSTREAM_REVISION = "90b52674d33facc30feccf7d2f3d40ba5b819b77"
-BUILDER_IMAGE = (
-    "ghcr.io/flathub-infra/flatpak-builder-lint@"
-    "sha256:5b41839c0657f7e57a95400de11833ee1b38ff3ccc1c5572426c7fb4830b0aa4"
-)
+# One multi-architecture release of the unprivileged builder (index
+# sha256:b1e512b0c84445a07e4e60a2398dc36c003e37a92e24cc62a131448134b18822), pinned per platform.
+BUILDER_IMAGES = {
+    "x86_64": "ghcr.io/flathub-infra/flatpak-builder-lint@"
+              "sha256:5b41839c0657f7e57a95400de11833ee1b38ff3ccc1c5572426c7fb4830b0aa4",
+    "aarch64": "ghcr.io/flathub-infra/flatpak-builder-lint@"
+               "sha256:4c1c8186d9ff0ea6048bb690770306e28c1fb25d5045e14dca07d832c499aecc",
+}
+DOCKER_PLATFORMS = {"x86_64": "linux/amd64", "aarch64": "linux/arm64"}
 LOCAL_REF = "refs/pull/local/head"
 APPARMOR_PROFILE = "vivenotes-flathub-ci"
 WORK_MOUNT = "/work"
@@ -44,6 +54,12 @@ with socket.socket() as server, socket.socket() as client:
         assert connection.recv(7) == b"sandbox"
 print("FLATHUB_SANDBOX_OK loopback=127.0.0.1 interfaces=lo")
 """
+
+
+def host_arch():
+    """The Flatpak name of this machine's architecture."""
+    machine = platform.machine().lower()
+    return {"amd64": "x86_64", "x86_64": "x86_64", "arm64": "aarch64", "aarch64": "aarch64"}.get(machine, machine)
 
 
 def run(command, **kwargs):
@@ -66,7 +82,7 @@ def ensure_builder(directory, url=UPSTREAM_URL, revision=UPSTREAM_REVISION):
          "justfile", "flatpak.seccomp.json", "LICENSE"], stdout=subprocess.DEVNULL)
 
 
-def prepare(root, state, builder):
+def prepare(root, state, builder, arch):
     work = state / "work"
     for directory in (work, work / "tmp", work / ".local/state", work / "artifacts", state / "flatpak"):
         directory.mkdir(parents=True, exist_ok=True)
@@ -93,7 +109,8 @@ def prepare(root, state, builder):
     provenance = {
         "builder_repository": UPSTREAM_URL,
         "builder_revision": subprocess.check_output(["git", "-C", str(builder), "rev-parse", "HEAD"], text=True).strip(),
-        "builder_image": BUILDER_IMAGE,
+        "arch": arch,
+        "builder_image": BUILDER_IMAGES[arch],
         "checkout_commit": subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
         "manifest_sha256": hashlib.sha256((work / f"{APP_ID}.yml").read_bytes()).hexdigest(),
     }
@@ -114,11 +131,11 @@ def handback(paths):
             "-exec chmod a+rwx {} + 2>/dev/null || true")
 
 
-def container_command(phase, state, builder, apparmor_profile="unconfined"):
+def container_command(phase, state, builder, arch, apparmor_profile="unconfined"):
     recipes = {
         "manifest": [("validate-manifest", APP_ID)],
         "download": [("download-sources", APP_ID)],
-        "build": [("build", APP_ID, LOCAL_REF, "x86_64"), ("install-if-extra-data", APP_ID, LOCAL_REF)],
+        "build": [("build", APP_ID, LOCAL_REF, arch), ("install-if-extra-data", APP_ID, LOCAL_REF)],
         "lint": [("validate-build",)],
     }
     commands = [["just", "-f", ".flathub.justfile", "prepare-env"]]
@@ -127,7 +144,7 @@ def container_command(phase, state, builder, apparmor_profile="unconfined"):
                      "--unshare-net", "--unshare-pid", "--ro-bind", "/", "/", "--dev", "/dev",
                      "--proc", "/proc", "--", "python3", "-c", SANDBOX_PROBE]]
     elif phase == "bundle":
-        commands.append(["flatpak", "build-bundle",
+        commands.append(["flatpak", "build-bundle", f"--arch={arch}",
                          "--runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo",
                          "repo", f"artifacts/{APP_ID}.flatpak", APP_ID, "test"])
     else:
@@ -136,19 +153,19 @@ def container_command(phase, state, builder, apparmor_profile="unconfined"):
     script = "\n".join([f"trap {shlex.quote(handback((WORK_MOUNT, FLATPAK_MOUNT)))} EXIT",
                         *(shlex.join(command) for command in commands)])
     command = [
-        "docker", "run", "--rm", "--init",
+        "docker", "run", "--rm", "--init", "--platform", DOCKER_PLATFORMS[arch],
         "--security-opt", f"seccomp={builder / 'flatpak.seccomp.json'}",
         "--security-opt", f"apparmor={apparmor_profile}", "--cap-drop", "all", "--entrypoint=",
         "--env", "TMPDIR=/work/tmp", "--env", "XDG_STATE_HOME=/work/.local/state",
         "--env", f"APP_ID={APP_ID}", "--env", f"REF={LOCAL_REF}",
-        "--env", "PR_TARGET_BRANCH=new-pr", "--env", "BUILD_ARCH=x86_64",
+        "--env", "PR_TARGET_BRANCH=new-pr", "--env", f"BUILD_ARCH={arch}",
         # The linter uses REPO to select submission policy, including test-ref media handling.
         "--env", f"REPO={SUBMISSION_URL}",
         "--env", "GITHUB_ACTIONS", "--env", "GITHUB_TOKEN",
         "--volume", "/proc:/host/proc",
         "--volume", f"{state / 'work'}:{WORK_MOUNT}:z",
         "--volume", f"{state / 'flatpak'}:{FLATPAK_MOUNT}:z",
-        "--workdir", WORK_MOUNT, BUILDER_IMAGE,
+        "--workdir", WORK_MOUNT, BUILDER_IMAGES[arch],
         "/bin/bash", "-euo", "pipefail", "-c", script,
     ]
     return command
@@ -179,20 +196,25 @@ def run_logged(command, log):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--phase", choices=("all", "prepare", *PHASES), default="all")
+    parser.add_argument("--arch", choices=sorted(BUILDER_IMAGES), default=os.environ.get("VIVE_FLATHUB_ARCH") or host_arch(),
+                        help="Flatpak architecture to build (default: VIVE_FLATHUB_ARCH, else this machine's)")
     parser.add_argument("--state-dir", type=Path, default=ROOT / "build/flathub-ci")
     parser.add_argument("--apparmor-profile", default=os.environ.get("VIVE_FLATHUB_APPARMOR_PROFILE", "unconfined"),
                         help=f"On AppArmor hosts, load .github/flathub-ci.apparmor and select {APPARMOR_PROFILE}")
     args = parser.parse_args()
-    state = args.state_dir.resolve()
-    builder = state / "vorarbeiter"
+    if args.arch not in BUILDER_IMAGES:
+        parser.error(f"No pinned builder image for {args.arch}; choose one of {', '.join(sorted(BUILDER_IMAGES))}")
+    builder = args.state_dir.resolve() / "vorarbeiter"
+    state = args.state_dir.resolve() / args.arch
     if args.phase in {"all", "prepare"}:
         ensure_builder(builder)
-        prepare(ROOT, state, builder)
+        prepare(ROOT, state, builder, args.arch)
     elif not (state / "work/.flathub.justfile").is_file():
-        parser.error("Run --phase prepare first")
+        parser.error(f"Run --phase prepare --arch {args.arch} first")
     phases = PHASES if args.phase == "all" else (() if args.phase == "prepare" else (args.phase,))
     for phase in phases:
-        run_logged(container_command(phase, state, builder, args.apparmor_profile), state / f"work/artifacts/{phase}.log")
+        run_logged(container_command(phase, state, builder, args.arch, args.apparmor_profile),
+                   state / f"work/artifacts/{phase}.log")
 
 
 if __name__ == "__main__":
