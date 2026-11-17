@@ -38,7 +38,7 @@ class SvgPicture private constructor(private val dom: SVGDOM, private val source
         }
     }
 
-    /** Temporary pixels for OCR; never replaces the stored SVG. */
+    /** Temporary pixels for OCR or a search preview; never replaces the stored SVG. */
     fun image(maxDimension: Int): Image {
         val scale = maxDimension.coerceIn(1, AttachmentStore.MAX_DIMENSION).toFloat() / maxOf(width, height)
         return Surface.makeRasterN32Premul(
@@ -71,7 +71,7 @@ class SvgPicture private constructor(private val dom: SVGDOM, private val source
     }
 }
 
-/** Raster or SVG pixels for services that require a bitmap, such as picture OCR. */
+/** Raster or SVG pixels for services that require a bitmap, such as picture OCR or search previews. */
 internal fun decodePictureImage(bytes: ByteArray, maxDimension: Int = AttachmentStore.MAX_DIMENSION): Image? =
     runCatching { Image.makeFromEncoded(bytes) }.getOrNull()
         ?: SvgPicture.read(bytes)?.use { it.image(maxDimension) }

@@ -10,7 +10,7 @@ enum class ImageSource { WikimediaCommons, Openverse }
 data class OnlineImage(
     val id: String,
     val title: String,
-    /** What is inserted: the original when it can be decoded at a sensible size, else a rendition. */
+    /** What is inserted: the original SVG, or a raster at a sensible size. */
     val url: String,
     /** A grid-sized rendition the source serves — when it can; see [OnlineImages.thumbnail]. */
     val thumbnail: String,

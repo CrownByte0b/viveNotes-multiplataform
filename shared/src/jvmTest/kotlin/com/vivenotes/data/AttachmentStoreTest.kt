@@ -65,6 +65,27 @@ class AttachmentStoreTest {
     }
 
     @Test
+    fun anOnlineSvgDownloadKeepsItsOriginalBytesAndMimeTypeInStorage() = runBlocking {
+        val source = """<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40"><path fill="red" d="M40 0h40v40H40z"/></svg>""".encodeToByteArray()
+        val image = OnlineImage("svg", "Diagram", "https://example.org/diagram.svg", "https://example.org/preview.png", 80, 40, ImageSource.Openverse)
+        val fetched = mutableListOf<String>()
+        val search = OnlineImageSearch(http = PictureHttp(openConnection = { url ->
+            fetched += url.toString()
+            Canned(type = "image/svg+xml", body = source)
+        }))
+        val downloaded = assertNotNull(search.download(image))
+        val imported = assertNotNull(store.import(downloaded))
+
+        assertEquals(listOf(image.url), fetched)
+        assertEquals(source.sha256(), imported.attachmentId)
+        assertContentEquals(source, store.bytes(imported.attachmentId))
+        val row = assertNotNull(db.attachmentDao().byId(imported.attachmentId))
+        assertEquals("image/svg+xml", row.mimeType)
+        assertEquals(source.size.toLong(), row.byteCount)
+        assertNotNull(store.loadSvg(imported.attachmentId)).close()
+    }
+
+    @Test
     fun largeSvgWithoutViewBoxScalesItsEntireViewport() {
         val bytes = """<svg xmlns="http://www.w3.org/2000/svg" width="8192" height="4096"><path fill="red" d="M4096 0h4096v4096H4096z"/></svg>""".encodeToByteArray()
         assertNotNull(SvgPicture.read(bytes)).use { svg ->

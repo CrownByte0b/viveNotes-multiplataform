@@ -1,6 +1,8 @@
 package com.vivenotes.data
 
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.platform.registerSkikoComposeImplementation
 import kotlinx.coroutines.runBlocking
@@ -50,6 +52,43 @@ class OnlineImagePreviewTest {
         val tile = assertNotNull(search.thumbnail(IMAGE))
         assertEquals(50 to 40, tile.width to tile.height)
         assertEquals(listOf(THUMB, ORIGINAL), opened)
+    }
+
+    @Test
+    fun anUnavailableThumbnailFallsBackToSvgPixelsWithTransparency() = runBlocking {
+        val original = svg()
+        val image = IMAGE.copy(url = SVG_ORIGINAL)
+        val search = search(mapOf(
+            THUMB to { Canned(code = 424, type = "application/json") },
+            SVG_ORIGINAL to { Canned(type = "image/svg+xml", body = original) },
+        ))
+        val tile = assertNotNull(search.thumbnail(image))
+        assertEquals(360 to 180, tile.width to tile.height)
+        val pixels = tile.toPixelMap()
+        assertEquals(Color.TRANSPARENT, pixels[90, 90].toArgb())
+        assertEquals(Color.RED, pixels[270, 90].toArgb())
+        assertSame(tile, search.thumbnail(image))
+        assertEquals(listOf(THUMB, SVG_ORIGINAL), opened)
+        assertContentEquals(original, search.download(image))
+    }
+
+    @Test
+    fun aCommonsSvgUsesItsPngPreviewAndDownloadsTheOriginalVector() = runBlocking {
+        val image = WikimediaCommonsClient.parseSearch("""
+            {"query":{"pages":[{"pageid":1,"title":"File:Diagram.svg","imageinfo":[{
+              "url":"$SVG_ORIGINAL","thumburl":"$THUMB",
+              "mime":"image/svg+xml","width":8000,"height":4000}]}]}}
+        """.trimIndent(), "diagram")!!.images.single()
+        val original = svg()
+        val search = search(mapOf(
+            THUMB to { Canned(body = png(40, 20)) },
+            SVG_ORIGINAL to { Canned(type = "image/svg+xml", body = original) },
+        ))
+        val tile = assertNotNull(search.thumbnail(image))
+        assertEquals(40 to 20, tile.width to tile.height)
+        assertEquals(Color.BLUE, tile.toPixelMap()[20, 10].toArgb())
+        assertContentEquals(original, search.download(image))
+        assertEquals(listOf(THUMB, SVG_ORIGINAL), opened)
     }
 
     @Test
@@ -117,8 +156,11 @@ class OnlineImagePreviewTest {
 
     private companion object {
         const val ORIGINAL = "https://live.staticflickr.com/a.jpg"
+        const val SVG_ORIGINAL = "https://example.org/diagram.svg"
         const val THUMB = "https://api.openverse.org/v1/images/a/thumb/"
         val IMAGE = OnlineImage("a", "A fox", ORIGINAL, THUMB, 1200, 600, ImageSource.Openverse)
+
+        fun svg(): ByteArray = """<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40"><path fill="red" d="M40 0h40v40H40z"/></svg>""".encodeToByteArray()
 
         fun png(width: Int, height: Int): ByteArray = Surface.makeRasterN32Premul(width, height).use { surface ->
             surface.canvas.clear(Color.BLUE)

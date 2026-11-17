@@ -3,7 +3,6 @@ package com.vivenotes.data
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.skia.Color
 import org.jetbrains.skia.EncodedImageFormat
-import org.jetbrains.skia.Image
 import org.jetbrains.skia.Surface
 import java.io.ByteArrayInputStream
 import java.io.IOException
@@ -63,10 +62,34 @@ class PictureHttpTest {
     }
 
     @Test
-    fun typesSkiaCannotReadAreRefusedSoTheCallersFallbackRuns() = runBlocking {
-        listOf("image/svg+xml", "image/tiff", "image/avif", "image/heic", "image/heif", "text/html", null).forEach { type ->
+    fun unsupportedTypesAreRefusedSoTheCallersFallbackRuns() = runBlocking {
+        listOf("image/tiff", "image/avif", "image/heic", "image/heif", "text/html", null).forEach { type ->
             assertNull(http(Canned(type = type, body = png())).image(ADDRESS, MAX), "accepted $type")
         }
+    }
+
+    @Test
+    fun anSvgArrivesByteForByteIncludingMimeParameters() = runBlocking {
+        val picture = svg()
+        assertContentEquals(picture, http(Canned(type = "Image/SVG+XML; charset=utf-8", body = picture)).image(ADDRESS, MAX))
+    }
+
+    @Test
+    fun anSvgAboveTheImporterLimitIsRefusedBeforeReading() = runBlocking {
+        val connection = Canned(type = "image/svg+xml", body = svg(), declaredLength = SvgPictureSource.MAX_BYTES + 1L)
+        assertNull(http(connection).image(ADDRESS, 30 * 1024 * 1024))
+        assertFalse(connection.openedBody)
+    }
+
+    @Test
+    fun anSvgWithoutContentLengthStillObeysTheImporterLimit() = runBlocking {
+        val large = ByteArray(SvgPictureSource.MAX_BYTES + 1)
+        assertNull(http(Canned(type = "image/svg+xml", body = large, declaredLength = -1)).image(ADDRESS, 30 * 1024 * 1024))
+    }
+
+    @Test
+    fun aSmallerCallerCapStillAppliesToSvg() = runBlocking {
+        assertNull(http(Canned(type = "image/svg+xml", body = svg(), declaredLength = -1)).image(ADDRESS, 16))
     }
 
     @Test
@@ -89,21 +112,22 @@ class PictureHttpTest {
     }
 
     /**
-     * The accepted types are what Skia decodes here, checked against real files: a type accepted
+     * The accepted types are what the attachment importer decodes, checked against real files: a type accepted
      * but undecodable would vanish at import with no fallback tried, and one refused needlessly
      * would show a thumbnail where the original was there to be had.
      */
     @Test
-    fun theAcceptedTypesAreExactlyTheOnesSkiaDecodes() {
+    fun theAcceptedTypesAreExactlyTheOnesTheAttachmentImporterDecodes() {
         val samples = mapOf(
             "image/png" to png(),
             "image/jpeg" to encoded(EncodedImageFormat.JPEG),
             "image/webp" to encoded(EncodedImageFormat.WEBP),
             "image/gif" to fixture("red.gif"),
             "image/bmp" to fixture("red.bmp"),
+            "image/svg+xml" to svg(),
         )
-        assertEquals(PictureHttp.DECODABLE_TYPES, samples.keys)
-        samples.forEach { (type, bytes) -> assertTrue(decodes(bytes), "Skia should decode $type") }
+        assertEquals(PictureHttp.SUPPORTED_TYPES, samples.keys)
+        samples.forEach { (type, bytes) -> assertTrue(decodes(bytes), "The attachment importer should decode $type") }
         listOf("red.avif", "red.tiff").forEach { name ->
             assertFalse(decodes(fixture(name)), "Skia decodes $name now; accept its type")
         }
@@ -112,7 +136,7 @@ class PictureHttpTest {
     private fun http(connection: Canned) = PictureHttp(openConnection = { connection })
 
     private fun decodes(bytes: ByteArray): Boolean =
-        runCatching { Image.makeFromEncoded(bytes).use { it.width > 0 } }.getOrDefault(false)
+        runCatching { decodePictureImage(bytes)?.use { it.width > 0 } == true }.getOrDefault(false)
 
     private fun fixture(name: String): ByteArray =
         requireNotNull(javaClass.getResourceAsStream("/pictures/$name")) { name }.use { it.readBytes() }
@@ -122,6 +146,8 @@ class PictureHttpTest {
         const val MAX = 1024 * 1024
 
         fun png(): ByteArray = encoded(EncodedImageFormat.PNG)
+
+        fun svg(): ByteArray = """<svg xmlns="http://www.w3.org/2000/svg" width="4" height="3"><path fill="red" d="M0 0h4v3H0z"/></svg>""".encodeToByteArray()
 
         fun encoded(format: EncodedImageFormat): ByteArray = Surface.makeRasterN32Premul(4, 3).use { surface ->
             surface.canvas.clear(Color.RED)
@@ -140,6 +166,7 @@ internal class Canned(
     private val failure: IOException? = null,
 ) : HttpURLConnection(url) {
     var disconnected = false
+    var openedBody = false
 
     override fun connect() {
         connected = true
@@ -160,5 +187,5 @@ internal class Canned(
 
     override fun getContentLengthLong(): Long = declaredLength
 
-    override fun getInputStream(): InputStream = ByteArrayInputStream(body)
+    override fun getInputStream(): InputStream = ByteArrayInputStream(body).also { openedBody = true }
 }

@@ -11,7 +11,6 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Color
-import org.jetbrains.skia.Image
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
@@ -35,7 +34,7 @@ fun onlineImageSearch(version: String, log: DebugLog = DebugLog()): OnlineImages
  * Wikimedia Commons first, Openverse once Commons stops being about the query.
  *
  * Commons leads because it is where the diagrams are — a search for "meiosis" there is page after
- * page of labelled figures, and it renders its SVGs to PNG, which Openverse's results cannot offer.
+ * page of labelled figures. Its SVGs have PNG grid previews while inserts keep the original vectors.
  * Openverse follows because its photographs are broader. It is asked to leave Wikimedia out, so the
  * hand-over repeats nothing.
  *
@@ -141,7 +140,7 @@ class OnlineImageSearch internal constructor(
 
     /** Decoded at grid size: a tile is ~160 dp, and a 600 px JPEG is 1.4 MB as a bitmap. */
     private fun decodePreview(bytes: ByteArray): ImageBitmap? = runCatching {
-        Image.makeFromEncoded(bytes).use { source ->
+        decodePictureImage(bytes, PREVIEW_MAX_DIMENSION)?.use { source ->
             val longest = maxOf(source.width, source.height)
             val scale = if (longest > PREVIEW_MAX_DIMENSION) PREVIEW_MAX_DIMENSION.toFloat() / longest else 1f
             val width = (source.width * scale).toInt().coerceAtLeast(1)
@@ -207,9 +206,9 @@ class OnlineImageSearch internal constructor(
         private const val PARALLEL_FETCHES = 4
 
         /**
-         * A file larger than this is not worth fetching whole. [AttachmentStore] scales whatever
-         * arrives down to its own maximum, so past this the extra bytes would only be thrown away —
-         * the thumbnail is used instead.
+         * Raster originals are bounded before [AttachmentStore] scales them down. SVG keeps its
+         * original bytes, with the stricter [SvgPictureSource.MAX_BYTES] limit in [PictureHttp].
+         * The thumbnail is used when an original exceeds its limit.
          */
         private const val MAX_ORIGINAL_BYTES = 30 * 1024 * 1024
         private const val MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024

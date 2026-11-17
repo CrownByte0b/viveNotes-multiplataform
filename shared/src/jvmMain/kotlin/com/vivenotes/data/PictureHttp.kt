@@ -1,5 +1,5 @@
 // Ported from viveNotes Android data/PictureHttp.kt; the identity names the desktop
-// build, and the readable types are what Skia decodes.
+// build, and the readable types are what the desktop attachment importer decodes.
 package com.vivenotes.data
 
 import kotlinx.coroutines.CoroutineDispatcher
@@ -49,16 +49,17 @@ internal class PictureHttp(
     }
 
     /**
-     * One picture, or null — including for a picture Skia cannot read, so a caller's fallback gets
-     * its turn instead of the import failing silently afterwards.
+     * One picture, or null — including for a type the attachment importer cannot read,
+     * so a caller's fallback gets its turn instead of the import failing silently afterwards.
      */
     suspend fun image(address: String, maxBytes: Int): ByteArray? = withContext(io) {
         val connection = connect(address) ?: return@withContext null
         try {
             if (connection.responseCode !in 200..299) return@withContext null
             val type = connection.contentType?.substringBefore(';')?.trim()?.lowercase()
-            if (type !in DECODABLE_TYPES) return@withContext null
-            if (connection.contentLengthLong > maxBytes) return@withContext null
+            if (type !in SUPPORTED_TYPES) return@withContext null
+            val limit = if (type == SvgPictureSource.MIME_TYPE) minOf(maxBytes, SvgPictureSource.MAX_BYTES) else maxBytes
+            if (connection.contentLengthLong > limit) return@withContext null
             val buffer = ByteArray(COPY_BUFFER_BYTES)
             val out = ByteArrayOutputStream()
             connection.inputStream.use { input ->
@@ -68,7 +69,7 @@ internal class PictureHttp(
                     if (count < 0) break
                     out.write(buffer, 0, count)
                     // Content-Length is optional, so the cap is enforced on what actually arrives.
-                    if (out.size() > maxBytes) return@withContext null
+                    if (out.size() > limit) return@withContext null
                 }
             }
             out.toByteArray().takeIf { it.isNotEmpty() }
@@ -101,15 +102,16 @@ internal class PictureHttp(
         private const val COPY_BUFFER_BYTES = 16 * 1024
 
         /**
-         * What Skia, which decodes every picture on desktop, reads. Not SVG or TIFF, which both
-         * sources host plenty of — nor HEIC, HEIF or AVIF, which Android reads and Skia here does not.
+         * Raster formats read by Skia, plus SVG read by the vector attachment importer. TIFF,
+         * HEIC, HEIF and AVIF remain unsupported by the desktop decoder.
          */
-        internal val DECODABLE_TYPES = setOf(
+        internal val SUPPORTED_TYPES = setOf(
             "image/jpeg",
             "image/png",
             "image/gif",
             "image/webp",
             "image/bmp",
+            SvgPictureSource.MIME_TYPE,
         )
 
         /** The desktop app by name and version, with the repository as the contact. */
