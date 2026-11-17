@@ -34,6 +34,9 @@ import com.vivenotes.model.ink.ShapeArm
 import com.vivenotes.model.ink.ShapeEnd
 import com.vivenotes.model.ink.withArm
 import com.vivenotes.model.ink.withEnd
+import com.vivenotes.model.ink.withVertex
+import com.vivenotes.model.ink.withAddedVertex
+import com.vivenotes.model.ink.withRemovedVertex
 import com.vivenotes.model.newId
 import com.vivenotes.richtext.RichTextBuffer
 import com.vivenotes.richtext.TextSelection
@@ -574,7 +577,8 @@ data class WorkspaceState(
             borderArgb = settings.borderArgb, borderFollowsTheme = settings.colorFollowsTheme,
             borderWidth = settings.borderWidth.toFloat(), lineType = settings.lineType,
             fillArgb = settings.fillArgb.takeUnless {
-                settings.kind == ShapeKind.Line || settings.kind == ShapeKind.Arrow || settings.kind == ShapeKind.L
+                settings.kind == ShapeKind.Line || settings.kind == ShapeKind.Arrow || settings.kind == ShapeKind.L ||
+                    settings.kind == ShapeKind.Curve
             },
         ).withRecomputedBounds()
         return editOutlines { it + shape }.copy(selectedObjectIds = setOf(shape.id),
@@ -605,7 +609,7 @@ data class WorkspaceState(
 
     fun setSelectedShapeFill(argb: Int?): WorkspaceState = editOutlines { outlines ->
         outlines.map { if (it.id in selectedObjectIds && it is Outline.Shape &&
-            it.kind !in setOf(ShapeKind.Line, ShapeKind.Arrow, ShapeKind.L)) it.copy(fillArgb = argb) else it }
+            it.kind !in setOf(ShapeKind.Line, ShapeKind.Arrow, ShapeKind.L, ShapeKind.Curve)) it.copy(fillArgb = argb) else it }
     }
 
     fun moveShapeEnd(id: String, atEnd: Boolean, x: Float, y: Float,
@@ -620,6 +624,25 @@ data class WorkspaceState(
         editOutlines(recordHistory) { outlines -> outlines.map { outline ->
             if (outline.id == id && outline is Outline.Shape && outline.lockGroup == null)
                 outline.withArm(arm, along) else outline
+        } }
+
+    fun moveShapeVertex(id: String, index: Int, x: Float, y: Float,
+                        recordHistory: Boolean = true): WorkspaceState =
+        editOutlines(recordHistory) { outlines -> outlines.map { outline ->
+            if (outline.id == id && outline is Outline.Shape && outline.lockGroup == null)
+                outline.withVertex(index, x, y) else outline
+        } }
+
+    fun addShapeVertex(id: String, segmentId: String): WorkspaceState =
+        editOutlines { outlines -> outlines.map { outline ->
+            if (outline.id == id && outline is Outline.Shape && outline.lockGroup == null)
+                outline.withAddedVertex(segmentId, ::newId) else outline
+        } }
+
+    fun removeShapeVertex(id: String, segmentId: String, atEnd: Boolean): WorkspaceState =
+        editOutlines { outlines -> outlines.map { outline ->
+            if (outline.id == id && outline is Outline.Shape && outline.lockGroup == null)
+                outline.withRemovedVertex(segmentId, atEnd) else outline
         } }
 
     fun focusTextBox(id: String): WorkspaceState {

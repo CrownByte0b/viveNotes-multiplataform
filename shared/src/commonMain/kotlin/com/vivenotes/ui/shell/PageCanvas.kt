@@ -78,6 +78,12 @@ import com.vivenotes.model.ink.LineType
 import com.vivenotes.model.ink.Ruler
 import com.vivenotes.model.ink.RulerPoint
 import com.vivenotes.model.ink.ShapeArm
+import com.vivenotes.model.ink.ShapeKind
+import com.vivenotes.model.ink.vertexNear
+import com.vivenotes.ui.canvas.CurveVertexMode
+import com.vivenotes.ui.canvas.CurveVertexEdit
+import com.vivenotes.ui.canvas.CurveVertexHandles
+import com.vivenotes.ui.canvas.CurveVertexInsertionOverlay
 import com.vivenotes.model.ink.StraightLine
 import com.vivenotes.model.search.ContentHit
 import com.vivenotes.model.search.ContentKind
@@ -206,6 +212,9 @@ internal fun PageCanvas(
     onShapeFill: (Int?) -> Unit,
     onMoveShapeEnd: (String, Boolean, Float, Float, Boolean) -> Unit,
     onMoveShapeArm: (String, ShapeArm, Float, Boolean) -> Unit,
+    onMoveShapeVertex: (String, Int, Float, Float, Boolean) -> Unit = { _, _, _, _, _ -> },
+    onAddShapeVertex: (String, String) -> Unit = { _, _ -> },
+    onRemoveShapeVertex: (String, String, Boolean) -> Unit = { _, _, _ -> },
     onSelectObjectsInRect: (Float, Float, Float, Float) -> Unit,
     onSelectObjectsInLasso: (List<InkSample>, Map<String, Float>) -> Unit = { _, _ -> },
     onDrawObject: (Float, Float) -> Unit = { _, _ -> },
@@ -239,6 +248,20 @@ internal fun PageCanvas(
 ) {
     val page = state.selectedPage
     val interaction = rememberCanvasInteractionState(page, state, zoom)
+    val selectedCurve = (state.selectedPrimeObjects.singleOrNull() as? Outline.Shape)?.takeIf {
+        it.kind == ShapeKind.Curve && it.lockGroup == null && state.selectedInk == null &&
+            state.selectedTextOutlineIds.isEmpty() && page?.editable == true &&
+            !state.notebookTransfer.running && !state.filePane.busy && state.inkTool == null &&
+            !state.textToolArmed && state.drawPlacement == null
+    }
+    LaunchedEffect(selectedCurve?.id) {
+        if (selectedCurve == null) { interaction.curveVertexEdit = null; interaction.curveVertexPreview = null }
+    }
+    LaunchedEffect(selectedCurve?.id, selectedCurve?.segments?.size) {
+        if (selectedCurve == null || selectedCurve.segments.size <= 1 &&
+            interaction.curveVertexEdit?.mode == CurveVertexMode.Remove) interaction.curveVertexEdit = null
+        if (selectedCurve == null) interaction.curveVertexPreview = null
+    }
     val currentEditTextAt by rememberUpdatedState(onEditTextAt)
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
@@ -639,7 +662,10 @@ internal fun PageCanvas(
                 point.x in (outline.x - margin)..(outline.x + outline.primeWidth() + margin) &&
                 point.y in (outline.y - margin)..(outline.y + height + margin)
         }
-        return groupBody || groupCorner || moveBar || primeBounds
+        val vertexHandle = (snapshot.selectedPrimeObjects.singleOrNull() as? Outline.Shape)
+            ?.takeIf { snapshot.selectedInk == null && snapshot.selectedTextOutlineIds.isEmpty() && it.lockGroup == null }
+            ?.vertexNear(point.x, point.y, 24f / zoomState.value) != null
+        return groupBody || groupCorner || moveBar || primeBounds || vertexHandle
     }
 
     /** The selected objects' toolbar, which sits just above their frame. */
@@ -659,6 +685,7 @@ internal fun PageCanvas(
         val point = toPage(position)
         val toolArmed = snapshot.inkTool != null || snapshot.shapeToolArmed || snapshot.objectLassoArmed || snapshot.drawPlacement != null
         return when {
+            interaction.curveVertexEdit != null -> FingerRole.Content
             currentRuler?.grabs(RulerPoint(point.x, point.y)) == true -> FingerRole.Content
             toolArmed && currentDrawWithFinger -> FingerRole.Tool
             hitsSelectedTransform(point, snapshot) || hitsSelectionToolbar(point, snapshot, reach = 80f) ->
@@ -874,7 +901,10 @@ internal fun PageCanvas(
                         onTitleChange = onTitleChange,
                         onClearCanvasFocus = onClearCanvasFocus
                     )
-                    val displayedOutlines = if (interaction.inkDragOffset == Offset.Zero) page.document.outlines else page.document.outlines.map { outline ->
+                    val previewOutlines = interaction.curveVertexPreview?.let { preview ->
+                        page.document.outlines.map { if (it.id == preview.id) preview else it }
+                    } ?: page.document.outlines
+                    val displayedOutlines = if (interaction.inkDragOffset == Offset.Zero) previewOutlines else previewOutlines.map { outline ->
                         if (outline.id !in state.selectedObjectIds && outline.id !in state.selectedTextOutlineIds) outline
                         else if (outline is Outline.Text) outline.copy(x = outline.x + interaction.inkDragOffset.x, y = outline.y + interaction.inkDragOffset.y)
                         else outline.movedBy(interaction.inkDragOffset.x, interaction.inkDragOffset.y)
@@ -987,7 +1017,7 @@ internal fun PageCanvas(
                         onResizeObjects = onResizeObjects,
                         onSelectionMenu = { point -> openObjectMenu(null, point) },
                     )
-                    CanvasObjectToolkit(
+                    if (selectedCurve == null) CanvasObjectToolkit(
                         state = state,
                         groupBounds = groupBounds,
                         measuredTextHeights = measuredTextHeights,
@@ -1014,6 +1044,38 @@ internal fun PageCanvas(
                 }
             }
         }
+        }
+        selectedCurve?.let { curve ->
+            val drawn = interaction.curveVertexPreview?.takeIf { it.id == curve.id } ?: curve
+            val pageToView: (Offset) -> Offset = { point ->
+                point * (zoom * density.density) - Offset(horizontalScroll.value.toFloat(), verticalScroll.value.toFloat())
+            }
+            if (interaction.curveVertexEdit == null) CurveVertexHandles(drawn, pageToView,
+                zoom * density.density, onPreview = { interaction.curveVertexPreview = it },
+                onMove = { id, index, x, y -> onMoveShapeVertex(id, index, x, y, true) })
+            CurveVertexInsertionOverlay(curve = curve,
+                visible = interaction.curveVertexEdit?.shapeId == curve.id,
+                mode = interaction.curveVertexEdit?.mode ?: CurveVertexMode.Add,
+                pageToView = pageToView,
+                onInsert = { segmentId ->
+                    interaction.curveVertexEdit = null
+                    onAddShapeVertex(curve.id, segmentId)
+                },
+                onRemove = { segmentId, atEnd ->
+                    interaction.curveVertexEdit = null
+                    onRemoveShapeVertex(curve.id, segmentId, atEnd)
+                }, onDismiss = { interaction.curveVertexEdit = null })
+            CanvasObjectToolkit(state = state, groupBounds = null, measuredTextHeights = measuredTextHeights,
+                shapeInk = canvasPalette(page.document.style, canvasDark).ink, heldTable = null,
+                onColorObjects = onColorObjects, onTableEdit = onTableEdit, onReleaseTable = {},
+                onEquationChange = onEquationChange, onShapeLineType = onShapeLineType,
+                onShapeWidth = onShapeWidth, onShapeFill = onShapeFill, onImageBackground = onImageBackground,
+                onCopyObjects = onCopyObjects, onToggleObjectLock = onToggleObjectLock, onDeleteObjects = onDeleteObjects,
+                curveVertexMode = interaction.curveVertexEdit?.mode,
+                onCurveVertexMode = { mode ->
+                    val next = CurveVertexEdit(curve.id, mode)
+                    interaction.curveVertexEdit = if (interaction.curveVertexEdit == next) null else next
+                }, shapePreview = drawn, pageToView = pageToView)
         }
         state.selectedInk?.let { selection ->
             val bounds = selectedCanvasBounds(page.document.outlines, state.selectedObjectIds + state.selectedTextOutlineIds,

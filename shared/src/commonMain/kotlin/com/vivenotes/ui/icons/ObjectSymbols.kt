@@ -10,6 +10,20 @@ import androidx.compose.ui.unit.dp
 
 /** Android ObjectTooltip Material Symbols Rounded paths. */
 object ObjectSymbols {
+    /** Google Material Symbols Rounded, KeepOff; same Apache-2.0 path as Android. */
+    val KeepOff: ImageVector by lazy {
+        ImageVector.Builder("KeepOff", 24.dp, 24.dp, 960f, 960f).group(translationY = 960f) {
+            addPath(addPathNodes("M560-760H400v87L290-783q-5-5-7.5-11t-2.5-12q0-13 9-23.5t24-10.5h327q17 0 28.5 11.5T680-800q0 16-14.5 22.5T640-760v240q0 17-11.5 28.5T600-480q-17 0-28.5-11.5T560-520v-240ZM440-80v-240H296q-25 0-40-17.5T241-377q0-11 4.5-22t14.5-21l60-60v-46L84-764q-11-11-11.5-27.5T84-820q11-11 28-11t28 11l679 679q12 12 11.5 28.5T818-84q-12 11-28 11.5T762-84L526-320h-6v240q0 17-11.5 28.5T480-40q-17 0-28.5-11.5T440-80Zm-86-320h92l-44-44-2-2-46 46Zm126-193Zm-78 149Z"), fill = SolidColor(Color.Black))
+        }.build()
+    }
+
+    /** Google Material Symbols Rounded, Keep; same Apache-2.0 path as Android. */
+    val Keep: ImageVector by lazy {
+        ImageVector.Builder("Keep", 24.dp, 24.dp, 960f, 960f).group(translationY = 960f) {
+            addPath(addPathNodes("M640-760v280l68 68q6 6 9 13.5t3 15.5v23q0 17-11.5 28.5T680-320H520v234q0 17-11.5 28.5T480-46q-17 0-28.5-11.5T440-86v-234H280q-17 0-28.5-11.5T240-360v-23q0-8 3-15.5t9-13.5l68-68v-280q-17 0-28.5-11.5T280-800q0-17 11.5-28.5T320-840h320q17 0 28.5 11.5T680-800q0 17-11.5 28.5T640-760ZM354-400h252l-46-46v-314H400v314l-46 46Zm126 0Z"), fill = SolidColor(Color.Black))
+        }.build()
+    }
+
     val Functions: ImageVector by lazy {
         ImageVector.Builder("Functions", 24.dp, 24.dp, 960f, 960f).group(translationY = 960f) {
             addPath(addPathNodes("M500-480 253-708q-6-6-9.5-13.5T240-737v-23q0-17 11.5-28.5T280-800h380q25 0 42.5 17.5T720-740q0 25-17.5 42.5T660-680H431l184 171q13 12 13 29t-13 29L431-280h229q25 0 42.5 17.5T720-220q0 25-17.5 42.5T660-160H269q-12 0-20.5-8.5T240-189v-38q0-6 2-11.5t7-10.5l251-231Z"), fill = SolidColor(Color.Black))

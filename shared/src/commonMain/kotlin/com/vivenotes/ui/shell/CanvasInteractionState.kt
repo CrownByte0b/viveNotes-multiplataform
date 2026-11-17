@@ -13,6 +13,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntSize
 import com.vivenotes.model.SpaceCut
+import com.vivenotes.model.Outline
+import com.vivenotes.ui.canvas.CurveVertexEdit
 import com.vivenotes.model.ink.Ruler
 import com.vivenotes.ui.canvas.TextMenuRequest
 import com.vivenotes.ui.ribbon.draw.TableAxis
@@ -47,7 +49,9 @@ internal class CanvasInteractionState(
     val textMenuState: MutableState<TextMenuRequest?>,
     val heldTableAxisState: MutableState<TableAxis?>,
     val reachedXState: MutableIntState,
-    val reachedYState: MutableIntState
+    val reachedYState: MutableIntState,
+    val curveVertexEditState: MutableState<CurveVertexEdit?>,
+    val curveVertexPreviewState: MutableState<Outline.Shape?>,
 ) {
     var searchInkBounds by searchInkBoundsState
     var viewportPx by viewportPxState
@@ -72,6 +76,8 @@ internal class CanvasInteractionState(
     var heldTableAxis by heldTableAxisState
     var reachedX by reachedXState
     var reachedY by reachedYState
+    var curveVertexEdit by curveVertexEditState
+    var curveVertexPreview by curveVertexPreviewState
 }
 
 @Composable
@@ -100,6 +106,12 @@ internal fun rememberCanvasInteractionState(page: PageSummary?, state: Workspace
     val heldTableAxisState = remember(page?.id) { mutableStateOf<TableAxis?>(null) }
     val reachedXState = remember(page?.id) { mutableIntStateOf(0) }
     val reachedYState = remember(page?.id) { mutableIntStateOf(0) }
+    val curveVertexEditState = remember(page?.id, state.selectedObjectIds, state.selectedTextOutlineIds,
+        state.selectedInk, state.inkTool, state.objectLassoArmed, state.shapeToolArmed, state.textToolArmed,
+        state.drawPlacement, state.selectedObjectsLocked) { mutableStateOf<CurveVertexEdit?>(null) }
+    val curveVertexPreviewState = remember(page?.id, state.selectedObjectIds, state.selectedTextOutlineIds,
+        state.selectedInk, state.inkTool, state.objectLassoArmed, state.shapeToolArmed, state.textToolArmed,
+        state.drawPlacement, state.selectedObjectsLocked, zoom) { mutableStateOf<Outline.Shape?>(null) }
     return CanvasInteractionState(
         searchInkBoundsState,
         viewportPxState,
@@ -125,5 +137,7 @@ internal fun rememberCanvasInteractionState(page: PageSummary?, state: Workspace
         heldTableAxisState,
         reachedXState,
         reachedYState,
+        curveVertexEditState,
+        curveVertexPreviewState,
     )
 }

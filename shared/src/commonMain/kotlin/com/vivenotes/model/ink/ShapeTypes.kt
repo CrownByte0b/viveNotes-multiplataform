@@ -21,6 +21,7 @@ const val PAGE_SOLID = 1
 enum class ShapeKind(private val labelText: () -> String, val page: Int) {
     Line({ Strings.line }, PAGE_BASIC),
     Arrow({ Strings.arrow }, PAGE_BASIC),
+    Curve({ Strings.shape_curve }, PAGE_BASIC),
     Rectangle({ Strings.rectangle }, PAGE_BASIC),
     RoundedRectangle({ Strings.rounded_rectangle }, PAGE_BASIC),
     Ellipse({ Strings.ellipse }, PAGE_BASIC),

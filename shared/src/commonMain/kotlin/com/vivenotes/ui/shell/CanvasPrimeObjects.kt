@@ -44,6 +44,7 @@ import com.vivenotes.data.PictureLibrary
 import com.vivenotes.localization.Strings
 import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.ShapeArm
+import com.vivenotes.model.ink.ShapeKind
 import com.vivenotes.model.ink.ShapeAxis
 import com.vivenotes.model.ink.arms
 import com.vivenotes.model.ink.ends
@@ -189,7 +190,8 @@ internal fun CanvasPrimeObjects(
             modifier = Modifier.offset(x, y).size(width, height)
                 .testTag(WorkspaceTestTags.primeObject(outline.id))
                 // A picture shows its own edges; only its selection is outlined. A table's is dashed, in its chrome.
-                .then(if (drawnObject && (!selected || groupBounds != null || outline is Outline.Table)) Modifier else Modifier.border(
+                .then(if (drawnObject && (!selected || groupBounds != null || outline is Outline.Table ||
+                    outline is Outline.Shape && outline.kind == ShapeKind.Curve && outline.lockGroup == null)) Modifier else Modifier.border(
                     if (selected && groupBounds == null) 2.dp else 1.dp,
                     if (selected && groupBounds == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                     MaterialTheme.shapes.small))
@@ -302,7 +304,7 @@ internal fun CanvasPrimeObjects(
                 })
         }
         if (selected && outline.lockGroup == null && groupBounds == null && state.selectedTextOutlineIds.isEmpty() &&
-            outline !is Outline.Table && (outline !is Outline.Shape || !outline.kind.hasEnds)) {
+            outline !is Outline.Table && (outline !is Outline.Shape || !outline.kind.hasEnds && outline.kind != ShapeKind.Curve)) {
             val corners = listOf(
                 x to y, x + width to y, x to y + height, x + width to y + height,
             )

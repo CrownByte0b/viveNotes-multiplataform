@@ -229,6 +229,18 @@ internal fun WorkspacePage(
         onMoveShapeEnd = { id, atEnd, x, y, history ->
             onStateChange { it.moveShapeEnd(id, atEnd, x, y, history) }
         },
+        onMoveShapeVertex = { id, index, x, y, history ->
+            onStateChange { it.moveShapeVertex(id, index, x, y, history) }
+            if (history) debugLog.event("shapes") { "curve vertex moved" }
+        },
+        onAddShapeVertex = { id, segmentId ->
+            onStateChange { it.addShapeVertex(id, segmentId) }
+            debugLog.event("shapes") { "curve vertex added" }
+        },
+        onRemoveShapeVertex = { id, segmentId, atEnd ->
+            onStateChange { it.removeShapeVertex(id, segmentId, atEnd) }
+            debugLog.event("shapes") { "curve vertex removed" }
+        },
         onMoveShapeArm = { id, arm, along, history ->
             onStateChange { it.moveShapeArm(id, arm, along, history) }
         },

@@ -36,7 +36,7 @@ class WorkspaceStateTest {
             assertEquals(LineType.Dashed, shape.lineType)
             assertEquals(7f, shape.borderWidth)
             assertEquals(settings.borderArgb, shape.borderArgb)
-            assertEquals(if (kind in setOf(ShapeKind.Line, ShapeKind.Arrow, ShapeKind.L)) null
+            assertEquals(if (kind in setOf(ShapeKind.Line, ShapeKind.Arrow, ShapeKind.Curve, ShapeKind.L)) null
                 else settings.fillArgb, shape.fillArgb)
             assertEquals(shape, JsonDocumentCodec.decode(
                 JsonDocumentCodec.encode(placed.selectedPage!!.document)).outlines.last())

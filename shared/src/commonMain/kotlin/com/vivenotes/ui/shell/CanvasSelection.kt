@@ -48,6 +48,7 @@ import androidx.compose.ui.zIndex
 import com.vivenotes.localization.Strings
 import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.LineType
+import com.vivenotes.ui.canvas.CurveVertexMode
 import com.vivenotes.ui.canvas.LocalObjectGrab
 import com.vivenotes.ui.canvas.SelectionColorButton
 import com.vivenotes.ui.canvas.SelectionGroupButton
@@ -210,11 +211,17 @@ internal fun CanvasObjectToolkit(
     onOpenEquationInMath: ((Outline.Equation) -> Unit)? = null,
     onGroupSelection: () -> Unit = {},
     groupingEnabled: Boolean = true,
+    curveVertexMode: CurveVertexMode? = null,
+    onCurveVertexMode: ((CurveVertexMode) -> Unit)? = null,
+    shapePreview: Outline.Shape? = null,
+    pageToView: ((Offset) -> Offset)? = null,
 ) {
     if ((state.selectedObjectIds.isNotEmpty() || state.canGroupSelection && state.selectedTextOutlineIds.isNotEmpty()) &&
         state.selectedInk == null) {
-        val selected = state.selectedPrimeObjects.firstOrNull() ?: state.selectedPage?.document?.outlines
-            ?.firstOrNull { it.id in state.selectedTextOutlineIds }
+        val selected = (state.selectedPrimeObjects.firstOrNull() ?: state.selectedPage?.document?.outlines
+            ?.firstOrNull { it.id in state.selectedTextOutlineIds })?.let { original ->
+                shapePreview?.takeIf { it.id == original.id } ?: original
+            }
         if (selected != null) {
             // A table alone in the selection wears its move bar above its frame; the toolkit clears it.
             val barRoom = if (groupBounds == null && selected is Outline.Table && selected.lockGroup == null &&
@@ -227,9 +234,13 @@ internal fun CanvasObjectToolkit(
                 modifier = Modifier
                     .offset {
                         val gap = 12.dp.roundToPx()
-                        val above = bounds.top.dp.roundToPx() - toolkitSize.height - gap
-                        IntOffset((bounds.center.x.dp.roundToPx() - toolkitSize.width / 2).coerceAtLeast(0),
-                            if (above >= 0) above else bounds.bottom.dp.roundToPx() + gap)
+                        val top = pageToView?.invoke(Offset(bounds.center.x, bounds.top))
+                            ?: Offset(bounds.center.x.dp.toPx(), bounds.top.dp.toPx())
+                        val bottom = pageToView?.invoke(Offset(bounds.center.x, bounds.bottom))
+                            ?: Offset(bounds.center.x.dp.toPx(), bounds.bottom.dp.toPx())
+                        val above = top.y.toInt() - toolkitSize.height - gap
+                        IntOffset((top.x.toInt() - toolkitSize.width / 2).coerceAtLeast(0),
+                            if (above >= 0) above else bottom.y.toInt() + gap)
                     }
                     .onSizeChanged { toolkitSize = it }
                     .testTag(WorkspaceTestTags.ObjectToolkit)) {
@@ -278,7 +289,7 @@ internal fun CanvasObjectToolkit(
                     }
                     if (selected is Outline.Shape && state.selectedObjectIds.size == 1 &&
                         state.selectedTextOutlineIds.isEmpty()) {
-                        ShapeObjectTools(selected, onShapeLineType, onShapeWidth, onShapeFill)
+                        ShapeObjectTools(selected, onShapeLineType, onShapeWidth, onShapeFill, curveVertexMode, onCurveVertexMode)
                     }
                     graphActions?.let { actions ->
                         GraphActions(state.selectedPrimeObjects.filterIsInstance<Outline.Graph>(), actions)

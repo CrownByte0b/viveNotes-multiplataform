@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.Composable
@@ -16,6 +18,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import com.vivenotes.ui.canvas.CurveVertexMode
+import com.vivenotes.model.ink.ShapeKind
 import androidx.compose.ui.unit.dp
 import com.vivenotes.model.Outline
 import com.vivenotes.model.ink.LineType
@@ -25,6 +31,9 @@ import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.TooltipIconButton
 import com.vivenotes.ui.icons.ObjectSymbols
 import com.vivenotes.workspace.ShapeToolSettings
+
+internal const val OBJECT_ADD_VERTEX_TAG = "object-add-vertex"
+internal const val OBJECT_REMOVE_VERTEX_TAG = "object-remove-vertex"
 
 internal object ShapeObjectTags {
     const val LineType = "object-shape-line-type"
@@ -39,7 +48,15 @@ internal object ShapeObjectTags {
  */
 @Composable
 internal fun ShapeObjectTools(shape: Outline.Shape, onLineType: (LineType) -> Unit,
-                              onWidth: (Int) -> Unit, onFill: (Int?) -> Unit) {
+                              onWidth: (Int) -> Unit, onFill: (Int?) -> Unit,
+                              vertexMode: CurveVertexMode? = null,
+                              onVertexMode: ((CurveVertexMode) -> Unit)? = null) {
+    if (shape.kind == ShapeKind.Curve && shape.lockGroup == null && onVertexMode != null) {
+        CurveVertexAction(Strings.shape_add_vertex, OBJECT_ADD_VERTEX_TAG, ObjectSymbols.Keep,
+            vertexMode == CurveVertexMode.Add) { onVertexMode(CurveVertexMode.Add) }
+        if (shape.segments.size > 1) CurveVertexAction(Strings.shape_remove_vertex, OBJECT_REMOVE_VERTEX_TAG,
+            ObjectSymbols.KeepOff, vertexMode == CurveVertexMode.Remove) { onVertexMode(CurveVertexMode.Remove) }
+    }
     var lineMenu by remember(shape.id) { mutableStateOf(false) }
     Box {
         TooltipIconButton(Strings.change_line_style, onClick = { lineMenu = true }, tooltipPosition = TooltipAnchorPosition.Above,
@@ -65,5 +82,16 @@ internal fun ShapeObjectTools(shape: Outline.Shape, onLineType: (LineType) -> Un
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CurveVertexAction(label: String, tag: String, glyph: androidx.compose.ui.graphics.vector.ImageVector,
+                              active: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick,
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = if (active) Color(0xFFE8EAED).copy(alpha = .14f) else Color.Transparent),
+        modifier = Modifier.size(48.dp).testTag(tag).semantics { selected = active }) {
+        Icon(glyph, contentDescription = label, tint = Color(0xFFE8EAED), modifier = Modifier.size(20.dp))
     }
 }
