@@ -265,7 +265,7 @@ class ObjectContextMenuTest {
     }
 
     private fun shape(id: String, x: Float) = Outline.Shape(id = id, kind = ShapeKind.Rectangle,
-        segments = seedSegments(ShapeKind.Rectangle, x, 350f, x + 120f, 430f, ::newId)).withRecomputedBounds()
+        segments = seedSegments(ShapeKind.Rectangle, x, 350f, x + 120f, 430f, nextId = ::newId)).withRecomputedBounds()
 
     private fun workspace(outlines: List<Outline>): WorkspaceState {
         val base = WorkspaceState.demo().copy(activeTab = RibbonTab.Draw)

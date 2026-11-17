@@ -61,6 +61,38 @@ class PdfRenderingTest {
     private val style = PageStyle(hideTitle = true, paper = PaperSize.A4, ruleLines = RuleLines.None)
 
     @Test
+    fun newSolidsKeepTheirFillAndOpenBoreInThePreviewAndSavedPdf() = runBlocking {
+        fixture { repository, _, page, directory, exporter ->
+            val paper = 0xffe7d9b4.toInt()
+            val blue = 0xff3584e4.toInt()
+            val outlines = listOf(Triple(ShapeKind.HollowCylinder, 20f, 20f),
+                Triple(ShapeKind.Hemisphere, 300f, 20f), Triple(ShapeKind.Frustum, 20f, 230f)).map { (kind, x, y) ->
+                Outline.Shape(id = kind.name, kind = kind,
+                    segments = seedSegments(kind, x, y, x + 240f, y + 180f) { "edge" },
+                    fillArgb = blue).withRecomputedBounds()
+            }
+            val doc = PageDoc(style = style.copy(backgroundArgb = paper), outlines = outlines)
+            repository.saveDoc(page, doc)
+            val plan = exporter.plan(PdfExportRequest(page, null, PdfExportOptions(includeRuling = false)))
+            val preview = assertNotNull(exporter.preview(plan, 0, plan.paper.widthDp.toInt())).toPixelMap()
+            fun check(pixel: (Int, Int) -> Int) {
+                assertEquals(paper, pixel(140, 54), "tube bore is filled")
+                assertEquals(blue, pixel(245, 54), "tube annulus is missing")
+                assertEquals(blue, pixel(420, 60), "hemisphere dome is missing")
+                assertEquals(blue, pixel(140, 330), "frustum body is missing")
+            }
+            check { x, y -> preview[x, y].toArgb() }
+            val output = File(directory, "educational-solids.pdf")
+            exporter.write(plan, output.path)
+            Loader.loadPDF(output).use { pdf ->
+                val rendered = PDFRenderer(pdf).renderImageWithDPI(0, 160f)
+                check(rendered::getRGB)
+            }
+            assertEquals(doc, (repository.loadDoc(page) as PageLoad.Loaded).doc)
+        }
+    }
+
+    @Test
     fun scriptsQuotesHeadingsAndNumberingUseAndroidsExportMetrics() = runBlocking {
         val layout = PdfTextMeasurer().layout(listOf(
             Block("script", runs = listOf(Run("H"), Run("2", setOf(Mark.Subscript, Mark.FontSize(20))), Run("O"))),

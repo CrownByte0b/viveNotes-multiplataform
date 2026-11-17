@@ -21,6 +21,7 @@ fun seedSegments(
     startY: Float,
     endX: Float,
     endY: Float,
+    wallThickness: Int = DEFAULT_SOLID_WALL_THICKNESS,
     nextId: () -> String,
 ): List<ShapeSegment> {
     val left = minOf(startX, endX)
@@ -140,6 +141,9 @@ fun seedSegments(
                 straight(right, topY, right, bottomY),
             ) + equator(left, right, bottomY, capDepth, nextId)
         }
+
+        ShapeKind.HollowCylinder, ShapeKind.Hemisphere, ShapeKind.Frustum ->
+            seedSolidSegments(kind, left, top, right, bottom, wallThickness, nextId)
     }
 }
 
@@ -224,7 +228,7 @@ private fun ellipseRing(
  * The one place a curve becomes segments, so a rim drawn by [trace] and the same rim stored in the
  * document are cut from the same parametric ellipse and cannot drift apart.
  */
-private fun ellipticalArc(
+internal fun ellipticalArc(
     centreX: Float,
     centreY: Float,
     radiusX: Float,

@@ -1305,4 +1305,8 @@
     <string name="onenote_no_sections">This OneNote file has no sections to import.</string>
     <string name="onenote_conversion_failed">The OneNote notebook could not be converted.</string>
     <string name="onenote_validation_failed">The OneNote notebook was converted, but the result did not pass the import checks.</string>
+    <string name="shape_hollow_cylinder">Hollow cylinder</string>
+    <string name="shape_hemisphere">Hemisphere</string>
+    <string name="shape_frustum">Frustum</string>
+    <string name="shape_wall_thickness">Wall thickness (%)</string>
 </resources>

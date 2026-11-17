@@ -2,6 +2,7 @@ package com.vivenotes.ui.canvas
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -18,17 +19,19 @@ import com.vivenotes.model.ink.fillRegion
 fun DrawScope.drawDocumentShape(shape: Outline.Shape, originX: Float = shape.x,
                                 originY: Float = shape.y,
                                 canvasInk: Color = Color.Black) {
-    fun FloatArray.path(): Path = Path().apply {
-        if (this@path.size < 2) return@apply
-        moveTo((this@path[0] - originX) * density, (this@path[1] - originY) * density)
-        for (index in 2 until this@path.size step 2)
-            lineTo((this@path[index] - originX) * density, (this@path[index + 1] - originY) * density)
-        close()
-    }
     shape.fillArgb?.let { argb ->
-        shape.fillRegion().forEach { region ->
-            if (region.size >= 6) drawPath(region.path(), Color(argb))
+        val path = Path().apply {
+            fillType = PathFillType.EvenOdd
+            shape.fillRegion().forEach { region ->
+                if (region.size >= 6) {
+                    moveTo((region[0] - originX) * density, (region[1] - originY) * density)
+                    for (index in 2 until region.size step 2)
+                        lineTo((region[index] - originX) * density, (region[index + 1] - originY) * density)
+                    close()
+                }
+            }
         }
+        drawPath(path, Color(argb))
     }
     val width = shape.borderWidth * density
     shape.segments.contours().forEach { contour ->

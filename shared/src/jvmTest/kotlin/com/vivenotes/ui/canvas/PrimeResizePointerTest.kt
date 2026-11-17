@@ -136,7 +136,7 @@ class PrimeResizePointerTest {
     fun allPrimeObjectKindsShowMatchingCursorsAtEveryCornerAndThroughoutResizing() = withWorkspace { host ->
         val objects = listOf(
             Outline.Shape(id = "shape", kind = ShapeKind.Rectangle, borderWidth = 20f,
-                segments = seedSegments(ShapeKind.Rectangle, 100f, 220f, 240f, 320f, ::newId)).withRecomputedBounds(),
+                segments = seedSegments(ShapeKind.Rectangle, 100f, 220f, 240f, 320f, nextId = ::newId)).withRecomputedBounds(),
             newTable(2, 2, 100f, 220f).copy(id = "table"),
             Outline.Equation("equation", 100f, 220f, 140f, 100f, "x^2"),
             Outline.Image("image", 100f, 220f, 140f, attachmentId = "fixture", height = 100f),

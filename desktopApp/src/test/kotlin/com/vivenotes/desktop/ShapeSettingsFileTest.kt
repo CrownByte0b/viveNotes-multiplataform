@@ -15,8 +15,8 @@ class ShapeSettingsFileTest {
         try {
             val store = ShapeSettingsFile(File(directory, "config/shape.properties"))
             assertEquals(ShapeToolSettings(), store.load())
-            val chosen = ShapeToolSettings(ShapeKind.Cylinder, LineType.Dotted, 9,
-                0xFF3584E4.toInt(), 0xFFE01B24.toInt())
+            val chosen = ShapeToolSettings(ShapeKind.HollowCylinder, LineType.Dotted, 9,
+                0xFF3584E4.toInt(), 0xFFE01B24.toInt(), wallThickness = 40)
             store.save(chosen)
             assertEquals(chosen, ShapeSettingsFile(File(directory, "config/shape.properties")).load())
             store.save(chosen.copy(fillArgb = null))
@@ -24,6 +24,24 @@ class ShapeSettingsFileTest {
         } finally {
             directory.deleteRecursively()
         }
+    }
+
+    @Test
+    fun wallThicknessDefaultsForOlderFilesAndClampsOnLoadAndSave() {
+        val file = Files.createTempFile("shape-thickness", ".properties").toFile()
+        try {
+            val store = ShapeSettingsFile(file)
+            file.writeText("kind=HollowCylinder\n")
+            assertEquals(25, store.load().wallThickness)
+            for ((saved, expected) in listOf("broken" to 25, "-1" to 5, "200" to 80)) {
+                file.writeText("kind=HollowCylinder\nwallThickness=$saved\n")
+                assertEquals(expected, store.load().wallThickness)
+            }
+            for ((chosen, expected) in listOf(-1 to 5, 200 to 80)) {
+                store.save(ShapeToolSettings(kind = ShapeKind.HollowCylinder, wallThickness = chosen))
+                assertEquals(expected, ShapeSettingsFile(file).load().wallThickness)
+            }
+        } finally { file.delete() }
     }
 
     @Test

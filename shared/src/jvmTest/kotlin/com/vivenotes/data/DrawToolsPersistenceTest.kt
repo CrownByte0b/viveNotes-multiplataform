@@ -41,6 +41,27 @@ class DrawToolsPersistenceTest {
     }
 
     @Test
+    fun educationalSolidsKeepTheirBoundariesAfterTheDatabaseIsReopened() = runBlocking {
+        val file = Files.createTempFile("draw-solids", ".db").toFile()
+        var db = NotesDatabase.create(file)
+        try {
+            var repo = NotesRepository(db)
+            val section = repo.createSection(repo.createNotebook("Solids"), "Draw")
+            val pageId = repo.createPage(section)
+            val shapes = listOf(com.vivenotes.model.ink.ShapeKind.HollowCylinder,
+                com.vivenotes.model.ink.ShapeKind.Hemisphere, com.vivenotes.model.ink.ShapeKind.Frustum).map { kind ->
+                Outline.Shape(id = kind.name, kind = kind,
+                    segments = com.vivenotes.model.ink.seedSegments(kind, 20f, 200f, 260f, 380f, 40) { "edge" })
+                    .withRecomputedBounds()
+            }
+            val expected = PageDoc(outlines = shapes)
+            repo.saveDoc(pageId, expected)
+            db.close(); db = NotesDatabase.create(file); repo = NotesRepository(db)
+            assertEquals(expected, (repo.loadDoc(pageId) as PageLoad.Loaded).doc)
+        } finally { db.close(); file.delete() }
+    }
+
+    @Test
     fun aTypedTableAndMeasuredEquationRoundTripWithAndroidCodecAndDatabase() = runBlocking {
         val file = Files.createTempFile("draw-objects", ".db").toFile()
         var db = NotesDatabase.create(file)

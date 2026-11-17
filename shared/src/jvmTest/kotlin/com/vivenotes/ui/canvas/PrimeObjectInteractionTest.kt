@@ -42,7 +42,7 @@ class PrimeObjectInteractionTest {
         runDesktopComposeUiTest(width = 1500, height = 1000) {
             val objects = listOf(
                 Outline.Shape(id = "shape", kind = ShapeKind.Rectangle,
-                    segments = seedSegments(ShapeKind.Rectangle, 100f, 220f, 180f, 280f, ::newId)).withRecomputedBounds(),
+                    segments = seedSegments(ShapeKind.Rectangle, 100f, 220f, 180f, 280f, nextId = ::newId)).withRecomputedBounds(),
                 newTable(2, 2, 100f, 220f).copy(id = "table"),
                 Outline.Equation("equation", 100f, 220f, 80f, 60f, "x^2"),
                 Outline.Image("image", 100f, 220f, 80f, attachmentId = "attachment", height = 60f),
@@ -70,7 +70,7 @@ class PrimeObjectInteractionTest {
     fun lockingALineHidesItsEndpointsAndPickingAPenDropsTheSelection() =
         runDesktopComposeUiTest(width = 1500, height = 1000) {
             val arrow = Outline.Shape(id = "arrow", kind = ShapeKind.Arrow,
-                segments = seedSegments(ShapeKind.Arrow, 100f, 220f, 220f, 300f, ::newId)).withRecomputedBounds()
+                segments = seedSegments(ShapeKind.Arrow, 100f, 220f, 220f, 300f, nextId = ::newId)).withRecomputedBounds()
             val state = mutableStateOf(workspace(listOf(arrow)).selectObject(arrow.id))
             setContent { ViveNotesTheme { WorkspaceScreen(state.value, { state.value = it(state.value) }) } }
             val ends = listOf("workspace-shape-end-arrow-false", "workspace-shape-end-arrow-true")
@@ -173,7 +173,7 @@ class PrimeObjectInteractionTest {
             val objects = listOf(
                 Outline.Image("image", 100f, 220f, 120f, attachmentId = "attachment", height = 80f),
                 Outline.Shape(id = "shape", kind = ShapeKind.Rectangle,
-                    segments = seedSegments(ShapeKind.Rectangle, 300f, 220f, 420f, 300f, ::newId)).withRecomputedBounds(),
+                    segments = seedSegments(ShapeKind.Rectangle, 300f, 220f, 420f, 300f, nextId = ::newId)).withRecomputedBounds(),
                 newTable(2, 2, 500f, 220f).copy(id = "table"),
                 Outline.Equation("equation", 700f, 220f, 120f, 80f, "x^2"),
             )

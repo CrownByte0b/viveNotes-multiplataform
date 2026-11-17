@@ -2,6 +2,9 @@ package com.vivenotes.desktop
 
 import com.vivenotes.model.ink.LineType
 import com.vivenotes.model.ink.ShapeKind
+import com.vivenotes.model.ink.DEFAULT_SOLID_WALL_THICKNESS
+import com.vivenotes.model.ink.MIN_SOLID_WALL_THICKNESS
+import com.vivenotes.model.ink.MAX_SOLID_WALL_THICKNESS
 import com.vivenotes.workspace.ShapeToolSettings
 import java.io.File
 import java.util.Properties
@@ -22,6 +25,8 @@ internal class ShapeSettingsFile(private val file: File) {
             borderArgb = values.getProperty("borderArgb")?.toIntOrNull() ?: 0xFF000000.toInt(),
             fillArgb = values.getProperty("fillArgb")?.toIntOrNull(),
             colorFollowsTheme = values.getProperty("colorFollowsTheme")?.toBooleanStrictOrNull() ?: true,
+            wallThickness = (values.getProperty("wallThickness")?.toIntOrNull() ?: DEFAULT_SOLID_WALL_THICKNESS)
+                .coerceIn(MIN_SOLID_WALL_THICKNESS, MAX_SOLID_WALL_THICKNESS),
         )
     }
 
@@ -34,6 +39,8 @@ internal class ShapeSettingsFile(private val file: File) {
             setProperty("borderArgb", settings.borderArgb.toString())
             settings.fillArgb?.let { setProperty("fillArgb", it.toString()) }
             setProperty("colorFollowsTheme", settings.colorFollowsTheme.toString())
+            setProperty("wallThickness", settings.wallThickness.coerceIn(
+                MIN_SOLID_WALL_THICKNESS, MAX_SOLID_WALL_THICKNESS).toString())
         }, "ViveNotes shape settings")
     }
 }

@@ -9,7 +9,7 @@ import kotlin.test.*
 class PrimeObjectContractTest {
     private fun objects(): List<Outline> = listOf(
         Outline.Shape(id = "shape", kind = ShapeKind.Rectangle,
-            segments = seedSegments(ShapeKind.Rectangle, 100f, 220f, 180f, 280f, ::newId)).withRecomputedBounds(),
+            segments = seedSegments(ShapeKind.Rectangle, 100f, 220f, 180f, 280f, nextId = ::newId)).withRecomputedBounds(),
         newTable(2, 2, x = 230f, y = 220f, inkOnly = false).copy(id = "table"),
         Outline.Equation("equation", 600f, 220f, 80f, 60f, "x^2"),
         Outline.Image("image", 750f, 220f, 80f, attachmentId = "attachment", height = 60f),

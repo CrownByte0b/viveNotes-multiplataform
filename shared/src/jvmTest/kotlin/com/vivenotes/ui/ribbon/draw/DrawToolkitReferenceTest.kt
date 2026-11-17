@@ -143,7 +143,7 @@ class DrawToolkitReferenceTest {
         assertEquals(192f, preview.fetchSemanticsNode().boundsInRoot.height)
         onNodeWithTag(ShapeMenuTags.kind(ShapeKind.Cone)).assertIsSelected()
         assertEquals(88f, onNodeWithTag(ShapeMenuTags.kind(ShapeKind.Cone)).fetchSemanticsNode().boundsInRoot.width)
-        assertEquals(6, onAllNodes(hasTestTag(ShapeMenuTags.Grid)).onFirst().fetchSemanticsNode().children.size)
+        assertEquals(9, onAllNodes(hasTestTag(ShapeMenuTags.Grid)).onFirst().fetchSemanticsNode().children.size)
         save(onNodeWithTag("draw-toolkit-shape"), "android-reference-shape.png")
         val image = preview.captureToImage().toPixelMap()
         val hidden = (180..395).count { x -> image[x, 108].red > .8f }

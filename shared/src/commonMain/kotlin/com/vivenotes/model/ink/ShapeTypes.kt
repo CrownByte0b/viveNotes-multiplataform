@@ -36,9 +36,13 @@ enum class ShapeKind(private val labelText: () -> String, val page: Int) {
     Sphere({ Strings.sphere }, PAGE_SOLID),
     Cone({ Strings.cone }, PAGE_SOLID),
     Cylinder({ Strings.cylinder }, PAGE_SOLID),
+    HollowCylinder({ Strings.shape_hollow_cylinder }, PAGE_SOLID),
+    Hemisphere({ Strings.shape_hemisphere }, PAGE_SOLID),
+    Frustum({ Strings.shape_frustum }, PAGE_SOLID),
     ;
 
     val isSolid: Boolean get() = page == PAGE_SOLID
+    val hasWallThickness: Boolean get() = this == HollowCylinder
     val hasArms: Boolean get() = this == L
     val hasEnds: Boolean get() = this == Line || this == Arrow
 

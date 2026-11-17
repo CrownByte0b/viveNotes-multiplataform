@@ -48,7 +48,7 @@ internal fun CanvasDrafts(
     shapeDraft?.let { (start, end) ->
         val settings = state.shapeSettings
         val preview = Outline.Shape(id = "draft", kind = settings.kind,
-            segments = seedSegments(settings.kind, start.x, start.y, end.x, end.y) { "draft" },
+            segments = seedSegments(settings.kind, start.x, start.y, end.x, end.y, settings.wallThickness) { "draft" },
             borderArgb = settings.borderArgb, borderFollowsTheme = settings.colorFollowsTheme,
             borderWidth = settings.borderWidth.toFloat(),
             lineType = settings.lineType, fillArgb = settings.fillArgb).withRecomputedBounds()

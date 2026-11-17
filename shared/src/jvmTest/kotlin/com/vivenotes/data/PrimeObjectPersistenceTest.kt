@@ -34,7 +34,7 @@ class PrimeObjectPersistenceTest {
                 table.withCellBlocks(mapOf(cell.id to listOf(Block("block", runs = listOf(Run("Styled cell", setOf(Mark.Bold))))))),
                 Outline.Equation("equation", 650f, 220f, 80f, 60f, "x^2"),
                 Outline.Shape(id = "shape", kind = ShapeKind.Rectangle,
-                    segments = seedSegments(ShapeKind.Rectangle, 800f, 220f, 880f, 280f, ::newId)).withRecomputedBounds(),
+                    segments = seedSegments(ShapeKind.Rectangle, 800f, 220f, 880f, 280f, nextId = ::newId)).withRecomputedBounds(),
             )
             fun state(document: PageDoc): WorkspaceState {
                 val base = WorkspaceState.demo()

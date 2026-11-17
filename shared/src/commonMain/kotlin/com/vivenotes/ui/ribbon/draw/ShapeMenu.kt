@@ -33,11 +33,14 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import com.vivenotes.model.ink.MIN_SOLID_WALL_THICKNESS
+import com.vivenotes.model.ink.MAX_SOLID_WALL_THICKNESS
 import com.vivenotes.model.ink.ShapeTracing
 import com.vivenotes.model.ink.trace
 import com.vivenotes.ui.components.HoverTooltip
@@ -54,6 +57,7 @@ internal object ShapeMenuTags {
     fun kind(kind: ShapeKind) = "draw-shape-${kind.name}"
     fun lineType(type: LineType) = "draw-shape-line-${type.name}"
     const val Width = "draw-shape-width"
+    const val WallThickness = "draw-shape-wall-thickness"
     fun border(argb: Int) = "draw-shape-border-$argb"
     fun fill(argb: Int?) = "draw-shape-fill-${argb ?: "none"}"
 }
@@ -121,6 +125,14 @@ internal fun ShapeKit(settings: ShapeToolSettings, palette: List<Int>, canvasInk
                 }
             }
         }
+        if (settings.kind.hasWallThickness) {
+            Spacer(Modifier.height(4.dp))
+            ToolkitSlider(Strings.shape_wall_thickness, settings.wallThickness.toFloat(),
+                MIN_SOLID_WALL_THICKNESS.toFloat()..MAX_SOLID_WALL_THICKNESS.toFloat(),
+                5f, ShapeMenuTags.WallThickness, color) {
+                onChange(settings.copy(wallThickness = it.toInt()))
+            }
+        }
         Spacer(Modifier.height(8.dp))
         ToolkitLineTypes(settings.lineType, ShapeMenuTags::lineType) { onChange(settings.copy(lineType = it)) }
         Spacer(Modifier.height(4.dp))
@@ -150,7 +162,7 @@ private fun ShapePreview(settings: ShapeToolSettings, color: Color) {
         val height = 150.dp.toPx() * scale
         val left = (size.width - width) / 2
         val top = (size.height - height) / 2
-        drawToolkitTracing(trace(settings.kind, left, top, left + width, top + height), color,
+        drawToolkitTracing(trace(settings.kind, left, top, left + width, top + height, settings.wallThickness), color,
             settings.borderWidth.dp.toPx() * scale, settings.lineType, settings.fillArgb?.let(::Color))
     }
 }
@@ -173,12 +185,18 @@ private fun ShapeChoice(kind: ShapeKind, selected: Boolean, onClick: () -> Unit)
 }
 
 internal fun DrawScope.drawToolkitTracing(tracing: ShapeTracing, color: Color, width: Float, lineType: LineType, fill: Color? = null) {
-    if (fill != null) tracing.fill.forEach { points ->
-        if (points.size >= 6) drawPath(Path().apply {
-            moveTo(points[0], points[1])
-            for (index in 2 until points.size step 2) lineTo(points[index], points[index + 1])
-            close()
-        }, fill)
+    if (fill != null) {
+        val path = Path().apply {
+            fillType = PathFillType.EvenOdd
+            tracing.fill.forEach { points ->
+                if (points.size >= 6) {
+                    moveTo(points[0], points[1])
+                    for (index in 2 until points.size step 2) lineTo(points[index], points[index + 1])
+                    close()
+                }
+            }
+        }
+        drawPath(path, fill)
     }
     fun drawEdges(edges: List<FloatArray>, type: LineType) {
         edges.forEach { points ->

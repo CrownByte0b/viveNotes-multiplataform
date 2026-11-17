@@ -244,9 +244,7 @@ class PageRenderer : AutoCloseable {
 
         shape.fillArgb?.let { argb ->
             fill.color = argb
-            shape.fillRegion().forEach { region ->
-                region.asClosedPath().use { canvas.drawPath(it, fill) }
-            }
+            shape.fillRegion().asClosedPath().use { canvas.drawPath(it, fill) }
         }
 
         line.color = automaticColorOr(shape.borderArgb, shape.borderFollowsTheme, canvasInkArgb)
@@ -504,11 +502,13 @@ private fun LineType.dashEffect(width: Float): PathEffect? = when (this) {
     LineType.Dotted -> PathEffect.makeDash(floatArrayOf(0.01f, width * 2f), 0f)
 }
 
-private fun FloatArray.asClosedPath(): Path = PathBuilder().use { builder -> builder.apply {
-    if (size < 4) return@apply
-    moveTo(this@asClosedPath[0], this@asClosedPath[1])
-    for (index in 2 until size step 2) lineTo(this@asClosedPath[index], this@asClosedPath[index + 1])
-    closePath()
+private fun List<FloatArray>.asClosedPath(): Path = PathBuilder(org.jetbrains.skia.PathFillMode.EVEN_ODD).use { builder -> builder.apply {
+    this@asClosedPath.forEach { region ->
+        if (region.size < 6) return@forEach
+        moveTo(region[0], region[1])
+        for (index in 2 until region.size step 2) lineTo(region[index], region[index + 1])
+        closePath()
+    }
 }.detach() }
 
 private fun ShapeContour.asPath(): Path = PathBuilder().use { builder -> builder.apply {

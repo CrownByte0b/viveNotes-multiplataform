@@ -27,6 +27,9 @@ import com.vivenotes.model.ink.InkPage
 import com.vivenotes.model.ink.LineType
 import com.vivenotes.model.ink.ShapeKind
 import com.vivenotes.model.ink.seedSegments
+import com.vivenotes.model.ink.DEFAULT_SOLID_WALL_THICKNESS
+import com.vivenotes.model.ink.MIN_SOLID_WALL_THICKNESS
+import com.vivenotes.model.ink.MAX_SOLID_WALL_THICKNESS
 import com.vivenotes.model.ink.ShapeArm
 import com.vivenotes.model.ink.ShapeEnd
 import com.vivenotes.model.ink.withArm
@@ -60,6 +63,8 @@ data class ShapeToolSettings(
     val borderArgb: Int = 0xFF000000.toInt(),
     val fillArgb: Int? = null,
     val colorFollowsTheme: Boolean = true,
+    /** Wall thickness as a percentage of the outer radius, for hollow solids. */
+    val wallThickness: Int = DEFAULT_SOLID_WALL_THICKNESS,
 ) {
     companion object {
         const val MIN_BORDER_WIDTH = 1
@@ -553,6 +558,7 @@ data class WorkspaceState(
     fun setShapeSettings(settings: ShapeToolSettings): WorkspaceState = copy(shapeSettings = settings.copy(
         borderWidth = settings.borderWidth.coerceIn(ShapeToolSettings.MIN_BORDER_WIDTH,
             ShapeToolSettings.MAX_BORDER_WIDTH),
+        wallThickness = settings.wallThickness.coerceIn(MIN_SOLID_WALL_THICKNESS, MAX_SOLID_WALL_THICKNESS),
     ))
 
     /** A tap uses the Android default box; a drag preserves its direction for lines and arrows. */
@@ -563,7 +569,8 @@ data class WorkspaceState(
         val settings = shapeSettings
         val shape = Outline.Shape(
             id = newId(), kind = settings.kind,
-            segments = seedSegments(settings.kind, startX, startY, endX, endY, ::newId),
+            segments = seedSegments(settings.kind, startX, startY, endX, endY,
+                wallThickness = settings.wallThickness, nextId = ::newId),
             borderArgb = settings.borderArgb, borderFollowsTheme = settings.colorFollowsTheme,
             borderWidth = settings.borderWidth.toFloat(), lineType = settings.lineType,
             fillArgb = settings.fillArgb.takeUnless {
@@ -580,7 +587,7 @@ data class WorkspaceState(
             listOf(line.startX, line.startY, line.endX, line.endY).any { !it.isFinite() || it < 0f }) return this
         val settings = pen.normalized()
         val shape = Outline.Shape(id = newId(), kind = ShapeKind.Line,
-            segments = seedSegments(ShapeKind.Line, line.startX, line.startY, line.endX, line.endY, ::newId),
+            segments = seedSegments(ShapeKind.Line, line.startX, line.startY, line.endX, line.endY, nextId = ::newId),
             borderArgb = settings.colorArgb, borderFollowsTheme = settings.colorFollowsTheme,
             borderWidth = settings.sizeDp, lineType = settings.lineType).withRecomputedBounds()
         return editOutlines { it + shape }

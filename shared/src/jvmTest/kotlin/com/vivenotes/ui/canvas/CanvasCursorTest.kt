@@ -231,7 +231,7 @@ class CanvasCursorTest {
     @Test
     fun movingAnObjectShowsGrabbingOnlyWhileItIsHeldAndMoving() = withWorkspace { host ->
         val shape = Outline.Shape(id = "shape", kind = ShapeKind.Rectangle, borderWidth = 4f,
-            segments = seedSegments(ShapeKind.Rectangle, 200f, 260f, 360f, 380f, ::newId)).withRecomputedBounds()
+            segments = seedSegments(ShapeKind.Rectangle, 200f, 260f, 360f, 380f, nextId = ::newId)).withRecomputedBounds()
         host.update(workspace(listOf(shape)).selectObject(shape.id))
         val body = host.point(host.bounds(WorkspaceTestTags.primeObject(shape.id)).center)
 
