@@ -134,7 +134,6 @@ class WindowsPackagingTest {
         val fixture = temp.newFolder("msi")
         val script = File(root, "packaging/windows/build.ps1")
             .copyTo(File(fixture, "packaging/windows/build.ps1"))
-        File(fixture, "gradle.properties").writeText("version=1.0.2-dev.0\n")
         File(fixture, "gradlew.bat").writeText("""
             @echo off
             echo %*>gradle-arguments.txt
@@ -157,19 +156,23 @@ class WindowsPackagingTest {
             return process.exitValue()
         }
 
-        assertEquals(0, build(), output.readText())
-        assertTrue(File(fixture, "gradle-arguments.txt").readText().contains("-Pversion=1.0.2-dev.0 "),
-            "The app keeps reporting its development version")
         val installers = File(fixture, "desktopApp/build/windows")
-        assertEquals(listOf(INSTALLER_NAME, "$INSTALLER_NAME.sha256"), installers.list()!!.sorted(), output.readText())
-        assertTrue(File(installers, "$INSTALLER_NAME.sha256").readText().endsWith("  $INSTALLER_NAME\r\n"))
+        // As nativePackageVersion: a suffix may follow '-', '+' or '.' (gradle.properties had 1.2.1.dev0).
+        for (development in listOf("1.0.2-dev.0", "1.0.2.dev0", "1.0.2+build")) {
+            File(fixture, "gradle.properties").writeText("version=$development\n")
+            assertEquals(0, build(), output.readText())
+            assertTrue(File(fixture, "gradle-arguments.txt").readText().contains("-Pversion=$development "),
+                "The app keeps reporting its development version $development")
+            assertEquals(listOf(INSTALLER_NAME, "$INSTALLER_NAME.sha256"), installers.list()!!.sorted(), output.readText())
+            assertTrue(File(installers, "$INSTALLER_NAME.sha256").readText().endsWith("  $INSTALLER_NAME\r\n"))
+        }
 
         assertEquals(0, build("-Version", "1.0.2"), output.readText())
         assertTrue(File(fixture, "gradle-arguments.txt").readText().contains("-Pversion=1.0.2 "))
         assertEquals(listOf(INSTALLER_NAME, "$INSTALLER_NAME.sha256"), installers.list()!!.sorted(),
             "Every version builds the installer under its one name")
 
-        for (rejected in listOf("1.0.2-dev.0", "1.0.2-rc.1", "1.0.2+build")) {
+        for (rejected in listOf("1.0.2-dev.0", "1.0.2.dev0", "1.0.2-rc.1", "1.0.2+build")) {
             assertTrue(build("-Version", rejected) != 0, "A release version must be numeric: $rejected")
             assertTrue(output.readText().contains("MSI versions must be"), output.readText())
         }

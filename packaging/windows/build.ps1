@@ -13,7 +13,9 @@ if (-not $Version) {
     $projectVersion = (Select-String -Path "$root/gradle.properties" -Pattern '^version=(.+)$').Matches.Groups[1].Value
     # As nativePackageVersion in desktopApp/build.gradle.kts: a development version installs under
     # its numeric part and the app still reports the full version. An explicit -Version stays strict.
-    $Version = ($projectVersion -split '[-+]', 2)[0]
+    # Suffixes may start with '-', '+' or '.' (1.2.1-dev.0, 1.2.1+build, 1.2.1.dev0).
+    if ($projectVersion -match '^([0-9]+\.[0-9]+\.[0-9]+)(?:[.+-].*)?$') { $Version = $Matches[1] }
+    else { $Version = $projectVersion }
 }
 if ($Version -notmatch '^(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,4})$') {
     throw 'MSI versions must be MAJOR.MINOR.BUILD (numeric, without a prerelease suffix).'

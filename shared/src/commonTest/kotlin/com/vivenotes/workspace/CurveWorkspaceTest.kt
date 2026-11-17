@@ -21,6 +21,24 @@ class CurveWorkspaceTest {
 
     private fun WorkspaceState.curve(): Outline.Shape = selectedPage!!.document.outlines.filterIsInstance<Outline.Shape>().single()
 
+    /**
+     * Shape geometry is Float. Kotlin/JS keeps Float arithmetic (and `Double.toFloat()`) at Double
+     * precision, and its codecs differ: JSON decodes a Float32, CBOR the full Double. Both sides of a
+     * round trip are compared at Float32 precision; elsewhere Float is Float32 and this is the identity.
+     */
+    private fun PageDoc.storedAsFloat32(): PageDoc {
+        fun Float.f32() = Float.fromBits(toBits())
+        return copy(outlines = outlines.map { outline ->
+            if (outline !is Outline.Shape) return@map outline
+            outline.copy(x = outline.x.f32(), y = outline.y.f32(),
+                width = outline.width.f32(), height = outline.height.f32(),
+                segments = outline.segments.map { s ->
+                    s.copy(x1 = s.x1.f32(), y1 = s.y1.f32(), x2 = s.x2.f32(), y2 = s.y2.f32(),
+                        cubic = s.cubic?.let { c -> c.copy(x1 = c.x1.f32(), y1 = c.y1.f32(), x2 = c.x2.f32(), y2 = c.y2.f32()) })
+                })
+        })
+    }
+
     @Test
     fun aCurveStartsWithThreeVerticesAndNeverAcceptsFill() {
         val state = placed()
@@ -55,7 +73,7 @@ class CurveWorkspaceTest {
         assertEquals(edited, moved.undoStructure().undoStructure().redoStructure().redoStructure().curve())
         for (codec in listOf(JsonDocumentCodec, CborDocumentCodec)) {
             val document = moved.selectedPage!!.document
-            assertEquals(document, codec.decode(codec.encode(document)))
+            assertEquals(document.storedAsFloat32(), codec.decode(codec.encode(document)).storedAsFloat32())
         }
 
         val pasted = moved.copySelectedObjects().pasteCanvasAt(400f, 500f)

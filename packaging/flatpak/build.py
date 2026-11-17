@@ -94,7 +94,7 @@ def stage_metadata(output, version, release_date):
 
 def release_version(requested=None):
     version = requested or re.search(r"^version=(.+)$", (ROOT / "gradle.properties").read_text(), re.M)[1]
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][a-zA-Z0-9.-]+)?", version):
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+.][a-zA-Z0-9.-]+)?", version):
         raise ValueError("Use a three-component version, optionally with a prerelease suffix")
     return version
 

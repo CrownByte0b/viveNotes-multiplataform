@@ -88,6 +88,13 @@ class PackagingTest(unittest.TestCase):
         self.assertIn("Categories=Office;\n", desktop)
         self.assertEqual({"only-arches": ["x86_64"]}, json.loads((HERE / "flathub.json").read_text()))
 
+    def test_release_versions_take_three_numeric_parts_and_an_optional_suffix(self):
+        for version in ("1.2.3", "1.2.3-dev.0", "1.2.3+build", "1.2.3.dev0", "1.2.3-rc.1"):
+            self.assertEqual(version, build.release_version(version))
+        for version in ("1.2", "v1.2.3", "1.2.3-", "1.2.3.", "1.2.3 dev", "a.b.c"):
+            with self.assertRaises(ValueError, msg=version):
+                build.release_version(version)
+
     def test_staged_metadata_contains_resolved_release_launcher_icon_and_architectures(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder)
