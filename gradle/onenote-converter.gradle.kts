@@ -17,7 +17,7 @@ abstract class ViveConverterTask : DefaultTask() {
     @TaskAction fun prepare() {
         val source = checkout.get().asFile
         check(source.resolve("Cargo.toml").isFile) {
-            "OneNote import needs vive-converter and onenote.rs beside it. " +
+            "OneNote import needs the vive-converter sources. " +
                 "Set -PviveConverterDir=/path/to/vive-converter (looked in $source)."
         }
         val libraryName = if (platform.get() == "windows") "vive_converter.dll" else "libvive_converter.so"
@@ -38,7 +38,6 @@ abstract class ViveConverterTask : DefaultTask() {
         library.copyTo(native.resolve(libraryName))
         val licenses = output.resolve("onenote/licenses").apply { mkdirs() }
         source.resolve("LICENSE").copyTo(licenses.resolve("LICENSE-vive-converter.txt"))
-        source.parentFile.resolve("onenote.rs/LICENSE").copyTo(licenses.resolve("LICENSE-onenote-parser.txt"))
     }
 }
 
@@ -48,11 +47,7 @@ val buildViveConverter = tasks.register<ViveConverterTask>("buildViveConverter")
     description = "Bundle the OneNote JNI converter for the desktop JVM"
     val source = rootProject.file(converterDirectory.get())
     checkout.set(source)
-    sources.from(fileTree(source) { include("src/**", "Cargo.toml", "Cargo.lock", "LICENSE") },
-        fileTree(File(source.parentFile, "onenote.rs")) {
-            include("Cargo.toml", "LICENSE", "crates/**")
-            exclude("**/target/**", "**/tests/**", "**/benches/**")
-        })
+    sources.from(fileTree(source) { include("src/**", "Cargo.toml", "Cargo.lock", "LICENSE") })
     providers.gradleProperty("viveConverterLibrary").orNull?.let { prebuilt.set(rootProject.file(it)) }
     platform.set(when {
         System.getProperty("os.name").startsWith("Windows", ignoreCase = true) -> "windows"

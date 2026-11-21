@@ -11,6 +11,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getAllSemanticsNodes
 import androidx.compose.ui.semantics.getOrNull
 import com.vivenotes.ui.shell.WorkspaceScreen
+import com.vivenotes.ui.showFixedScene
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.workspace.WorkspaceState
 import java.awt.Component
@@ -60,11 +61,8 @@ class NavigationResizePointerIconTest {
         lateinit var frame: JFrame
         lateinit var panel: ComposePanel
         SwingUtilities.invokeAndWait {
-            frame = JFrame("Navigation divider cursor test")
             panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
-            frame.contentPane.add(panel)
-            frame.setSize(1400, 900)
-            frame.isVisible = true
+            frame = showFixedScene("Navigation divider cursor test", panel)
             panel.setContent { WorkspaceScreen(state.value, { state.value = it(state.value) }) }
         }
         try {

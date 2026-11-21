@@ -23,6 +23,7 @@ import com.vivenotes.model.ink.seedSegments
 import com.vivenotes.model.newId
 import com.vivenotes.platform.XcursorImage
 import com.vivenotes.ui.shell.WorkspaceScreen
+import com.vivenotes.ui.showFixedScene
 import com.vivenotes.ui.shell.WorkspaceTestTags
 import com.vivenotes.workspace.WorkspaceState
 import java.awt.Component
@@ -397,14 +398,11 @@ class CanvasCursorTest {
 
     private class Host {
         val state = mutableStateOf(WorkspaceState.demo())
-        val frame = JFrame("Canvas cursor workspace test")
         val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
+        val frame: JFrame = showFixedScene("Canvas cursor workspace test", panel)
         val render: Component get() = panel.renderComponent()
 
         init {
-            frame.contentPane.add(panel)
-            frame.setSize(1400, 900)
-            frame.isVisible = true
             panel.setContent { WorkspaceScreen(state.value, { state.value = it(state.value) }) }
         }
 

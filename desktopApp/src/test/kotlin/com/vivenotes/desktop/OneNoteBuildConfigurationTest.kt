@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -12,13 +13,13 @@ class OneNoteBuildConfigurationTest {
     @get:Rule val temp = TemporaryFolder()
 
     @Test
-    fun aPrebuiltLibraryAndItsLicensesArePackagedAndRefreshWithConfigurationCache() {
+    fun aPrebuiltLibraryAndItsLicenseArePackagedWithoutAParserCheckoutAndRefreshWithConfigurationCache() {
         val project = File(System.getProperty("vivenotes.test.projectRoot"))
         val fixture = temp.newFolder("app")
+        // onenote_parser now comes from crates.io, so no onenote.rs checkout sits beside the converter.
         val converter = File(fixture, "converter/vive-converter").apply { mkdirs() }
         File(converter, "Cargo.toml").writeText("[package]\nname = \"fixture\"\n")
         File(converter, "LICENSE").writeText("converter license")
-        File(fixture, "converter/onenote.rs/LICENSE").apply { parentFile.mkdirs(); writeText("parser license") }
         val library = File(fixture, "prebuilt").apply { writeText("native library") }
         File(project, "gradle/onenote-converter.gradle.kts").copyTo(File(fixture, "converter.gradle.kts"))
         File(fixture, "settings.gradle.kts").writeText("rootProject.name = \"onenote-package-test\"\n")
@@ -35,7 +36,7 @@ class OneNoteBuildConfigurationTest {
         assertEquals(1, libraries.size)
         assertEquals("native library", libraries.single().readText())
         assertEquals("converter license", File(resources, "licenses/LICENSE-vive-converter.txt").readText())
-        assertEquals("parser license", File(resources, "licenses/LICENSE-onenote-parser.txt").readText())
+        assertEquals(listOf("LICENSE-vive-converter.txt"), File(resources, "licenses").list()?.sorted())
 
         library.writeText("updated native library")
         File(converter, "LICENSE").writeText("updated converter license")
@@ -43,6 +44,16 @@ class OneNoteBuildConfigurationTest {
         assertEquals("updated native library", libraries.single().readText())
         assertEquals("updated converter license", File(resources, "licenses/LICENSE-vive-converter.txt").readText())
         assertTrue(File(fixture, "gradle.log").readText().contains("Reusing configuration cache"))
+    }
+
+    @Test
+    fun theBundledNoticeTellsUsersTheParserLicenseAndWhereItsSourceIs() {
+        val project = File(System.getProperty("vivenotes.test.projectRoot"))
+        val notice = File(project, "shared/src/jvmMain/resources/onenote/NOTICE").readText()
+        assertContains(notice, "onenote_parser")
+        assertContains(notice, "Mozilla Public License 2.0")
+        assertContains(notice, "https://github.com/msiemens/onenote.rs")
+        assertContains(notice, "https://crates.io/crates/onenote_parser")
     }
 
     private fun runGradle(fixture: File) {

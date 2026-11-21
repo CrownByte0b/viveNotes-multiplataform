@@ -1,5 +1,9 @@
 OneNote import uses vive-converter (https://github.com/AquilaIgnis/vive-converter)
-and onenote.rs (https://github.com/msiemens/onenote.rs).
+and its onenote_parser crate from onenote.rs (https://github.com/msiemens/onenote.rs).
 
-The native converter and its parser are built from source. Their unmodified license
-files accompany the library under onenote/licenses/ in the shared JVM jar.
+The native converter is built from source. Its unmodified license file accompanies the
+library under onenote/licenses/ in the shared JVM jar.
+
+onenote_parser is compiled into the converter library unmodified and is licensed under the
+Mozilla Public License 2.0 (https://mozilla.org/MPL/2.0/). Its source code is available at
+https://github.com/msiemens/onenote.rs and https://crates.io/crates/onenote_parser.
