@@ -1,8 +1,18 @@
 # ByteInk
 
-All are needed
+### Build the 3 libs
 
-## wasm lib
+```bash
+native/build-all.sh
+./gradlew build
+./gradlew -PbyteinkWasm=true publishToMavenLocal
+```
+
+---
+
+or individually All are needed
+
+### wasm lib
 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-25-openjdk
@@ -11,7 +21,7 @@ native/build-wasm.sh
 ./gradlew -PbyteinkWasm=true publishToMavenLocal
 ```
 
-## Linux and Windows
+### Linux and Windows
 
 ```bash
 native/build-linux.sh
