@@ -4,10 +4,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.InternalTestApi
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -21,6 +25,7 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import com.vivenotes.model.Outline
+import com.vivenotes.ui.canvas.TouchpadPinch
 import com.vivenotes.ui.ribbon.draw.DrawRibbonTags
 import com.vivenotes.ui.theme.ViveNotesTheme
 import com.vivenotes.workspace.InkTool
@@ -30,6 +35,7 @@ import com.vivenotes.workspace.ViewSettings
 import com.vivenotes.workspace.WorkspaceState
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.math.pow
 import kotlin.test.assertTrue
 
 /** Android's touch on the page: pinch, pan and fling, and a finger that draws only when allowed. */
@@ -78,6 +84,49 @@ class CanvasTouchTest {
         runOnIdle { assertEquals(1f, zoom) }
         val moved = before.top.value - bounds(WorkspaceTestTags.primeObject(SHAPE)).top.value
         assertTrue(moved in 90f..125f, "the page followed both fingers up: $moved")
+    }
+
+    @Test
+    fun aTouchpadPinchZoomsAboutTheCursorAndLeavesNoInk() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var observed = withShape().toggleInkTool(InkTool.Pen)
+        var zoom = 1f
+        setCanvas(observed, onState = { observed = it }, onView = { zoom = it.zoom })
+        val before = bounds(WorkspaceTestTags.primeObject(SHAPE))
+        // Not the window's middle, where the ribbon's zoom would anchor.
+        val cursor = before.centre()
+
+        touchpadPinch(cursor, List(10) { 2f.pow(0.1f) })
+
+        runOnIdle {
+            assertEquals(2f, zoom, 0.02f, "the spread doubled the zoom")
+            assertTrue(observed.pendingInkEdits.isEmpty(), "a pinch is not a stroke")
+        }
+        val zoomed = bounds(WorkspaceTestTags.primeObject(SHAPE))
+        assertEquals(zoom, zoomed.width.value / before.width.value, 0.02f)
+        // The page point that was under the cursor is still under it.
+        assertEquals(cursor.x, zoomed.centre().x, 4f)
+        assertEquals(cursor.y, zoomed.centre().y, 4f)
+
+        // Fingers drawn together zoom back out, about the same point.
+        touchpadPinch(cursor, List(10) { 0.5f.pow(0.1f) })
+
+        runOnIdle { assertEquals(1f, zoom, 0.02f, "the pinch in halved the zoom") }
+        val restored = bounds(WorkspaceTestTags.primeObject(SHAPE))
+        assertEquals(before.width.value, restored.width.value, 1f)
+        assertEquals(cursor.x, restored.centre().x, 4f)
+        assertEquals(cursor.y, restored.centre().y, 4f)
+    }
+
+    @Test
+    fun aTouchpadPinchOverTheRibbonLeavesThePageAlone() = runDesktopComposeUiTest(width = 1400, height = 900) {
+        var zoom = 1f
+        setCanvas(withShape(), onView = { zoom = it.zoom })
+        val before = bounds(WorkspaceTestTags.primeObject(SHAPE))
+
+        touchpadPinch(bounds(WorkspaceTestTags.RibbonBar).centre(), List(10) { 2f.pow(0.1f) })
+
+        runOnIdle { assertEquals(1f, zoom) }
+        assertEquals(before, bounds(WorkspaceTestTags.primeObject(SHAPE)))
     }
 
     @Test
@@ -400,6 +449,21 @@ class CanvasTouchTest {
                     inputSettings = input)
             }
         }
+    }
+
+    /**
+     * A touchpad pinch at [cursor], as the desktop app hands one to the scene: scrolls by nothing that
+     * carry it, one step a frame, as a touchpad reports them.
+     */
+    @OptIn(InternalTestApi::class, InternalComposeUiApi::class)
+    private fun DesktopComposeUiTest.touchpadPinch(cursor: Offset, steps: List<Float>) {
+        fun send(pinch: TouchpadPinch) {
+            runOnUiThread { scene.sendPointerEvent(PointerEventType.Scroll, cursor, nativeEvent = pinch) }
+            waitForIdle()
+        }
+        send(TouchpadPinch(TouchpadPinch.Phase.Begin))
+        steps.forEach { send(TouchpadPinch(TouchpadPinch.Phase.Update, it)) }
+        send(TouchpadPinch(TouchpadPinch.Phase.End))
     }
 
     private fun ComposeUiTest.bounds(tag: String): DpRect = onNodeWithTag(tag).getBoundsInRoot()

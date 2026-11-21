@@ -23,21 +23,33 @@ import java.lang.invoke.MethodType
  * cancels, and the last one does the reading for all — so this thread never stops between the two,
  * because the runtime's own reads wait for it.
  *
- * [onFrame] is called on that thread.
+ * Touchpad pinches come the same way: the runtime asks for no pointer gestures either, so where the
+ * compositor offers `zwp_pointer_gestures_v1` this takes a `wl_pointer` of its own on each seat, a
+ * pinch gesture for it, and the cursor's position from it, since a pinch has none of its own.
+ *
+ * [onFrame] and [onPinch] are called on that thread.
  */
 internal class WaylandTouchSource(
     private val display: MemorySegment,
     private val onFrame: (SurfaceTouchFrame) -> Unit,
     private val log: DebugLog,
+    onPinch: (SurfacePinch) -> Unit = {},
 ) {
     @Volatile private var running = true
     private val frames = WaylandTouchFrames(onFrame)
+    private val pinches = WaylandPinchGestures(onPinch)
     private val arena = Arena.ofShared()
     private val clock = EventClock()
     private val seats = mutableListOf<Seat>()
+    private val gestureInterfaces by lazy { PointerGestureInterfaces(arena, Wl.pointerInterface, Wl.surfaceInterface) }
+    private var gestures: MemorySegment? = null
+    private var gesturesVersion = 0
 
     private class Seat(val index: Int, val proxy: MemorySegment, val version: Int) {
         var touch: MemorySegment? = null
+        var capabilities = 0
+        var pointer: MemorySegment? = null
+        var pinch: MemorySegment? = null
     }
 
     fun start() {
@@ -66,7 +78,10 @@ internal class WaylandTouchSource(
             ), MemorySegment.NULL)
             // Globals, which bind the seats; then the seats' capabilities, which give touch.
             repeat(2) { check(Wl.roundtripQueue.invoke(display, queue) as Int >= 0) { "roundtrip failed" } }
-            log.event("touch") { "wayland touch listening: seats=${seats.size}, touch=${seats.count { it.touch != null }}" }
+            log.event("touch") {
+                "wayland touch listening: seats=${seats.size}, touch=${seats.count { it.touch != null }}, " +
+                    "pinch=${seats.count { it.pinch != null }}"
+            }
             readLoop(queue)
         } catch (failure: Throwable) {
             log.event("touch") { "wayland touch unavailable: $failure" }
@@ -104,14 +119,27 @@ internal class WaylandTouchSource(
 
     private fun global(data: MemorySegment, registry: MemorySegment, name: Int, iface: MemorySegment, version: Int) =
         guarded {
-            if (iface.reinterpret(256).getString(0) != "wl_seat") return@guarded
-            val bound = minOf(version, SEAT_VERSION)
-            val seatName = Wl.seatInterface.reinterpret(8).get(ADDRESS, 0)
-            val seat = Wl.marshalBind.invoke(registry, BIND, Wl.seatInterface, bound, 0,
-                name, seatName, bound, MemorySegment.NULL) as MemorySegment
-            val entry = Seat(seats.size, seat, bound)
-            seats += entry
-            Wl.addListener.invoke(seat, seatListener, MemorySegment.ofAddress(entry.index.toLong()))
+            when (iface.reinterpret(256).getString(0)) {
+                "wl_seat" -> {
+                    val bound = minOf(version, SEAT_VERSION)
+                    val seatName = Wl.seatInterface.reinterpret(8).get(ADDRESS, 0)
+                    val seat = Wl.marshalBind.invoke(registry, BIND, Wl.seatInterface, bound, 0,
+                        name, seatName, bound, MemorySegment.NULL) as MemorySegment
+                    val entry = Seat(seats.size, seat, bound)
+                    seats += entry
+                    Wl.addListener.invoke(seat, seatListener, MemorySegment.ofAddress(entry.index.toLong()))
+                }
+                "zwp_pointer_gestures_v1" -> {
+                    if (gestures != null) return@guarded
+                    val bound = minOf(version, PointerGestureInterfaces.VERSION)
+                    val gesturesName = gestureInterfaces.gestures.reinterpret(8).get(ADDRESS, 0)
+                    gestures = Wl.marshalBind.invoke(registry, BIND, gestureInterfaces.gestures, bound, 0,
+                        name, gesturesName, bound, MemorySegment.NULL) as MemorySegment
+                    gesturesVersion = bound
+                    // Usually before the seats say what they have; a compositor may offer it later.
+                    seats.forEach(::updatePinch)
+                }
+            }
         }
 
     @Suppress("UNUSED_PARAMETER")
@@ -137,6 +165,9 @@ internal class WaylandTouchSource(
             }
             log.event("touch") { "touch screen gone from seat ${seat.index}" }
         }
+        // After touch, which a failure here must not cost.
+        seat.capabilities = capabilities
+        updatePinch(seat)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -170,6 +201,74 @@ internal class WaylandTouchSource(
 
     @Suppress("UNUSED_PARAMETER")
     private fun orientation(data: MemorySegment, touch: MemorySegment, id: Int, orientation: Int) = Unit
+
+    /**
+     * A seat's pointer and its pinch gesture, while it has a pointer and the compositor has gestures.
+     * The pointer is this source's own: it only follows the cursor, and never sets one.
+     */
+    private fun updatePinch(seat: Seat) {
+        val manager = gestures
+        val wanted = manager != null && seat.capabilities and CAPABILITY_POINTER != 0
+        val current = seat.pointer
+        if (wanted && current == null) {
+            val user = MemorySegment.ofAddress(seat.index.toLong())
+            val pointer = Wl.marshalNewId.invoke(seat.proxy, GET_POINTER, Wl.pointerInterface, seat.version, 0,
+                MemorySegment.NULL) as MemorySegment
+            Wl.addListener.invoke(pointer, pointerListener, user)
+            seat.pointer = pointer
+            val pinch = Wl.marshalNewIdFor.invoke(manager, PointerGestureInterfaces.GET_PINCH_GESTURE,
+                gestureInterfaces.pinch, gesturesVersion, 0, MemorySegment.NULL, pointer) as MemorySegment
+            Wl.addListener.invoke(pinch, pinchListener, user)
+            seat.pinch = pinch
+            log.event("touch") { "touchpad pinch on seat ${seat.index}" }
+        } else if (!wanted && current != null) {
+            seat.pinch?.let { pinch ->
+                Wl.marshalDestroy.invoke(pinch, PointerGestureInterfaces.PINCH_DESTROY, MemorySegment.NULL, gesturesVersion,
+                    MARSHAL_DESTROY)
+            }
+            if (seat.version >= POINTER_RELEASE_SINCE) {
+                Wl.marshalDestroy.invoke(current, POINTER_RELEASE, MemorySegment.NULL, seat.version, MARSHAL_DESTROY)
+            } else {
+                Wl.destroy.invoke(current)
+            }
+            seat.pointer = null
+            seat.pinch = null
+            pinches.pointerGone(seat.index)
+            log.event("touch") { "touchpad pinch gone from seat ${seat.index}" }
+        }
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun pointerEnter(data: MemorySegment, pointer: MemorySegment, serial: Int, surface: MemorySegment,
+                             x: Int, y: Int) = guarded {
+        if (surface.isNull) pinches.leave(data.address().toInt())
+        else pinches.enter(data.address().toInt(), surface.address(), x / 256.0, y / 256.0)
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun pointerLeave(data: MemorySegment, pointer: MemorySegment, serial: Int, surface: MemorySegment) =
+        guarded { pinches.leave(data.address().toInt()) }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun pointerMotion(data: MemorySegment, pointer: MemorySegment, time: Int, x: Int, y: Int) =
+        guarded { pinches.motion(data.address().toInt(), x / 256.0, y / 256.0) }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun pinchBegin(data: MemorySegment, pinch: MemorySegment, serial: Int, time: Int, surface: MemorySegment,
+                           fingers: Int) = guarded {
+        // A surface already gone is null: one the cursor is not on, so the pinch is left out.
+        pinches.begin(data.address().toInt(), clock.millis(time), surface.address())
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun pinchUpdate(data: MemorySegment, pinch: MemorySegment, time: Int, dx: Int, dy: Int, scale: Int,
+                            rotation: Int) = guarded {
+        pinches.update(data.address().toInt(), clock.millis(time), scale / 256.0)
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun pinchEnd(data: MemorySegment, pinch: MemorySegment, serial: Int, time: Int, cancelled: Int) =
+        guarded { pinches.end(data.address().toInt(), clock.millis(time)) }
 
     /** A contact on one seat, unique across seats: the seat's index above the compositor's id. */
     private fun contact(seatData: MemorySegment, id: Int): Long = (seatData.address() shl 32) or (id.toLong() and 0xFFFFFFFFL)
@@ -211,10 +310,44 @@ internal class WaylandTouchSource(
         )
     }
 
+    // Every event wl_pointer has, through version 9. Only where the cursor is matters here.
+    private val pointerListener by lazy {
+        val int = JAVA_INT
+        listener(
+            stub("pointerEnter", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, ADDRESS, int, int)),
+            stub("pointerLeave", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, ADDRESS)),
+            stub("pointerMotion", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, int, int)),
+            ignored(FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, int, int, int)), // button
+            ignored(FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, int, int)), // axis
+            ignored(FunctionDescriptor.ofVoid(ADDRESS, ADDRESS)), // frame
+            ignored(FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int)), // axis_source
+            ignored(FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, int)), // axis_stop
+            ignored(FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, int)), // axis_discrete
+            ignored(FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, int)), // axis_value120
+            ignored(FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, int)), // axis_relative_direction
+        )
+    }
+
+    private val pinchListener by lazy {
+        val int = JAVA_INT
+        listener(
+            stub("pinchBegin", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, int, ADDRESS, int)),
+            stub("pinchUpdate", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, int, int, int, int)),
+            stub("pinchEnd", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, int, int, int)),
+        )
+    }
+
     private fun stub(method: String, type: MethodType, descriptor: FunctionDescriptor): MemorySegment {
         val handle = MethodHandles.lookup().findVirtual(WaylandTouchSource::class.java, method, type).bindTo(this)
         return Wl.linker.upcallStub(handle, descriptor, arena)
     }
+
+    private fun stub(method: String, descriptor: FunctionDescriptor): MemorySegment =
+        stub(method, descriptor.toMethodType(), descriptor)
+
+    /** A listener entry for an event that is not used: it does nothing. */
+    private fun ignored(descriptor: FunctionDescriptor): MemorySegment =
+        Wl.linker.upcallStub(MethodHandles.empty(descriptor.toMethodType()), descriptor, arena)
 
     /** A listener struct: the function pointers in the order of the interface's events. */
     private fun listener(vararg functions: MemorySegment): MemorySegment {
@@ -234,6 +367,8 @@ internal class WaylandTouchSource(
         val registryInterface: MemorySegment = symbol("wl_registry_interface")
         val seatInterface: MemorySegment = symbol("wl_seat_interface")
         val touchInterface: MemorySegment = symbol("wl_touch_interface")
+        val pointerInterface: MemorySegment = symbol("wl_pointer_interface")
+        val surfaceInterface: MemorySegment = symbol("wl_surface_interface")
 
         val createQueue = function("wl_display_create_queue", FunctionDescriptor.of(ADDRESS, ADDRESS))
         val createWrapper = function("wl_proxy_create_wrapper", FunctionDescriptor.of(ADDRESS, ADDRESS))
@@ -255,6 +390,9 @@ internal class WaylandTouchSource(
         private val marshal = arrayOf(ADDRESS, JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT)
         val marshalNewId = function("wl_proxy_marshal_flags", FunctionDescriptor.of(ADDRESS, *marshal, ADDRESS),
             Linker.Option.firstVariadicArg(marshal.size))
+        // A new id, then the object it is made for.
+        val marshalNewIdFor = function("wl_proxy_marshal_flags", FunctionDescriptor.of(ADDRESS, *marshal, ADDRESS, ADDRESS),
+            Linker.Option.firstVariadicArg(marshal.size))
         val marshalBind = function("wl_proxy_marshal_flags",
             FunctionDescriptor.of(ADDRESS, *marshal, JAVA_INT, ADDRESS, JAVA_INT, ADDRESS),
             Linker.Option.firstVariadicArg(marshal.size))
@@ -265,10 +403,14 @@ internal class WaylandTouchSource(
     private companion object {
         const val GET_REGISTRY = 1 // wl_display.get_registry
         const val BIND = 0 // wl_registry.bind
+        const val GET_POINTER = 0 // wl_seat.get_pointer
         const val GET_TOUCH = 2 // wl_seat.get_touch
+        const val POINTER_RELEASE = 1 // wl_pointer.release
+        const val POINTER_RELEASE_SINCE = 3
         const val TOUCH_RELEASE = 0 // wl_touch.release
         const val TOUCH_RELEASE_SINCE = 3
         const val MARSHAL_DESTROY = 1 // WL_MARSHAL_FLAG_DESTROY
+        const val CAPABILITY_POINTER = 1
         const val CAPABILITY_TOUCH = 4
         /** wl_seat 5: touch with frames and cancel, and release for both. Later versions add nothing used here. */
         const val SEAT_VERSION = 5

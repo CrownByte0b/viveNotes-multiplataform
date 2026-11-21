@@ -10,6 +10,7 @@ import androidx.compose.ui.input.pointer.PointerButtons
 import androidx.compose.ui.scene.ComposeScene
 import androidx.compose.ui.scene.ComposeScenePointer
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.ui.canvas.TouchpadPinch
 import java.awt.Component
 import java.awt.Window
 import java.awt.event.MouseEvent
@@ -29,6 +30,9 @@ import javax.swing.SwingUtilities
  * While a finger is down the mouse is kept out ([TouchAwareEventQueue]), and a gesture starts by
  * telling the scene the cursor has left it.
  *
+ * A touchpad pinch goes to the scene under the cursor when it began, as scrolls by nothing that carry
+ * a [TouchpadPinch], at the cursor: the page zooms by them and anything else scrolls by nothing.
+ *
  * Confined to the Swing event thread, as Compose is.
  */
 internal class ComposeTouchInjector(
@@ -36,6 +40,8 @@ internal class ComposeTouchInjector(
     private val mouse: TouchAwareEventQueue = TouchAwareEventQueue.install(),
 ) {
     private val tracker = TouchPointerTracker(::targetAt)
+    private val pinchSteps = TouchpadPinchSteps()
+    private var pinchTarget: SceneTarget? = null
 
     fun hasComposeContent(component: Component): Boolean =
         component.mouseListeners.any { it.javaClass.name == "androidx.compose.ui.scene.ComposeSceneMediator\$mouseListener\$1" } ||
@@ -50,6 +56,23 @@ internal class ComposeTouchInjector(
             }
         }
         mouse.touching = tracker.active
+    }
+
+    fun pinch(sample: PinchSample) {
+        val step = pinchSteps.accept(sample) ?: return
+        val window = sample.window
+        if (step.phase == TouchpadPinch.Phase.Begin) {
+            // Outside an open popup a pinch is no one's: unlike a press, it does not close the popup.
+            pinchTarget = window?.let { targetAt(it, sample.x, sample.y) as? SceneTarget }
+        }
+        val target = pinchTarget ?: return
+        if (step.phase == TouchpadPinch.Phase.End) pinchTarget = null
+        if (window == null) return
+        try {
+            target.pinch(step, window, sample.x, sample.y, sample.timeMillis)
+        } catch (failure: Exception) {
+            log.event("touch") { "a touchpad pinch could not be delivered: $failure" }
+        }
     }
 
     private fun targetAt(window: Window, x: Double, y: Double): TouchTarget? {
@@ -107,6 +130,12 @@ internal class ComposeTouchInjector(
                     )
                 }
             }
+        }
+
+        fun pinch(step: TouchpadPinch, window: Window, x: Double, y: Double, timeMillis: Long) {
+            val scene = getScene.invoke(null, mediator) as ComposeScene
+            scene.sendPointerEvent(PointerEventType.Scroll, mapping()(window, x, y), timeMillis = timeMillis,
+                nativeEvent = step)
         }
 
         /**

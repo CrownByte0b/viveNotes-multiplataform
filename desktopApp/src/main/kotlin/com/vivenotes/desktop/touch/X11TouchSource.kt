@@ -25,14 +25,19 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * window that selected it, and only one client may select touch on a window. New child windows are
  * selected as they appear.
  *
+ * Touchpad pinches are XInput 2.4 gesture events, selected on the same windows with touch where the
+ * server has them; a window whose pinch another client has keeps its touch.
+ *
  * XCB rather than Xlib because Xlib's error handler is one per process, and it is the runtime's.
- * [onFrame] is called on this source's thread, with positions in root-window pixels. Without
- * [libraries] (Debian and Ubuntu package the XInput one apart, as libxcb-xinput0) there is no touch.
+ * [onFrame] and [onPinch] are called on this source's thread, with positions in root-window pixels.
+ * Without [libraries] (Debian and Ubuntu package the XInput one apart, as libxcb-xinput0) there is no
+ * touch.
  */
 internal class X11TouchSource(
     private val onFrame: (TouchFrame) -> Unit,
     private val log: DebugLog,
     private val libraries: List<String> = listOf(CORE_LIBRARY, INPUT_LIBRARY),
+    private val onPinch: (PinchSample) -> Unit = {},
 ) {
     @Volatile private var running = true
     private val requests = ConcurrentLinkedQueue<Pair<Int, Window>>()
@@ -42,6 +47,8 @@ internal class X11TouchSource(
     private var connection: MemorySegment = MemorySegment.NULL
     private var inputOpcode = -1
     private var refused = false
+    private var gestures = false
+    private var pinchRefused = false
     private var pens = emptyMap<Int, X11PenDevice>()
     private val penDown = mutableSetOf<Int>()
     private var hierarchyRoot = 0
@@ -74,7 +81,7 @@ internal class X11TouchSource(
                 checkVersion(arena)
                 discoverPens(arena)
                 val readable = Posix.Readable(arena, Xcb.fileDescriptor.invoke(connection) as Int)
-                log.event("touch") { "x11 touch listening" }
+                log.event("touch") { "x11 touch listening" + if (gestures) ", with touchpad pinch" else "" }
                 while (running) {
                     val before = owners.size
                     while (true) select(requests.poll() ?: break, arena)
@@ -105,8 +112,9 @@ internal class X11TouchSource(
         }
     }
 
+    /** Touch needs XInput 2.2; asking for 2.4 is what has the server send this connection pinches. */
     private fun checkVersion(arena: Arena) {
-        val cookie = Xcb.queryVersion.invoke(arena, connection, MAJOR.toShort(), MINOR.toShort()) as MemorySegment
+        val cookie = Xcb.queryVersion.invoke(arena, connection, MAJOR.toShort(), GESTURE_MINOR.toShort()) as MemorySegment
         val reply = Xcb.queryVersionReply.invoke(connection, cookie, MemorySegment.NULL) as MemorySegment
         check(!reply.isNull) { "XInput version query failed" }
         try {
@@ -114,6 +122,7 @@ internal class X11TouchSource(
             val major = version.get(JAVA_SHORT, 8).toInt()
             val minor = version.get(JAVA_SHORT, 10).toInt()
             check(major > MAJOR || (major == MAJOR && minor >= MINOR)) { "XInput $major.$minor has no touch" }
+            gestures = major > MAJOR || minor >= GESTURE_MINOR
         } finally {
             Posix.free.invoke(reply)
         }
@@ -149,10 +158,24 @@ internal class X11TouchSource(
     }
 
     private fun selectInput(xWindow: Int, arena: Arena) {
+        if (gestures) {
+            val error = trySelect(xWindow, TOUCH_EVENTS or PINCH_EVENTS, arena) ?: return
+            // Touch alone may still be had. One mask holds both, so they cannot be asked for apart.
+            if (!pinchRefused) log.event("touch") { "x11 touchpad pinch refused on window $xWindow: error $error" }
+            pinchRefused = true
+        }
+        val error = trySelect(xWindow, TOUCH_EVENTS, arena) ?: return
+        // BadAccess: another client already has touch here. Its windows keep the mouse emulation.
+        if (!refused) log.event("touch") { "x11 touch refused on window $xWindow: error $error" }
+        refused = true
+    }
+
+    /** Selects [events] from the master devices, and the pens', on [xWindow]: null, or the X error code. */
+    private fun trySelect(xWindow: Int, events: Int, arena: Arena): Int? {
         val mask = arena.allocate((1L + pens.size) * 8)
         mask.set(JAVA_SHORT, 0, ALL_MASTER_DEVICES)
         mask.set(JAVA_SHORT, 2, 1)
-        mask.set(JAVA_INT, 4, TOUCH_EVENTS)
+        mask.set(JAVA_INT, 4, events)
         pens.keys.forEachIndexed { index, id ->
             val at = (index + 1) * 8L
             mask.set(JAVA_SHORT, at, id.toShort())
@@ -161,14 +184,10 @@ internal class X11TouchSource(
         }
         val cookie = Xcb.selectEvents.invoke(arena, connection, xWindow, (1 + pens.size).toShort(), mask) as MemorySegment
         val error = Xcb.requestCheck.invoke(connection, cookie) as MemorySegment
-        if (!error.isNull) {
-            val code = error.reinterpret(2).get(JAVA_BYTE, 1).toInt()
-            Posix.free.invoke(error)
-            // BadAccess: another client already has touch here. Its windows keep the mouse emulation.
-            if (!refused) log.event("touch") { "x11 touch refused on window $xWindow: error $code" }
-            refused = true
-            return
-        }
+        if (error.isNull) return null
+        val code = error.reinterpret(2).get(JAVA_BYTE, 1).toInt()
+        Posix.free.invoke(error)
+        return code
     }
 
     private fun discoverPens(arena: Arena) {
@@ -206,6 +225,12 @@ internal class X11TouchSource(
                     penDown.clear()
                     discoverPens(arena)
                     owners.keys.forEach { selectInput(it, arena) }
+                    return
+                }
+                if (eventType in PINCH_BEGIN..PINCH_END) {
+                    val pinch = x11Pinch(event.asByteBuffer().order(java.nio.ByteOrder.nativeOrder())) ?: return
+                    val window = owners[pinch.eventWindow] ?: return
+                    onPinch(PinchSample(pinch.phase, window, pinch.rootX, pinch.rootY, clock.millis(pinch.time), pinch.scale))
                     return
                 }
                 if (eventType in 4..6) {
@@ -290,6 +315,11 @@ internal class X11TouchSource(
         private const val TOUCH_UPDATE = 19
         private const val TOUCH_END = 20
         private const val TOUCH_EVENTS = (1 shl TOUCH_BEGIN) or (1 shl TOUCH_UPDATE) or (1 shl TOUCH_END)
+        private const val GESTURE_MINOR = 4
+        private const val PINCH_BEGIN = 27
+        private const val PINCH_END = 29
+        // The server takes all three or none.
+        private const val PINCH_EVENTS = (1 shl PINCH_BEGIN) or (1 shl (PINCH_BEGIN + 1)) or (1 shl PINCH_END)
         private const val GENERIC_EVENT = 35
         private const val CREATE_NOTIFY = 16
         private const val DESTROY_NOTIFY = 17

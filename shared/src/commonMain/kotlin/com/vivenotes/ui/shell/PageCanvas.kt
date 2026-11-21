@@ -94,6 +94,8 @@ import com.vivenotes.ui.canvas.CanvasCursor
 import com.vivenotes.ui.canvas.CanvasPointer
 import com.vivenotes.ui.canvas.CanvasTouchActions
 import com.vivenotes.ui.canvas.FingerRole
+import com.vivenotes.ui.canvas.TouchpadPinch
+import com.vivenotes.ui.canvas.touchpadPinch
 import com.vivenotes.ui.canvas.InkLayer
 import com.vivenotes.ui.canvas.InkSelectionFrame
 import com.vivenotes.ui.canvas.InkSelectionToolkit
@@ -762,7 +764,20 @@ internal fun PageCanvas(
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
-                        if (event.type == PointerEventType.Scroll && event.keyboardModifiers.isCtrlPressed) {
+                        val pinch = event.touchpadPinch
+                        if (pinch != null) {
+                            // A touchpad pinch zooms as two fingers on the screen do, but about the
+                            // cursor, which stays put while the fingers move: the page point under
+                            // it stays under it, as for Ctrl+wheel.
+                            val change = event.changes.firstOrNull() ?: continue
+                            when (pinch.phase) {
+                                TouchpadPinch.Phase.Begin -> touchActions.value.stopFling()
+                                TouchpadPinch.Phase.Update ->
+                                    touchActions.value.pinch(change.position, Offset.Zero, pinch.zoomChange)
+                                TouchpadPinch.Phase.End -> Unit
+                            }
+                            event.changes.forEach { it.consume() }
+                        } else if (event.type == PointerEventType.Scroll && event.keyboardModifiers.isCtrlPressed) {
                             val change = event.changes.firstOrNull() ?: continue
                             val delta = if (change.scrollDelta.y != 0f) change.scrollDelta.y
                                 else change.scrollDelta.x

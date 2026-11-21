@@ -10,10 +10,12 @@ import javax.swing.SwingUtilities
 
 /**
  * Touch screens for the desktop windows, the way Android's editor takes them: real multi-touch
- * pointers in Compose, from the platform's own touch protocol, since AWT has none.
+ * pointers in Compose, from the platform's own touch protocol, since AWT has none. Touchpad pinches
+ * too, which AWT has no event for either.
  *
- * Native Wayland reads `wl_touch` on JetBrains Runtime's connection; X11 reads XInput 2.2 touch on a
- * connection of its own. `-Dvivenotes.touch=off` leaves the platform's default behaviour alone.
+ * Native Wayland reads `wl_touch` and `zwp_pointer_gestures_v1` on JetBrains Runtime's connection;
+ * X11 reads XInput 2.2 touch and 2.4 pinches on a connection of its own. `-Dvivenotes.touch=off`
+ * leaves the platform's default behaviour alone.
  */
 internal object DesktopTouch {
     private val enabled: Boolean get() = System.getProperty("vivenotes.touch") != "off"
@@ -45,7 +47,12 @@ internal object DesktopTouch {
                     firstTouch("wayland", inWindows, log)
                     injector.accept(inWindows)
                 }
-            }, log).start()
+            }, log, onPinch = { pinch ->
+                SwingUtilities.invokeLater {
+                    injector.pinch(PinchSample(pinch.phase, windowOf(pinch.surface), pinch.x, pinch.y,
+                        pinch.timeMillis, pinch.scale))
+                }
+            }).start()
         } catch (failure: Throwable) {
             log.event("touch") { "wayland touch unavailable: $failure" }
         }
@@ -67,7 +74,9 @@ internal object DesktopTouch {
                 firstTouch("x11", inWindow, log)
                 injector.accept(inWindow)
             }
-        }, log).also {
+        }, log, onPinch = { pinch ->
+            SwingUtilities.invokeLater { injector.pinch(pinch.fromRootPixels()) }
+        }).also {
             it.start()
             x11 = it
         }
@@ -111,17 +120,27 @@ internal object DesktopTouch {
     /** X11 reports touches in root-window pixels; Compose's mapping starts from window coordinates. */
     private fun TouchFrame.fromRootPixels(): TouchFrame = copy(changes = changes.map { change ->
         val window = change.window ?: return@map change
-        try {
-            val transform = window.graphicsConfiguration.defaultTransform
-            val origin = window.locationOnScreen
-            change.copy(x = change.x / transform.scaleX - origin.x, y = change.y / transform.scaleY - origin.y)
-        } catch (_: IllegalComponentStateException) {
-            change.copy(window = null)
-        }
+        val (x, y) = inWindow(window, change.x, change.y) ?: return@map change.copy(window = null)
+        change.copy(x = x, y = y)
     })
 
+    private fun PinchSample.fromRootPixels(): PinchSample {
+        val window = window ?: return this
+        val (x, y) = inWindow(window, x, y) ?: return copy(window = null)
+        return copy(x = x, y = y)
+    }
+
+    /** A point in root-window pixels in [window]'s own coordinates; null once the window is gone. */
+    private fun inWindow(window: Window, rootX: Double, rootY: Double): Pair<Double, Double>? = try {
+        val transform = window.graphicsConfiguration.defaultTransform
+        val origin = window.locationOnScreen
+        rootX / transform.scaleX - origin.x to rootY / transform.scaleY - origin.y
+    } catch (_: IllegalComponentStateException) {
+        null
+    }
+
     /** The X window of an AWT window: its peer's, through the runtime's own accessor. */
-    private fun xWindowOf(window: Window, log: DebugLog): Int? = try {
+    internal fun xWindowOf(window: Window, log: DebugLog): Int? = try {
         val accessor = Class.forName("sun.awt.AWTAccessor").getMethod("getComponentAccessor").invoke(null)
         val peer = Class.forName("sun.awt.AWTAccessor\$ComponentAccessor")
             .getMethod("getPeer", java.awt.Component::class.java).invoke(accessor, window)

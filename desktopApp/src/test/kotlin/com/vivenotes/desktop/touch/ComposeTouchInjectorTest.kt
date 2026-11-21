@@ -16,9 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.isTertiaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
+import com.vivenotes.ui.canvas.TouchpadPinch
+import com.vivenotes.ui.canvas.TouchpadPinch.Phase.Begin
+import com.vivenotes.ui.canvas.TouchpadPinch.Phase.End
+import com.vivenotes.ui.canvas.TouchpadPinch.Phase.Update
 import java.awt.GraphicsEnvironment
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.swing.JFrame
@@ -258,6 +263,57 @@ class ComposeTouchInjectorTest {
         assertTrue(press.third)
         assertEquals(150.5f * scale, events[1].pointers.single().second.x, 0.01f)
         assertTrue(!events[2].pointers.single().third)
+    }
+
+    private data class Scroll(val position: Offset, val delta: Offset, val type: PointerType, val native: Any?)
+
+    @Test
+    fun aTouchpadPinchArrivesAtTheCursorAsScrollsByNothingThatCarryIt() {
+        if (GraphicsEnvironment.isHeadless()) return
+        val seen = CopyOnWriteArrayList<Scroll>()
+        val (window, panel) = show {
+            Box(Modifier.fillMaxSize().pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.type != PointerEventType.Scroll) continue
+                        val change = event.changes.single()
+                        seen += Scroll(change.position, change.scrollDelta, change.type, event.nativeEvent)
+                    }
+                }
+            })
+        }
+        waitUntil("the panel to lay out") { panel.width > 0 && panel.isShowing }
+        val injector = ComposeTouchInjector()
+        lateinit var origin: java.awt.Point
+        var scale = 1f
+        SwingUtilities.invokeAndWait {
+            origin = SwingUtilities.convertPoint(panel, 0, 0, window)
+            scale = panel.graphicsConfiguration.defaultTransform.scaleX.toFloat()
+        }
+        val x = origin.x + 120.5
+        val y = origin.y + 80.25
+        SwingUtilities.invokeAndWait {
+            // On a surface no window is known for: no one's.
+            injector.pinch(PinchSample(Begin, null, x, y, 90))
+            injector.pinch(PinchSample(Update, null, x, y, 95, scale = 4.0))
+            injector.pinch(PinchSample(End, null, x, y, 98))
+
+            injector.pinch(PinchSample(Begin, window, x, y, 100))
+            injector.pinch(PinchSample(Update, window, x, y, 116, scale = 1.5))
+            injector.pinch(PinchSample(Update, window, x, y, 132, scale = 3.0))
+            injector.pinch(PinchSample(End, window, x, y, 140))
+        }
+        waitUntil("the pinch's end") { seen.any { it.native == TouchpadPinch(End) } }
+
+        assertEquals(listOf(TouchpadPinch(Begin), TouchpadPinch(Update, 1.5f), TouchpadPinch(Update, 2f), TouchpadPinch(End)),
+            seen.map { it.native })
+        for (scroll in seen) {
+            assertEquals(120.5f * scale, scroll.position.x, 0.01f)
+            assertEquals(80.25f * scale, scroll.position.y, 0.01f)
+            assertEquals(Offset.Zero, scroll.delta, "a pinch scrolls nothing")
+            assertEquals(PointerType.Mouse, scroll.type)
+        }
     }
 
     /** Mouse events as the app receives them: through AWT's event queue, to the component under them. */
