@@ -51,7 +51,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libegl-dev libwayland-dev libwayland-bin
+          # libxcb-xinput0 is the host library X11 touch and pinch tests need; the runner lacks it.
+          sudo apt-get install -y xvfb libxcb-xinput0 libegl-dev libwayland-dev libwayland-bin
       - name: Run desktop tests
         if: runner.os == 'Linux'
         timeout-minutes: 30
