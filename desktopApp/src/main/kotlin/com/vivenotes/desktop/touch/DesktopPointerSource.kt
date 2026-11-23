@@ -1,5 +1,6 @@
 package com.vivenotes.desktop.touch
 
+import com.vivenotes.byteink.compose.InkHoverEvent
 import com.vivenotes.byteink.compose.NativeInkInputSource
 import com.vivenotes.diagnostics.DebugLog
 import java.awt.Window
@@ -13,6 +14,8 @@ import javax.swing.SwingUtilities
 /** Connects ByteInk's native Windows/tablet-v2 capture to the entire Compose UI. */
 internal object DesktopPointerSource {
     private val attached = WeakHashMap<Window, Unit>()
+    /** Once per run: the first hovering pen, which shows the platform reports hover at all. */
+    private var hovered = false
 
     fun attach(window: Window, injector: ComposeTouchInjector, log: DebugLog) {
         check(SwingUtilities.isEventDispatchThread())
@@ -24,8 +27,11 @@ internal object DesktopPointerSource {
         // primary-authoring X11 source also selects the mouse and cannot forward its other buttons.
         if (!windows && !wayland) return
         val queue = TouchAwareEventQueue.install()
+        // Native Wayland reports a hovering pen, which moves no pointer there once tablet-v2 is bound;
+        // it moves the mouse instead, as the pen itself does on X11 and Windows.
         val frames = NativePointerFrames(window, mouse = !wayland, touch = windows, emit = injector::accept,
-            offset = { if (windows) window.insets.let { it.left.toDouble() to it.top.toDouble() } else 0.0 to 0.0 })
+            offset = { if (windows) window.insets.let { it.left.toDouble() to it.top.toDouble() } else 0.0 to 0.0 },
+            onHover = queue::penHover, onHoverEnd = queue::penHoverEnd)
         var subscription: AutoCloseable? = null
         var surfaceWait: javax.swing.Timer? = null
         fun stop() {
@@ -33,6 +39,7 @@ internal object DesktopPointerSource {
             surfaceWait = null
             queue.nativeMouseWindows.remove(window)
             frames.cancel()
+            frames.endHover()
             val old = subscription
             subscription = null
             try { old?.close() } catch (failure: Exception) { log.failure("input", "close native pointers", failure) }
@@ -50,6 +57,13 @@ internal object DesktopPointerSource {
                 val source = NativeInkInputSource(window, nativeHandle,
                     pixelsPerLocalUnit = { if (wayland) 1f else window.graphicsConfiguration.defaultTransform.scaleX.toFloat() },
                     onFailure = { failure -> stop(); log.failure("input", "native pointers", failure) })
+                source.onHover = { event ->
+                    if (!hovered && event is InkHoverEvent.Move) {
+                        hovered = true
+                        log.event("input") { "first pen hover: ${source.backend}" }
+                    }
+                    frames.hover(event)
+                }
                 subscription = source.subscribe(frames::accept)
                 surfaceWait?.stop()
                 surfaceWait = null

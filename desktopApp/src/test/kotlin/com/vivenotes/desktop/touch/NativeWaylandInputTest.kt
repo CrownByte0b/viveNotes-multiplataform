@@ -1,9 +1,16 @@
 package com.vivenotes.desktop.touch
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.desktop.rendering.WaylandRendering
 import com.vivenotes.desktop.rendering.waylandComposePanel
@@ -90,5 +97,109 @@ class NativeWaylandInputTest {
         } finally {
             source.stop()
         }
+    }
+
+    /**
+     * Issue #27 end to end, on ByteInk's private tablet compositor (skipped on any other): a hovering
+     * pen moves the mouse in Compose, Compose's pointer icon there becomes the pen's cursor, and the
+     * cursor follows the pen from element to element.
+     */
+    @OptIn(ExperimentalComposeUiApi::class)
+    @Test fun aHoveringPenShowsTheCursorComposeShowsForTheMouseThere() {
+        assumeTrue(Toolkit.getDefaultToolkit().javaClass.name == "sun.awt.wl.WLToolkit")
+        val displayClass = Class.forName("sun.awt.wl.WLDisplay")
+        val display = displayClass.getMethod("getDisplayPtr").invoke(displayClass.getMethod("getInstance").invoke(null)) as Long
+        val fixture = TabletFixture.open(display)
+        assumeTrue("needs ByteInk's private tablet test compositor", fixture != null)
+        WaylandRendering.prepare()
+        val lines = CopyOnWriteArrayList<String>()
+        val log = DebugLog(true) { lines += it }
+        val mouseEntered = java.util.concurrent.atomic.AtomicBoolean()
+        var frame: JFrame? = null
+        try {
+            SwingUtilities.invokeAndWait {
+                val window = JFrame("Wayland pen cursor")
+                frame = window
+                val panel = waylandComposePanel(log)
+                window.add(panel)
+                panel.setContent {
+                    Column(Modifier.fillMaxSize()) {
+                        Box(Modifier.fillMaxWidth().weight(1f).pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    if (event.type == PointerEventType.Enter && event.changes.any { it.type == PointerType.Mouse }) mouseEntered.set(true)
+                                }
+                            }
+                        }.pointerHoverIcon(PointerIcon.Text))
+                        Box(Modifier.fillMaxWidth().weight(1f))
+                    }
+                }
+                window.setSize(400, 300)
+                window.isVisible = true
+                DesktopPointerSource.attach(window, ComposeTouchInjector(log), log)
+            }
+            val window = checkNotNull(frame)
+            lateinit var origin: java.awt.Point
+            var height = 0
+            SwingUtilities.invokeAndWait {
+                origin = SwingUtilities.convertPoint(window.contentPane, 0, 0, window)
+                height = window.contentPane.height
+            }
+            val surface = surfaceOf(window)
+            var time = 1000
+            // Hover until the capture is ready: hover arriving before readiness is ignored.
+            fun hoverUntil(what: String, y: Int, done: (List<TabletFixture.Cursor>) -> Boolean) {
+                val deadline = System.currentTimeMillis() + 10_000
+                while (true) {
+                    fixture!!.send(surface, 0, 1, origin.x + 30.0, origin.y + y.toDouble(), time++)
+                    Thread.sleep(50)
+                    val cursors = fixture.cursors()
+                    if (done(cursors)) return
+                    check(System.currentTimeMillis() < deadline) { "timed out waiting for $what: $cursors\n${lines.joinToString("\n")}" }
+                }
+            }
+            hoverUntil("the text cursor Compose shows over the upper box", height / 4) { cursors ->
+                cursors.any { it.shape == TEXT && it.shapeSerial }
+            }
+            assertTrue(mouseEntered.get(), "the pen's hover reached Compose as the mouse")
+            hoverUntil("the arrow over the lower box", height * 3 / 4) { cursors ->
+                cursors.any { it.shape == DEFAULT && it.shapeSerial && it.shapes >= 2 }
+            }
+            fixture!!.send(surface, 0, 3, origin.x + 30.0, origin.y + height * 3 / 4.0, time++)
+            assertTrue(lines.any { "first pen hover: LINUX_WAYLAND_TABLET" in it }, lines.joinToString("\n"))
+            assertFalse(lines.any { "failed" in it }, lines.joinToString("\n"))
+        } finally {
+            frame?.let { window -> SwingUtilities.invokeAndWait { window.dispose() } }
+            fixture?.close()
+        }
+    }
+
+    /** The window's wl_surface, as JBR's peer holds it. */
+    private fun surfaceOf(window: java.awt.Window): Long {
+        var surface = 0L
+        val deadline = System.currentTimeMillis() + 5000
+        while (surface == 0L) {
+            SwingUtilities.invokeAndWait {
+                val peers = Class.forName("sun.awt.wl.WLToolkit").getDeclaredField("wlSurfaceToPeerMap")
+                    .apply { isAccessible = true }.get(null) as Map<*, *>
+                val peer = synchronized(peers) {
+                    peers.values.firstOrNull { it != null && it.javaClass.getMethod("getTarget").apply { isAccessible = true }.invoke(it) === window }
+                }
+                val wlSurface = peer?.javaClass?.getMethod("getSurface")?.apply { isAccessible = true }?.invoke(peer)
+                surface = wlSurface?.javaClass?.getMethod("getWlSurfacePtr")?.apply { isAccessible = true }?.invoke(wlSurface) as Long? ?: 0L
+            }
+            if (surface == 0L) {
+                check(System.currentTimeMillis() < deadline) { "the window's surface was never configured" }
+                Thread.sleep(20)
+            }
+        }
+        return surface
+    }
+
+    private companion object {
+        // cursor-shape-v1 shapes
+        const val DEFAULT = 1
+        const val TEXT = 9
     }
 }

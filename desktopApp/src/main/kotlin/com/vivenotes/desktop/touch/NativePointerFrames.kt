@@ -2,19 +2,47 @@ package com.vivenotes.desktop.touch
 
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.ink.brush.InputToolType
+import com.vivenotes.byteink.compose.InkHoverEvent
 import com.vivenotes.byteink.compose.InkInputEvent
 import com.vivenotes.byteink.compose.InkPointerSample
 import java.awt.Window
 
-/** Retains each device's identity and every real historical pressure sample. EDT only. */
+/**
+ * Retains each device's identity and every real historical pressure sample. EDT only.
+ *
+ * A tool hovering over the window goes to [onHover] at its point in the window, until the last
+ * hovering tool leaves ([onHoverEnd]). Only native Wayland reports hover: elsewhere the pen moves
+ * the system pointer itself.
+ */
 internal class NativePointerFrames(
     private val window: Window,
     private val mouse: Boolean,
     private val touch: Boolean,
     private val emit: (TouchFrame) -> Unit,
     private val offset: () -> Pair<Double, Double> = { 0.0 to 0.0 },
+    private val onHover: (Window, Double, Double) -> Unit = { _, _, _ -> },
+    private val onHoverEnd: (Window) -> Unit = {},
 ) {
     private val active = mutableMapOf<Long, InkPointerSample>()
+    private val hovering = mutableSetOf<Long>()
+
+    fun hover(event: InkHoverEvent) {
+        when (event) {
+            is InkHoverEvent.Move -> {
+                hovering += event.pointerId
+                val (dx, dy) = offset()
+                onHover(window, event.sample.x + dx, event.sample.y + dy)
+            }
+            is InkHoverEvent.Exit -> if (hovering.remove(event.pointerId) && hovering.isEmpty()) onHoverEnd(window)
+        }
+    }
+
+    /** Capture stopped, so nothing hovers any longer. */
+    fun endHover() {
+        if (hovering.isEmpty()) return
+        hovering.clear()
+        onHoverEnd(window)
+    }
 
     fun accept(event: InkInputEvent) {
         when (event) {

@@ -2,6 +2,7 @@ package com.vivenotes.desktop.touch
 
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.ink.brush.InputToolType
+import com.vivenotes.byteink.compose.InkHoverEvent
 import com.vivenotes.byteink.compose.InkInputEvent
 import com.vivenotes.byteink.compose.InkPointerSample
 import java.awt.Frame
@@ -43,6 +44,30 @@ class NativePointerFramesTest {
                     assertTrue(events.last().pointers.all { it.type == PointerType.Touch })
                 }
             }
+        } finally { window.dispose() }
+    }
+
+    @Test fun hoverStandsInForTheMouseUntilTheLastToolLeavesOrCaptureStops() {
+        val window = Frame()
+        try {
+            val seen = mutableListOf<String>()
+            val frames = mutableListOf<TouchFrame>()
+            val source = NativePointerFrames(window, mouse = false, touch = false, emit = { frames += it }, offset = { 2.0 to 3.0 },
+                onHover = { at, x, y -> assertSame(window, at); seen += "hover $x,$y" },
+                onHoverEnd = { assertSame(window, it); seen += "end" })
+            fun sample(x: Float, tool: InputToolType = InputToolType.STYLUS) = InkPointerSample(x, 10f, 1, tool)
+            source.hover(InkHoverEvent.Move(sample(10f), 7))
+            // A tablet puck hovers like a mouse too; the mouse leaves when the last tool does.
+            source.hover(InkHoverEvent.Move(sample(20f, InputToolType.MOUSE), 8))
+            source.hover(InkHoverEvent.Exit(7))
+            source.hover(InkHoverEvent.Exit(8))
+            source.hover(InkHoverEvent.Exit(8))
+            source.hover(InkHoverEvent.Move(sample(30f), 7))
+            source.cancel()
+            source.endHover()
+            source.endHover()
+            assertEquals(listOf("hover 12.0,13.0", "hover 22.0,13.0", "end", "hover 32.0,13.0", "end"), seen)
+            assertTrue(frames.isEmpty(), "hover is no contact")
         } finally { window.dispose() }
     }
 

@@ -17,9 +17,16 @@ import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.awt.RenderSettings
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.isTertiaryPressed
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.ink.brush.InputToolType
+import com.vivenotes.byteink.compose.InkHoverEvent
+import com.vivenotes.byteink.compose.InkInputEvent
+import com.vivenotes.byteink.compose.InkPointerSample
+import java.awt.Cursor
 import com.vivenotes.ui.canvas.TouchpadPinch
 import com.vivenotes.ui.canvas.TouchpadPinch.Phase.Begin
 import com.vivenotes.ui.canvas.TouchpadPinch.Phase.End
@@ -31,6 +38,8 @@ import javax.swing.SwingUtilities
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -448,5 +457,114 @@ class ComposeTouchInjectorTest {
         waitUntil("the zoom to settle") { Thread.sleep(150); (zoom == settled).also { settled = zoom } }
         // The fingers spread from 80 to 160 px; Compose's own slop takes the start of that.
         assertTrue(zoom in 1.45f..2.01f, "a two-finger spread zoomed: $zoom")
+    }
+
+    /**
+     * Native Wayland reports a hovering pen without moving the mouse pointer for it (issue #27):
+     * the pen moves the mouse instead, as it does on X11 and Windows, so pointer icons and hover
+     * follow it, and the pen still taps where it hovered.
+     */
+    @Test
+    fun aHoveringPenMovesTheMouseSoIconsAndHoverFollowItAndItsTapStillClicks() {
+        if (GraphicsEnvironment.isHeadless()) return
+        // What hover states and tooltips are made of: the mouse's Enter and Exit on the element.
+        val hovered = java.util.concurrent.atomic.AtomicBoolean()
+        val clicks = java.util.concurrent.atomic.AtomicInteger()
+        val (window, panel) = show {
+            androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxWidth().weight(1f).pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.changes.none { it.type == PointerType.Mouse }) continue
+                            if (event.type == PointerEventType.Enter) hovered.set(true)
+                            if (event.type == PointerEventType.Exit) hovered.set(false)
+                        }
+                    }
+                }.pointerHoverIcon(PointerIcon.Text).clickable { clicks.incrementAndGet() })
+                Box(Modifier.fillMaxWidth().weight(1f))
+            }
+        }
+        waitUntil("the panel to lay out") { panel.width > 0 && panel.isShowing }
+        val queue = TouchAwareEventQueue.install()
+        val frames = NativePointerFrames(window, mouse = false, touch = false, emit = ComposeTouchInjector()::accept,
+            onHover = queue::penHover, onHoverEnd = queue::penHoverEnd)
+        lateinit var origin: java.awt.Point
+        lateinit var render: java.awt.Component
+        var height = 0
+        SwingUtilities.invokeAndWait {
+            origin = SwingUtilities.convertPoint(panel, 0, 0, window)
+            render = SwingUtilities.getDeepestComponentAt(panel, 30, 30)
+            height = panel.height
+        }
+        fun pen(y: Int) = InkPointerSample(origin.x + 30f, origin.y + y.toFloat(), System.currentTimeMillis(), InputToolType.STYLUS)
+        fun hover(y: Int) = SwingUtilities.invokeAndWait { frames.hover(InkHoverEvent.Move(pen(y), 7)) }
+        // Where ByteInk reads the pen's cursor: the component under the pen in its window.
+        fun penCursor(y: Int): Int {
+            var type = -1
+            SwingUtilities.invokeAndWait { type = SwingUtilities.getDeepestComponentAt(window, origin.x + 30, origin.y + y).cursor.type }
+            return type
+        }
+
+        hover(height / 4)
+        waitUntil("the text icon and hover under the pen") { render.cursor.type == Cursor.TEXT_CURSOR && hovered.get() }
+        assertEquals(Cursor.TEXT_CURSOR, penCursor(height / 4), "the pen shows what Compose shows for the mouse")
+        hover(height * 3 / 4)
+        waitUntil("the default icon and no hover below the box") { render.cursor.type == Cursor.DEFAULT_CURSOR && !hovered.get() }
+        assertEquals(Cursor.DEFAULT_CURSOR, penCursor(height * 3 / 4))
+        hover(height / 4)
+        waitUntil("hover over the box again") { hovered.get() }
+        // The pen touches where it hovers: Compose takes a press, not a stale mouse change.
+        SwingUtilities.invokeAndWait {
+            frames.accept(InkInputEvent.Begin(pen(height / 4), 7))
+            frames.accept(InkInputEvent.Finish(pen(height / 4), 7))
+        }
+        waitUntil("the pen's tap") { clicks.get() == 1 }
+        hover(height / 4)
+        waitUntil("hover after the tap") { hovered.get() }
+        SwingUtilities.invokeAndWait { frames.hover(InkHoverEvent.Exit(7)) }
+        waitUntil("hover ends with the pen's proximity") { !hovered.get() }
+        SwingUtilities.invokeAndWait { assertNull(queue.mouse, "the mouse the pen stood in for left with it") }
+        assertEquals(1, clicks.get())
+    }
+
+    /** A pen hovering while a finger is down would end the finger's gesture, as X11's mouse would. */
+    @Test
+    fun aHoveringPenWaitsWhileAFingerIsDown() {
+        if (GraphicsEnvironment.isHeadless()) return
+        val seen = CopyOnWriteArrayList<Seen>()
+        val (window, panel) = show {
+            Box(Modifier.fillMaxSize().pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        seen += Seen(event.type.toString(), event.changes.map { Triple(it.type, it.position, it.pressed) })
+                    }
+                }
+            })
+        }
+        waitUntil("the panel to lay out") { panel.width > 0 && panel.isShowing }
+        val queue = TouchAwareEventQueue.install()
+        val injector = ComposeTouchInjector()
+        lateinit var origin: java.awt.Point
+        SwingUtilities.invokeAndWait { origin = SwingUtilities.convertPoint(panel, 0, 0, window) }
+        val x = origin.x + 60.0
+        val y = origin.y + 40.0
+        fun finger(phase: TouchPhase, at: Double) = SwingUtilities.invokeAndWait {
+            injector.accept(TouchFrame(1, listOf(TouchChange(1, phase, window, at, y))))
+        }
+        fun mouseSeen(type: String) = seen.any { event -> event.type == type && event.pointers.any { it.first == PointerType.Mouse } }
+
+        finger(TouchPhase.Down, x)
+        SwingUtilities.invokeAndWait { queue.penHover(window, x + 30, y) }
+        finger(TouchPhase.Move, x + 10)
+        finger(TouchPhase.Up, x + 10)
+        waitUntil("the finger's release") { seen.any { event -> event.type == "Release" && event.pointers.any { it.first == PointerType.Touch } } }
+        assertFalse(seen.any { event -> event.pointers.any { it.first == PointerType.Mouse } }, "no mouse during the finger: $seen")
+        SwingUtilities.invokeAndWait { queue.penHover(window, x + 30, y) }
+        waitUntil("the pen's hover once the finger lifted") { mouseSeen("Move") }
+        SwingUtilities.invokeAndWait { queue.penHoverEnd(window) }
+        waitUntil("the mouse leaves with the pen") { mouseSeen("Exit") }
+        SwingUtilities.invokeAndWait { assertNull(queue.mouse) }
     }
 }
