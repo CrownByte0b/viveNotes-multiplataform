@@ -18,6 +18,8 @@ internal enum class CanvasCursor(val keyword: String) {
     AllScroll("all-scroll"),
     /** An object the mouse is moving. */
     Grabbing("grabbing"),
+    /** No cursor: a pen over the page with a Draw tool shows the tool's circle instead ([StylusIndicator]). */
+    None("none"),
 }
 
 @Composable

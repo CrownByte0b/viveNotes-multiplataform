@@ -41,7 +41,14 @@ internal class TouchAwareEventQueue : EventQueue() {
     /** Where a hovering pen last moved the mouse. */
     private var pen: MouseAt? = null
 
+    /** Told when the mouse itself moves, presses or scrolls in a window, rather than a pen for it. */
+    val mouseUsed = mutableMapOf<Window, () -> Unit>()
+
     override fun dispatchEvent(event: AWTEvent) {
+        if (event is MouseEvent && event !is PenHoverEvent && event.id in USED && mouseUsed.isNotEmpty()) {
+            val window = event.component as? Window ?: SwingUtilities.getWindowAncestor(event.component)
+            mouseUsed[window]?.invoke()
+        }
         if (event is MouseEvent && (event.id == MouseEvent.MOUSE_DRAGGED &&
                 event.modifiersEx and MouseEvent.BUTTON1_DOWN_MASK != 0 ||
                 event.button == MouseEvent.BUTTON1 && event.id in PRIMARY)) {
@@ -95,6 +102,8 @@ internal class TouchAwareEventQueue : EventQueue() {
     companion object {
         private val HOVER = setOf(MouseEvent.MOUSE_MOVED, MouseEvent.MOUSE_ENTERED, MouseEvent.MOUSE_EXITED)
         private val PRIMARY = setOf(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)
+        private val USED = setOf(MouseEvent.MOUSE_MOVED, MouseEvent.MOUSE_DRAGGED, MouseEvent.MOUSE_PRESSED,
+            MouseEvent.MOUSE_WHEEL)
         private var installed: TouchAwareEventQueue? = null
 
         /** The process's queue, pushed onto AWT's the first time touch is set up. */

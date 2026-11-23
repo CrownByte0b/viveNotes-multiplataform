@@ -1,5 +1,6 @@
 package com.vivenotes.ui.canvas
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.tooling.ComposeToolingApi
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -25,6 +26,7 @@ import com.vivenotes.platform.XcursorImage
 import com.vivenotes.ui.shell.WorkspaceScreen
 import com.vivenotes.ui.showFixedScene
 import com.vivenotes.ui.shell.WorkspaceTestTags
+import com.vivenotes.workspace.InkTool
 import com.vivenotes.workspace.WorkspaceState
 import java.awt.Component
 import java.awt.Container
@@ -35,6 +37,7 @@ import java.awt.Point
 import java.awt.event.InputEvent
 import java.awt.event.KeyEvent
 import java.awt.event.MouseEvent
+import java.awt.image.BufferedImage
 import javax.swing.JFrame
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
@@ -381,6 +384,52 @@ class CanvasCursorTest {
         host.awaitCursorType(Cursor.TEXT_CURSOR, "Ctrl released without moving")
     }
 
+    /**
+     * Issue #27: a pen hovering with a Draw tool shows the tool's circle on the page in place of a
+     * cursor, so the canvas asks for no cursor, which ByteInk passes on to the pen. The mouse, and a
+     * pen without a Draw tool, keep their cursors.
+     */
+    @Test
+    fun aHoveringPenWithADrawToolHasNoCursorOverThePage() = withWorkspace { host ->
+        host.update(workspace(emptyList()).selectInkTool(InkTool.Pen))
+        val canvas = host.bounds(WorkspaceTestTags.PageCanvas)
+        val at = host.point(Offset(canvas.left + 160f, canvas.top + 240f))
+        val next = Point(at.x + 12, at.y + 6)
+
+        // The mouse with the pen tool keeps its arrow.
+        host.mouse(MouseEvent.MOUSE_ENTERED, at)
+        host.mouse(MouseEvent.MOUSE_MOVED, at)
+        host.assertCursorStays(Cursor.DEFAULT_CURSOR, "the mouse with the pen tool")
+        assertEquals(0, host.darkAround(at), "no circle for the mouse")
+
+        SwingUtilities.invokeAndWait { host.stylusHover.active = true }
+        host.mouse(MouseEvent.MOUSE_MOVED, next)
+        val none = waitFor("no cursor for the hovering pen") { host.render.cursor.takeIf { it.name == "none" } }
+        assertTrue(none.isCanvasCursor(), "the canvas's own hidden cursor: ${none.name}")
+        SwingUtilities.invokeAndWait { assertSame(canvasAwtCursor(CanvasCursor.None), none) }
+        // The circle stands in for it, under the pen's tip.
+        waitFor("the pen's circle under its tip") { host.darkAround(next).takeIf { it > 0 } }
+
+        for (tool in listOf(InkTool.Eraser, InkTool.Highlighter)) {
+            host.update(host.state.value.selectInkTool(tool))
+            host.mouse(MouseEvent.MOUSE_MOVED, at)
+            host.assertCursorStays(Cursor.CUSTOM_CURSOR, "the hovering pen with the ${tool.name}")
+        }
+        // The laser has a dot of its own: the pen points with the arrow.
+        host.update(host.state.value.selectInkTool(InkTool.Laser))
+        host.mouse(MouseEvent.MOUSE_MOVED, next)
+        host.awaitCursorType(Cursor.DEFAULT_CURSOR, "the hovering pen with the laser")
+        host.update(host.state.value.selectInkTool(InkTool.Eraser))
+        host.mouse(MouseEvent.MOUSE_MOVED, at)
+        host.awaitCursorType(Cursor.CUSTOM_CURSOR, "the eraser again")
+
+        // The pen leaves; the mouse moves again and has its arrow back, and no circle.
+        SwingUtilities.invokeAndWait { host.stylusHover.active = false }
+        host.mouse(MouseEvent.MOUSE_MOVED, next)
+        host.awaitCursorType(Cursor.DEFAULT_CURSOR, "the mouse once the pen left")
+        waitFor<Boolean>("the circle gone with the pen") { true.takeIf { host.darkAround(next) == 0 } }
+    }
+
     private fun WorkspaceState.objectX(id: String): Float =
         selectedPage!!.document.outlines.single { it.id == id }.x
 
@@ -401,9 +450,15 @@ class CanvasCursorTest {
         val panel = ComposePanel(renderSettings = RenderSettings.SwingGraphics())
         val frame: JFrame = showFixedScene("Canvas cursor workspace test", panel)
         val render: Component get() = panel.renderComponent()
+        /** As the native Wayland host provides it: raised while a pen moves the mouse. */
+        val stylusHover = StylusHover()
 
         init {
-            panel.setContent { WorkspaceScreen(state.value, { state.value = it(state.value) }) }
+            panel.setContent {
+                CompositionLocalProvider(LocalStylusHover provides stylusHover) {
+                    WorkspaceScreen(state.value, { state.value = it(state.value) })
+                }
+            }
         }
 
         fun update(value: WorkspaceState) = SwingUtilities.invokeAndWait { state.value = value }
@@ -418,6 +473,22 @@ class CanvasCursorTest {
 
         fun bounds(tag: String): Rect = waitFor("bounds of $tag") {
             nodeNow(tag)?.boundsInRoot?.takeIf { it.width > 0f && it.height > 0f }
+        }
+
+        /** Near-black pixels the panel shows within [reach] of [at]: on an empty page, only a drawn outline. */
+        fun darkAround(at: Point, reach: Int = 16): Int {
+            var dark = 0
+            val count = Runnable {
+                val image = BufferedImage(render.width, render.height, BufferedImage.TYPE_INT_RGB)
+                val graphics = image.createGraphics()
+                try { render.paint(graphics) } finally { graphics.dispose() }
+                for (y in at.y - reach..at.y + reach) for (x in at.x - reach..at.x + reach) {
+                    val rgb = image.getRGB(x, y)
+                    if ((rgb shr 16 and 0xFF) + (rgb shr 8 and 0xFF) + (rgb and 0xFF) < 3 * 80) dark++
+                }
+            }
+            if (SwingUtilities.isEventDispatchThread()) count.run() else SwingUtilities.invokeAndWait(count)
+            return dark
         }
 
         /** A point in Compose root pixels, as an AWT point on the render component. */

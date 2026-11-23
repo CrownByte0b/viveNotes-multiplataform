@@ -386,6 +386,55 @@ class ComposeTouchInjectorTest {
     }
 
     /**
+     * A contact begins by sending the mouse away, and Compose answers that with its default cursor.
+     * A pen keeps the cursor it hovered with: on native Wayland ByteInk gives the pen the component's
+     * cursor, so a stroke over the page, which shows the pen no cursor, would get the arrow for its
+     * whole length (ViveNotes #27). A finger leaves the cursor to Compose, as before.
+     */
+    @Test
+    fun aPenPressKeepsTheCursorItHoveredWithAsTheMouseIsSentAway() {
+        if (GraphicsEnvironment.isHeadless()) return
+        val clicked = CopyOnWriteArrayList<PointerType>()
+        val (window, panel) = show {
+            Box(Modifier.fillMaxSize().pointerHoverIcon(PointerIcon.Hand).pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.type == PointerEventType.Press) clicked += event.changes.first().type
+                    }
+                }
+            })
+        }
+        waitUntil("the panel to lay out") { panel.width > 0 && panel.isShowing }
+        val injector = ComposeTouchInjector()
+        lateinit var origin: java.awt.Point
+        lateinit var content: java.awt.Component
+        SwingUtilities.invokeAndWait {
+            origin = SwingUtilities.convertPoint(panel, 0, 0, window)
+            content = SwingUtilities.getDeepestComponentAt(panel, 30, 30)
+        }
+        fun cursor(): Int {
+            var type = -1
+            SwingUtilities.invokeAndWait { type = content.cursor.type }
+            return type
+        }
+        fun contact(phase: TouchPhase, type: PointerType) = SwingUtilities.invokeAndWait {
+            injector.accept(TouchFrame(1, listOf(TouchChange(1, phase, window, origin.x + 30.0, origin.y + 30.0, type))))
+        }
+        for (type in listOf(PointerType.Stylus, PointerType.Touch)) {
+            mouse(content, java.awt.event.MouseEvent.MOUSE_ENTERED, 30, 30)
+            mouse(content, java.awt.event.MouseEvent.MOUSE_MOVED, 30, 30)
+            waitUntil("the hand under the mouse") { cursor() == Cursor.HAND_CURSOR }
+            contact(TouchPhase.Down, type)
+            waitUntil("the press") { type in clicked }
+            Thread.sleep(150)
+            assertEquals(if (type == PointerType.Stylus) Cursor.HAND_CURSOR else Cursor.DEFAULT_CURSOR, cursor(), "$type")
+            contact(TouchPhase.Up, type)
+            mouse(content, java.awt.event.MouseEvent.MOUSE_EXITED, 30, 30)
+        }
+    }
+
+    /**
      * X11 moves the mouse pointer along with the first finger. Those moves are not the user's mouse:
      * reaching Compose mid-gesture, they would end the finger's gesture with a release.
      */

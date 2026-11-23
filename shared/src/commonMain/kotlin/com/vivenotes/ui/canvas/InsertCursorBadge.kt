@@ -70,6 +70,11 @@ internal object InsertBadgeTags {
 @Stable
 internal class CanvasPointer {
     var position by mutableStateOf<Offset?>(null)
+    /** What last moved over the canvas, and whether it was hovering or touching; see [StylusIndicator]. */
+    var type by mutableStateOf<PointerType?>(null)
+    var phase by mutableStateOf(Phase.Away)
+
+    enum class Phase { Away, Hover, Contact }
 }
 
 /**
@@ -81,8 +86,15 @@ internal fun Modifier.followPointer(pointer: CanvasPointer): Modifier = pointerI
         while (true) {
             val event = awaitPointerEvent(PointerEventPass.Initial)
             val change = event.changes.firstOrNull() ?: continue
-            pointer.position = if (event.type == PointerEventType.Exit || change.type == PointerType.Touch) null
-                else change.position
+            val away = event.type == PointerEventType.Exit || change.type == PointerType.Touch
+            pointer.position = if (away) null else change.position
+            pointer.type = if (away) null else change.type
+            pointer.phase = when {
+                away || event.type == PointerEventType.Release -> CanvasPointer.Phase.Away
+                change.pressed -> CanvasPointer.Phase.Contact
+                event.type == PointerEventType.Move || event.type == PointerEventType.Enter -> CanvasPointer.Phase.Hover
+                else -> pointer.phase
+            }
         }
     }
 }

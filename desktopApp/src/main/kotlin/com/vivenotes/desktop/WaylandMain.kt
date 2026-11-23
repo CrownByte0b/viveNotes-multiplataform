@@ -1,8 +1,11 @@
 package com.vivenotes.desktop
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.ExperimentalComposeUiApi
 import com.vivenotes.App
+import com.vivenotes.ui.canvas.LocalStylusHover
+import com.vivenotes.ui.canvas.StylusHover
 import com.vivenotes.desktop.titlebar.TitleBar
 import com.vivenotes.desktop.touch.DesktopTouch
 import com.vivenotes.desktop.update.DesktopUpdates
@@ -53,12 +56,14 @@ internal fun launchWayland(notes: DesktopNotes, profile: DesktopProfile, log: De
         frame.size = initialSize
         frame.setLocation(monitor.workArea.x + (monitor.workArea.width - initialSize.width) / 2,
             monitor.workArea.y + (monitor.workArea.height - initialSize.height) / 2)
+        // A pen hovering over the window reaches the UI as mouse motion; this tells the page it is the pen.
+        val stylusHover = StylusHover()
         frame.contentPane.add(createWaylandContent(notes, notes.pictures(frame), notes.notebookFiles(frame),
             notes.pdfExporter(frame), notes.fileImporter(frame), log, profile, onDarkThemeChange = { titleBar.dark = it },
-            updates = updates))
+            updates = updates, stylusHover = stylusHover))
         frame.isVisible = true
         updates?.start()
-        DesktopTouch.attachPointers(frame, log)
+        DesktopTouch.attachPointers(frame, log, stylusHover)
         // The panel makes its drop target as it is shown.
         CopyOnlyDrops.install(frame, log)
     }
@@ -76,11 +81,11 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
                                  pdfExporter: com.vivenotes.pdf.PdfExportService,
                                  fileImporter: com.vivenotes.fileimport.FileImportService, log: DebugLog,
                                  profile: DesktopProfile, onDarkThemeChange: (Boolean) -> Unit,
-                                 updates: DesktopUpdates?): PopupLayerHost {
+                                 updates: DesktopUpdates?, stylusHover: StylusHover): PopupLayerHost {
     val panel = waylandComposePanel(log)
     val host = PopupLayerHost(panel, log)
     panel.windowContainer = host
-    panel.setContent {
+    panel.setContent { CompositionLocalProvider(LocalStylusHover provides stylusHover) {
         // WLToolkit's SwingGraphics host can keep the last file-dialog frame until another input
         // event arrives. A transfer's state change asks Swing to paint the new in-window dialog.
         LaunchedEffect(notes.session) {
@@ -104,7 +109,7 @@ private fun createWaylandContent(notes: DesktopNotes, pictures: PictureLibrary, 
             aiModels = notes.aiModels, drawMath = notes.drawMath, search = notes.search,
             appVersion = DesktopBuildInfo.version, debugLog = log, developmentBuild = profile.developmentBuild,
             clipboardHtml = notes.clipboardHtml, onDarkThemeChange = onDarkThemeChange, updates = updates)
-    }
+    } }
     return host
 }
 

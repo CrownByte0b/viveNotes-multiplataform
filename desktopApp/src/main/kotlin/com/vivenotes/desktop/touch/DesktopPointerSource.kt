@@ -3,6 +3,7 @@ package com.vivenotes.desktop.touch
 import com.vivenotes.byteink.compose.InkHoverEvent
 import com.vivenotes.byteink.compose.NativeInkInputSource
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.ui.canvas.StylusHover
 import java.awt.Window
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
@@ -17,7 +18,8 @@ internal object DesktopPointerSource {
     /** Once per run: the first hovering pen, which shows the platform reports hover at all. */
     private var hovered = false
 
-    fun attach(window: Window, injector: ComposeTouchInjector, log: DebugLog) {
+    /** [stylusHover] is the window content's, raised while a pen moves the mouse there (native Wayland). */
+    fun attach(window: Window, injector: ComposeTouchInjector, log: DebugLog, stylusHover: StylusHover? = null) {
         check(SwingUtilities.isEventDispatchThread())
         if (!injector.hasComposeContent(window)) return
         if (attached.put(window, Unit) != null) return
@@ -31,13 +33,14 @@ internal object DesktopPointerSource {
         // it moves the mouse instead, as the pen itself does on X11 and Windows.
         val frames = NativePointerFrames(window, mouse = !wayland, touch = windows, emit = injector::accept,
             offset = { if (windows) window.insets.let { it.left.toDouble() to it.top.toDouble() } else 0.0 to 0.0 },
-            onHover = queue::penHover, onHoverEnd = queue::penHoverEnd)
+            onHover = queue::penHover, onHoverEnd = queue::penHoverEnd, stylusHover = stylusHover)
         var subscription: AutoCloseable? = null
         var surfaceWait: javax.swing.Timer? = null
         fun stop() {
             surfaceWait?.stop()
             surfaceWait = null
             queue.nativeMouseWindows.remove(window)
+            queue.mouseUsed.remove(window)
             frames.cancel()
             frames.endHover()
             val old = subscription
@@ -70,6 +73,8 @@ internal object DesktopPointerSource {
                 // X11/Windows also deliver real primary mouse packets. Feeding those here avoids
                 // a promoted mouse press racing a native stylus press on AWT's separate queue.
                 if (!wayland) queue.nativeMouseWindows[window] = { source.isReady }
+                // On native Wayland the mouse itself, once used, takes over from a pen that moved it.
+                else queue.mouseUsed[window] = frames::mouseUsed
                 log.event("input") { "native pointers attached: ${source.backend}" }
             } catch (failure: Exception) {
                 stop()

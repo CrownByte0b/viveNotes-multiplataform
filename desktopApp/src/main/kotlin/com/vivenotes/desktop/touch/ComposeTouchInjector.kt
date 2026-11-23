@@ -108,7 +108,9 @@ internal class ComposeTouchInjector(
                             // A tap gives the window's content the keyboard, as a click does.
                             component.requestFocusInWindow()
                         }
-                        sendMouseAway(scene, mouse, mapping)
+                        sendMouseAway(scene, mouse, mapping, keepCursor = dispatch.pointers.any {
+                            it.type == PointerType.Stylus || it.type == PointerType.Eraser
+                        })
                     }
                     scene.sendPointerEvent(
                         eventType = when (dispatch.type) {
@@ -142,10 +144,16 @@ internal class ComposeTouchInjector(
          * The cursor leaves the scene when a finger lands, as hover ends under a finger on Android.
          * Compose otherwise sends a press beside the resting cursor's stale change, which `clickable`
          * and `awaitFirstDown` do not count as a press. It comes back when the mouse moves.
+         *
+         * A pen keeps the cursor it showed ([keepCursor]), which Compose would turn into the arrow as
+         * its mouse leaves. The pen is under that cursor: on native Wayland ByteInk gives it the
+         * component's cursor, and its hover moved the mouse there.
          */
-        private fun sendMouseAway(scene: ComposeScene, mouse: TouchAwareEventQueue, mapping: (Window, Double, Double) -> Offset) {
+        private fun sendMouseAway(scene: ComposeScene, mouse: TouchAwareEventQueue,
+                                  mapping: (Window, Double, Double) -> Offset, keepCursor: Boolean) {
             val cursor = mouse.mouse ?: return
             if (SwingUtilities.getWindowAncestor(component) !== cursor.window && component !== cursor.window) return
+            val shown = component.cursor.takeIf { keepCursor && component.isCursorSet }
             scene.sendPointerEvent(
                 eventType = PointerEventType.Exit,
                 pointers = listOf(ComposeScenePointer(
@@ -155,6 +163,7 @@ internal class ComposeTouchInjector(
                     type = PointerType.Mouse,
                 )),
             )
+            if (shown != null && component.cursor !== shown) component.cursor = shown
             mouse.forgetMouse()
         }
 

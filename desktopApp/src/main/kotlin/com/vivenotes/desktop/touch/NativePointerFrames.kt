@@ -5,14 +5,17 @@ import androidx.ink.brush.InputToolType
 import com.vivenotes.byteink.compose.InkHoverEvent
 import com.vivenotes.byteink.compose.InkInputEvent
 import com.vivenotes.byteink.compose.InkPointerSample
+import com.vivenotes.ui.canvas.StylusHover
 import java.awt.Window
 
 /**
  * Retains each device's identity and every real historical pressure sample. EDT only.
  *
  * A tool hovering over the window goes to [onHover] at its point in the window, until the last
- * hovering tool leaves ([onHoverEnd]). Only native Wayland reports hover: elsewhere the pen moves
- * the system pointer itself.
+ * hovering tool leaves ([onHoverEnd]). [stylusHover] tells the UI the pen is what moves the mouse,
+ * from its hover until it leaves or the mouse itself is used ([mouseUsed]); a contact keeps it, as
+ * the lifted pen hovers on. Only native Wayland reports hover: elsewhere the pen moves the system
+ * pointer itself.
  */
 internal class NativePointerFrames(
     private val window: Window,
@@ -22,6 +25,7 @@ internal class NativePointerFrames(
     private val offset: () -> Pair<Double, Double> = { 0.0 to 0.0 },
     private val onHover: (Window, Double, Double) -> Unit = { _, _, _ -> },
     private val onHoverEnd: (Window) -> Unit = {},
+    private val stylusHover: StylusHover? = null,
 ) {
     private val active = mutableMapOf<Long, InkPointerSample>()
     private val hovering = mutableSetOf<Long>()
@@ -30,10 +34,12 @@ internal class NativePointerFrames(
         when (event) {
             is InkHoverEvent.Move -> {
                 hovering += event.pointerId
+                // Before the motion, so that the UI already knows the pen is what moves.
+                stylusHover?.active = true
                 val (dx, dy) = offset()
                 onHover(window, event.sample.x + dx, event.sample.y + dy)
             }
-            is InkHoverEvent.Exit -> if (hovering.remove(event.pointerId) && hovering.isEmpty()) onHoverEnd(window)
+            is InkHoverEvent.Exit -> leave(event.pointerId)
         }
     }
 
@@ -41,7 +47,19 @@ internal class NativePointerFrames(
     fun endHover() {
         if (hovering.isEmpty()) return
         hovering.clear()
+        stylusHover?.active = false
         onHoverEnd(window)
+    }
+
+    private fun leave(id: Long) {
+        if (!hovering.remove(id) || hovering.isNotEmpty()) return
+        stylusHover?.active = false
+        onHoverEnd(window)
+    }
+
+    /** The mouse itself was used over the window: what moves the mouse there is the mouse again. */
+    fun mouseUsed() {
+        stylusHover?.active = false
     }
 
     fun accept(event: InkInputEvent) {

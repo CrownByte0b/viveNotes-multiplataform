@@ -92,6 +92,11 @@ import com.vivenotes.richtext.TextSelection
 import com.vivenotes.ui.canvas.ApplyCanvasCursorWhilePressed
 import com.vivenotes.ui.canvas.CanvasCursor
 import com.vivenotes.ui.canvas.CanvasPointer
+import com.vivenotes.ui.canvas.LocalStylusHover
+import com.vivenotes.ui.canvas.StylusIndicator
+import com.vivenotes.ui.canvas.drawStylusIndicator
+import com.vivenotes.ui.canvas.stylusIndicatorAt
+import com.vivenotes.ui.canvas.stylusReplacesCursor
 import com.vivenotes.ui.canvas.CanvasTouchActions
 import com.vivenotes.ui.canvas.FingerRole
 import com.vivenotes.ui.canvas.TouchpadPinch
@@ -322,6 +327,11 @@ internal fun PageCanvas(
     }
     ApplyCanvasCursorWhilePressed(heldCursor)
     val canvasPointer = remember { CanvasPointer() }
+    // A stylus over the page with a Draw tool shows the tool's width at its tip instead of a cursor.
+    val stylusHover = LocalStylusHover.current
+    val stylusCircleDp = StylusIndicator.diameterDp(state)
+    val stylusErases = state.inkTool == InkTool.Eraser
+    val stylusCursor = stylusReplacesCursor(canvasPointer, stylusHover, stylusCircleDp != null)
     val currentCreate by rememberUpdatedState(onCreateTextBox)
     val currentPlaceEmptyTextBox by rememberUpdatedState(onPlaceEmptyTextBox)
     val currentCreateShape by rememberUpdatedState(onCreateShape)
@@ -744,9 +754,14 @@ internal fun PageCanvas(
                             end.y - dy * wing - dx * wing), 1.5.dp.toPx())
                     }
                 }
+                // Read while drawing, so a moving pen redraws only this.
+                if (stylusCircleDp != null) canvasPointer.stylusIndicatorAt(stylusHover, stylusErases)?.let { center ->
+                    drawStylusIndicator(center, stylusCircleDp * zoomState.value * this.density)
+                }
             }
-            .pointerHoverIcon(heldCursor?.let { canvasPointerIcon(it) } ?: PointerIcon.Default,
-                overrideDescendants = heldCursor != null)
+            .pointerHoverIcon(heldCursor?.let { canvasPointerIcon(it) }
+                ?: if (stylusCursor) canvasPointerIcon(CanvasCursor.None) else PointerIcon.Default,
+                overrideDescendants = heldCursor != null || stylusCursor)
             // Where the mouse is, for the badge beside it that shows what a click will insert.
             .followPointer(canvasPointer)
             .followTextBoxHover(page?.id, interaction.hoveredTextBoxState) { position ->

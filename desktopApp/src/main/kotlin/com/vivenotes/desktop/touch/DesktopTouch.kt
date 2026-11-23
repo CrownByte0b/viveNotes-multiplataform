@@ -1,6 +1,7 @@
 package com.vivenotes.desktop.touch
 
 import com.vivenotes.diagnostics.DebugLog
+import com.vivenotes.ui.canvas.StylusHover
 import java.awt.IllegalComponentStateException
 import java.awt.Window
 import java.awt.event.WindowAdapter
@@ -92,7 +93,8 @@ internal object DesktopTouch {
 
     private fun injector(log: DebugLog): ComposeTouchInjector = injector ?: ComposeTouchInjector(log).also { injector = it }
 
-    fun attachPointers(window: Window, log: DebugLog) {
+    /** [stylusHover] is [window]'s content's, raised while a pen moves the mouse there; other windows have none. */
+    fun attachPointers(window: Window, log: DebugLog, stylusHover: StylusHover? = null) {
         if (!enabled) return
         if (!observingWindows) {
             observingWindows = true
@@ -103,7 +105,7 @@ internal object DesktopTouch {
                 }
             }, java.awt.AWTEvent.WINDOW_EVENT_MASK)
         }
-        DesktopPointerSource.attach(window, injector(log), log)
+        DesktopPointerSource.attach(window, injector(log), log, stylusHover)
     }
 
     private var observingWindows = false

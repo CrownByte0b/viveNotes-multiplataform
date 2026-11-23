@@ -48,9 +48,11 @@ private val CanvasCursor.themeNames: List<String>
     get() = when (this) {
         CanvasCursor.AllScroll -> listOf("all-scroll", "fleur")
         CanvasCursor.Grabbing -> listOf("grabbing", "closedhand")
+        CanvasCursor.None -> emptyList()
     }
 
 private fun createCanvasCursor(cursor: CanvasCursor, scale: Int): Cursor {
+    if (cursor == CanvasCursor.None) return hiddenCursor()
     // The four-headed Move cursor: Windows' own all-scroll shape, X11's fleur.
     val fallback = Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR)
     if (GraphicsEnvironment.isHeadless()) return fallback
@@ -75,6 +77,21 @@ private fun createCanvasCursor(cursor: CanvasCursor, scale: Int): Cursor {
             else -> fallback
         }
     }.getOrDefault(fallback)
+}
+
+/**
+ * A transparent cursor named `none`, CSS's keyword for no cursor: ByteInk hides a Wayland tablet
+ * tool's cursor for it. Without custom cursors (headless) the default arrow stands in.
+ */
+private fun hiddenCursor(): Cursor {
+    if (GraphicsEnvironment.isHeadless()) return Cursor.getDefaultCursor()
+    return runCatching {
+        val toolkit = Toolkit.getDefaultToolkit()
+        val size = toolkit.getBestCursorSize(16, 16)
+        if (size.width <= 0 || size.height <= 0) Cursor.getDefaultCursor()
+        else toolkit.createCustomCursor(BufferedImage(size.width, size.height, BufferedImage.TYPE_INT_ARGB), Point(0, 0),
+            CanvasCursor.None.keyword)
+    }.getOrDefault(Cursor.getDefaultCursor())
 }
 
 private fun Int.roundUpTo(step: Int): Int = (this + step - 1) / step * step

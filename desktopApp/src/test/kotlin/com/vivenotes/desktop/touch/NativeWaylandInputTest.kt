@@ -11,6 +11,15 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getAllSemanticsNodes
+import androidx.compose.ui.semantics.getOrNull
+import com.vivenotes.ui.canvas.LocalStylusHover
+import com.vivenotes.ui.canvas.StylusHover
+import com.vivenotes.ui.shell.WorkspaceScreen
+import com.vivenotes.ui.shell.WorkspaceTestTags
+import com.vivenotes.workspace.InkTool
+import com.vivenotes.workspace.WorkspaceState
 import com.vivenotes.diagnostics.DebugLog
 import com.vivenotes.desktop.rendering.WaylandRendering
 import com.vivenotes.desktop.rendering.waylandComposePanel
@@ -167,8 +176,98 @@ class NativeWaylandInputTest {
                 cursors.any { it.shape == DEFAULT && it.shapeSerial && it.shapes >= 2 }
             }
             fixture!!.send(surface, 0, 3, origin.x + 30.0, origin.y + height * 3 / 4.0, time++)
-            assertTrue(lines.any { "first pen hover: LINUX_WAYLAND_TABLET" in it }, lines.joinToString("\n"))
+            // The once-per-run "first pen hover" line may belong to another test in this JVM.
             assertFalse(lines.any { "failed" in it }, lines.joinToString("\n"))
+        } finally {
+            frame?.let { window -> SwingUtilities.invokeAndWait { window.dispose() } }
+            fixture?.close()
+        }
+    }
+
+    /**
+     * Issue #27 with a Draw tool, end to end on ByteInk's private tablet compositor: the page draws
+     * the tool's circle under the hovering pen and asks for no cursor, so the pen's cursor is hidden.
+     */
+    @OptIn(ExperimentalComposeUiApi::class, androidx.compose.runtime.tooling.ComposeToolingApi::class)
+    @Test fun aHoveringPenWithADrawToolTradesItsCursorForTheToolsCircle() {
+        assumeTrue(Toolkit.getDefaultToolkit().javaClass.name == "sun.awt.wl.WLToolkit")
+        val displayClass = Class.forName("sun.awt.wl.WLDisplay")
+        val display = displayClass.getMethod("getDisplayPtr").invoke(displayClass.getMethod("getInstance").invoke(null)) as Long
+        val fixture = TabletFixture.open(display)
+        assumeTrue("needs ByteInk's private tablet test compositor", fixture != null)
+        WaylandRendering.prepare()
+        val lines = CopyOnWriteArrayList<String>()
+        val log = DebugLog(true) { lines += it }
+        val stylus = StylusHover()
+        val state = androidx.compose.runtime.mutableStateOf(WorkspaceState.demo().selectInkTool(InkTool.Pen))
+        var frame: JFrame? = null
+        lateinit var panel: androidx.compose.ui.awt.ComposePanel
+        try {
+            SwingUtilities.invokeAndWait {
+                val window = JFrame("Wayland pen circle")
+                frame = window
+                panel = waylandComposePanel(log)
+                window.add(panel)
+                panel.setContent {
+                    androidx.compose.runtime.CompositionLocalProvider(LocalStylusHover provides stylus) {
+                        WorkspaceScreen(state.value, { state.value = it(state.value) })
+                    }
+                }
+                window.setSize(1200, 800)
+                window.isVisible = true
+                DesktopPointerSource.attach(window, ComposeTouchInjector(log), log, stylus)
+            }
+            val window = checkNotNull(frame)
+            // The middle of the page canvas, in the window's coordinates.
+            val deadline = System.currentTimeMillis() + 10_000
+            var canvas: androidx.compose.ui.geometry.Rect? = null
+            while (canvas == null) {
+                SwingUtilities.invokeAndWait {
+                    canvas = panel.semanticsOwners.firstNotNullOfOrNull { owner ->
+                        owner.getAllSemanticsNodes(mergingEnabled = false).firstOrNull {
+                            it.config.getOrNull(SemanticsProperties.TestTag) == WorkspaceTestTags.PageCanvas
+                        }?.boundsInRoot?.takeIf { it.width > 0f }
+                    }
+                }
+                if (canvas == null) { check(System.currentTimeMillis() < deadline) { "the page never laid out" }; Thread.sleep(50) }
+            }
+            lateinit var at: java.awt.geom.Point2D.Double
+            SwingUtilities.invokeAndWait {
+                val origin = SwingUtilities.convertPoint(panel, 0, 0, window)
+                val scale = panel.graphicsConfiguration.defaultTransform.scaleX
+                at = java.awt.geom.Point2D.Double(origin.x + canvas!!.center.x / scale, origin.y + canvas!!.center.y / scale)
+            }
+            val surface = surfaceOf(window)
+            var time = 1000
+            val until = System.currentTimeMillis() + 10_000
+            while (true) {
+                fixture!!.send(surface, 0, 1, at.x + (time % 2), at.y, time++)
+                Thread.sleep(50)
+                val cursors = fixture.cursors()
+                if (cursors.any { it.hidden > 0 && it.surfaceSerial }) break
+                check(System.currentTimeMillis() < until) { "the pen's cursor was never hidden: $cursors\n${lines.joinToString("\n")}" }
+            }
+            assertTrue(stylus.active, "the page knows the pen hovers")
+            val hidden = fixture!!.cursors().single { it.hidden > 0 }
+            // A stroke, reached as compositors report one: the tip's approach as hover just before it
+            // touches, then hover again once it lifts. Never a visible cursor for the pen meanwhile.
+            fixture.send(surface, 0, 1, at.x, at.y, time++)
+            fixture.send(surface, 0, 0, at.x, at.y, time++)
+            for (step in 1..5) { fixture.send(surface, 0, 1, at.x + step * 6, at.y, time++); Thread.sleep(10) }
+            fixture.send(surface, 0, 2, at.x + 30, at.y, time++)
+            for (step in 1..3) { fixture.send(surface, 0, 1, at.x + 30 + step, at.y, time++); Thread.sleep(30) }
+            Thread.sleep(300)
+            val after = fixture.cursors().single { it.tool == hidden.tool }
+            assertEquals(hidden.shapes, after.shapes, "a visible cursor asked for during or after the stroke: $after")
+            assertEquals(hidden.surfaces, after.surfaces, "a cursor surface during or after the stroke: $after")
+            SwingUtilities.invokeAndWait {
+                val under = SwingUtilities.getDeepestComponentAt(window, (at.x + 33).toInt(), at.y.toInt())
+                assertEquals("none", under?.cursor?.name, "the cursor ByteInk reads for the pen")
+            }
+            assertTrue(stylus.active, "the pen hovers on")
+            fixture.send(surface, 0, 3, at.x, at.y, time++)
+            val left = System.currentTimeMillis() + 5_000
+            while (stylus.active) { check(System.currentTimeMillis() < left) { "the hover never ended" }; Thread.sleep(20) }
         } finally {
             frame?.let { window -> SwingUtilities.invokeAndWait { window.dispose() } }
             fixture?.close()
