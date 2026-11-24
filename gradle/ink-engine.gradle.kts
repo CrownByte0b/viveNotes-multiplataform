@@ -8,7 +8,7 @@ val inkEngine = configurations.create("inkEngine") {
     isTransitive = false
 }
 dependencies.add("inkEngine", "com.vivenotes.byteink:byteink-wasm:" +
-    providers.gradleProperty("byteinkVersion").orElse("0.2.0-SNAPSHOT").get() + ":engine@zip")
+    providers.gradleProperty("byteinkVersion").orElse("0.2.1").get() + ":engine@zip")
 
 interface InkEngineArchives {
     @get:Inject val archives: ArchiveOperations

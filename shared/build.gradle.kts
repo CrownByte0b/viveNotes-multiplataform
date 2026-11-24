@@ -114,7 +114,7 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
-val byteinkVersion = providers.gradleProperty("byteinkVersion").orElse("0.2.0-SNAPSHOT").get()
+val byteinkVersion = providers.gradleProperty("byteinkVersion").orElse("0.2.1").get()
 // ByteInk's Ink engine for the Wasm browser tests that draw.
 apply(from = rootProject.file("gradle/ink-engine.gradle.kts"))
 
