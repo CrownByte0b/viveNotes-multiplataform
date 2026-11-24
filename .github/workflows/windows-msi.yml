@@ -24,7 +24,7 @@ jobs:
       packages: read
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      ORG_GRADLE_PROJECT_byteinkVersion: 0.2.0
+      ORG_GRADLE_PROJECT_byteinkVersion: 0.2.1
     defaults:
       run:
         shell: pwsh
