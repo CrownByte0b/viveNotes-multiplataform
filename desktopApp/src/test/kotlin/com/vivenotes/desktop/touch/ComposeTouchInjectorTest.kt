@@ -39,6 +39,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -596,24 +597,47 @@ class ComposeTouchInjectorTest {
         val queue = TouchAwareEventQueue.install()
         val injector = ComposeTouchInjector()
         lateinit var origin: java.awt.Point
-        SwingUtilities.invokeAndWait { origin = SwingUtilities.convertPoint(panel, 0, 0, window) }
+        var scale = 1f
+        SwingUtilities.invokeAndWait {
+            origin = SwingUtilities.convertPoint(panel, 0, 0, window)
+            scale = panel.graphicsConfiguration.defaultTransform.scaleX.toFloat()
+        }
         val x = origin.x + 60.0
         val y = origin.y + 40.0
         fun finger(phase: TouchPhase, at: Double) = SwingUtilities.invokeAndWait {
             injector.accept(TouchFrame(1, listOf(TouchChange(1, phase, window, at, y))))
         }
-        fun mouseSeen(type: String) = seen.any { event -> event.type == type && event.pointers.any { it.first == PointerType.Mouse } }
+        fun index(after: Int = -1, what: (Seen) -> Boolean) =
+            seen.withIndex().firstOrNull { (i, event) -> i > after && what(event) }?.index
+        fun isTouch(event: Seen) = event.pointers.any { it.first == PointerType.Touch }
+        // Where the finger lifts and the pen moves the mouse; a real pointer over the window is neither.
+        val liftAt = Offset(70f * scale, 40f * scale)
+        val penAt = Offset(90f * scale, 40f * scale)
+        fun at(event: Seen, type: PointerType, where: Offset) =
+            event.pointers.any { it.first == type && (it.second - where).getDistance() < 1f }
+        fun pen(vararg types: String) = { event: Seen -> event.type in types && at(event, PointerType.Mouse, penAt) }
+        fun await(what: String, condition: () -> Boolean) =
+            try { waitUntil(what, condition) } catch (timeout: IllegalStateException) { throw AssertionError("${timeout.message}: $seen", timeout) }
 
         finger(TouchPhase.Down, x)
         SwingUtilities.invokeAndWait { queue.penHover(window, x + 30, y) }
         finger(TouchPhase.Move, x + 10)
         finger(TouchPhase.Up, x + 10)
-        waitUntil("the finger's release") { seen.any { event -> event.type == "Release" && event.pointers.any { it.first == PointerType.Touch } } }
-        assertFalse(seen.any { event -> event.pointers.any { it.first == PointerType.Mouse } }, "no mouse during the finger: $seen")
+        await("the finger's release") { seen.any { it.type == "Release" && at(it, PointerType.Touch, liftAt) } }
+        // One gesture, with no mouse from its press to its release: a mouse would have ended it early.
+        // A mouse already in the window before the finger is sent away as it lands.
+        val touches = seen.withIndex().filter { isTouch(it.value) }
+        assertEquals(listOf("Press", "Move", "Release"), touches.map { it.value.type }, "one gesture: $seen")
+        val release = touches.last().index
+        val during = seen.subList(touches.first().index, release + 1)
+        assertFalse(during.any { event -> event.pointers.any { it.first == PointerType.Mouse } }, "no mouse during the finger: $seen")
         SwingUtilities.invokeAndWait { queue.penHover(window, x + 30, y) }
-        waitUntil("the pen's hover once the finger lifted") { mouseSeen("Move") }
+        // An Enter, once a mouse that was in the window has been sent away; a Move otherwise.
+        await("the pen's hover once the finger lifted") { index(release, pen("Enter", "Move")) != null }
+        val hover = index(release, pen("Enter", "Move"))!!
         SwingUtilities.invokeAndWait { queue.penHoverEnd(window) }
-        waitUntil("the mouse leaves with the pen") { mouseSeen("Exit") }
-        SwingUtilities.invokeAndWait { assertNull(queue.mouse) }
+        await("the mouse leaves with the pen") { index(hover, pen("Exit")) != null }
+        // The mouse the pen stood in for is gone; only a real pointer moving in since may be there.
+        SwingUtilities.invokeAndWait { assertNotEquals(TouchAwareEventQueue.MouseAt(window, x + 30, y), queue.mouse) }
     }
 }

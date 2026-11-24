@@ -267,6 +267,8 @@ tasks.withType<Test>().configureEach {
 // cache lets Gradle run tasks in parallel, so each suite waits for the shared one (CI also runs with
 // one worker). `NativeUiSuiteOrderTest` checks the order.
 val sharedUiSuite = ":shared:jvmTest"
+// Off the session's display on a Linux desktop, as on CI.
+apply(from = rootProject.file("gradle/test-display.gradle.kts"))
 
 // Compose reads `compose.layers.type` once, for the first window or panel the JVM makes, so the
 // Wayland host's popups, on layers of their own, are tested in a JVM that starts with them as the
@@ -315,7 +317,7 @@ tasks.test {
         "shared/build.gradle.kts", "webApp/build.gradle.kts", "desktopApp/build.gradle.kts",
         "gradle/karma/managed-chromium.js", "gradle/karma/ink-engine.js",
         "gradle/browser-test-page.gradle.kts", "gradle/ink-engine.gradle.kts",
-        "gradle/onenote-converter.gradle.kts",
+        "gradle/onenote-converter.gradle.kts", "gradle/test-display.gradle.kts",
         "gradle/tests/ratex-webpack.cjs", "webApp/webpack.config.d/ratex.js",
         "gradle/tests/dev-server-static.cjs", "webApp/webpack.config.d/dev-server.js"))
     inputs.file(rootProject.file("tools/lint/ResourceLint.java"))
