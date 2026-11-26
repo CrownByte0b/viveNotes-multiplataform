@@ -213,9 +213,9 @@ kotlin {
             // File ▸ Import ▸ File: what Android's platform PdfRenderer does there — drawing a PDF's
             // pages, and saying which character is where.
             implementation("org.apache.pdfbox:pdfbox:3.0.8")
-            runtimeOnly("io.github.darriousliu:ratex-native-linux-x86-64:0.1.15")
-            runtimeOnly("io.github.darriousliu:ratex-native-linux-aarch64:0.1.15")
-            runtimeOnly("io.github.darriousliu:ratex-native-windows-x86-64:0.1.15")
+            runtimeOnly("io.github.darriousliu:ratex-native-linux-x86-64:0.1.16")
+            runtimeOnly("io.github.darriousliu:ratex-native-linux-aarch64:0.1.16")
+            runtimeOnly("io.github.darriousliu:ratex-native-windows-x86-64:0.1.16")
         }
         jvmMain {
             resources.srcDir(files(layout.buildDirectory.dir("generated/mathEngineResources"))
