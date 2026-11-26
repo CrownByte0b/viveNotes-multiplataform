@@ -25,6 +25,8 @@ internal class EditorDefaultsFile(private val file: File) {
                     PaperDimensions(width, height)
                 }
             },
+            highlight = values.getProperty("textHighlight")?.toLongOrNull(16)?.toInt()
+                ?: EditorDefaults.DEFAULT_HIGHLIGHT,
         ).normalized()
     }
 
@@ -35,6 +37,7 @@ internal class EditorDefaultsFile(private val file: File) {
             setProperty("fontSize", defaults.fontSize.toString())
             setProperty("paper", defaults.paper.name)
             setProperty("ruleLines", defaults.ruleLines.name)
+            setProperty("textHighlight", "%08X".format(defaults.highlight))
             defaults.customPaper?.let {
                 setProperty("customWidth", it.widthInches.toString())
                 setProperty("customHeight", it.heightInches.toString())

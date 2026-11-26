@@ -43,6 +43,8 @@ internal class DocumentCommands(
     val setDefaultFontFamily: (String) -> Unit,
     val setDefaultFontSize: (Int) -> Unit,
     val clearMark: (Mark, TextSelection?) -> Unit,
+    /** A highlight swatch: toggles that ink on the text and makes it the one the marker lays next. */
+    val pickHighlight: (Int, TextSelection?) -> Unit,
     val clearFormatting: (TextSelection?) -> Unit,
     val setBlockType: (BlockType, TextSelection?) -> Unit,
     val align: (Align, TextSelection?) -> Unit,
@@ -175,6 +177,11 @@ internal fun DocumentTab(
             setDefaultFontFamily = { family -> setDefaults(state.editorDefaults.copy(fontFamily = family)) },
             setDefaultFontSize = { size -> setDefaults(state.editorDefaults.copy(fontSize = size)) },
             clearMark = { mark, selection -> edit(selection) { clearSelectedMark(mark) } },
+            pickHighlight = { ink, selection ->
+                val next = state.editorDefaults.copy(highlight = ink).normalized()
+                edit(selection) { setEditorDefaults(next).toggleSelectedMark(Mark.Highlight(ink)) }
+                onEditorDefaultsChange(next)
+            },
             clearFormatting = { selection -> edit(selection) { clearSelectedFormatting() } },
             setBlockType = { type, selection -> edit(selection) { setSelectedBlockType(type) } },
             align = { align, selection -> edit(selection) { alignSelectedText(align) } },

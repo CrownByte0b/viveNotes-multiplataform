@@ -126,6 +126,29 @@ class DesktopNotesTest {
         restartedUi.cancel()
     }
 
+    /** The Document tab's highlight ink is the device's, like the default font (Android 291eafc). */
+    @Test
+    fun highlightInkSurvivesRestartAndSeedsTheNextWorkspace() = runBlocking<Unit> {
+        val file = File(directory, "config/editor.properties")
+        val ui = CoroutineScope(coroutineContext + SupervisorJob())
+        val notes = DesktopNotes(NotesLibrary.open(directory), ui, editorStore = EditorDefaultsFile(file))
+        notes.start()
+        openPage(notes)
+        val pink = 0x66FF4081
+        notes.updateEditorDefaults(notes.editorDefaults.copy(highlight = pink))
+        assertEquals(pink, EditorDefaultsFile(file).load().highlight)
+        close(notes)
+        ui.cancel()
+
+        val restartedUi = CoroutineScope(coroutineContext + SupervisorJob())
+        val restarted = DesktopNotes(NotesLibrary.open(directory), restartedUi,
+            editorStore = EditorDefaultsFile(file))
+        restarted.start()
+        assertEquals(pink, openPage(restarted).editorDefaults.highlight)
+        close(restarted)
+        restartedUi.cancel()
+    }
+
     private val directory: File = Files.createTempDirectory("desktop-notes").toFile()
 
     @AfterTest

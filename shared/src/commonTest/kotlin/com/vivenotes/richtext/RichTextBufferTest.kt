@@ -60,6 +60,36 @@ class RichTextBufferTest {
         assertEquals(setOf(Mark.Bold), recolored.clearMark(Mark.TextColor(0)).blocks.single().runs.single().marks)
     }
 
+    /**
+     * Android's Highlight button (291eafc) is a toggle against what the text carries: text without
+     * that ink gets it, text with it loses it, text in another colour is switched to it, and a
+     * selection only partly highlighted counts as not having it, so the press covers all of it.
+     */
+    @Test
+    fun aHighlightTogglesAgainstTheColourTheTextCarries() {
+        val yellow = Mark.Highlight(0x66FFEB3B)
+        val pink = Mark.Highlight(0x66FF4081)
+        val plain = editor(Block(id = "b", runs = listOf(Run("hello world")))).select(TextSelection(0, 5))
+
+        val marked = plain.toggleMark(pink)
+        assertEquals(setOf(pink), marked.blocks.single().runs.first().marks)
+        assertEquals(listOf(Run("hello world")), marked.toggleMark(pink).blocks.single().runs,
+            "the text's own ink takes it off")
+
+        val swapped = plain.setMark(yellow).toggleMark(pink)
+        assertEquals(listOf(Run("hello", setOf(pink)), Run(" world")), swapped.blocks.single().runs,
+            "another colour is switched, neither stacked nor taken off")
+
+        val partly = editor(Block(id = "b", runs = listOf(Run("hel", setOf(pink)), Run("lo world"))))
+            .select(TextSelection(0, 5))
+        assertFalse(pink in partly.activeMarks)
+        assertEquals(listOf(Run("hello", setOf(pink)), Run(" world")), partly.toggleMark(pink).blocks.single().runs)
+
+        val caret = editor(Block(id = "b", runs = listOf(Run("abc")))).select(TextSelection(3))
+        assertEquals(setOf(pink), caret.toggleMark(pink).replace("X").blocks.single().runs.last().marks)
+        assertEquals(listOf(Run("abcX")), caret.toggleMark(pink).toggleMark(pink).replace("X").blocks.single().runs)
+    }
+
     @Test
     fun clearFormattingKeepsSemanticLinkAndEquationMarks() {
         val marks = setOf(Mark.Bold, Mark.Link("https://example.com"), Mark.Equation("x^2"))

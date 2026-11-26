@@ -89,6 +89,24 @@ class WordSelectionsTest {
         assertTrue(Mark.Bold in bold.marks(right, 6, 11))
     }
 
+    /** The Highlight button's toggle holds across several selected words as across one range. */
+    @Test
+    fun aHighlightTogglesAcrossSelectedWordsByColour() {
+        val yellow = Mark.Highlight(0x66FFEB3B)
+        val pink = Mark.Highlight(0x66FF4081)
+        val mixed = state().focusTextBox(left).selectText(TextSelection(0, 5)).setSelectedMark(yellow)
+            .addWordSelection(left, TextSelection(0, 5)).addWordSelection(right, TextSelection(6, 11))
+        assertFalse(mixed.selectedTextMarks.any { it is Mark.Highlight })
+
+        val pinked = mixed.toggleSelectedMark(pink)
+        assertEquals(pink, pinked.marks(left, 0, 5).filterIsInstance<Mark.Highlight>().single())
+        assertEquals(pink, pinked.marks(right, 6, 11).filterIsInstance<Mark.Highlight>().single())
+
+        val cleared = pinked.toggleSelectedMark(pink)
+        assertFalse(cleared.marks(left, 0, 5).any { it is Mark.Highlight })
+        assertFalse(cleared.marks(right, 6, 11).any { it is Mark.Highlight })
+    }
+
     @Test
     fun paragraphCommandsApplyOncePerParagraphDespiteSeveralSelectedWords() {
         val initial = state()

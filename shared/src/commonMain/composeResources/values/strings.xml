@@ -144,6 +144,7 @@
     <string name="strikethrough">Strikethrough</string>
     <string name="font_colour">Font colour</string>
     <string name="highlight">Highlight</string>
+    <string name="highlight_colour">Highlight colour</string>
     <string name="subscript">Subscript</string>
     <string name="superscript">Superscript</string>
     <string name="bulleted_list">Bulleted list</string>

@@ -142,31 +142,44 @@ internal fun DocumentRibbon(
         MarkButton(DocumentSymbols.FormatItalic, Strings.italic, Mark.Italic, marks, editable) { commands.toggleMark(Mark.Italic, takeSelection()) }
         MarkButton(DocumentSymbols.FormatUnderlined, Strings.underline, Mark.Underline, marks, editable) { commands.toggleMark(Mark.Underline, takeSelection()) }
         MarkButton(DocumentSymbols.FormatStrikethrough, Strings.strikethrough, Mark.Strikethrough, marks, editable) { commands.toggleMark(Mark.Strikethrough, takeSelection()) }
+        val fontColor = colorSelection.font ?: 0xFFE53935.toInt()
         ColorPicker(
             label = Strings.font_colour,
             colors = TextColors,
-            defaultColor = 0xFFE53935.toInt(),
-            chosenColor = colorSelection.font,
-            onChooseColor = { colorSelection.font = it },
+            appliedColor = fontColor,
             enabled = editable,
             selection = richText?.selection,
             tag = DocumentRibbonTags.FontColor,
             icon = { neutral, swatch -> fontColorGlyph(neutral, swatch) },
-            onPick = { value, selection -> commands.setMark(Mark.TextColor(value), selection) },
-            onClear = { selection -> commands.clearMark(Mark.TextColor(0), selection) },
+            onApply = { selection -> commands.setMark(Mark.TextColor(fontColor), selection) },
+            onPick = { value, selection ->
+                colorSelection.font = value
+                commands.setMark(Mark.TextColor(value), selection)
+            },
+            onClear = { selection ->
+                colorSelection.font = null
+                commands.clearMark(Mark.TextColor(0), selection)
+            },
         )
+        // Android's toggle: the marker lays its ink on text without it, takes it off text that has
+        // it, and switches text marked in another colour to it. A swatch does the same with its own
+        // colour, so the ringed one takes the highlight off, and becomes the marker's ink.
+        val highlight = defaults.highlight
+        val textHighlight = marks.firstNotNullOfOrNull { (it as? Mark.Highlight)?.argb }
         ColorPicker(
             label = Strings.highlight,
             colors = HighlightColors,
-            defaultColor = 0x66FFEB3B,
-            chosenColor = colorSelection.highlight,
-            onChooseColor = { colorSelection.highlight = it },
+            appliedColor = highlight,
             enabled = editable,
             selection = richText?.selection,
             tag = DocumentRibbonTags.Highlight,
             icon = { _, _ -> DocumentSymbols.StylusHighlighter },
-            onPick = { value, selection -> commands.setMark(Mark.Highlight(value), selection) },
+            onApply = { selection -> commands.toggleMark(Mark.Highlight(highlight), selection) },
+            onPick = commands.pickHighlight,
             onClear = { selection -> commands.clearMark(Mark.Highlight(0), selection) },
+            selected = textHighlight == highlight,
+            ringed = textHighlight,
+            menuLabel = Strings.highlight_colour,
             rotateIcon = true,
         )
         MarkButton(if (Mark.Subscript in marks) active.subscript else idle.subscript, Strings.subscript, Mark.Subscript, marks, editable, twoTone = true) { commands.toggleMark(Mark.Subscript, takeSelection()) }

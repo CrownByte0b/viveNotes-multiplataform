@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.vivenotes.model.BlockType
@@ -41,6 +42,7 @@ import com.vivenotes.ui.components.ScaledDropdownMenu
 import com.vivenotes.ui.components.onSecondaryPress
 import com.vivenotes.ui.icons.DocumentSymbols
 import com.vivenotes.ui.ribbon.RibbonCommand
+import com.vivenotes.ui.ribbon.ribbonActiveIndicator
 import com.vivenotes.ui.ribbon.ribbonStyle
 
 /** The Document tab's drop-down controls: font family and size, the two colours, and Styles. */
@@ -68,10 +70,12 @@ internal val HighlightColors get() = listOf(
     0x66FF9100 to Strings.orange, 0x66B388FF to Strings.purple, 0x66FFFFFF to Strings.white, 0x00000000 to Strings.transparent,
 )
 
-/** The colours last chosen from the two palettes for this workspace window. */
+/**
+ * The font colour last chosen from its palette for this workspace window. The highlight's ink is a
+ * device preference instead, [com.vivenotes.workspace.EditorDefaults.highlight].
+ */
 internal class DocumentColorSelection {
     var font by mutableStateOf<Int?>(null)
-    var highlight by mutableStateOf<Int?>(null)
 }
 
 internal val DocumentStyles get() = listOf(
@@ -133,24 +137,33 @@ internal fun RibbonPicker(
     }
 }
 
+/**
+ * A colour split button: the main part [onApply]s [appliedColor], the arrow or a right-click opens
+ * the palette, whose swatches [onPick] and whose None entry [onClear]s.
+ *
+ * [selected] and [ringed] are for a control that toggles against the text's own colour — the
+ * Highlight button: [selected] shows the main part active when the text already carries
+ * [appliedColor], and [ringed] is the swatch for the text's own colour. Null leaves them out.
+ */
 @Composable
 internal fun ColorPicker(
     label: String,
     colors: List<Pair<Int, String>>,
-    defaultColor: Int,
-    chosenColor: Int?,
-    onChooseColor: (Int?) -> Unit,
+    appliedColor: Int,
     enabled: Boolean,
     selection: TextSelection?,
     tag: String,
     icon: (Color, Color) -> ImageVector,
+    onApply: (TextSelection?) -> Unit,
     onPick: (Int, TextSelection?) -> Unit,
     onClear: (TextSelection?) -> Unit,
+    selected: Boolean? = null,
+    ringed: Int? = null,
+    menuLabel: String = Strings.choose_value(label),
     rotateIcon: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     var selectionAtPress by remember { mutableStateOf<TextSelection?>(null) }
-    val appliedColor = chosenColor ?: defaultColor
     val neutral = ribbonStyle.normalText
     val swatch = Color(appliedColor).copy(alpha = 1f)
     val image = remember(neutral, swatch) { icon(neutral, swatch) }
@@ -158,6 +171,7 @@ internal fun ColorPicker(
     val mainHovered by mainInteraction.collectIsHoveredAsState()
     val menuInteraction = remember { MutableInteractionSource() }
     val menuHovered by menuInteraction.collectIsHoveredAsState()
+    fun pressed(): TextSelection? = (selectionAtPress ?: selection).also { selectionAtPress = null }
     Box {
         Row(
             modifier = Modifier.captureSelectionOnPress(selection) { selectionAtPress = it },
@@ -167,15 +181,16 @@ internal fun ColorPicker(
                 Box(
                     modifier = Modifier.size(width = 40.dp, height = 46.dp)
                         .background(if (mainHovered && enabled) ribbonStyle.hover else Color.Transparent)
+                        .ribbonActiveIndicator(selected == true && enabled)
                         .hoverable(mainInteraction, enabled = enabled)
                         .clickable(interactionSource = mainInteraction, indication = null,
-                            enabled = enabled, role = Role.Button) {
-                            onPick(appliedColor, selectionAtPress ?: selection)
-                            selectionAtPress = null
-                        }
+                            enabled = enabled, role = Role.Button) { onApply(pressed()) }
                         .onSecondaryPress(enabled) { if (enabled) expanded = true }
                         .testTag(tag)
-                        .semantics { contentDescription = label },
+                        .semantics {
+                            contentDescription = label
+                            if (selected != null) this.selected = selected
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(imageVector = image, contentDescription = null,
@@ -183,15 +198,15 @@ internal fun ColorPicker(
                         modifier = Modifier.size(20.dp).then(if (rotateIcon) Modifier.rotate(180f) else Modifier))
                 }
             }
-            HoverTooltip(Strings.choose_value(label)) {
+            HoverTooltip(menuLabel) {
                 Box(
                     modifier = Modifier.size(width = 24.dp, height = 46.dp)
-                        .background(if (menuHovered && enabled) ribbonStyle.hover else Color.Transparent)
+                        .background(if ((menuHovered || expanded) && enabled) ribbonStyle.hover else Color.Transparent)
                         .hoverable(menuInteraction, enabled = enabled)
                         .clickable(interactionSource = menuInteraction, indication = null,
                             enabled = enabled, role = Role.Button) { expanded = true }
                         .testTag(DocumentRibbonTags.colorMenu(tag))
-                        .semantics { contentDescription = Strings.choose_value(label) },
+                        .semantics { contentDescription = menuLabel },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(DocumentSymbols.ArrowDropDown, contentDescription = null,
@@ -207,19 +222,24 @@ internal fun ColorPicker(
                 colors.chunked(4).forEach { row ->
                     Row {
                         row.forEach { (argb, name) ->
+                            val isRinged = ringed != null && argb == ringed
                             HoverTooltip(name) {
                                 Box(
                                     Modifier.padding(3.dp).size(28.dp)
                                         .clip(RoundedCornerShape(5.dp))
                                         .background(Color(argb))
-                                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(5.dp))
+                                        .border(if (isRinged) 2.dp else 1.dp,
+                                            if (isRinged) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.outline,
+                                            RoundedCornerShape(5.dp))
                                         .clickable(role = Role.Button) {
                                             expanded = false
-                                            onChooseColor(argb)
-                                            onPick(argb, selectionAtPress ?: selection)
-                                            selectionAtPress = null
+                                            onPick(argb, pressed())
                                         }
-                                        .semantics { contentDescription = name }
+                                        .semantics {
+                                            contentDescription = name
+                                            if (ringed != null) this.selected = isRinged
+                                        }
                                         .testTag("$tag-$argb"),
                                 )
                             }
@@ -228,9 +248,7 @@ internal fun ColorPicker(
                 }
                 DropdownMenuItem(text = { Text(Strings.none) }, onClick = {
                     expanded = false
-                    onChooseColor(null)
-                    onClear(selectionAtPress ?: selection)
-                    selectionAtPress = null
+                    onClear(pressed())
                 }, modifier = Modifier.testTag("$tag-none"))
             }
         }
