@@ -37,7 +37,10 @@ internal class NativeCtcReduction(private val session: OrtSession) : Closeable {
             block(choices, values)
         }
 
-    /** CPU TopK starts from class0; its NaN must not hide a later finite winner. */
+    /**
+     * ORT's CPU TopK returns NaN for a row holding a NaN in any class (from 1.32; 1.31 only for
+     * class0). The Kotlin decoder skips NaNs, so such a request is re-read here from a full copy.
+     */
     private fun <T> exactChoices(logits: OnnxTensor, block: (LongBuffer, FloatBuffer) -> T): T {
         val shape = logits.info.shape
         require(shape.size == 3 && shape[0] == 1L && shape[1] in 0..Int.MAX_VALUE.toLong() &&

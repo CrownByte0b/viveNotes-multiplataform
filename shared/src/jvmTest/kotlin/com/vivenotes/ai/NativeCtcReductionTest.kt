@@ -111,21 +111,21 @@ class NativeCtcReductionTest {
     }
 
     @Test
-    fun fullClassAxisFastPathPreservesSignedZeroFirstTiesInfinitiesAndLaterNaNsWithoutCopyingLogits() {
+    fun fullClassAxisFastPathPreservesSignedZeroFirstTiesAndInfinitiesWithoutCopyingLogits() {
         val classes = 18_710
         val characters = List(classes) { if (it == 0) "" else "token$it" }
         val rows = Array(10) { FloatArray(classes) { -1f } }
         rows[0].fill(Float.NEGATIVE_INFINITY)
         rows[1][1] = -0f; rows[1][2] = 0f
         rows[2][1] = 0f; rows[2][2] = -0f
-        rows[3].fill(Float.NaN); rows[3][0] = Float.NEGATIVE_INFINITY
+        rows[3].fill(Float.NEGATIVE_INFINITY)
         rows[3][500] = .9f; rows[3][501] = .9f
         rows[4][0] = Float.POSITIVE_INFINITY; rows[4][500] = Float.POSITIVE_INFINITY
         rows[5][0] = -0f; rows[5][classes - 1] = 0f
         rows[6][0] = 0f; rows[6][classes - 1] = Float.MIN_VALUE
-        rows[7].fill(Float.NaN); rows[7][0] = Float.NEGATIVE_INFINITY
+        rows[7][classes - 1] = .5f
         rows[8][1] = Float.POSITIVE_INFINITY; rows[8][classes - 1] = Float.POSITIVE_INFINITY
-        rows[9][1] = Float.NaN; rows[9][classes - 2] = -.5f; rows[9][classes - 1] = -.5f
+        rows[9][1] = Float.NEGATIVE_INFINITY; rows[9][classes - 2] = -.5f; rows[9][classes - 1] = -.5f
         tensor(rows).use { logits ->
             NativeCtcReduction.create(environment).use { reduction ->
                 reduction.withChoices(logits) { indices, scores ->
@@ -136,7 +136,34 @@ class NativeCtcReductionTest {
                     assertEquals(expected.confidence.toRawBits(), actual.confidence.toRawBits())
                 }
                 assertEquals(0, reduction.exceptionalCopyCount,
-                    "Finite class0 and later NaNs must exercise native TopK without the full-copy guard")
+                    "NaN-free logits must exercise native TopK without the full-copy guard")
+            }
+        }
+    }
+
+    @Test
+    fun fullClassAxisNaNsAnywhereInARowReadExactlyWithOneLogitsCopyForTheRequest() {
+        val classes = 18_710
+        val characters = List(classes) { if (it == 0) "" else "token$it" }
+        val rows = Array(6) { FloatArray(classes) { -1f } }
+        rows[0].fill(Float.NaN); rows[0][0] = Float.NEGATIVE_INFINITY
+        rows[0][500] = .9f; rows[0][501] = .9f
+        rows[1].fill(Float.NaN); rows[1][0] = Float.NEGATIVE_INFINITY
+        rows[2][1] = Float.NaN; rows[2][classes - 2] = -.5f; rows[2][classes - 1] = -.5f
+        rows[3][0] = Float.NaN; rows[3][700] = .25f
+        rows[4][300] = .8f; rows[4][classes - 1] = Float.NaN
+        rows[5][2] = Float.POSITIVE_INFINITY; rows[5][3] = Float.NaN; rows[5][4] = Float.POSITIVE_INFINITY
+        tensor(rows).use { logits ->
+            NativeCtcReduction.create(environment).use { reduction ->
+                reduction.withChoices(logits) { indices, scores ->
+                    assertChoiceBits(rows, indices, scores)
+                    val actual = decodeCtcChoices(indices, scores, characters)
+                    val expected = decodeCtc(rows, characters)
+                    assertEquals(expected.text, actual.text)
+                    assertEquals(expected.confidence.toRawBits(), actual.confidence.toRawBits())
+                }
+                assertEquals(1, reduction.exceptionalCopyCount,
+                    "A request holding NaNs copies its logits once, whichever class holds them")
             }
         }
     }
@@ -150,8 +177,8 @@ class NativeCtcReductionTest {
         val exceptional = arrayOf(floatArrayOf(Float.NaN, .9f, .1f, .2f),
             FloatArray(4) { Float.NaN }, floatArrayOf(Float.NaN, Float.NEGATIVE_INFINITY,
                 Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY))
-        val normal = arrayOf(floatArrayOf(-1f, -0f, 0f, Float.NaN),
-            floatArrayOf(0f, .1f, Float.NaN, .8f))
+        val normal = arrayOf(floatArrayOf(-1f, -0f, 0f, Float.NEGATIVE_INFINITY),
+            floatArrayOf(0f, .1f, -1f, .8f))
         NativeCtcDecoder(environment, NativeCtcReduction.DEFAULT_THREADS, DebugLog(enabled = true) { events.add(it) }) {
             opens.incrementAndGet()
             NativeCtcReduction.create(environment).also { reduction = it }
